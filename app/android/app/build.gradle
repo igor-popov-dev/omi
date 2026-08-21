@@ -40,6 +40,12 @@ if (envFile.exists()) {
     }
 }
 
+// self-host patch, not for upstream: OMI_SELFHOST_SIGNING=1 makes the debug/dev build fall
+// back to Gradle's built-in debug signingConfig (~/.android/debug.keystore) instead of the
+// upstream key.properties keystore, whose SHA-1 is registered against the upstream Firebase
+// project and can't be re-registered under ours.
+def selfHostSigning = System.getenv()["OMI_SELFHOST_SIGNING"] == "1"
+
 
 kotlin {
     jvmToolchain(21)
@@ -122,7 +128,7 @@ android {
             }
         }
         debug {
-            if (keystorePropertiesFile.exists()) {
+            if (keystorePropertiesFile.exists() && !selfHostSigning) {
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
                 storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
