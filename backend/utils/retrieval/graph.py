@@ -15,13 +15,20 @@ from typing import List, Optional, AsyncGenerator, Tuple, Any, Dict, cast, TYPE_
 if TYPE_CHECKING:
     from models.conversation import Conversation
 
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage, BaseMessage
 
+import database.conversations as conversations_db
+import database.vector_db as vector_db
 from models.app import App
 from models.chat import ChatSession, Message, PageContext
-from utils.llm.chat import get_current_datetime_block, get_user_timezone, retrieve_is_file_question
+from utils.conversations.factory import deserialize_conversations
+from utils.conversations.render import conversations_to_string
+from utils.conversations.search import keyword_search_conversation_ids, merge_conversation_search_ids
+from utils.llm.chat import get_current_datetime_block, get_user_timezone, qa_rag_stream, retrieve_is_file_question
 from utils.llm.clients import get_llm
 from utils.llm.gateway_client import GatewayDirectModelSurfaceBlocked
+from utils.llm.model_config import get_active_profile_name
 from utils.llm.usage_tracker import Features, track_usage
 from utils.executors import db_executor, llm_executor, run_blocking
 from utils.other.chat_file import FileChatTool
@@ -217,6 +224,119 @@ async def _execute_file_chat_stream(
 
 
 # ---------------------------------------------------------------------------
+# QA-RAG chat (claude_bridge profile — bypasses the agentic/tool-calling path,
+# which needs the real Anthropic Messages API the bridge does not provide)
+# ---------------------------------------------------------------------------
+
+
+CONVERSATION_CONTEXT_SEARCH_LIMIT = 5
+
+
+def _retrieve_conversation_context(uid: str, question: str, tz: Optional[str]) -> Tuple[str, List[Conversation]]:
+    """Best-effort keyword+vector search over the user's conversations.
+
+    Mirrors search_conversations_tool's retrieval (utils/retrieval/tools/conversation_tools.py)
+    without the agentic tool-call plumbing (config contextvar, LLM-facing docstring) — this
+    path calls the same low-level search functions directly and synchronously.
+    """
+    if not question:
+        return '', []
+    try:
+        keyword_ids = keyword_search_conversation_ids(uid=uid, query=question, limit=CONVERSATION_CONTEXT_SEARCH_LIMIT)
+        vector_ids = vector_db.query_vectors(query=question, uid=uid, k=CONVERSATION_CONTEXT_SEARCH_LIMIT)
+        conversation_ids = merge_conversation_search_ids(keyword_ids, vector_ids)
+        if not conversation_ids:
+            return '', []
+        raw_conversations = conversations_db.get_conversations_by_id(uid, conversation_ids)
+        raw_conversations = [c for c in raw_conversations if not c.get('is_locked', False)]
+        conversations = deserialize_conversations(raw_conversations)
+        return conversations_to_string(conversations, tz=tz), conversations
+    except Exception:
+        logger.exception('qa_rag context retrieval failed uid=%s', uid)
+        return '', []
+
+
+class _QaRagStreamingCallback(BaseCallbackHandler):
+    """Sync callback for qa_rag_stream's blocking LLM call, run in a worker thread.
+
+    qa_rag_stream calls .invoke() synchronously (see utils/llm/chat.py), so this handler's
+    methods run on the executor thread, not the request's event loop. Only the *_nowait
+    methods of AsyncStreamingCallback are safe to call from there (see its docstring) — the
+    plain async put_data()/end() await on an asyncio.Queue bound to the request loop.
+    """
+
+    def __init__(self, callback: AsyncStreamingCallback):
+        self._callback = callback
+
+    def on_llm_new_token(self, token: str, **_kwargs) -> None:
+        self._callback.put_data_nowait(token)
+
+    def on_llm_end(self, _response, **_kwargs) -> None:
+        self._callback.end_nowait()
+
+    def on_llm_error(self, _error: Exception, **_kwargs) -> None:
+        self._callback.end_nowait()
+
+
+async def execute_qa_rag_chat_stream(
+    uid: str,
+    messages: List[Message],
+    app: Optional[App] = None,
+    cited: Optional[bool] = False,
+    callback_data: Optional[Dict[str, Any]] = None,
+    tz: str = 'UTC',
+) -> AsyncGenerator[Optional[str], None]:
+    """Handle streaming chat responses via qa_rag_stream (claude_bridge profile)."""
+    if callback_data is not None:
+        callback_data.setdefault('route', 'qa_rag')
+
+    last_message = messages[-1] if messages else None
+    question = last_message.text if last_message else ''
+    previous_messages = messages[:-1] if messages else []
+
+    context, conversations = await run_blocking(db_executor, _retrieve_conversation_context, uid, question, tz)
+
+    callback = AsyncStreamingCallback()
+    bridge_callback = _QaRagStreamingCallback(callback)
+
+    async def _produce() -> str:
+        return await run_blocking(
+            llm_executor,
+            qa_rag_stream,
+            uid,
+            question,
+            context,
+            app,
+            cited,
+            previous_messages,
+            tz,
+            [bridge_callback],
+        )
+
+    task = asyncio.create_task(_produce())
+
+    async for chunk in _drain_chat_callback(callback, task, route='qa_rag'):
+        if chunk and chunk.startswith('error: '):
+            if callback_data is not None:
+                callback_data['error'] = 'stream_failure'
+                callback_data['answer'] = chunk[len('error: ') :]
+            yield chunk
+            yield None
+            return
+        if chunk:
+            yield chunk
+
+    answer = await task
+
+    if callback_data is not None:
+        callback_data['answer'] = answer
+        callback_data['memories_found'] = conversations
+        callback_data['ask_for_nps'] = True
+
+    yield None
+
+
+# ---------------------------------------------------------------------------
 # Persona chat (kept on existing LangChain/OpenAI for now)
 # ---------------------------------------------------------------------------
 
@@ -401,7 +521,21 @@ async def execute_chat_stream(
                 yield chunk
             return
 
-    # 3. Default: Anthropic agentic chat
+    # 3. Default: Anthropic agentic chat — except under the claude_bridge QoS profile,
+    # where the bridge has no tool-calling support, so route plain chat through
+    # qa_rag_stream instead (same split as CLAUDE_BRIDGE_PROFILE in model_config.py).
+    if get_active_profile_name() == 'claude_bridge':
+        async for chunk in execute_qa_rag_chat_stream(
+            uid,
+            messages,
+            app,
+            cited=cited,
+            callback_data=callback_data,
+            tz=tz,
+        ):
+            yield chunk
+        return
+
     # Claude decides implicitly whether to use tools — no requires_context() needed
     async for chunk in execute_agentic_chat_stream(
         uid,
