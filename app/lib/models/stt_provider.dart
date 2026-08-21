@@ -390,6 +390,7 @@ class SttProviderConfig {
     SttProvider.geminiLive,
     SttProvider.localWhisper,
     SttProvider.onDeviceWhisper,
+    SttProvider.custom,
     SttProvider.customLive,
   ];
 

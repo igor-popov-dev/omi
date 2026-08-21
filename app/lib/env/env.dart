@@ -22,6 +22,14 @@ abstract class Env {
   // send no extra headers.
   static const cfAccessClientId = String.fromEnvironment('OMI_CF_ACCESS_CLIENT_ID');
   static const cfAccessClientSecret = String.fromEnvironment('OMI_CF_ACCESS_CLIENT_SECRET');
+  // Self-host patch, not for upstream: a fresh install has no saved
+  // customSttConfig, so it falls through to the app's own cloud STT path
+  // (Deepgram, no key on our backend) and transcription looks "unavailable".
+  // When set, preferences.dart's `customSttConfig` getter uses this as the
+  // custom-provider URL instead of the upstream `omi` default, so a clean
+  // install (or reinstall after a signing-key change) points at our STT
+  // router without the user configuring it by hand. Empty by default.
+  static const defaultSttUrl = String.fromEnvironment('OMI_DEFAULT_STT_URL');
   static late final EnvFields _instance;
   static String? _apiBaseUrlOverride;
   static bool isTestFlight = false;

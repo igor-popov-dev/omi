@@ -9,6 +9,7 @@ import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/backend/schema/memory.dart';
 import 'package:omi/backend/schema/message.dart';
 import 'package:omi/backend/schema/person.dart';
+import 'package:omi/env/env.dart';
 import 'package:omi/models/custom_stt_config.dart';
 import 'package:omi/models/stt_provider.dart';
 import 'package:omi/utils/logger.dart';
@@ -176,7 +177,16 @@ class SharedPreferencesUtil {
   // Custom STT configuration
   CustomSttConfig get customSttConfig {
     final configJson = getString('customSttConfig');
-    if (configJson.isEmpty) return CustomSttConfig.defaultConfig;
+    if (configJson.isEmpty) {
+      // Self-host patch, not for upstream: no saved config yet (fresh install,
+      // or a reinstall that wiped app data) — fall back to our STT router
+      // instead of the upstream `omi` cloud default, if one was baked into
+      // this build. See Env.defaultSttUrl.
+      if (Env.defaultSttUrl.isNotEmpty) {
+        return const CustomSttConfig(provider: SttProvider.custom, url: Env.defaultSttUrl);
+      }
+      return CustomSttConfig.defaultConfig;
+    }
     try {
       return CustomSttConfig.fromJson(jsonDecode(configJson));
     } catch (e, stack) {
