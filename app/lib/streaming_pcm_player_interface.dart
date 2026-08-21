@@ -45,8 +45,9 @@ abstract class StreamingPcmPlayerHostApi {
 
   /// End of turn (`BaseHubSession.flushPlayback`): this implementation writes
   /// straight through with no pre-roll cushion, so nothing is actually withheld —
-  /// `flush` only arms the drain-detection marker so `onDrained` fires once the
-  /// already-queued audio finishes playing.
+  /// `flush` only arms `onDrained` detection for the audio queued up to this
+  /// call (see that method's doc for why it is a fixed post-roll estimate, not
+  /// an exact playback-position marker).
   void flush(int sessionId);
 
   /// Barge-in (`BaseHubSession.clearPlayback`): drop everything queued AND
@@ -72,9 +73,15 @@ abstract class StreamingPcmPlayerFlutterApi {
   /// itself, which only means "ready to receive", not "audibly speaking".
   void onStarted(int sessionId);
 
-  /// Fires once per `flush()`, when the audio queued at that flush has fully
-  /// drained through the AudioTrack (playback position reached the marker armed
-  /// by `flush`). A `clear()` before drain cancels the pending marker — barge-in
-  /// does not get a stray `onDrained` for audio it just discarded.
+  /// Fires once per `flush()`, once the audio queued at that flush has had
+  /// time to actually leave the speaker. NOT driven by
+  /// `AudioTrack.setNotificationMarkerPosition` — whether that API's frame
+  /// position resets across a barge-in `pause()`+`flush()` cycle could not be
+  /// verified against real hardware in the environment this was written in
+  /// (see `StreamingPcmPlayer.bufferDrainMs` doc), so this is instead a fixed
+  /// post-roll delay after the native writer's software queue empties,
+  /// deliberately rounded up. A `clear()` before that delay elapses cancels
+  /// the pending callback — barge-in does not get a stray `onDrained` for
+  /// audio it just discarded.
   void onDrained(int sessionId);
 }
