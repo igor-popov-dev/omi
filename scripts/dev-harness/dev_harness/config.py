@@ -381,6 +381,21 @@ def child_env_for(cfg: HarnessConfig) -> dict[str, str]:
     real_gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if cfg.provider_mode == "offline" and real_gemini_key:
         extra["GEMINI_API_KEY"] = real_gemini_key
+    # Self-host patch (private branch, not for upstream): the in-app phone dialer needs the
+    # five Twilio variables plus BASE_API_URL (used to rebuild the public URL the TwiML webhook
+    # signature was computed over, backend/routers/phone_calls.py). None of them are in
+    # safety._ALLOWED_ENV_KEYS, so they only reach the backend through this explicit hand-off.
+    for _key in (
+        "TWILIO_ACCOUNT_SID",
+        "TWILIO_AUTH_TOKEN",
+        "TWILIO_API_KEY_SID",
+        "TWILIO_API_KEY_SECRET",
+        "TWILIO_TWIML_APP_SID",
+        "BASE_API_URL",
+    ):
+        _value = os.environ.get(_key, "").strip()
+        if _value:
+            extra[_key] = _value
     env = safety.build_child_env(provider_mode=cfg.provider_mode, extra=extra)
     if cfg.provider_mode == "offline":
         placeholders = safety.offline_provider_placeholders()

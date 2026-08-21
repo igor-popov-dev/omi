@@ -119,6 +119,12 @@ _LOCAL_BACKEND_SECRET_KEYS = {"ENCRYPTION_SECRET", "ADMIN_KEY", "TYPESENSE_API_K
 # Live realtime tokens (backend/routers/desktop_realtime.py) even while every other provider
 # stays offline/fake, so GEMINI_API_KEY alone is allowed through the offline safety guard below.
 _SELF_HOST_REALTIME_PROVIDER_KEYS = {"GEMINI_API_KEY"}
+# Self-host patch (private branch, not for upstream): the in-app phone dialer
+# (backend/routers/phone_calls.py) talks to Twilio directly, so our mini deployment needs the
+# Twilio credentials to survive the offline provider guard the same way GEMINI_API_KEY does.
+# TWILIO_ACCOUNT_SID / TWILIO_TWIML_APP_SID are not matched by _PROVIDER_SECRET_RE and only
+# need the explicit pass-through in config.child_env_for.
+_SELF_HOST_TWILIO_KEYS = {"TWILIO_AUTH_TOKEN", "TWILIO_API_KEY_SID", "TWILIO_API_KEY_SECRET"}
 _OFFLINE_PROVIDER_PLACEHOLDERS = {
     "OPENAI_API_KEY": "sk-omi-local-harness-offline-not-real",
     "DEEPGRAM_API_KEY": "omi-local-harness-offline-deepgram-not-real",
@@ -302,6 +308,7 @@ def build_child_env(
             provider_mode == "offline"
             and key not in _LOCAL_BACKEND_SECRET_KEYS
             and key not in _SELF_HOST_REALTIME_PROVIDER_KEYS
+            and key not in _SELF_HOST_TWILIO_KEYS
             and _PROVIDER_SECRET_RE.search(key)
         ):
             raise SafetyError(f"Refusing provider credential {key} in offline provider mode")
