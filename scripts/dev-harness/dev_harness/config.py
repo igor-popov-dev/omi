@@ -375,9 +375,18 @@ def child_env_for(cfg: HarnessConfig) -> dict[str, str]:
     }
     if cfg.provider_mode != "offline":
         extra.update(provider_secrets_from_file(cfg))
+    # Self-host patch (private branch, not for upstream): pass a real GEMINI_API_KEY through
+    # even in offline provider mode, so /v2/realtime/session can mint Gemini Live tokens for
+    # the hub port (docs/hub-port-design.md) while every other provider stays fake/offline.
+    real_gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if cfg.provider_mode == "offline" and real_gemini_key:
+        extra["GEMINI_API_KEY"] = real_gemini_key
     env = safety.build_child_env(provider_mode=cfg.provider_mode, extra=extra)
     if cfg.provider_mode == "offline":
-        env.update(safety.offline_provider_placeholders())
+        placeholders = safety.offline_provider_placeholders()
+        if real_gemini_key:
+            placeholders.pop("GEMINI_API_KEY", None)
+        env.update(placeholders)
     return env
 
 

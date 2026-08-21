@@ -128,6 +128,13 @@ def test_child_environment_strips_cloud_defaults_and_offline_provider_secrets() 
     with pytest.raises(safety.SafetyError, match="provider credential"):
         safety.build_child_env(parent, provider_mode="offline", extra={"DEEPGRAM_API_KEY": "x"})
 
+    # Self-host patch: GEMINI_API_KEY alone is exempt so /v2/realtime/session can mint real
+    # Gemini Live tokens in offline mode (see dev_harness.config.child_env_for).
+    env_with_gemini = safety.build_child_env(
+        parent, provider_mode="offline", extra={"GEMINI_API_KEY": "real-gemini-key"}
+    )
+    assert env_with_gemini["GEMINI_API_KEY"] == "real-gemini-key"
+
 
 def test_destructive_path_guard_rejects_dangerous_paths(tmp_path: Path) -> None:
     env = {"OMI_LOCAL_STATE_ROOT": str(tmp_path / "state")}

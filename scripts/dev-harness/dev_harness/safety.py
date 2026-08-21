@@ -115,6 +115,10 @@ _STRIPPED_ENV_PREFIXES = (
     "FIREBASE_ADMIN",
 )
 _LOCAL_BACKEND_SECRET_KEYS = {"ENCRYPTION_SECRET", "ADMIN_KEY", "TYPESENSE_API_KEY", "FIREBASE_API_KEY"}
+# Self-host patch (private branch, not for upstream): our mini deployment mints real Gemini
+# Live realtime tokens (backend/routers/desktop_realtime.py) even while every other provider
+# stays offline/fake, so GEMINI_API_KEY alone is allowed through the offline safety guard below.
+_SELF_HOST_REALTIME_PROVIDER_KEYS = {"GEMINI_API_KEY"}
 _OFFLINE_PROVIDER_PLACEHOLDERS = {
     "OPENAI_API_KEY": "sk-omi-local-harness-offline-not-real",
     "DEEPGRAM_API_KEY": "omi-local-harness-offline-deepgram-not-real",
@@ -294,7 +298,12 @@ def build_child_env(
     for key, value in (extra or {}).items():
         if key in _STRIPPED_EXACT_ENV_KEYS or key.startswith(_STRIPPED_ENV_PREFIXES):
             raise SafetyError(f"Refusing to pass unsafe child environment variable {key}")
-        if provider_mode == "offline" and key not in _LOCAL_BACKEND_SECRET_KEYS and _PROVIDER_SECRET_RE.search(key):
+        if (
+            provider_mode == "offline"
+            and key not in _LOCAL_BACKEND_SECRET_KEYS
+            and key not in _SELF_HOST_REALTIME_PROVIDER_KEYS
+            and _PROVIDER_SECRET_RE.search(key)
+        ):
             raise SafetyError(f"Refusing provider credential {key} in offline provider mode")
         child[key] = value
 

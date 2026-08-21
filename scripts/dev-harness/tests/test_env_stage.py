@@ -70,6 +70,35 @@ def test_model_qos_and_claude_bridge_url_absent_when_unset(monkeypatch) -> None:
     assert "CLAUDE_BRIDGE_URL" not in child
 
 
+def test_real_gemini_key_passes_through_offline_mode_for_realtime_minting(monkeypatch) -> None:
+    """Self-host patch: GEMINI_API_KEY alone survives PROVIDER_MODE=offline so
+    /v2/realtime/session can mint real Gemini Live tokens, while every other provider
+    (e.g. OPENAI_API_KEY) still gets the offline placeholder."""
+    monkeypatch.setenv("GEMINI_API_KEY", "real-gemini-key-not-a-placeholder")
+    monkeypatch.setenv("OPENAI_API_KEY", "should-be-ignored-in-offline-mode")
+    cfg = config.HarnessConfig(
+        repo_root=REPO_ROOT,
+        instance="default",
+        provider_mode="offline",
+        layout=safety.layout_for_instance(REPO_ROOT, "default"),
+    )
+    child = config.child_env_for(cfg)
+    assert child["GEMINI_API_KEY"] == "real-gemini-key-not-a-placeholder"
+    assert child["OPENAI_API_KEY"] == "sk-omi-local-harness-offline-not-real"
+
+
+def test_gemini_key_falls_back_to_offline_placeholder_when_unset(monkeypatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    cfg = config.HarnessConfig(
+        repo_root=REPO_ROOT,
+        instance="default",
+        provider_mode="offline",
+        layout=safety.layout_for_instance(REPO_ROOT, "default"),
+    )
+    child = config.child_env_for(cfg)
+    assert child["GEMINI_API_KEY"] == "omi-local-harness-offline-gemini-not-real"
+
+
 def test_nondefault_port_offset_propagates_to_every_harness_service() -> None:
     cfg = config.load_config(REPO_ROOT, env={"OMI_HARNESS_PORT_OFFSET": "321"})
 
