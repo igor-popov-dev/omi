@@ -315,7 +315,7 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
     # gateway-local stage, so FEATURE_MODE=gateway would make gateway_client reject
     # startup while still advertising gateway routing.
     gateway_feature_mode = "off" if cfg.provider_mode == "offline" else "gateway"
-    return {
+    extra = {
         "OMI_HARNESS_INSTANCE": cfg.instance,
         "OMI_HARNESS_STATE_ROOT": str(cfg.layout.state_root),
         "FIRESTORE_EMULATOR_HOST": cfg.firestore_host,
@@ -353,6 +353,17 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
         "STORAGE_EMULATOR_HOST": os.environ.get("STORAGE_EMULATOR_HOST", "http://127.0.0.1:4443"),
         "BUCKET_SPEECH_PROFILES": os.environ.get("BUCKET_SPEECH_PROFILES", "speech-profiles"),
     }
+    # claude-bridge chat provider (backend/utils/llm/claude_bridge_client.py, PLAN.md §Этап 1):
+    # not in safety._ALLOWED_ENV_KEYS, so the wrapper script's `export MODEL_QOS=claude_bridge` /
+    # `export CLAUDE_BRIDGE_URL=...` were silently dropped when building the child env — the
+    # backend booted on the default premium profile instead. Opt-in only, unlike the vars above,
+    # so a harness instance that never sets these keeps model_config.py's own 'premium' default
+    # instead of a stray "not a valid profile" warning on every other user's startup.
+    if "MODEL_QOS" in os.environ:
+        extra["MODEL_QOS"] = os.environ["MODEL_QOS"]
+    if "CLAUDE_BRIDGE_URL" in os.environ:
+        extra["CLAUDE_BRIDGE_URL"] = os.environ["CLAUDE_BRIDGE_URL"]
+    return extra
 
 
 def child_env_for(cfg: HarnessConfig) -> dict[str, str]:

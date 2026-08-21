@@ -7,7 +7,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dev_harness import config, safety
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -35,6 +34,40 @@ def test_child_env_for_real_mode() -> None:
     child = config.child_env_for(cfg)
     assert child["PROVIDER_MODE"] == "real"
     assert child["BASE_API_URL"] == cfg.backend_url
+
+
+def test_model_qos_and_claude_bridge_url_pass_through_when_set(monkeypatch) -> None:
+    """MODEL_QOS/CLAUDE_BRIDGE_URL are outside safety._ALLOWED_ENV_KEYS, so the wrapper
+    script's export was silently dropped from the child env until _harness_service_extra
+    started forwarding them explicitly (mirrors STORAGE_EMULATOR_HOST/HOSTED_SPEAKER_
+    EMBEDDING_API_URL above)."""
+    monkeypatch.setenv("MODEL_QOS", "claude_bridge")
+    monkeypatch.setenv("CLAUDE_BRIDGE_URL", "http://127.0.0.1:8766")
+    cfg = config.HarnessConfig(
+        repo_root=REPO_ROOT,
+        instance="default",
+        provider_mode="offline",
+        layout=safety.layout_for_instance(REPO_ROOT, "default"),
+    )
+    child = config.child_env_for(cfg)
+    assert child["MODEL_QOS"] == "claude_bridge"
+    assert child["CLAUDE_BRIDGE_URL"] == "http://127.0.0.1:8766"
+
+
+def test_model_qos_and_claude_bridge_url_absent_when_unset(monkeypatch) -> None:
+    """Harness instances that never opt into claude-bridge must not see a stray MODEL_QOS=''
+    in the child env (model_config.py would log a false 'not a valid profile' warning)."""
+    monkeypatch.delenv("MODEL_QOS", raising=False)
+    monkeypatch.delenv("CLAUDE_BRIDGE_URL", raising=False)
+    cfg = config.HarnessConfig(
+        repo_root=REPO_ROOT,
+        instance="default",
+        provider_mode="offline",
+        layout=safety.layout_for_instance(REPO_ROOT, "default"),
+    )
+    child = config.child_env_for(cfg)
+    assert "MODEL_QOS" not in child
+    assert "CLAUDE_BRIDGE_URL" not in child
 
 
 def test_nondefault_port_offset_propagates_to_every_harness_service() -> None:
