@@ -22,6 +22,14 @@ import 'package:omi/services/auth/auth_token_result.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/platform/platform_manager.dart';
 
+/// Cloudflare Access headers for the two direct `http.post` auth calls below,
+/// which bypass `buildHeaders` (backend/http/shared.dart) and so don't pick
+/// up the same injection there. See docs/point-app-to-mini.md.
+Map<String, String> get _cfAccessHeaders => {
+      if (Env.cfAccessClientId.isNotEmpty) 'CF-Access-Client-Id': Env.cfAccessClientId,
+      if (Env.cfAccessClientSecret.isNotEmpty) 'CF-Access-Client-Secret': Env.cfAccessClientSecret,
+    };
+
 final class _FirebaseAuthTokenGateway implements AuthTokenGateway {
   @override
   AuthUserSnapshot? get currentUser {
@@ -655,7 +663,10 @@ class AuthService {
 
       final response = await http.post(
         Uri.parse('${Env.authApiBaseUrl}v1/auth/token'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          ..._cfAccessHeaders,
+        },
         body: {
           'grant_type': 'authorization_code',
           'code': code,
@@ -698,7 +709,10 @@ class AuthService {
 
     final response = await http.post(
       Uri.parse('${Env.authApiBaseUrl}v1/auth/local-dev/custom-token'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ..._cfAccessHeaders,
+      },
       body: {'uid': uid},
     );
 

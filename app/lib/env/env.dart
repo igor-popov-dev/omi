@@ -15,6 +15,12 @@ abstract class Env {
     'OMI_FIREBASE_AUTH_EMULATOR_PORT',
     defaultValue: '9099',
   );
+  // Cloudflare Access service-token credentials for the self-host tunnel
+  // (omi-{api,stt}.peshkomdomoy.online) — see docs/point-app-to-mini.md. Empty
+  // by default so builds that never set them (LAN-only, mobile_beta, prod)
+  // send no extra headers.
+  static const cfAccessClientId = String.fromEnvironment('OMI_CF_ACCESS_CLIENT_ID');
+  static const cfAccessClientSecret = String.fromEnvironment('OMI_CF_ACCESS_CLIENT_SECRET');
   static late final EnvFields _instance;
   static String? _apiBaseUrlOverride;
   static bool isTestFlight = false;
@@ -131,6 +137,14 @@ abstract class Env {
     }
     final host = uri.host.toLowerCase();
     if (host == 'localhost' || host == 'host.docker.internal' || host == '::1') {
+      return true;
+    }
+    // Cloudflare Tunnel ingress for the self-host mini, gated by Access
+    // service-token headers (added in shared.dart's buildHeaders) — an
+    // explicit allowlist entry, not a blanket public-host exemption, so this
+    // stays a private-network guard for every other host. See
+    // docs/point-app-to-mini.md.
+    if (host == 'peshkomdomoy.online' || host.endsWith('.peshkomdomoy.online')) {
       return true;
     }
     final octets = host.split('.').map(int.tryParse).toList();

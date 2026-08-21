@@ -124,6 +124,12 @@ Future<Map<String, String>> buildHeaders({
     'X-Device-Id-Hash': PlatformManager.instance.deviceIdHash,
     'X-App-Version': PlatformManager.instance.appVersion,
     'X-App-Build': PlatformManager.instance.appBuild,
+    // Cloudflare Access service-token auth for the self-host tunnel
+    // (omi-{api,stt}.peshkomdomoy.online) — no-op (empty strings send nothing
+    // extra) for builds that never set OMI_CF_ACCESS_CLIENT_ID/SECRET, i.e.
+    // every profile except a tunnel-pointed local_dev build.
+    if (Env.cfAccessClientId.isNotEmpty) 'CF-Access-Client-Id': Env.cfAccessClientId,
+    if (Env.cfAccessClientSecret.isNotEmpty) 'CF-Access-Client-Secret': Env.cfAccessClientSecret,
     ...fromHeaders,
   };
 
