@@ -87,7 +87,12 @@ if 'langchain_core.callbacks' not in sys.modules:
     class BaseCallbackHandler:
         pass
 
+    class CallbackManagerForLLMRun:
+        def on_llm_new_token(self, *args, **kwargs):
+            pass
+
     setattr(callbacks_stub, 'BaseCallbackHandler', BaseCallbackHandler)
+    setattr(callbacks_stub, 'CallbackManagerForLLMRun', CallbackManagerForLLMRun)
     sys.modules['langchain_core.callbacks'] = callbacks_stub
 
 if 'langchain_core.outputs' not in sys.modules:
@@ -96,8 +101,36 @@ if 'langchain_core.outputs' not in sys.modules:
     class LLMResult:
         pass
 
+    class ChatResult:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    class ChatGeneration:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
     setattr(outputs_stub, 'LLMResult', LLMResult)
+    setattr(outputs_stub, 'ChatResult', ChatResult)
+    setattr(outputs_stub, 'ChatGeneration', ChatGeneration)
     sys.modules['langchain_core.outputs'] = outputs_stub
+
+if 'langchain_core.messages' not in sys.modules:
+    messages_stub = types.ModuleType('langchain_core.messages')
+
+    class BaseMessage:
+        def __init__(self, content='', **kwargs):
+            self.content = content
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    class AIMessage(BaseMessage):
+        pass
+
+    setattr(messages_stub, 'BaseMessage', BaseMessage)
+    setattr(messages_stub, 'AIMessage', AIMessage)
+    sys.modules['langchain_core.messages'] = messages_stub
 
 os.environ.setdefault('OPENAI_API_KEY', 'sk-test')
 os.environ.setdefault('ANTHROPIC_API_KEY', 'sk-ant-test')

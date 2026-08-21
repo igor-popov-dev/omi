@@ -107,6 +107,23 @@ MODEL_QOS_PROFILES: Dict[str, Dict[str, Tuple[str, str]]] = {
     profile_name: dict(_TWO_TIER_MODEL_PROFILE) for profile_name in ('premium', 'max', 'byok')
 }
 
+# Private/self-host profile (PLAN.md §Этап 1): routes plain chat replies through the
+# ask_claude_bridge HTTP service instead of a paid API key — reuses an existing Claude
+# Code subscription. Opt-in only via MODEL_QOS=claude_bridge; the shipped profiles
+# above are untouched. Only `chat_responses` (qa_rag/qa_rag_stream — the "context text
+# already retrieved, ask a question" path) is rerouted; `chat_agent` (tool-calling
+# agentic chat) still needs the real Anthropic Messages API and stays on 'anthropic'.
+#
+# Deliberately kept OUT of MODEL_QOS_PROFILES: that dict is the authorized
+# premium/max/byok enumeration guarded by test_omi_qos_tiers.py (exact key set,
+# every profile's OpenAI routes locked to the two-tier map) — this is an
+# opt-in-only private variant, not a shipped profile, so it must not be swept
+# into those invariant checks.
+CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
+    **_TWO_TIER_MODEL_PROFILE,
+    'chat_responses': ('sonnet', 'claude-bridge'),
+}
+
 # Pinned features — (model, provider) fixed regardless of profile or env override.
 _PINNED_FEATURES: Dict[str, Tuple[str, str]] = {
     'fair_use': (os.getenv('FAIR_USE_CLASSIFIER_MODEL', 'gpt-5.6-luna').strip() or 'gpt-5.6-luna', 'openai'),
@@ -114,10 +131,14 @@ _PINNED_FEATURES: Dict[str, Tuple[str, str]] = {
 
 # Resolve active profile once at startup.
 _active_profile_name = os.environ.get('MODEL_QOS', 'premium').strip().lower()
-if _active_profile_name not in MODEL_QOS_PROFILES:
+if _active_profile_name == 'claude_bridge':
+    _active_profile = CLAUDE_BRIDGE_PROFILE
+elif _active_profile_name not in MODEL_QOS_PROFILES:
     logger.warning('MODEL_QOS=%s is not a valid profile, falling back to premium', _active_profile_name)
     _active_profile_name = 'premium'
-_active_profile = MODEL_QOS_PROFILES[_active_profile_name]
+    _active_profile = MODEL_QOS_PROFILES[_active_profile_name]
+else:
+    _active_profile = MODEL_QOS_PROFILES[_active_profile_name]
 
 # BYOK QoS — all BYOK users get routed to 'byok' profile (top-tier all-OpenAI).
 # BYOK users pay their own API costs, so we give them maximum quality models.

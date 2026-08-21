@@ -32,7 +32,35 @@ class _BaseCallbackHandler:
     pass
 
 
+class _CallbackManagerForLLMRun:
+    def on_llm_new_token(self, *_args, **_kwargs):
+        pass
+
+
 class _LLMResult:
+    pass
+
+
+class _ChatResult:
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class _ChatGeneration:
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class _BaseMessage:
+    def __init__(self, content='', **kwargs):
+        self.content = content
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class _AIMessage(_BaseMessage):
     pass
 
 
@@ -97,11 +125,38 @@ class _AsyncAnthropic:
         pass
 
 
+_FAKED_MODULE_NAMES = [
+    'anthropic',
+    'langchain_core',
+    'langchain_core.callbacks',
+    'langchain_core.outputs',
+    'langchain_core.language_models',
+    'langchain_core.messages',
+    'langchain_core.output_parsers',
+    'langchain_openai',
+    'langchain_google_genai',
+    'tiktoken',
+    'utils.byok',
+]
+# These packages are real installed deps that other test files (e.g. test_claude_bridge_client.py)
+# import for real, in the same pytest process. _install_module() below replaces them in sys.modules
+# with bare-bones fakes (and, for dotted names, resets the parent package's __path__ to []) so that
+# this file's own `from utils.llm.clients import ...` doesn't need the real heavy deps. Left in place,
+# that corrupts sys.modules for every test collected afterwards in the same session (real langchain_core
+# becomes unimportable). Snapshot the pre-fake state here and restore it right after this file's own
+# import-under-test below.
+_PRE_FAKE_MODULES = {_name: sys.modules.get(_name) for _name in _FAKED_MODULE_NAMES}
+
 _install_module('anthropic', AsyncAnthropic=_AsyncAnthropic)
 _install_module('langchain_core')
-_install_module('langchain_core.callbacks', BaseCallbackHandler=_BaseCallbackHandler)
-_install_module('langchain_core.outputs', LLMResult=_LLMResult)
+_install_module(
+    'langchain_core.callbacks',
+    BaseCallbackHandler=_BaseCallbackHandler,
+    CallbackManagerForLLMRun=_CallbackManagerForLLMRun,
+)
+_install_module('langchain_core.outputs', LLMResult=_LLMResult, ChatResult=_ChatResult, ChatGeneration=_ChatGeneration)
 _install_module('langchain_core.language_models', BaseChatModel=_BaseChatModel)
+_install_module('langchain_core.messages', BaseMessage=_BaseMessage, AIMessage=_AIMessage)
 _install_module('langchain_core.output_parsers', PydanticOutputParser=_PydanticOutputParser)
 _install_module('langchain_openai', ChatOpenAI=_ChatOpenAI, OpenAIEmbeddings=_OpenAIEmbeddings)
 _install_module('langchain_google_genai', ChatGoogleGenerativeAI=_ChatGoogleGenerativeAI)
@@ -164,6 +219,7 @@ def _clients_subprocess_script(assertion: str) -> str:
         "    'langchain_core',",
         "    'langchain_core.callbacks',",
         "    'langchain_core.language_models',",
+        "    'langchain_core.messages',",
         "    'langchain_core.output_parsers',",
         "    'langchain_core.outputs',",
         "    'langchain_google_genai',",
@@ -206,6 +262,18 @@ from utils.llm.clients import (
     supports_cache_retention,
     supports_prompt_cache,
 )
+
+# utils.llm.clients (and everything it pulled in transitively) is now fully imported and bound to
+# the fakes above — that binding is intentional and stays for the rest of this file's own tests
+# (including string-target @patch('utils.llm.clients....') decorators further down). But the fakes
+# themselves must not leak into test files collected after this one, so put the real langchain_core
+# & co (or "not present") back in sys.modules now that this file no longer needs them at import time.
+for _name in _FAKED_MODULE_NAMES:
+    _original = _PRE_FAKE_MODULES[_name]
+    if _original is None:
+        sys.modules.pop(_name, None)
+    else:
+        sys.modules[_name] = _original
 
 # ---------------------------------------------------------------------------
 # Tests

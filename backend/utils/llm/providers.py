@@ -17,6 +17,11 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
+from utils.llm.claude_bridge_client import (
+    ClaudeBridgeChatModel,
+    get_claude_bridge_timeout_seconds,
+    get_claude_bridge_url,
+)
 from utils.llm.gateway_client import GatewayContextChatOpenAI, get_llm_gateway_base_url, get_llm_gateway_service_token
 from utils.llm.gateway_resilience import gateway_transport_timeout
 from utils.llm.usage_tracker import get_usage_callback
@@ -225,6 +230,24 @@ def get_or_create_gemini_llm(
     return _llm_cache[key]
 
 
+def get_or_create_claude_bridge_llm(model_name: str) -> ClaudeBridgeChatModel:
+    """Get or create a cached chat model backed by the private ask_claude_bridge service.
+
+    Streaming isn't a separate construction path here (unlike the OpenAI-compatible
+    providers): the bridge always streams SSE deltas over `run_manager.on_llm_new_token`
+    inside `_generate`, so callers using `.invoke(prompt, {'callbacks': [...]})` for
+    streaming (see `utils/llm/chat.py:qa_rag_stream`) get tokens either way.
+    """
+    key = _cache_key('claude-bridge', model_name, False, {})
+    if key not in _llm_cache:
+        _llm_cache[key] = ClaudeBridgeChatModel(
+            base_url=get_claude_bridge_url(),
+            model_name=model_name,
+            timeout_seconds=get_claude_bridge_timeout_seconds(),
+        )
+    return _llm_cache[key]
+
+
 def get_default_client(
     model: str,
     provider: str,
@@ -236,4 +259,6 @@ def get_default_client(
     options = options or {}
     if provider == 'gemini':
         return get_or_create_gemini_llm(model, streaming, thinking_budget=options.get('thinking_budget'))
+    if provider == 'claude-bridge':
+        return get_or_create_claude_bridge_llm(model)
     return get_or_create_openai_compatible_llm(provider, model, streaming, options)
