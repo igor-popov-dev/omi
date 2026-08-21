@@ -14,6 +14,7 @@ import 'package:omi/backend/schema/bt_device/bt_device.dart';
 import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/backend/schema/message_event.dart';
 import 'package:omi/backend/schema/transcript_segment.dart';
+import 'package:omi/models/custom_stt_config.dart';
 import 'package:omi/providers/device_provider.dart';
 import 'package:omi/services/devices.dart';
 import 'package:omi/services/services.dart';
@@ -179,7 +180,24 @@ class SpeechProfileProvider extends ChangeNotifier
         SharedPreferencesUtil().hasSetPrimaryLanguage ? SharedPreferencesUtil().userPrimaryLanguage : "multi";
     int rate = sampleRate ?? (codec.isOpusSupported() ? 16000 : 8000);
 
-    _socket = await openSpeechProfileSocket(codec: codec, sampleRate: rate, language: language, force: force);
+    // Mirror CaptureProvider's custom-STT selection so a self-hosted onboarding
+    // (custom_stt=enabled&onboarding=enabled, see routers/listen/receiver.py) uses
+    // the same STT provider as the rest of the app instead of always defaulting
+    // to the Omi-hosted socket, which is unreachable on a self-host deployment.
+    final customSttConfig = SharedPreferencesUtil().customSttConfig;
+    CustomSttConfig? effectiveConfig = customSttConfig.isEnabled ? customSttConfig : null;
+    if (effectiveConfig != null && !TranscriptSocketServiceFactory.isCodecSupportedForCustomStt(codec)) {
+      Logger.debug('[CustomSTT] Codec $codec not supported for speech profile, falling back to Omi');
+      effectiveConfig = null;
+    }
+
+    _socket = await openSpeechProfileSocket(
+      codec: codec,
+      sampleRate: rate,
+      language: language,
+      force: force,
+      customSttConfig: effectiveConfig,
+    );
     if (_socket == null) {
       throw Exception("Can not create new speech profile socket");
     }
@@ -196,12 +214,14 @@ class SpeechProfileProvider extends ChangeNotifier
     required int sampleRate,
     required String language,
     required bool force,
+    CustomSttConfig? customSttConfig,
   }) {
     return ServiceManager.instance().socket.speechProfile(
           codec: codec,
           sampleRate: sampleRate,
           language: language,
           force: force,
+          customSttConfig: customSttConfig,
         );
   }
 

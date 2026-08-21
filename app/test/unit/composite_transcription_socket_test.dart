@@ -109,6 +109,31 @@ void main() {
       expect((service.socket as CompositeTranscriptionSocket).forwardRawAudioToSecondary, isFalse);
     });
 
+    test('propagates onboarding mode into the secondary Omi socket URL', () {
+      const config = CustomSttConfig(provider: SttProvider.customLive, url: 'wss://stt.example.test/live');
+
+      final service = TranscriptSocketServiceFactory.createFromCustomConfig(
+        16000,
+        BleAudioCodec.pcm16,
+        'en',
+        config,
+        onboardingMode: true,
+      );
+
+      final secondary = (service.socket as CompositeTranscriptionSocket).secondarySocket as PureSocket;
+      expect(secondary.url, contains('onboarding=enabled'));
+      expect(secondary.url, contains('custom_stt=enabled'));
+    });
+
+    test('omits onboarding mode from the secondary Omi socket URL by default', () {
+      const config = CustomSttConfig(provider: SttProvider.customLive, url: 'wss://stt.example.test/live');
+
+      final service = TranscriptSocketServiceFactory.createFromCustomConfig(16000, BleAudioCodec.pcm16, 'en', config);
+
+      final secondary = (service.socket as CompositeTranscriptionSocket).secondarySocket as PureSocket;
+      expect(secondary.url, isNot(contains('onboarding=enabled')));
+    });
+
     test('blocks unsupported-codec Omi fallback when raw audio forwarding is disabled', () {
       const config = CustomSttConfig(
         provider: SttProvider.customLive,

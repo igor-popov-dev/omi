@@ -341,6 +341,17 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
         "OMI_LLM_GATEWAY_URL": cfg.llm_gateway_url,
         "OMI_LLM_GATEWAY_SERVICE_TOKEN": cfg.llm_gateway_service_token,
         "OMI_LLM_GATEWAY_FEATURE_MODE": gateway_feature_mode,
+        # WeSpeaker embedding HTTP service (marathon/wespeaker_server.py, lane1) deployed
+        # on mini at :8767; overridable so a non-mini harness instance can point elsewhere
+        # or unset it to fall back to the backend's built-in (unhosted) embedding path.
+        "HOSTED_SPEAKER_EMBEDDING_API_URL": os.environ.get(
+            "HOSTED_SPEAKER_EMBEDDING_API_URL", "http://192.168.1.33:8767"
+        ),
+        # fake-gcs-server (marathon/deploy, lane2) on mini loopback backs speech-profile
+        # blob storage — without it BUCKET_SPEECH_PROFILES stays unset and every profile
+        # screen 500s (backend/utils/other/storage.py raises when the bucket is missing).
+        "STORAGE_EMULATOR_HOST": os.environ.get("STORAGE_EMULATOR_HOST", "http://127.0.0.1:4443"),
+        "BUCKET_SPEECH_PROFILES": os.environ.get("BUCKET_SPEECH_PROFILES", "speech-profiles"),
     }
 
 

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/backend/schema/bt_device/bt_device.dart';
 import 'package:omi/env/env.dart';
+import 'package:omi/models/custom_stt_config.dart';
 import 'package:omi/providers/speech_profile_provider.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/services/sockets/pure_socket.dart';
@@ -84,6 +85,7 @@ class _CountingSpeechProfileProvider extends SpeechProfileProvider {
     required int sampleRate,
     required String language,
     required bool force,
+    CustomSttConfig? customSttConfig,
   }) async {
     openCalls++;
     return TranscriptSegmentSocketService.withSocket(

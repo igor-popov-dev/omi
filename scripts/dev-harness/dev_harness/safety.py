@@ -77,6 +77,8 @@ _STATE_SUBDIRECTORIES = (
 _ALLOWED_INSTANCE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 _ALLOWED_ENV_KEYS = {
     "CI",
+    "DYLD_FALLBACK_LIBRARY_PATH",
+    "DYLD_LIBRARY_PATH",
     "HOME",
     "LANG",
     "LC_ALL",
