@@ -7,7 +7,12 @@ enum AppEnvironmentProfile {
   localDev(
     name: 'local_dev',
     defaultApiBaseUrl: 'http://127.0.0.1:8000/',
-    firebaseProjectId: 'demo-omi-local',
+    // Real Firebase project (not `demo-omi-local`) so builds pointed at the
+    // self-host tunnel can use real Firebase Auth (Google Sign-In) instead of
+    // the local Auth emulator. The dev-harness workflow still opts back into
+    // the emulator by passing a non-empty OMI_FIREBASE_AUTH_EMULATOR_HOST
+    // dart-define — see Env.firebaseAuthEmulatorHost / main.dart.
+    firebaseProjectId: 'omi-jarvis-igor',
     authCallbackScheme: 'omi-dev',
     usesFirebaseAuthEmulator: true,
     allowsProductionData: false,

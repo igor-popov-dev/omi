@@ -7,10 +7,11 @@ import 'environment_profile.dart';
 abstract class Env {
   static const productionApiBaseUrl = 'https://api.omi.me/';
   static const _apiBaseUrlFromDefine = String.fromEnvironment('OMI_API_BASE_URL');
-  static const firebaseAuthEmulatorHost = String.fromEnvironment(
-    'OMI_FIREBASE_AUTH_EMULATOR_HOST',
-    defaultValue: '127.0.0.1',
-  );
+  // Empty by default: a local_dev build only talks to the Auth emulator when
+  // this is explicitly set (dev-harness workflow), so a tunnel-pointed build
+  // with no dart-define falls through to real Firebase Auth. See main.dart's
+  // `Env.profile.usesFirebaseAuthEmulator && Env.firebaseAuthEmulatorHost.isNotEmpty` gate.
+  static const firebaseAuthEmulatorHost = String.fromEnvironment('OMI_FIREBASE_AUTH_EMULATOR_HOST');
   static const _firebaseAuthEmulatorPort = String.fromEnvironment(
     'OMI_FIREBASE_AUTH_EMULATOR_PORT',
     defaultValue: '9099',

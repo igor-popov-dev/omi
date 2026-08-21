@@ -52,9 +52,9 @@ void main() {
   });
 
   group('mobile environment profiles', () {
-    test('local development is emulator-first and does not allow production data', () {
+    test('local development pairs a real Firebase project and does not allow production data', () {
       expect(AppEnvironmentProfile.localDev.defaultApiBaseUrl, 'http://127.0.0.1:8000/');
-      expect(AppEnvironmentProfile.localDev.firebaseProjectId, 'demo-omi-local');
+      expect(AppEnvironmentProfile.localDev.firebaseProjectId, 'omi-jarvis-igor');
       expect(AppEnvironmentProfile.localDev.usesFirebaseAuthEmulator, isTrue);
       expect(AppEnvironmentProfile.localDev.allowsProductionData, isFalse);
     });

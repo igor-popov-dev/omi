@@ -155,7 +155,7 @@ Future _init() async {
     Env.validateFirebaseProject(projectId: Firebase.app().options.projectId);
   }
 
-  if (Env.profile.usesFirebaseAuthEmulator) {
+  if (Env.profile.usesFirebaseAuthEmulator && Env.firebaseAuthEmulatorHost.isNotEmpty) {
     await FirebaseAuth.instance.useAuthEmulator(Env.firebaseAuthEmulatorHost, Env.firebaseAuthEmulatorPort);
   }
 
