@@ -36,6 +36,30 @@ def test_claude_bridge_profile_routes_conversation_finalize_features():
     assert profile['conv_app_select'] == ('gpt-5-nano', 'openai')
 
 
+def test_claude_bridge_profile_routes_memory_pipeline_features():
+    # memories/learnings/memory_category/memory_conflict/memory_l1/memory_l2 all parse
+    # a plain text reply (PydanticOutputParser, or a bare word for memory_category) —
+    # same shape as the conversation-finalize features above, so they work over the
+    # bridge unchanged. Without this, memory_l1 (canonical L1 archive extraction)
+    # silently no-ops under offline OpenAI (AuthenticationError, swallowed by its caller).
+    profile = CLAUDE_BRIDGE_PROFILE
+    for feature in (
+        'memories',
+        'learnings',
+        'memory_category',
+        'memory_conflict',
+        'memory_l1',
+        'memory_l2',
+    ):
+        assert profile[feature] == ('sonnet', 'claude-bridge')
+    # The '_flex' siblings inherit the untouched two-tier default (still 'openai'): they
+    # bypass get_llm()/this profile entirely at the call site (utils/memory/promotion_flex.py
+    # calls get_or_create_omi_gateway_llm() directly), so rerouting the map entry here
+    # would be a no-op for them either way — confirm we didn't accidentally reroute it.
+    for flex_feature in ('memory_l2_flex', 'memory_conflict_flex', 'x_memory_extraction_flex'):
+        assert profile[flex_feature][1] == 'openai'
+
+
 def test_claude_bridge_profile_leaves_shipped_profiles_untouched():
     assert MODEL_QOS_PROFILES['premium']['chat_responses'] == ('gpt-5.6-luna', 'openai')
     assert MODEL_QOS_PROFILES['max']['chat_responses'] == ('gpt-5.6-luna', 'openai')

@@ -124,6 +124,19 @@ MODEL_QOS_PROFILES: Dict[str, Dict[str, Tuple[str, str]]] = {
 # stays on 'openai': it calls .with_structured_output() (conversation_processing.py),
 # which the bridge can't serve.
 #
+# Also rerouted: the memory pipeline (memories.py, working_observations.py,
+# promotion_routes.py/promotion_proposals.py). Same reasoning as above — every one of
+# these six calls get_llm(feature).invoke(...) and parses the plain-text reply with a
+# PydanticOutputParser (or, for memory_category, a bare one-word text reply), never
+# .with_structured_output(). Without this, memory_l1 (canonical L1 archive extraction —
+# the actual "remembers things about you" feature) silently no-ops under offline OpenAI
+# (see BLOCKERS.md/lane2-log.md 22.08 ~21:15: `invoke_failed:AuthenticationError`).
+# The '_flex' siblings (memory_l2_flex, memory_conflict_flex, x_memory_extraction_flex)
+# are deliberately NOT overridden here (they keep the inherited two-tier 'openai'
+# default): their call sites route through get_or_create_omi_gateway_llm() directly
+# (utils/memory/promotion_flex.py), bypassing get_llm()/this profile entirely, so an
+# override here would be a no-op anyway.
+#
 # Deliberately kept OUT of MODEL_QOS_PROFILES: that dict is the authorized
 # premium/max/byok enumeration guarded by test_omi_qos_tiers.py (exact key set,
 # every profile's OpenAI routes locked to the two-tier map) — this is an
@@ -136,6 +149,12 @@ CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     'conv_structure': ('sonnet', 'claude-bridge'),
     'conv_action_items': ('sonnet', 'claude-bridge'),
     'conv_app_result': ('sonnet', 'claude-bridge'),
+    'memories': ('sonnet', 'claude-bridge'),
+    'learnings': ('sonnet', 'claude-bridge'),
+    'memory_category': ('sonnet', 'claude-bridge'),
+    'memory_conflict': ('sonnet', 'claude-bridge'),
+    'memory_l1': ('sonnet', 'claude-bridge'),
+    'memory_l2': ('sonnet', 'claude-bridge'),
 }
 
 # Pinned features — (model, provider) fixed regardless of profile or env override.
