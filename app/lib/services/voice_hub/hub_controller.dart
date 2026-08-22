@@ -471,6 +471,17 @@ class HubController {
     session?.sendToolResult(callId, name, output);
   }
 
+  /// Barge-in seam (design doc §6 step 1, `voice_turn_driver.dart`):
+  /// immediately silence whatever the warm session's player has already
+  /// buffered. Safe no-op when there is no session (idle) or nothing is
+  /// playing. The turn driver calls this UNCONDITIONALLY on every `begin()`
+  /// — Gemini cannot cleanly cancel a streaming reply in-session, so muting
+  /// the already-enqueued PCM locally is the only way to silence a barged-in
+  /// reply — and wires it as the reducer's `stopPlayback` effect target too:
+  /// this port has no separate cascade/TTS player to interrupt (see the
+  /// driver's own header), so both paths converge on this one call.
+  void clearPlayback() => session?.clearPlayback();
+
   /// The reducer's `hubWarm` deadline fired: the hub lost the race. Hands
   /// the buffered PCM to the batch cascade. The turn CONTINUES on the
   /// cascade — nothing here terminates it.

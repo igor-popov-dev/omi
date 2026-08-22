@@ -401,6 +401,19 @@ abstract class HubSession {
   /// Return a tool result to the model so it can continue speaking.
   void sendToolResult(String callId, String name, String output);
 
+  /// Barge-in seam (design doc §6, added for `voice_turn_driver.dart`):
+  /// immediately drop everything the spoken-audio player has already
+  /// buffered. Gemini's own barge-in strategy is a fresh session, not an
+  /// in-session cancel (`bargeInStrategy` above), so silencing already-
+  /// enqueued PCM on a new press is the turn driver's job, not something the
+  /// wire protocol does. A concrete session already has this exact action
+  /// for the server-reported `interrupted` case
+  /// (`GeminiHubSession.handleProviderMessage` -> `clearPlayback()`); this
+  /// just exposes it on the public contract so `HubController` (and the
+  /// driver above it) can trigger it directly, without an upcast to
+  /// `BaseHubSession`.
+  void clearPlayback();
+
   /// Close the socket. The object stays reusable — `ensureWarm()`
   /// re-establishes it.
   void teardown();
@@ -688,6 +701,7 @@ abstract class BaseHubSession implements HubSession {
   }
 
   /// Barge-in: drop everything buffered in the player immediately.
+  @override
   void clearPlayback() => _player?.clear();
 
   /// Turn boundary: play any queued sub-cushion tail instead of withholding it.
