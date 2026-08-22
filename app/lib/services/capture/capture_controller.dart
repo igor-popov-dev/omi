@@ -31,6 +31,7 @@ import 'package:omi/services/capture/conversation_location_capture.dart';
 import 'package:omi/services/capture/freemium_threshold_tracker.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
+import 'package:omi/services/voice_hub/voice_turn_driver.dart';
 import 'package:omi/services/voice_playback/omi_voice_playback_service.dart';
 import 'package:omi/services/sockets/transcription_service.dart';
 import 'package:omi/services/audio_sources/audio_source.dart';
@@ -75,6 +76,14 @@ class CaptureController extends ChangeNotifier
 
   CaptureExternalActions externalActions;
   DeviceOnboardingProvider? deviceOnboardingProvider;
+
+  // Optional, settable dependency wiring pendant single-tap gestures to the
+  // new realtime voice hub. Nullable and unset by production wiring unless
+  // the `pttHubEnabled` flag is on, so existing call sites that never set
+  // this are 100% unaffected. Additive/parallel to the legacy STT pipeline
+  // for now — see `voice_turn_driver.dart`'s file header (~line 73) for the
+  // intended contract this will eventually replace.
+  VoiceHubTurnDriver? hubTurnDriver;
 
   // Cache refresh for backend-created persons
   Future<void>? _peopleRefreshFuture;
@@ -849,6 +858,39 @@ class CaptureController extends ChangeNotifier
     var data = List<List<int>>.from(_commandBytes);
     _commandBytes = [];
     _processVoiceCommandBytes(deviceId, data);
+    if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null) {
+      hubTurnDriver!.end();
+    }
+  }
+
+  // Single tap (buttonState == 1) - toggle voice question mode.
+  // Tap once to start, tap again to end. Extracted from the BLE button
+  // listener closure so it's directly unit-testable without a real BLE
+  // stream (see `capture_controller_hub_test.dart`).
+  @visibleForTesting
+  void handleSingleTapButtonEvent(String deviceId) {
+    debugPrint("Single tap detected");
+    if (_voiceCommandSession == null) {
+      // Start voice question session (new toggle mode)
+      debugPrint("Starting voice question session (toggle mode)");
+      // Cut off any in-flight voice playback from a prior reply so the
+      // new recording starts clean.
+      if (OmiVoicePlaybackService.instance.isSpeaking) {
+        OmiVoicePlaybackService.instance.interrupt();
+      }
+      _voiceCommandSession = DateTime.now();
+      _commandBytes = [];
+      _voiceSessionStartedByLegacyLongPress = false; // New toggle mode
+      _startVoiceCommandTimeout(deviceId);
+      _playSpeakerHaptic(deviceId, 1);
+      if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null) {
+        hubTurnDriver!.begin();
+      }
+    } else if (!_voiceSessionStartedByLegacyLongPress) {
+      // Only end on second tap if session was started by toggle mode (not legacy)
+      debugPrint("Ending voice question session (toggle mode)");
+      _endVoiceCommandSession(deviceId);
+    }
   }
 
   Future streamButton(String deviceId) async {
@@ -934,25 +976,7 @@ class CaptureController extends ChangeNotifier
         // Single tap (buttonState == 1) - toggle voice question mode
         // Tap once to start, tap again to end
         if (buttonState == 1) {
-          debugPrint("Single tap detected");
-          if (_voiceCommandSession == null) {
-            // Start voice question session (new toggle mode)
-            debugPrint("Starting voice question session (toggle mode)");
-            // Cut off any in-flight voice playback from a prior reply so the
-            // new recording starts clean.
-            if (OmiVoicePlaybackService.instance.isSpeaking) {
-              OmiVoicePlaybackService.instance.interrupt();
-            }
-            _voiceCommandSession = DateTime.now();
-            _commandBytes = [];
-            _voiceSessionStartedByLegacyLongPress = false; // New toggle mode
-            _startVoiceCommandTimeout(deviceId);
-            _playSpeakerHaptic(deviceId, 1);
-          } else if (!_voiceSessionStartedByLegacyLongPress) {
-            // Only end on second tap if session was started by toggle mode (not legacy)
-            debugPrint("Ending voice question session (toggle mode)");
-            _endVoiceCommandSession(deviceId);
-          }
+          handleSingleTapButtonEvent(deviceId);
           return;
         }
 
