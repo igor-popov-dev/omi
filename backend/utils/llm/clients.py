@@ -686,9 +686,26 @@ def num_tokens_from_string(string: str) -> int:
     return num_tokens
 
 
+# Placeholder key the local harness injects under PROVIDER_MODE=offline so backend modules
+# can import without provider secrets (scripts/dev-harness/dev_harness/safety.py). It is not a
+# credential — but it is also not a licence to call out: the OpenAI client happily POSTs the
+# payload to api.openai.com and only *then* gets a 401, so raw conversation text leaves a
+# self-hosted box before the failure. Refuse locally instead (self-host patch, lane7).
+_OFFLINE_PLACEHOLDER_OPENAI_KEY = 'sk-omi-local-harness-offline-not-real'
+
+
+def _openai_key_is_offline_placeholder() -> bool:
+    return (os.getenv('OPENAI_API_KEY') or '').strip() == _OFFLINE_PLACEHOLDER_OPENAI_KEY
+
+
 def generate_embedding(content: str) -> List[float]:
     if should_route_features_through_gateway():
         record_direct_exception_surface(surface='openai_embeddings', reason='out_of_scope')
+    if _openai_key_is_offline_placeholder() and not get_byok_key('openai'):
+        raise RuntimeError(
+            'openai embeddings unavailable: PROVIDER_MODE=offline placeholder key — '
+            'refusing to send content to api.openai.com'
+        )
     return embeddings.embed_documents([content])[0]
 
 
