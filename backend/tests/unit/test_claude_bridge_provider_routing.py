@@ -23,6 +23,19 @@ def test_claude_bridge_profile_routes_chat_responses_only():
     assert profile['chat_agent'] == ('claude-sonnet-4-6', 'anthropic')
 
 
+def test_claude_bridge_profile_routes_conversation_finalize_features():
+    # conv_discard/conv_structure/conv_action_items/conv_app_result all parse a plain
+    # text reply with a PydanticOutputParser rather than .with_structured_output(),
+    # so they work over the bridge — without this, self-host conversations never
+    # leave in_progress (OpenAI 401 under PROVIDER_MODE=offline).
+    profile = CLAUDE_BRIDGE_PROFILE
+    for feature in ('conv_discard', 'conv_structure', 'conv_action_items', 'conv_app_result'):
+        assert profile[feature] == ('sonnet', 'claude-bridge')
+    # conv_app_select calls .with_structured_output() — the bridge can't serve that,
+    # so it must stay on its two-tier default.
+    assert profile['conv_app_select'] == ('gpt-5-nano', 'openai')
+
+
 def test_claude_bridge_profile_leaves_shipped_profiles_untouched():
     assert MODEL_QOS_PROFILES['premium']['chat_responses'] == ('gpt-5.6-luna', 'openai')
     assert MODEL_QOS_PROFILES['max']['chat_responses'] == ('gpt-5.6-luna', 'openai')

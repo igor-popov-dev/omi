@@ -110,9 +110,19 @@ MODEL_QOS_PROFILES: Dict[str, Dict[str, Tuple[str, str]]] = {
 # Private/self-host profile (PLAN.md §Этап 1): routes plain chat replies through the
 # ask_claude_bridge HTTP service instead of a paid API key — reuses an existing Claude
 # Code subscription. Opt-in only via MODEL_QOS=claude_bridge; the shipped profiles
-# above are untouched. Only `chat_responses` (qa_rag/qa_rag_stream — the "context text
+# above are untouched. `chat_responses` (qa_rag/qa_rag_stream — the "context text
 # already retrieved, ask a question" path) is rerouted; `chat_agent` (tool-calling
 # agentic chat) still needs the real Anthropic Messages API and stays on 'anthropic'.
+#
+# Also rerouted: the four conversation-finalize features that turn a transcript into
+# a title/overview/action-items/app-result. All four call get_llm(feature).invoke(...)
+# and parse the plain-text reply with a PydanticOutputParser (see discard_parser.py,
+# conversation_processing.py) rather than .with_structured_output() — the one method
+# ClaudeBridgeChatModel doesn't implement — so they work over the bridge unchanged.
+# Without this, self-host conversations under offline OpenAI never leave in_progress
+# (conv_discard/conv_structure 401 → BLOCKERS.md, lane6 22.08). `conv_app_select`
+# stays on 'openai': it calls .with_structured_output() (conversation_processing.py),
+# which the bridge can't serve.
 #
 # Deliberately kept OUT of MODEL_QOS_PROFILES: that dict is the authorized
 # premium/max/byok enumeration guarded by test_omi_qos_tiers.py (exact key set,
@@ -122,6 +132,10 @@ MODEL_QOS_PROFILES: Dict[str, Dict[str, Tuple[str, str]]] = {
 CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     **_TWO_TIER_MODEL_PROFILE,
     'chat_responses': ('sonnet', 'claude-bridge'),
+    'conv_discard': ('sonnet', 'claude-bridge'),
+    'conv_structure': ('sonnet', 'claude-bridge'),
+    'conv_action_items': ('sonnet', 'claude-bridge'),
+    'conv_app_result': ('sonnet', 'claude-bridge'),
 }
 
 # Pinned features — (model, provider) fixed regardless of profile or env override.
