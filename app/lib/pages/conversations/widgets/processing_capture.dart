@@ -334,7 +334,9 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
       child: Row(
         children: [
           Expanded(child: left),
-          if (right is! SizedBox) right,
+          // Flexible so a long status ("Распознавание офлайн — аудио копится
+          // (3:12)") ellipsizes instead of overflowing the row.
+          if (right is! SizedBox) Flexible(child: right),
         ],
       ),
     );
@@ -403,27 +405,35 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
     if (isDeviceRecording || isPhoneRecording) {
       Widget statusRow = Row(
         children: [
-          // Left: Status tag
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(20)),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  statusText,
-                  style: const TextStyle(color: Color(0xFFC9CBCF), fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: isPaused ? const Color(0xFFFF9500) : const Color(0xFFFE5D50),
-                    shape: BoxShape.circle,
+          // Left: Status tag. Flexible + ellipsis so a long localized status
+          // ("Распознавание офлайн — аудио копится (3:12)") shrinks instead of
+          // overflowing the row.
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(20)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      statusText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xFFC9CBCF), fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isPaused ? const Color(0xFFFF9500) : const Color(0xFFFE5D50),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           // Star indicator when conversation is marked for starring
