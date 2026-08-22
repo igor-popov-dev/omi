@@ -72,10 +72,21 @@ class AccountCutoverRuntime extends ChangeNotifier {
     }
 
     if (normalized != _ownerUid) {
+      // Only a genuine switch between two real accounts on this device needs
+      // the synchronous fence: it stops account A's stale allow decision
+      // from leaking into account B's session while B's fetch is in flight.
+      // The very first bind of a fresh runtime (no prior owner in memory,
+      // e.g. cold app start) has no prior decision to leak, so leave
+      // `_control` at its legacy-compatible default — a transport failure on
+      // this bind can then fall back to it in `applyFetchResult` instead of
+      // being permanently stuck behind a fence it never needed.
+      final isGenuineOwnerSwitch = _ownerUid != null;
       _ownerUid = normalized;
-      _control = AccountCutoverControl.unavailable();
       _hasAuthoritative = false;
       _resolvedForOwner = false;
+      if (isGenuineOwnerSwitch) {
+        _control = AccountCutoverControl.unavailable();
+      }
       notifyListeners();
     }
 
@@ -119,6 +130,19 @@ class AccountCutoverRuntime extends ChangeNotifier {
         // If already blocked (e.g. owner-change unavailable), keep that fence.
         break;
     }
+  }
+
+  /// Self-host escape hatch for a stuck fail-closed screen: only takes effect
+  /// when the server has NEVER returned an authoritative projection for this
+  /// owner (unreachable backend, broken bootstrap fetch). Never overrides a
+  /// confirmed migrating/new/rolled_back_stranded state — once a real
+  /// projection has been seen, this is a no-op and the fence holds.
+  bool skipUnresolvedFence() {
+    if (_hasAuthoritative) return false;
+    _control = AccountCutoverControl.legacyDefault();
+    _resolvedForOwner = true;
+    notifyListeners();
+    return true;
   }
 
   bool get allowsOfflineQueueUpload {

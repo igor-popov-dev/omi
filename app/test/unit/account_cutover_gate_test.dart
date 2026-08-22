@@ -218,6 +218,56 @@ void main() {
     expect(runtime.allowsOfflineQueueUpload, isFalse);
   });
 
+  test('first bind of a fresh runtime recovers to legacy-compatible after a transport failure', () async {
+    final runtime = AccountCutoverRuntime.instance;
+    final client = AccountCutoverControlClient(fetch: () async => const AccountCutoverFetchResult.transportFailure());
+
+    await runtime.bindAuthenticatedOwner('owner-a', client: client);
+
+    expect(runtime.isResolvedForOwner, isTrue);
+    expect(runtime.hasAuthoritativeControl, isFalse);
+    expect(runtime.decision, AccountCutoverGateDecision.allowProductTraffic);
+  });
+
+  test('a genuine owner switch stays fenced across a transport failure (no leaked prior allow)', () async {
+    final runtime = AccountCutoverRuntime.instance;
+    final ownerAControl = AccountCutoverControl.fromJson(_validControlJson());
+    await runtime.bindAuthenticatedOwner(
+      'owner-a',
+      client: AccountCutoverControlClient(fetch: () async => AccountCutoverFetchResult.success(ownerAControl)),
+    );
+    expect(runtime.decision, AccountCutoverGateDecision.allowProductTraffic);
+
+    final failingClient = AccountCutoverControlClient(
+      fetch: () async => const AccountCutoverFetchResult.transportFailure(),
+    );
+    await runtime.bindAuthenticatedOwner('owner-b', client: failingClient);
+
+    expect(runtime.isResolvedForOwner, isTrue);
+    expect(runtime.hasAuthoritativeControl, isFalse);
+    expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
+  });
+
+  test('skipUnresolvedFence only clears a fence with no authoritative projection', () async {
+    final runtime = AccountCutoverRuntime.instance;
+    final pending = Completer<AccountCutoverFetchResult>();
+    unawaited(
+        runtime.bindAuthenticatedOwner('owner-a', client: AccountCutoverControlClient(fetch: () => pending.future)));
+    expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
+
+    expect(runtime.skipUnresolvedFence(), isTrue);
+    expect(runtime.decision, AccountCutoverGateDecision.allowProductTraffic);
+
+    final fenced = AccountCutoverControl.fromJson(
+        _validControlJson(state: 'migrating', clientAction: 'migration_maintenance', productTrafficAllowed: false));
+    pending.complete(AccountCutoverFetchResult.success(fenced));
+    await Future<void>.delayed(Duration.zero);
+    expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
+
+    expect(runtime.skipUnresolvedFence(), isFalse);
+    expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
+  });
+
   test('owner transition clears prior account state and ignores stale in-flight results', () async {
     final runtime = AccountCutoverRuntime.instance;
     final pendingFirst = Completer<AccountCutoverFetchResult>();

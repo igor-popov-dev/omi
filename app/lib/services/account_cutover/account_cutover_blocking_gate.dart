@@ -45,6 +45,10 @@ class AccountCutoverBlockingGate extends StatelessWidget {
           strandedNewData: runtime.control.strandedNewData,
           appStoreUrl: _appStoreUrl,
           playStoreUrl: _playStoreUrl,
+          // Only offer a manual way out when the server has never actually
+          // confirmed a fenced state for this owner — e.g. an unreachable
+          // self-host backend, not a real migration in progress.
+          onSkipUnresolvedFence: runtime.hasAuthoritativeControl ? null : runtime.skipUnresolvedFence,
         );
       },
     );
@@ -58,12 +62,17 @@ class AccountCutoverBlockingView extends StatelessWidget {
     required this.strandedNewData,
     required this.appStoreUrl,
     required this.playStoreUrl,
+    this.onSkipUnresolvedFence,
   });
 
   final AccountCutoverGateDecision decision;
   final bool strandedNewData;
   final Uri appStoreUrl;
   final Uri playStoreUrl;
+
+  /// Non-null only when there is no authoritative server projection to
+  /// override; pressing it dismisses the fence for this session.
+  final VoidCallback? onSkipUnresolvedFence;
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +129,12 @@ class AccountCutoverBlockingView extends StatelessWidget {
                           await launchUrl(url, mode: LaunchMode.externalApplication);
                         },
                         child: Text(l10n.accountCutoverOpenStore),
+                      ),
+                    ] else if (onSkipUnresolvedFence != null) ...[
+                      const SizedBox(height: 20),
+                      TextButton(
+                        onPressed: onSkipUnresolvedFence,
+                        child: Text(l10n.skip, style: const TextStyle(color: Colors.white70)),
                       ),
                     ],
                   ],
