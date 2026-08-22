@@ -17,6 +17,7 @@ from utils.other import endpoints as auth
 from utils.other.endpoints import rate_limit_dependency
 from utils.executors import critical_executor, db_executor, run_blocking
 from utils.multipart import MultipartMaxPartSizeRoute, PHONE_CALL_MAX_PART_SIZE, parse_multipart_form
+from utils import voximplant_service
 from utils.twilio_service import (
     generate_access_token,
     start_caller_id_verification,
@@ -99,6 +100,20 @@ class TokenResponse(BaseModel):
     access_token: str
     ttl: int
     identity: str
+
+
+class PhoneTokenRequest(BaseModel):
+    key: Optional[str] = Field(
+        default=None,
+        description="Voximplant one-time login key from VIClient.requestOneTimeLoginKey (Voximplant deployments only)",
+    )
+
+
+class VoximplantTokenResponse(BaseModel):
+    hash: str
+    user: str
+    node: str
+    ttl: int
 
 
 # ************************************************
@@ -226,20 +241,57 @@ def remove_phone_number(phone_number_id: str, uid: str = Depends(auth.get_curren
 # ************************************************
 
 
-@router.post("/v1/phone/token", response_model=TokenResponse, tags=['phone-calls'])
-def get_phone_token(uid: str = Depends(auth.get_current_user_uid)):
-    """Generate a Twilio access token for making VoIP calls."""
+@router.post("/v1/phone/token", tags=['phone-calls'])
+def get_phone_token(
+    request: Optional[PhoneTokenRequest] = None,
+    uid: str = Depends(auth.get_current_user_uid),
+) -> TokenResponse | VoximplantTokenResponse:
+    """Hand the client what its VoIP SDK needs to log in.
+
+    Twilio: an access token minted here, request body ignored. Voximplant: the client has
+    already asked the platform for a one-time key and sends it in; we answer with the login
+    hash, so the application user's password never leaves the server.
+    """
     check_call_access(uid)
     # Verify user has at least one verified number
     primary = phone_calls_db.get_primary_phone_number(uid)
     if not primary:
         raise HTTPException(status_code=400, detail="No verified phone number found. Verify a number first.")
 
+    if voximplant_service.is_selected():
+        return _voximplant_login_hash(request)
+
     try:
         token_data = generate_access_token(uid)
         return TokenResponse(**token_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate token: {str(e)}")
+
+
+def _voximplant_login_hash(request: Optional[PhoneTokenRequest]) -> VoximplantTokenResponse:
+    missing = voximplant_service.missing_settings()
+    if missing:
+        raise HTTPException(status_code=503, detail=f"Voximplant is not configured: {', '.join(missing)} missing")
+
+    key = (request.key or '').strip() if request else ''
+    if not key:
+        raise HTTPException(
+            status_code=400,
+            detail="Voximplant calling needs a one-time login key: "
+            "POST {\"key\": \"<VIClient.requestOneTimeLoginKey>\"}",
+        )
+    if not voximplant_service.ONE_TIME_KEY_PATTERN.match(key):
+        raise HTTPException(status_code=400, detail="Malformed one-time login key")
+
+    try:
+        return VoximplantTokenResponse(
+            hash=voximplant_service.build_login_hash(key),
+            user=voximplant_service.full_user_name(),
+            node=voximplant_service.node(),
+            ttl=voximplant_service.ONE_TIME_KEY_TTL_SECONDS,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=f"Voximplant is misconfigured: {str(e)}")
 
 
 # ************************************************
