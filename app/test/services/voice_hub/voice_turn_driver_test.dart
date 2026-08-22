@@ -207,7 +207,12 @@ class _Harness {
   /// mint without touching production wiring.
   Future<String> Function() mintTokenImpl = () async => 'ek_token';
 
-  _Harness({this.pttHubEnabled = true}) {
+  /// Injected `VoiceHubTurnDriverDeps.toolExecutor` — null by default so
+  /// every existing test keeps exercising the defensive fallback
+  /// unchanged; the "real executor wired" group below sets this.
+  final void Function(HubToolCallRequest call)? toolExecutor;
+
+  _Harness({this.pttHubEnabled = true, this.toolExecutor}) {
     driver = VoiceHubTurnDriver(VoiceHubTurnDriverDeps(
       createHub: (events) {
         final h = HubController(
@@ -225,6 +230,7 @@ class _Harness {
       startCapture: capture.start,
       applyProjection: (p) => projections.add(p),
       pttHubEnabled: () => pttHubEnabled,
+      toolExecutor: toolExecutor,
       scheduler: scheduler,
       mintTurnId: () => 'turn-${++_turnSeq}',
       mintCaptureId: () => ++_captureSeq,
@@ -548,6 +554,47 @@ void main() {
       ev.onTurnDone?.call(null);
       ev.onSpeakingEnd?.call();
       expect(h.driver.activeTurnId, isNull);
+    });
+  });
+
+  // ---- hub tool loop (real executor wired) ------------------------------------
+  // `VoiceHubTurnDriverDeps.toolExecutor` — a production caller that DOES
+  // declare a real tool catalog (`fetchTools`) wires this to something that
+  // actually resolves the call (e.g. `AskClaudeToolExecutor.handle`,
+  // `ask_claude_tool.dart`). The defensive fallback above must NOT also fire
+  // — that would send two results for the same `callId`.
+  group('hub tool loop (real executor wired)', () {
+    test('a spoken tool request is handed to the injected executor instead of the defensive fallback', () async {
+      final calls = <HubToolCallRequest>[];
+      final h = _Harness(toolExecutor: calls.add);
+      await _warmed(h);
+      h.driver.begin();
+      await _tick();
+      h.capture.feed(_voiced1s());
+      h.driver.end();
+
+      const call = HubToolCallRequest(name: 'ask_claude', callId: 'call-1', argumentsJson: '{"question":"hi"}');
+      h.session.events.onToolRequest?.call(call, null);
+
+      expect(calls, [call]);
+      expect(h.session.toolResults, isEmpty);
+    });
+
+    test('the executor, not the driver, is responsible for eventually calling sendToolResult', () async {
+      late final _Harness h;
+      h = _Harness(toolExecutor: (call) => h.hub.sendToolResult(call.callId, call.name, 'real answer'));
+      await _warmed(h);
+      h.driver.begin();
+      await _tick();
+      h.capture.feed(_voiced1s());
+      h.driver.end();
+
+      h.session.events.onToolRequest?.call(
+        const HubToolCallRequest(name: 'ask_claude', callId: 'call-1', argumentsJson: '{"question":"hi"}'),
+        null,
+      );
+
+      expect(h.session.toolResults, [(callId: 'call-1', output: 'real answer')]);
     });
   });
 

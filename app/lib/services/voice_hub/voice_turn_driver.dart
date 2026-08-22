@@ -76,14 +76,19 @@
 //     rare in practice; it exists so `begin()` is total and never leaves the
 //     coordinator in a stuck `recording` phase with nobody driving it.
 //
-//   * NO tool-execution loop (PR-C in the TS source). `gemini_hub_session.dart`
-//     never declares a tool catalog (`functionDeclarations: []`, permanently,
-//     per that file's own header) — the model has nothing to call, so
-//     `onToolRequest` is dead in practice. It is still wired defensively,
-//     exactly like the TS driver's "no executor wired" fallback: reply with
-//     an error string immediately and do not dispatch `toolStarted`, so a
-//     hypothetical future stray tool call can never hang a turn in
-//     `awaitingTools` forever.
+//   * Tool execution (PR-C in the TS source) is an OPTIONAL injected seam
+//     (`VoiceHubTurnDriverDeps.toolExecutor`), not built into this file.
+//     Unset (the original default) behaves exactly as before this seam
+//     existed: `gemini_hub_session.dart` declares an empty catalog unless a
+//     production caller wires `HubController.fetchTools`, so `onToolRequest`
+//     stays dead in practice and is satisfied defensively — reply with an
+//     error string immediately — so a stray/unhandled tool call can never
+//     hang a turn in `awaitingTools` forever. A caller that DOES declare a
+//     catalog (e.g. `ask_claude_tool.dart`'s `askClaudeToolDeclaration` via
+//     `fetchTools`) must also set `toolExecutor` to something that actually
+//     resolves it (e.g. `AskClaudeToolExecutor.handle`) — otherwise a real
+//     call from the model hits the same defensive error path, which is
+//     honest but not useful.
 //
 //   * NO `audibleOutputArbiter` (the desktop single-audible-owner token
 //     shared between the hub's realtime voice and a SEPARATE cascade/TTS
@@ -133,6 +138,7 @@ import 'dart:typed_data';
 
 import 'hub_controller.dart';
 import 'hub_ptt_capture.dart';
+import 'hub_session.dart' show HubToolCallRequest;
 import 'ptt_gate.dart';
 import 'voice_output_coordinator.dart';
 import 'voice_turn_coordinator.dart';
@@ -175,6 +181,19 @@ class VoiceHubTurnDriverDeps {
   /// `prefs: () => getPreferences()`.
   final bool Function() pttHubEnabled;
 
+  /// Real tool execution (e.g. `AskClaudeToolExecutor.handle`,
+  /// `ask_claude_tool.dart`), tried FIRST when a tool request arrives.
+  /// `null` (the default) preserves the driver's original "no executor
+  /// wired" behavior byte-for-byte: `_hubEvents().onToolRequest` sends the
+  /// hardcoded "Error: tools are not available" result immediately (see
+  /// the file-header cut this seam replaces). When set, that hardcoded
+  /// error is skipped entirely — the executor owns the reply (typically
+  /// async, via its own `sendToolResult` callback) so it must never be set
+  /// without also declaring a tool catalog via `HubController.fetchTools`,
+  /// or a real call will hang in `awaitingTools` with nobody ever calling
+  /// `sendToolResult`.
+  final void Function(HubToolCallRequest call)? toolExecutor;
+
   // --- test seams (mirror `VoiceTurnCoordinator`'s own optional ctor args) ---
   final VoiceTurnDeadlineScheduling? scheduler;
   final VoiceTurnId Function()? mintTurnId;
@@ -186,6 +205,7 @@ class VoiceHubTurnDriverDeps {
     required this.startCapture,
     required this.applyProjection,
     this.pttHubEnabled = _defaultPttHubEnabled,
+    this.toolExecutor,
     this.scheduler,
     this.mintTurnId,
     this.mintCaptureId,
@@ -555,12 +575,14 @@ class VoiceHubTurnDriver {
         // "record this turn" seam would want it.
       },
       onToolRequest: (call, identity) {
-        // Cut: no tool catalog is ever declared to the provider
-        // (`gemini_hub_session.dart`), so this is dead in practice. Satisfy
-        // the provider defensively — exactly the TS driver's "no executor
-        // wired" fallback — so a hypothetical future catalog addition can
-        // never hang a turn in `awaitingTools` before this driver grows real
-        // tool execution.
+        final executor = _deps.toolExecutor;
+        if (executor != null) {
+          executor(call);
+          return;
+        }
+        // No executor wired (default): satisfy the provider defensively so
+        // a declared-but-unhandled tool call can never hang a turn in
+        // `awaitingTools` forever. See `VoiceHubTurnDriverDeps.toolExecutor`.
         _hub.sendToolResult(call.callId, call.name, 'Error: tools are not available');
       },
       onCascadeHandoff: (handoff) {
