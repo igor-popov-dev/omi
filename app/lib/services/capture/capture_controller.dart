@@ -486,6 +486,25 @@ class CaptureController extends ChangeNotifier
   bool get isPaused => _isPaused;
   bool get isCallActive => _micInterrupted;
 
+  /// Our own outgoing/incoming call — the one case where the phone's mic hears
+  /// the same conversation the cloud call leg already captures. Without this
+  /// pause the backend gets two audio streams for the same uid and opens TWO
+  /// conversations for one call (proven with marathon/tools/vox-dual-session-probe.py,
+  /// the `ambient` case).
+  Future<void> pauseForInAppCall() async {
+    if (_activeSource is! PhoneMicSource && !_phoneMicBatchActive) return;
+    _onMicInterruption(true);
+    ServiceManager.instance().phoneMic.stop();
+  }
+
+  Future<void> resumeAfterInAppCall() async {
+    if (!_micInterrupted) return;
+    if (_activeSource is PhoneMicSource) {
+      await _resumeMicRecording(); // preserves the existing socket/segments
+    }
+    _onMicInterruption(false);
+  }
+
   // Flag to star the conversation when it ends
   bool _starOngoingConversation = false;
   bool get isConversationMarkedForStarring => _starOngoingConversation;

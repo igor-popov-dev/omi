@@ -398,7 +398,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (context) => VoiceRecorderProvider()..checkPendingRecording()),
         ChangeNotifierProvider(create: (context) => LocaleProvider()),
         ChangeNotifierProvider(create: (context) => AnnouncementProvider()),
-        ChangeNotifierProvider(lazy: true, create: (context) => PhoneCallProvider()),
+        ChangeNotifierProxyProvider<CaptureProvider, PhoneCallProvider>(
+          lazy: true,
+          create: (context) => PhoneCallProvider(),
+          update: (BuildContext context, capture, PhoneCallProvider? previous) =>
+              (previous ?? PhoneCallProvider())..setCaptureController(capture),
+        ),
       ],
       builder: (context, child) {
         return WithForegroundTask(

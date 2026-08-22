@@ -1480,4 +1480,28 @@ void main() {
       provider.dispose();
     });
   });
+
+  group('pauseForInAppCall / resumeAfterInAppCall (own Voximplant call)', () {
+    // Guards against a real regression this pair fixes: without a source check,
+    // pausing for an in-app call would stop() whatever mic session happens to be
+    // running (e.g. a BLE-device recording), not just the phone mic it owns.
+    test('pauseForInAppCall is a no-op when no phone-mic session is active', () async {
+      final provider = CaptureProvider();
+      expect(provider.isCallActive, false);
+
+      await provider.pauseForInAppCall();
+
+      expect(provider.isCallActive, false, reason: 'nothing to pause outside a phone-mic session');
+      provider.dispose();
+    });
+
+    test('resumeAfterInAppCall is a no-op when never paused', () async {
+      final provider = CaptureProvider();
+
+      await provider.resumeAfterInAppCall();
+
+      expect(provider.isCallActive, false);
+      provider.dispose();
+    });
+  });
 }
