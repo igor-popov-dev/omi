@@ -293,6 +293,16 @@ class SharedPreferencesUtil {
 
   bool get vadGateEnabled => getBool('vadGateEnabled');
 
+  // PTT Hub — routes pendant taps through the realtime voice hub instead of the STT pipeline (experimental)
+  set pttHubEnabled(bool value) => saveBool('pttHubEnabled', value);
+
+  bool get pttHubEnabled => getBool('pttHubEnabled');
+
+  // Free-form Voice Mode — hands-free voice-mode button in chat (experimental)
+  set freeFormMode(bool value) => saveBool('freeFormMode', value);
+
+  bool get freeFormMode => getBool('freeFormMode');
+
   // Notification frequency (0-5): 0 = off, 5 = most frequent. Default is 0 (disabled)
   set notificationFrequency(int value) => saveInt('notificationFrequency', value);
 

@@ -1596,6 +1596,31 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                           value: provider.vadGateEnabled,
                           onChanged: provider.onVadGateChanged,
                         ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Divider(color: Colors.grey.shade800, height: 1),
+                        ),
+                        // PTT Hub
+                        _buildExperimentalItem(
+                          title: 'PTT Hub (voice hub, pendant)',
+                          description:
+                              'Routes pendant taps through the new realtime voice hub instead of the STT pipeline',
+                          icon: FontAwesomeIcons.microphoneLines,
+                          value: provider.pttHubEnabled,
+                          onChanged: provider.onPttHubEnabledChanged,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Divider(color: Colors.grey.shade800, height: 1),
+                        ),
+                        // Free-form Voice Mode
+                        _buildExperimentalItem(
+                          title: 'Free-form Voice Mode (chat button)',
+                          description: 'Shows a hands-free voice-mode button in chat',
+                          icon: FontAwesomeIcons.waveSquare,
+                          value: provider.freeFormMode,
+                          onChanged: provider.onFreeFormModeChanged,
+                        ),
                       ],
                     ),
                   ),
