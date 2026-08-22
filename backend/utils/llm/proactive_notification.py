@@ -13,6 +13,27 @@ logger = logging.getLogger(__name__)
 Record = Mapping[str, object]
 
 
+# Per-step deadline for the mentor's LLM calls (self-host, lane7).
+#
+# This chain runs on the live transcript path: the pusher's per-connection transcript
+# task awaits it, and while it is in flight new transcript items pile into a bounded
+# deque that drops the oldest. The default deadline of the claude-bridge route is 120s
+# (the bridge shells out to `claude -p`), which is far too long to hold that path —
+# a measured healthy run of the whole three-step chain is ~15s. 45s per step keeps a
+# wide margin over the healthy case while bounding a stuck bridge.
+#
+# Overridable so a slow host can raise it without a redeploy.
+def _step_timeout_seconds() -> float:
+    raw = (os.environ.get('PROACTIVE_NOTIFICATION_STEP_TIMEOUT_SECONDS') or '').strip()
+    if not raw:
+        return 45.0
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning('PROACTIVE_NOTIFICATION_STEP_TIMEOUT_SECONDS=%r is not a number, using 45s', raw)
+        return 45.0
+
+
 # ---------------------------------------------------------------------------
 # Step 1: Relevance Gate — is this conversation worth evaluating?
 # ---------------------------------------------------------------------------
@@ -363,7 +384,9 @@ def evaluate_relevance(
         current_date=current_date or current_date_in_tz(None),
     )
 
-    with_parser = get_llm('proactive_notification').with_structured_output(RelevanceResult)
+    with_parser = get_llm('proactive_notification', request_timeout=_step_timeout_seconds()).with_structured_output(
+        RelevanceResult
+    )
     result = cast(RelevanceResult, with_parser.invoke(prompt))
     return result
 
@@ -406,7 +429,9 @@ def generate_notification(
         current_date=current_date or current_date_in_tz(None),
     )
 
-    with_parser = get_llm('proactive_notification').with_structured_output(NotificationDraft)
+    with_parser = get_llm('proactive_notification', request_timeout=_step_timeout_seconds()).with_structured_output(
+        NotificationDraft
+    )
     result = cast(NotificationDraft, with_parser.invoke(prompt))
     return result
 
@@ -439,7 +464,9 @@ def validate_notification(
         current_date=current_date or current_date_in_tz(None),
     )
 
-    with_parser = get_llm('proactive_notification').with_structured_output(ValidationResult)
+    with_parser = get_llm('proactive_notification', request_timeout=_step_timeout_seconds()).with_structured_output(
+        ValidationResult
+    )
     result = cast(ValidationResult, with_parser.invoke(prompt))
     return result
 
@@ -546,6 +573,8 @@ def evaluate_proactive_notification(
         current_date=current_date or current_date_in_tz(None),
     )
 
-    with_parser = get_llm('proactive_notification').with_structured_output(ProactiveNotificationResult)
+    with_parser = get_llm('proactive_notification', request_timeout=_step_timeout_seconds()).with_structured_output(
+        ProactiveNotificationResult
+    )
     result = cast(ProactiveNotificationResult, with_parser.invoke(prompt))
     return result

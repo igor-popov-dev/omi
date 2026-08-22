@@ -463,6 +463,16 @@ def _proactive_daily_cap_reached(uid: str) -> bool:
 
 MENTOR_RATE_LIMIT_SECONDS = 300  # 5 minutes between mentor notifications
 
+# Wall-clock budget for one run of the whole gate→generate→critic chain (self-host, lane7).
+#
+# The chain is awaited by the pusher's per-connection transcript task, so it holds up
+# realtime transcript dispatch for that user while it runs; the queue behind it is a
+# bounded deque that drops the oldest item when it overflows. Each step already carries
+# its own deadline (see proactive_notification._step_timeout_seconds), but a step can be
+# retried once by the structured-output parser, so the sum needs its own ceiling.
+# A healthy full run measured ~15s.
+MENTOR_PIPELINE_TIMEOUT_SECONDS = 150.0
+
 
 def _process_mentor_proactive_notification(uid: str, conversation_messages: list[dict]) -> str | None:
     """
@@ -827,13 +837,25 @@ async def _async_trigger_realtime_integrations(
     mentor_results = {}
     conversation_messages = await run_blocking(db_executor, process_mentor_notification, uid, segments)
     if conversation_messages:
+        mentor_message = None
         with track_usage(uid, Features.REALTIME_INTEGRATIONS):
-            mentor_message = await run_blocking(
-                postprocess_executor,
-                _process_mentor_proactive_notification,
-                uid,
-                conversation_messages,
-            )
+            try:
+                mentor_message = await asyncio.wait_for(
+                    run_blocking(
+                        postprocess_executor,
+                        _process_mentor_proactive_notification,
+                        uid,
+                        conversation_messages,
+                    ),
+                    timeout=MENTOR_PIPELINE_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                # The worker thread keeps running to completion (threads are not
+                # cancellable) — what this releases is the transcript path, which must
+                # not wait on a slow LLM backend.
+                logger.warning(
+                    f"mentor_proactive pipeline_timeout uid={uid} after={MENTOR_PIPELINE_TIMEOUT_SECONDS:.0f}s"
+                )
         if mentor_message:
             mentor_results['mentor'] = mentor_message
             logger.info(f"Sent mentor notification to user {uid}")

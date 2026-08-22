@@ -144,3 +144,25 @@ def test_get_or_create_claude_bridge_llm_caches_separately_by_tools_enabled(monk
     assert without_tools is not with_tools
     assert without_tools.tools_enabled is False
     assert with_tools.tools_enabled is True
+
+
+def test_bridge_client_honours_a_route_request_timeout():
+    """A feature that passes get_llm(request_timeout=...) must bound the bridge call.
+
+    Before this, the bridge factory ignored request_timeout and every route got the
+    process-wide 120s deadline — too long for the mentor chain, which runs on the
+    live transcript path (see utils/llm/proactive_notification._step_timeout_seconds).
+    """
+    options = {**get_route_options('proactive_notification', 'sonnet', 'claude-bridge'), 'request_timeout': 45.0}
+    client = get_default_client('sonnet', 'claude-bridge', False, options)
+    assert isinstance(client, ClaudeBridgeChatModel)
+    assert client.timeout_seconds == 45.0
+
+    # A different deadline must not be served from the cached client of the first one.
+    other = get_default_client('sonnet', 'claude-bridge', False, {**options, 'request_timeout': 10.0})
+    assert other.timeout_seconds == 10.0
+    assert client.timeout_seconds == 45.0
+
+    # No request_timeout in the route options -> the process-wide default still applies.
+    default_client = get_or_create_claude_bridge_llm('sonnet')
+    assert default_client.timeout_seconds == 120.0
