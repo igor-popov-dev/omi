@@ -230,20 +230,26 @@ def get_or_create_gemini_llm(
     return _llm_cache[key]
 
 
-def get_or_create_claude_bridge_llm(model_name: str) -> ClaudeBridgeChatModel:
+def get_or_create_claude_bridge_llm(model_name: str, tools_enabled: bool = False) -> ClaudeBridgeChatModel:
     """Get or create a cached chat model backed by the private ask_claude_bridge service.
 
     Streaming isn't a separate construction path here (unlike the OpenAI-compatible
     providers): the bridge always streams SSE deltas over `run_manager.on_llm_new_token`
     inside `_generate`, so callers using `.invoke(prompt, {'callbacks': [...]})` for
     streaming (see `utils/llm/chat.py:qa_rag_stream`) get tokens either way.
+
+    ``tools_enabled`` gates MCP tool access on the bridge side (see the comment above
+    ``CLAUDE_BRIDGE_PROFILE`` in model_config.py) — default False so a caller that
+    forgets to pass it gets the safe, tool-free behavior rather than accidentally
+    inheriting tool access.
     """
-    key = _cache_key('claude-bridge', model_name, False, {})
+    key = _cache_key('claude-bridge', model_name, False, {'tools_enabled': tools_enabled})
     if key not in _llm_cache:
         _llm_cache[key] = ClaudeBridgeChatModel(
             base_url=get_claude_bridge_url(),
             model_name=model_name,
             timeout_seconds=get_claude_bridge_timeout_seconds(),
+            tools_enabled=tools_enabled,
         )
     return _llm_cache[key]
 
@@ -260,5 +266,5 @@ def get_default_client(
     if provider == 'gemini':
         return get_or_create_gemini_llm(model, streaming, thinking_budget=options.get('thinking_budget'))
     if provider == 'claude-bridge':
-        return get_or_create_claude_bridge_llm(model)
+        return get_or_create_claude_bridge_llm(model, tools_enabled=bool(options.get('tools_enabled', False)))
     return get_or_create_openai_compatible_llm(provider, model, streaming, options)

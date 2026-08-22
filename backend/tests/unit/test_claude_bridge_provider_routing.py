@@ -11,7 +11,7 @@ of importing utils.llm modules directly (no heavy stubbing needed).
 from __future__ import annotations
 
 from utils.llm.claude_bridge_client import ClaudeBridgeChatModel
-from utils.llm.model_config import CLAUDE_BRIDGE_PROFILE, MODEL_QOS_PROFILES
+from utils.llm.model_config import CLAUDE_BRIDGE_PROFILE, MODEL_QOS_PROFILES, get_route_options
 from utils.llm.providers import get_default_client, get_or_create_claude_bridge_llm
 
 
@@ -67,6 +67,31 @@ def test_claude_bridge_profile_routes_conv_folder():
     assert CLAUDE_BRIDGE_PROFILE['conv_folder'] == ('sonnet', 'claude-bridge')
 
 
+def test_only_chat_responses_gets_bridge_tool_access():
+    # The bridge (ask_claude_bridge.py) is a single undifferentiated HTTP endpoint — it
+    # can't tell which feature is calling it, so tools_enabled is the only thing that
+    # keeps MCP tools out of background/ambient-transcript processing (conv_discard,
+    # conv_folder, the memory pipeline, ...). Only the explicit chat channel
+    # (chat_responses) may ever get tools_enabled=True.
+    assert get_route_options('chat_responses', 'sonnet', 'claude-bridge')['tools_enabled'] is True
+    background_bridge_features = (
+        'conv_discard',
+        'conv_structure',
+        'conv_action_items',
+        'conv_app_result',
+        'conv_folder',
+        'memories',
+        'learnings',
+        'memory_category',
+        'memory_conflict',
+        'memory_l1',
+        'memory_l2',
+    )
+    for feature in background_bridge_features:
+        assert CLAUDE_BRIDGE_PROFILE[feature][1] == 'claude-bridge'
+        assert get_route_options(feature, 'sonnet', 'claude-bridge')['tools_enabled'] is False
+
+
 def test_claude_bridge_profile_leaves_shipped_profiles_untouched():
     assert MODEL_QOS_PROFILES['premium']['chat_responses'] == ('gpt-5.6-luna', 'openai')
     assert MODEL_QOS_PROFILES['max']['chat_responses'] == ('gpt-5.6-luna', 'openai')
@@ -87,6 +112,16 @@ def test_get_default_client_dispatches_claude_bridge_provider(monkeypatch):
     assert isinstance(client, ClaudeBridgeChatModel)
     assert client.model_name == 'sonnet'
     assert client.base_url == 'http://mini.local:8766'
+    # No options passed -> safe default, no MCP tool access.
+    assert client.tools_enabled is False
+
+
+def test_get_default_client_passes_tools_enabled_option_through(monkeypatch):
+    monkeypatch.setenv('CLAUDE_BRIDGE_URL', 'http://mini.local:8766')
+
+    client = get_default_client('sonnet', 'claude-bridge', streaming=False, options={'tools_enabled': True})
+
+    assert client.tools_enabled is True
 
 
 def test_get_or_create_claude_bridge_llm_caches_by_model_name(monkeypatch):
@@ -98,3 +133,14 @@ def test_get_or_create_claude_bridge_llm_caches_by_model_name(monkeypatch):
 
     assert first is second
     assert first is not different
+
+
+def test_get_or_create_claude_bridge_llm_caches_separately_by_tools_enabled(monkeypatch):
+    monkeypatch.setenv('CLAUDE_BRIDGE_URL', 'http://mini.local:8766')
+
+    without_tools = get_or_create_claude_bridge_llm('sonnet', tools_enabled=False)
+    with_tools = get_or_create_claude_bridge_llm('sonnet', tools_enabled=True)
+
+    assert without_tools is not with_tools
+    assert without_tools.tools_enabled is False
+    assert with_tools.tools_enabled is True

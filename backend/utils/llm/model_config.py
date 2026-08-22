@@ -148,6 +148,27 @@ MODEL_QOS_PROFILES: Dict[str, Dict[str, Tuple[str, str]]] = {
 # every profile's OpenAI routes locked to the two-tier map) — this is an
 # opt-in-only private variant, not a shipped profile, so it must not be swept
 # into those invariant checks.
+#
+# IMPORTANT — MCP tool access gate (fixed 22.08, see lane2-log.md ~22:xx):
+# docs/ask-claude-bridge.md previously documented "the bridge boundary is the
+# feature name — only chat_responses ever resolves to provider=='claude-bridge'"
+# as the thing that keeps MCP tools out of background/ambient-transcript
+# processing. That was true when it was written (13:07) and became FALSE the
+# moment conv_discard/conv_folder/the memory pipeline were added below (20:47-
+# 21:35) — the bridge is a single undifferentiated HTTP endpoint
+# (ask_claude_bridge.py) that can't tell which feature is calling it, so every
+# feature routed to 'claude-bridge' got the SAME MCP tool access as
+# chat_responses. That silently violated Igor's 22.08 decision ("инструменты —
+# только из явного канала команд, фоновая транскрибция — только данные").
+# _BRIDGE_TOOLS_FEATURES below is the real gate now: get_route_options() sets
+# options['tools_enabled'] from it, threaded through
+# providers.get_or_create_claude_bridge_llm() -> ClaudeBridgeChatModel ->
+# the /ask payload -> ask_claude_bridge.py's build_claude_cmd(), which only
+# attaches --mcp-config/--allowedTools when tools_enabled is True. Every other
+# claude-bridge feature (all background transcript/memory postprocessing) gets
+# tools_enabled=False — no MCP servers loaded at all for that call.
+_BRIDGE_TOOLS_FEATURES = {'chat_responses'}
+
 CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     **_TWO_TIER_MODEL_PROFILE,
     'chat_responses': ('sonnet', 'claude-bridge'),
@@ -289,6 +310,8 @@ def get_route_options(feature: str, model: str, provider: str) -> Dict[str, obje
         # Structured-output features use .with_structured_output(), which routes through
         # Completions.parse() and rejects thinking_budget (issue #7898).
         options['thinking_budget'] = 0
+    if provider == 'claude-bridge':
+        options['tools_enabled'] = feature_wants_bridge_tools(feature)
     return options
 
 
@@ -326,6 +349,16 @@ def supports_cache_retention(model: str) -> bool:
     # breakpoint) rather than the legacy prompt_cache_retention field. Sending
     # both contracts in the same request is rejected by the provider.
     return bool(model) and not model.startswith('gpt-5.6') and model.startswith(_CACHE_RETENTION_MODEL_PREFIXES)
+
+
+def feature_wants_bridge_tools(feature: str) -> bool:
+    """Whether this feature is allowed MCP tool access when routed over claude-bridge.
+
+    Only the explicit chat channel (chat_responses) qualifies — every other
+    claude-bridge feature is background/ambient transcript processing and must
+    stay tool-free. See the comment above CLAUDE_BRIDGE_PROFILE.
+    """
+    return feature in _BRIDGE_TOOLS_FEATURES
 
 
 def is_structured_output_feature(feature: str) -> bool:

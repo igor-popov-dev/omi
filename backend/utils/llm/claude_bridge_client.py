@@ -7,7 +7,7 @@ the ``BaseChatModel`` adapter so ``utils.llm.clients.get_llm()`` can route a fea
 any other provider — see PLAN.md §4: this glue is intentionally private and never goes upstream.
 
 Bridge contract:
-    POST {base_url}/ask {"question": str, "context": str, "model": str}
+    POST {base_url}/ask {"question": str, "context": str, "model": str, "tools_enabled": bool}
     -> text/event-stream, "data: <json>\\n\\n" lines:
          {"type": "delta", "text": "..."}  (may arrive as a single chunk today)
          {"type": "done", "text": "<full response>"}
@@ -85,6 +85,11 @@ class ClaudeBridgeChatModel(BaseChatModel):
     base_url: str
     model_name: str
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+    # Gates MCP tool access on the bridge side — see model_config.py's
+    # CLAUDE_BRIDGE_PROFILE comment. Default False: a construction site that
+    # forgets to set this explicitly gets the safe, tool-free behavior. Only
+    # the explicit chat channel (chat_responses) should ever pass True.
+    tools_enabled: bool = False
     # Test-only hook: inject an httpx.MockTransport to avoid a real bridge process,
     # matching this repo's convention for HTTP-client unit tests (see
     # tests/unit/test_llm_gateway_openai_provider.py).
@@ -102,7 +107,12 @@ class ClaudeBridgeChatModel(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         question, context = _messages_to_question_and_context(messages)
-        payload: Dict[str, Any] = {'question': question, 'context': context, 'model': self.model_name}
+        payload: Dict[str, Any] = {
+            'question': question,
+            'context': context,
+            'model': self.model_name,
+            'tools_enabled': self.tools_enabled,
+        }
 
         text_parts: List[str] = []
         with httpx.Client(timeout=self.timeout_seconds, transport=self.transport) as client:

@@ -69,7 +69,33 @@ def test_invoke_sends_question_context_and_model_in_payload():
     request = seen_requests[0]
     assert request.url.path == '/ask'
     body = json.loads(request.content)
-    assert body == {'question': 'what time is it', 'context': 'some context', 'model': 'sonnet'}
+    assert body == {
+        'question': 'what time is it',
+        'context': 'some context',
+        'model': 'sonnet',
+        'tools_enabled': False,
+    }
+
+
+def test_invoke_sends_tools_enabled_true_when_constructed_with_it():
+    seen_requests: list[httpx.Request] = []
+    events = [{'type': 'done', 'text': 'ok'}]
+    model = ClaudeBridgeChatModel(
+        base_url='http://bridge.test',
+        model_name='sonnet',
+        tools_enabled=True,
+        transport=_fake_bridge(events, seen_requests),
+    )
+
+    model.invoke([HumanMessage(content='what time is it')])
+
+    body = json.loads(seen_requests[0].content)
+    assert body['tools_enabled'] is True
+
+
+def test_tools_enabled_defaults_to_false():
+    model = ClaudeBridgeChatModel(base_url='http://bridge.test', model_name='sonnet')
+    assert model.tools_enabled is False
 
 
 def test_invoke_reports_deltas_to_run_manager_callback():
