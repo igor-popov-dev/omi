@@ -4,6 +4,7 @@
 /// LIFECYCLE: permanent
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,12 +14,9 @@ import 'package:omi/services/account_cutover/account_cutover_gate.dart';
 import 'package:omi/services/account_cutover/account_cutover_runtime.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 
-class AccountCutoverBlockingGate extends StatelessWidget {
-  const AccountCutoverBlockingGate({
-    super.key,
-    this.productBuilder,
-    this.child,
-  }) : assert(productBuilder != null || child != null, 'productBuilder or child is required');
+class AccountCutoverBlockingGate extends StatefulWidget {
+  const AccountCutoverBlockingGate({super.key, this.productBuilder, this.child})
+      : assert(productBuilder != null || child != null, 'productBuilder or child is required');
 
   /// Preferred: built only while product traffic is allowed.
   final WidgetBuilder? productBuilder;
@@ -30,25 +28,66 @@ class AccountCutoverBlockingGate extends StatelessWidget {
   static final Uri _playStoreUrl = Uri.parse('https://play.google.com/store/apps/details?id=com.friend.ios');
 
   @override
+  State<AccountCutoverBlockingGate> createState() => _AccountCutoverBlockingGateState();
+}
+
+class _AccountCutoverBlockingGateState extends State<AccountCutoverBlockingGate> {
+  // While a fence is on screen, nothing else in the app re-fetches the cutover
+  // control (product traffic is blocked), so without this timer the fence
+  // could only ever clear on an app lifecycle event. Poll so a fence caused by
+  // a transient control-plane outage lifts on its own — and a real migration
+  // fence lifts as soon as the migration completes.
+  Timer? _fenceRefreshTimer;
+  bool _refreshInFlight = false;
+
+  static const _fenceRefreshInterval = Duration(seconds: 30);
+
+  void _syncFenceRefreshTimer(bool fenceVisible) {
+    if (fenceVisible && _fenceRefreshTimer == null) {
+      _fenceRefreshTimer = Timer.periodic(_fenceRefreshInterval, (_) async {
+        if (_refreshInFlight) return;
+        _refreshInFlight = true;
+        try {
+          await AccountCutoverRuntime.instance.refresh();
+        } finally {
+          _refreshInFlight = false;
+        }
+      });
+    } else if (!fenceVisible && _fenceRefreshTimer != null) {
+      _fenceRefreshTimer!.cancel();
+      _fenceRefreshTimer = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _fenceRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: AccountCutoverRuntime.instance,
       builder: (context, _) {
         final runtime = AccountCutoverRuntime.instance;
         final decision = runtime.decision;
-        if (decision == AccountCutoverGateDecision.allowProductTraffic) {
-          return productBuilder?.call(context) ?? child!;
+        final fenceVisible = decision != AccountCutoverGateDecision.allowProductTraffic;
+        _syncFenceRefreshTimer(fenceVisible);
+        if (!fenceVisible) {
+          return widget.productBuilder?.call(context) ?? widget.child!;
         }
 
         return AccountCutoverBlockingView(
           decision: decision,
           strandedNewData: runtime.control.strandedNewData,
-          appStoreUrl: _appStoreUrl,
-          playStoreUrl: _playStoreUrl,
-          // Only offer a manual way out when the server has never actually
-          // confirmed a fenced state for this owner — e.g. an unreachable
-          // self-host backend, not a real migration in progress.
-          onSkipUnresolvedFence: runtime.hasAuthoritativeControl ? null : runtime.skipUnresolvedFence,
+          appStoreUrl: AccountCutoverBlockingGate._appStoreUrl,
+          playStoreUrl: AccountCutoverBlockingGate._playStoreUrl,
+          // Offer a manual way out unless the server itself has confirmed a
+          // fenced state for this owner. A fence synthesized from
+          // unavailability (unreachable self-host backend, a blown refresh
+          // after the server last said "allow") always keeps the escape hatch.
+          onSkipUnresolvedFence: runtime.fenceIsConfirmedByServer ? null : runtime.skipUnresolvedFence,
         );
       },
     );
@@ -100,20 +139,12 @@ class AccountCutoverBlockingView extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      forceUpgrade ? Icons.system_update : Icons.hourglass_top,
-                      color: Colors.white,
-                      size: 36,
-                    ),
+                    Icon(forceUpgrade ? Icons.system_update : Icons.hourglass_top, color: Colors.white, size: 36),
                     const SizedBox(height: 16),
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 12),
                     Text(

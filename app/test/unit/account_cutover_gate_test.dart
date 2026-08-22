@@ -252,18 +252,99 @@ void main() {
     final runtime = AccountCutoverRuntime.instance;
     final pending = Completer<AccountCutoverFetchResult>();
     unawaited(
-        runtime.bindAuthenticatedOwner('owner-a', client: AccountCutoverControlClient(fetch: () => pending.future)));
+      runtime.bindAuthenticatedOwner('owner-a', client: AccountCutoverControlClient(fetch: () => pending.future)),
+    );
     expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
 
     expect(runtime.skipUnresolvedFence(), isTrue);
     expect(runtime.decision, AccountCutoverGateDecision.allowProductTraffic);
 
     final fenced = AccountCutoverControl.fromJson(
-        _validControlJson(state: 'migrating', clientAction: 'migration_maintenance', productTrafficAllowed: false));
+      _validControlJson(state: 'migrating', clientAction: 'migration_maintenance', productTrafficAllowed: false),
+    );
     pending.complete(AccountCutoverFetchResult.success(fenced));
     await Future<void>.delayed(Duration.zero);
     expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
 
+    expect(runtime.skipUnresolvedFence(), isFalse);
+    expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
+  });
+
+  test('a transport blip after an authoritative allow does NOT fence (stays on last-known-good)', () async {
+    final runtime = AccountCutoverRuntime.instance;
+    final legacy = AccountCutoverControl.fromJson(_validControlJson(accountGeneration: 5));
+    var fetches = 0;
+    final client = AccountCutoverControlClient(
+      fetch: () async {
+        fetches++;
+        if (fetches == 1) return AccountCutoverFetchResult.success(legacy);
+        return const AccountCutoverFetchResult.transportFailure();
+      },
+    );
+
+    await runtime.bindAuthenticatedOwner('owner-a', client: client);
+    expect(runtime.decision, AccountCutoverGateDecision.allowProductTraffic);
+
+    // Live incident regression: one timed-out control refresh (PMTU-black-holed
+    // VPN) used to synthesize a maintenance fence with no exit, while the
+    // server kept answering legacy/none the whole time.
+    await runtime.refresh(client: client);
+    expect(runtime.decision, AccountCutoverGateDecision.allowProductTraffic);
+    expect(runtime.control.accountGeneration, 5);
+    expect(runtime.fenceIsConfirmedByServer, isFalse);
+  });
+
+  test('an explicit 503 after an authoritative allow fences but keeps the escape hatch', () async {
+    final runtime = AccountCutoverRuntime.instance;
+    final legacy = AccountCutoverControl.fromJson(_validControlJson(accountGeneration: 5));
+    var fetches = 0;
+    final client = AccountCutoverControlClient(
+      fetch: () async {
+        fetches++;
+        if (fetches == 1) return AccountCutoverFetchResult.success(legacy);
+        return const AccountCutoverFetchResult.unavailable();
+      },
+    );
+
+    await runtime.bindAuthenticatedOwner('owner-a', client: client);
+    await runtime.refresh(client: client);
+
+    // The server explicitly failed closed — respect the fence...
+    expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
+    // ...but it never authoritatively said "migrating", so the fence is
+    // unconfirmed and the user can skip back to the last-known-good state.
+    expect(runtime.fenceIsConfirmedByServer, isFalse);
+    expect(runtime.skipUnresolvedFence(), isTrue);
+    expect(runtime.decision, AccountCutoverGateDecision.allowProductTraffic);
+    expect(runtime.control.accountGeneration, 5);
+  });
+
+  test('a server-confirmed fence refuses the escape hatch across outages', () async {
+    final runtime = AccountCutoverRuntime.instance;
+    final migrating = AccountCutoverControl.fromJson(
+      _validControlJson(
+        state: 'migrating',
+        accountGeneration: 9,
+        clientAction: 'migration_maintenance',
+        offlineQueueInstruction: 'quarantine',
+        productTrafficAllowed: false,
+        legacyWritesAllowed: false,
+      ),
+    );
+    var fetches = 0;
+    final client = AccountCutoverControlClient(
+      fetch: () async {
+        fetches++;
+        if (fetches == 1) return AccountCutoverFetchResult.success(migrating);
+        return const AccountCutoverFetchResult.transportFailure();
+      },
+    );
+
+    await runtime.bindAuthenticatedOwner('owner-a', client: client);
+    await runtime.refresh(client: client);
+
+    expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
+    expect(runtime.fenceIsConfirmedByServer, isTrue);
     expect(runtime.skipUnresolvedFence(), isFalse);
     expect(runtime.decision, AccountCutoverGateDecision.migrationMaintenance);
   });

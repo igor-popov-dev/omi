@@ -16,6 +16,7 @@ class AccountCutoverRuntime extends ChangeNotifier {
   final AccountCutoverGate _gate = const AccountCutoverGate();
   AccountCutoverControl _control = AccountCutoverControl.legacyDefault();
   bool _hasAuthoritative = false;
+  AccountCutoverControl? _lastAuthoritativeControl;
   String? _ownerUid;
   int _refreshEpoch = 0;
   bool _resolvedForOwner = true;
@@ -24,6 +25,22 @@ class AccountCutoverRuntime extends ChangeNotifier {
   bool get hasAuthoritativeControl => _hasAuthoritative;
   String? get ownerUid => _ownerUid;
   bool get isResolvedForOwner => _resolvedForOwner;
+
+  /// True only when the latest AUTHORITATIVE server projection itself decides
+  /// a fence. A fence synthesized from unavailability (503, timeouts, an
+  /// in-flight owner refresh) is NOT confirmed: it still fails closed, but the
+  /// user keeps an escape hatch and the blocking screen keeps retrying.
+  ///
+  /// This is the distinction the old `hasAuthoritativeControl` gate got wrong:
+  /// after one successful "legacy/allow" fetch, a single blown refresh
+  /// (transport blip, control-plane 503) produced a maintenance fence with no
+  /// exit at all — the server never actually said "migrating", but the skip
+  /// button was hidden because SOME authoritative projection had been seen.
+  bool get fenceIsConfirmedByServer {
+    final last = _lastAuthoritativeControl;
+    if (last == null) return false;
+    return _gate.decide(last) != AccountCutoverGateDecision.allowProductTraffic;
+  }
 
   AccountCutoverGateDecision get decision {
     // Owner transitions fail closed until the matching refresh settles so a
@@ -38,6 +55,9 @@ class AccountCutoverRuntime extends ChangeNotifier {
   void apply(AccountCutoverControl control, {bool authoritative = true}) {
     _control = control;
     _hasAuthoritative = authoritative;
+    if (authoritative) {
+      _lastAuthoritativeControl = control;
+    }
     _resolvedForOwner = true;
     notifyListeners();
   }
@@ -45,6 +65,7 @@ class AccountCutoverRuntime extends ChangeNotifier {
   void resetForTesting() {
     _control = AccountCutoverControl.legacyDefault();
     _hasAuthoritative = false;
+    _lastAuthoritativeControl = null;
     _ownerUid = null;
     _refreshEpoch = 0;
     _resolvedForOwner = true;
@@ -55,10 +76,7 @@ class AccountCutoverRuntime extends ChangeNotifier {
   /// A null/empty [uid] clears to legacy defaults. Owner changes immediately
   /// clear prior-account state and block product traffic until the in-flight
   /// refresh for that owner completes. Stale in-flight results are discarded.
-  Future<void> bindAuthenticatedOwner(
-    String? uid, {
-    AccountCutoverControlClient? client,
-  }) async {
+  Future<void> bindAuthenticatedOwner(String? uid, {AccountCutoverControlClient? client}) async {
     final epoch = ++_refreshEpoch;
     final normalized = (uid == null || uid.isEmpty) ? null : uid;
 
@@ -66,6 +84,7 @@ class AccountCutoverRuntime extends ChangeNotifier {
       _ownerUid = null;
       _control = AccountCutoverControl.legacyDefault();
       _hasAuthoritative = false;
+      _lastAuthoritativeControl = null;
       _resolvedForOwner = true;
       notifyListeners();
       return;
@@ -83,6 +102,9 @@ class AccountCutoverRuntime extends ChangeNotifier {
       final isGenuineOwnerSwitch = _ownerUid != null;
       _ownerUid = normalized;
       _hasAuthoritative = false;
+      // The prior owner's projection must not survive an owner change in any
+      // form — including as the "last known good" a skip could restore.
+      _lastAuthoritativeControl = null;
       _resolvedForOwner = false;
       if (isGenuineOwnerSwitch) {
         _control = AccountCutoverControl.unavailable();
@@ -110,18 +132,34 @@ class AccountCutoverRuntime extends ChangeNotifier {
 
   @visibleForTesting
   void applyFetchResult(AccountCutoverFetchResult result) {
+    final lastAuth = _lastAuthoritativeControl;
+    final lastAuthAllows = lastAuth != null && _gate.decide(lastAuth) == AccountCutoverGateDecision.allowProductTraffic;
     switch (result.kind) {
       case AccountCutoverFetchKind.success:
         _control = result.control!;
         _hasAuthoritative = true;
+        _lastAuthoritativeControl = result.control;
         break;
       case AccountCutoverFetchKind.unavailable:
-        _control = AccountCutoverControl.unavailable(
-          retaining: _hasAuthoritative ? _control : null,
-        );
+        // The server explicitly failed closed — respect it and fence. When the
+        // last authoritative word was "allow", the fence is unconfirmed: the
+        // blocking screen offers skip and keeps retrying (see
+        // fenceIsConfirmedByServer).
+        _control = AccountCutoverControl.unavailable(retaining: _hasAuthoritative ? _control : null);
         break;
       case AccountCutoverFetchKind.transportFailure:
-        if (_hasAuthoritative) {
+        if (lastAuthAllows) {
+          // The control plane is unreachable, but its last authoritative word
+          // for this owner was "allow". A transport blip is not evidence of a
+          // migration — stay on the last-known-good projection instead of
+          // synthesizing a maintenance fence with no exit. (Live incident:
+          // one timed-out refresh over a PMTU-black-holed VPN threw the app
+          // into a permanent fence while the server kept answering
+          // legacy/none.)
+          _control = lastAuth;
+        } else if (_hasAuthoritative) {
+          // Last authoritative state was itself a fence (migrating/new/...):
+          // keep failing closed across the outage.
           _control = AccountCutoverControl.unavailable(retaining: _control);
         } else if (_gate.decide(_control) == AccountCutoverGateDecision.allowProductTraffic) {
           // No authoritative projection yet (bridge rollout): stay legacy-compatible.
@@ -132,14 +170,15 @@ class AccountCutoverRuntime extends ChangeNotifier {
     }
   }
 
-  /// Self-host escape hatch for a stuck fail-closed screen: only takes effect
-  /// when the server has NEVER returned an authoritative projection for this
-  /// owner (unreachable backend, broken bootstrap fetch). Never overrides a
-  /// confirmed migrating/new/rolled_back_stranded state — once a real
-  /// projection has been seen, this is a no-op and the fence holds.
+  /// Self-host escape hatch for a stuck fail-closed screen: takes effect only
+  /// while the fence is UNCONFIRMED — the server has never authoritatively
+  /// decided a fence for this owner (unreachable backend, broken bootstrap
+  /// fetch, or a blown refresh after the server last said "allow"). Never
+  /// overrides a confirmed migrating/new/rolled_back_stranded state — once
+  /// the server itself has fenced, this is a no-op and the fence holds.
   bool skipUnresolvedFence() {
-    if (_hasAuthoritative) return false;
-    _control = AccountCutoverControl.legacyDefault();
+    if (fenceIsConfirmedByServer) return false;
+    _control = _lastAuthoritativeControl ?? AccountCutoverControl.legacyDefault();
     _resolvedForOwner = true;
     notifyListeners();
     return true;
