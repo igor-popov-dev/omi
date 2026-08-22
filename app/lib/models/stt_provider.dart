@@ -1,5 +1,6 @@
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import 'package:omi/env/env.dart';
 import 'package:omi/models/stt_response_schema.dart';
 
 enum SttProvider {
@@ -518,7 +519,13 @@ class SttProviderConfig {
         break;
 
       case SttProvider.custom:
-        config['url'] = 'http://127.0.0.1:8080/inference';
+        // Self-host patch: a saved config with provider=custom but no explicit
+        // url (e.g. never typed one in, relying on whatever was pre-filled)
+        // used to silently resolve here to an unreachable loopback address
+        // instead of our STT router, even on a build with a baked-in default.
+        // See preferences.dart's `customSttConfig` getter for the sibling case
+        // (no saved config at all).
+        config['url'] = Env.defaultSttUrl.isNotEmpty ? Env.defaultSttUrl : 'http://127.0.0.1:8080/inference';
         config['audio_field_name'] = 'file';
         config['params'] = {'language': lang};
         break;
