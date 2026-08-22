@@ -124,6 +124,12 @@ MODEL_QOS_PROFILES: Dict[str, Dict[str, Tuple[str, str]]] = {
 # stays on 'openai': it calls .with_structured_output() (conversation_processing.py),
 # which the bridge can't serve.
 #
+# Also rerouted: conv_folder (conversation_folder.py) — same shape again, a single
+# `prompt | get_llm('conv_folder') | folder_parser` chain over a PydanticOutputParser,
+# no .with_structured_output(). Under offline OpenAI this silently leaves every new
+# conversation in the default folder (assign_conversation_to_folder swallows the 401
+# into a plain error string, see validate_folder_assignment's fallback path).
+#
 # Also rerouted: the memory pipeline (memories.py, working_observations.py,
 # promotion_routes.py/promotion_proposals.py). Same reasoning as above — every one of
 # these six calls get_llm(feature).invoke(...) and parses the plain-text reply with a
@@ -149,6 +155,7 @@ CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     'conv_structure': ('sonnet', 'claude-bridge'),
     'conv_action_items': ('sonnet', 'claude-bridge'),
     'conv_app_result': ('sonnet', 'claude-bridge'),
+    'conv_folder': ('sonnet', 'claude-bridge'),
     'memories': ('sonnet', 'claude-bridge'),
     'learnings': ('sonnet', 'claude-bridge'),
     'memory_category': ('sonnet', 'claude-bridge'),

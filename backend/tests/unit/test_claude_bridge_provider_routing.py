@@ -60,6 +60,13 @@ def test_claude_bridge_profile_routes_memory_pipeline_features():
         assert profile[flex_feature][1] == 'openai'
 
 
+def test_claude_bridge_profile_routes_conv_folder():
+    # conv_folder (assign_conversation_to_folder) is a single
+    # `prompt | get_llm('conv_folder') | folder_parser` chain, same PydanticOutputParser
+    # shape as the conversation-finalize features above — works over the bridge unchanged.
+    assert CLAUDE_BRIDGE_PROFILE['conv_folder'] == ('sonnet', 'claude-bridge')
+
+
 def test_claude_bridge_profile_leaves_shipped_profiles_untouched():
     assert MODEL_QOS_PROFILES['premium']['chat_responses'] == ('gpt-5.6-luna', 'openai')
     assert MODEL_QOS_PROFILES['max']['chat_responses'] == ('gpt-5.6-luna', 'openai')
