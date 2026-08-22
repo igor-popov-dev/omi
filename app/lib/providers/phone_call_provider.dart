@@ -18,6 +18,7 @@ import 'package:omi/backend/schema/phone_call.dart';
 import 'package:omi/backend/schema/transcript_segment.dart';
 import 'package:omi/models/audio_route.dart';
 import 'package:omi/services/auth/auth_token_result.dart';
+import 'package:omi/services/capture/capture_controller.dart';
 import 'package:omi/services/phone_call_service.dart';
 import 'package:omi/utils/logger.dart';
 
@@ -108,6 +109,14 @@ class PhoneCallProvider extends ChangeNotifier {
     _nativeService.onSpeakerConfirmed = _onSpeakerConfirmed;
     _nativeService.startListening();
     _initialLoad = loadVerifiedNumbers();
+  }
+
+  // Set from main.dart via a ChangeNotifierProxyProvider (same wiring DeviceProvider/
+  // SpeechProfileProvider use to reach a sibling provider) so this file doesn't have to
+  // walk the widget tree via context to pause the phone's own ambient recording.
+  CaptureController? _captureController;
+  void setCaptureController(CaptureController controller) {
+    _captureController = controller;
   }
 
   // ************************************************
@@ -345,6 +354,9 @@ class PhoneCallProvider extends ChangeNotifier {
       _callStartTime = DateTime.now();
       _startDurationTimer();
       _connectTranscriptionSocket();
+      // Voximplant audio comes from the cloud leg, but the phone's ambient mic
+      // keeps recording the same call unless paused — see setCaptureController above.
+      unawaited(_captureController?.pauseForInAppCall());
       PlatformManager.instance.analytics.phoneCallConnected();
     } else if (state == PhoneCallState.ended || state == PhoneCallState.failed) {
       _onCallEnded();
@@ -390,6 +402,9 @@ class PhoneCallProvider extends ChangeNotifier {
     _callState = PhoneCallState.ended;
     _stopDurationTimer();
     _disconnectTranscriptionSocket();
+    // Covers every exit that reaches a state change (normal hangup, remote hangup,
+    // connection failure) — a no-op if the call never made it to `active`/wasn't paused.
+    unawaited(_captureController?.resumeAfterInAppCall());
     _tokenRefreshTimer?.cancel();
     _tokenRefreshTimer = null;
     _transcriptionStatus = TranscriptionStatus.idle;
@@ -652,6 +667,9 @@ class PhoneCallProvider extends ChangeNotifier {
     _sessionGeneration++;
     _sessionEnabled = false;
     if (_callState != PhoneCallState.idle) unawaited(_nativeService.endCall());
+    // _nativeService.endCall() is fire-and-forget and _sessionEnabled is already false,
+    // so the state-change path above (_onCallEnded) won't run — resume explicitly.
+    unawaited(_captureController?.resumeAfterInAppCall());
     _stopDurationTimer();
     _disconnectTranscriptionSocket();
     _tokenRefreshTimer?.cancel();
