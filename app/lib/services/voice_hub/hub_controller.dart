@@ -23,6 +23,11 @@
 //      source's own comment ("A5 builds the seam only") describes an
 //      earlier PR; by the version read for this port A7c was already
 //      implemented here, so it is ported in full.
+//   6. The PR-C tool-catalog loop (`fetchTools`, `HubSessionSpec.tools`,
+//      lane5.md §"ГЛАВНЫЙ ПРИОРИТЕТ 22.08" step 3): fetched fresh at each
+//      warm, generation-checked exactly like the token mint (a
+//      `teardownSession()` that straddles the fetch discards the warm), a
+//      fetch failure warms tool-less rather than failing the session.
 //
 // Three scope cuts vs. the TS source, all forced by decisions already made
 // in sibling files (NOT re-litigated here) and all documented at their cut
@@ -32,12 +37,6 @@
 //     Gemini lane is the only provider (`HubProvider` in `hub_session.dart`
 //     is a single-value enum), so there is nothing to fail over TO. A mint
 //     failure just propagates.
-//   * The PR-C tool loop (`fetchTools`, `HubSessionSpec.tools`) — cut
-//     because `BaseHubSession` (`hub_session.dart`) itself has no `tools`
-//     seam yet (deferred until the hub declares a real tool, same as
-//     `gemini_hub_session.dart`'s empty-catalog setup frame). Inbound tool-
-//     call results are still relayed (`sendToolResult`) — only the outbound
-//     catalog assembly is cut.
 //   * The PR-B continuity seed (`fetchSeed`, `seedContext`,
 //     `knownSeedKeys`, `markSeedKeyProduced`, `refreshSeedContext`) — cut
 //     because it depends on a kernel/typed-conversation bridge that has no
@@ -120,12 +119,26 @@ class HubSessionSpec {
   final String token;
   final String instructions;
   final HubSessionEvents events;
-  const HubSessionSpec({required this.token, required this.instructions, required this.events});
+
+  /// The provider-neutral tool catalog this session should advertise (PR-C).
+  /// Empty when no `fetchTools` seam is wired or its fetch failed.
+  final List<VoiceToolDeclaration> tools;
+
+  const HubSessionSpec({
+    required this.token,
+    required this.instructions,
+    required this.events,
+    this.tools = const [],
+  });
 }
 
 typedef HubMintToken = Future<String> Function();
 typedef HubBuildInstructions = String Function();
 typedef HubCreateSession = HubSession Function(HubSessionSpec spec);
+
+/// Read the provider-neutral tool catalog the session should advertise
+/// (PR-C). Absent ⇒ no tools (today's default behavior, unchanged).
+typedef HubFetchTools = Future<List<VoiceToolDeclaration>> Function();
 
 // ---------------------------------------------------------------------------
 // MARK: - Internal errors (TS `HubWarmAbortedError` / `HubCircuitOpenError`)
@@ -169,6 +182,7 @@ class HubController {
   final HubCreateSession createSession;
   final HubClock clock;
   final int Function() now;
+  final HubFetchTools? fetchTools;
 
   HubController({
     this.events = const HubControllerEvents(),
@@ -177,6 +191,7 @@ class HubController {
     required this.createSession,
     HubClock? clock,
     int Function()? now,
+    this.fetchTools,
   })  : clock = clock ?? const DefaultHubClock(),
         now = now ?? _defaultNow;
 
@@ -297,11 +312,30 @@ class HubController {
       // discard the token.
       if (_warmGeneration != gen) throw HubWarmAbortedError();
 
+      // The tool catalog is host-derived. A fetch failure warms tool-less
+      // rather than failing the whole session — voice conversation still
+      // works, the model just can't call a tool this session.
+      final fetch = fetchTools;
+      List<VoiceToolDeclaration> tools = const [];
+      if (fetch != null) {
+        try {
+          tools = await fetch();
+        } catch (_) {
+          tools = const [];
+        }
+      }
+
+      // The catalog fetch is another await point — re-check the generation
+      // so a teardown that straddled it discards this warm instead of
+      // installing a socket on a now-torn-down hub, same as the mint check.
+      if (_warmGeneration != gen) throw HubWarmAbortedError();
+
       final instructions = buildInstructions();
       final newSession = createSession(HubSessionSpec(
         token: token,
         instructions: instructions,
         events: _sessionEvents(),
+        tools: tools,
       ));
       session = newSession;
 

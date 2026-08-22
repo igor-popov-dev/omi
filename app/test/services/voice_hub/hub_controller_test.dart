@@ -1,14 +1,16 @@
 // A 1:1-in-spirit port of the desktop (Electron/TS) test suite at
 // `desktop/windows/src/renderer/src/lib/voice/hub/hubController.test.ts`.
 // Test names are kept verbatim where they exist upstream. The upstream
-// `describe` blocks for cross-provider failover (item D) and the PR-C tool
-// loop are NOT ported — `hub_controller.dart`'s file header documents both
-// cuts (no second provider to fail over to; no `tools` seam on
-// `BaseHubSession` yet). Everything else — warm/idempotent ensureWarm, the
-// warm-wait buffer, the four turn primitives, requestSessionRefresh, the M1
-// teardown race, the connect/error surface, and the full A7c reconnect
-// policy (strike budget + circuit breaker + idle-teardown survival) — is
-// covered here.
+// `describe` block for cross-provider failover (item D) is NOT ported —
+// `hub_controller.dart`'s file header documents the cut (no second provider
+// to fail over to). The PR-C tool-catalog loop (`fetchTools`,
+// `HubSessionSpec.tools`) WAS cut for the same reason at the time, but is now
+// wired (lane5.md §"ГЛАВНЫЙ ПРИОРИТЕТ 22.08" step 3) — see its own group
+// below, mirroring the mint-step M1 teardown-race tests for the fetch await
+// point. Everything else — warm/idempotent ensureWarm, the warm-wait buffer,
+// the four turn primitives, requestSessionRefresh, the M1 teardown race, the
+// connect/error surface, and the full A7c reconnect policy (strike budget +
+// circuit breaker + idle-teardown survival) — is covered here.
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -186,11 +188,12 @@ class _Harness {
   int mintCalls = 0;
   int createCalls = 0;
   _FakeSession? _session;
+  List<VoiceToolDeclaration>? lastSpecTools;
   final _now = _NowBox(1000);
   final _FakeReconnectClock clock = _FakeReconnectClock();
   Future<String> Function() mintTokenImpl = () async => 'ek_token';
 
-  _Harness({String instructions = 'INSTRUCTIONS+CARD'}) {
+  _Harness({String instructions = 'INSTRUCTIONS+CARD', HubFetchTools? fetchTools}) {
     controller = HubController(
       events: log.events,
       buildInstructions: () => instructions,
@@ -200,11 +203,13 @@ class _Harness {
       },
       createSession: (spec) {
         createCalls += 1;
+        lastSpecTools = spec.tools;
         _session = _FakeSession(sid, spec.events);
         return _session!;
       },
       clock: clock,
       now: () => _now.value,
+      fetchTools: fetchTools,
     );
   }
 
@@ -267,6 +272,67 @@ void main() {
       expect(resolvedSid, sid);
       expect(h.mintCalls, 1);
       expect(h.createCalls, 1);
+    });
+  });
+
+  group('HubController — tool catalog (PR-C, lane5.md §"ГЛАВНЫЙ ПРИОРИТЕТ 22.08" step 3)', () {
+    const tool = VoiceToolDeclaration(name: 'ask_claude', description: 'd', parameters: {'type': 'object'});
+
+    test('fetches the catalog fresh at warm and passes it into HubSessionSpec.tools', () async {
+      var fetchCalls = 0;
+      final h = _Harness(fetchTools: () async {
+        fetchCalls += 1;
+        return [tool];
+      });
+      final p = h.controller.ensureWarm();
+      await _tick(); // past the mint await
+      await _tick(); // past the fetchTools await
+      h.session.connect();
+      await p;
+
+      expect(fetchCalls, 1);
+      expect(h.lastSpecTools, [tool]);
+    });
+
+    test('no fetchTools seam wired ⇒ tools stays empty (today\'s default, unchanged)', () async {
+      final h = _Harness();
+      final p = h.controller.ensureWarm();
+      await _tick();
+      h.session.connect();
+      await p;
+
+      expect(h.lastSpecTools, isEmpty);
+    });
+
+    test('a fetch failure warms tool-less rather than failing the whole session', () async {
+      final h = _Harness(fetchTools: () async => throw StateError('catalog unavailable'));
+      final p = h.controller.ensureWarm();
+      await _tick();
+      await _tick();
+      h.session.connect();
+      final resolvedSid = await p;
+
+      expect(resolvedSid, sid);
+      expect(h.createCalls, 1);
+      expect(h.lastSpecTools, isEmpty);
+    });
+
+    test('a teardownSession during the tool fetch discards the warm — no orphaned session is installed', () async {
+      final resolver = Completer<List<VoiceToolDeclaration>>();
+      final h = _Harness(fetchTools: () => resolver.future);
+      final p = h.controller.ensureWarm();
+      unawaited(p.catchError((Object _) => sid));
+      await _tick(); // past the mint await
+      await _tick(); // parked on the fetchTools await, before any session is constructed
+
+      h.controller.teardownSession();
+      resolver.complete([tool]); // the in-flight fetch finally resolves…
+      await _tick();
+
+      // …and the warm bails BEFORE constructing a session.
+      expect(h.createCalls, 0);
+      expect(h.controller.isAvailable(), isFalse);
+      await expectLater(p, throwsA(isA<HubWarmAbortedError>()));
     });
   });
 

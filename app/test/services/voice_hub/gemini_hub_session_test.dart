@@ -2,13 +2,13 @@
 // `desktop/windows/src/renderer/src/lib/voice/hub/geminiHubSession.test.ts`.
 // Test names/groupings are kept close to upstream where they apply.
 //
-// The upstream suite's tool-catalog/sanitizer tests (`GeminiHubSession —
-// warm config` block beyond the base "no catalog wired" case, and the
-// cross-lane-isolation test against `OpenAiHubSession`) are NOT ported: per
-// `gemini_hub_session.dart`'s file header, this port has no `tools` seam at
-// all (design doc §3 defers it, and there is no OpenAI lane in this port to
-// begin with — design doc §3). Only the empty-catalog shape of the setup
-// frame is asserted here.
+// The upstream suite's tool-catalog test against a SECOND provider lane
+// (`OpenAiHubSession`, asserting the sanitizer doesn't leak cross-lane) is
+// NOT ported: design doc §3, there is no OpenAI lane in this port at all.
+// The catalog-wiring tests themselves (empty + non-empty, sanitized
+// `parameters`) ARE ported below, now that `tools` is a real seam
+// (lane5.md §"ГЛАВНЫЙ ПРИОРИТЕТ 22.08" step 3) — `gemini_tool_schema_test.dart`
+// covers `sanitizeGeminiToolSchema` itself in isolation.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -123,7 +123,7 @@ class _Harness {
 
   _Harness._(this.session, this.socketFactory, this.player);
 
-  factory _Harness({HubClock? clock, bool freeFormMode = false}) {
+  factory _Harness({HubClock? clock, bool freeFormMode = false, List<VoiceToolDeclaration> tools = const []}) {
     final socketFactory = _RecordingSocketFactory();
     final player = _FakeVoicePlayer();
     late final _Harness h;
@@ -135,6 +135,7 @@ class _Harness {
       clock: clock,
       mintSessionId: () => 'sess-1',
       freeFormMode: freeFormMode,
+      tools: tools,
       events: HubSessionEvents(
         onConnected: (sid) => h.connected.add(sid),
         onError: (message, retryable, closeCode) =>
@@ -200,14 +201,51 @@ void main() {
       final aad = ric['automaticActivityDetection'] as Map<String, dynamic>;
       expect(aad['disabled'], isTrue);
       expect((setup['generationConfig'] as Map<String, dynamic>)['responseModalities'], ['AUDIO']);
-      // No catalog seam exists in this port ⇒ an empty (but faithful)
-      // functionDeclarations frame, always.
+      // No tool passed to this harness ⇒ an empty (but faithful)
+      // functionDeclarations frame.
       expect(setup['tools'], [
         {'functionDeclarations': <Map<String, dynamic>>[]}
       ]);
       h.socketFactory.message(jsonEncode({'setupComplete': <String, dynamic>{}}));
       await Future<void>.value();
       expect(h.connected, ['sess-1']);
+    });
+
+    test('projects an injected tool catalog into functionDeclarations, schema sanitized', () async {
+      final h = _Harness(tools: const [
+        VoiceToolDeclaration(
+          name: 'ask_claude',
+          description: 'ask the smart model',
+          parameters: {
+            'type': 'object',
+            'properties': {
+              'question': {'type': 'string', 'additionalProperties': false},
+            },
+            'required': ['question'],
+            'additionalProperties': false, // must be stripped — Gemini rejects it
+          },
+        ),
+      ]);
+      await _armConnection(h);
+      h.socketFactory.open();
+      final setup = h.socket.frames()[0]['setup'] as Map<String, dynamic>;
+      expect(setup['tools'], [
+        {
+          'functionDeclarations': [
+            {
+              'name': 'ask_claude',
+              'description': 'ask the smart model',
+              'parameters': {
+                'type': 'object',
+                'properties': {
+                  'question': {'type': 'string'}, // additionalProperties stripped
+                },
+                'required': ['question'],
+              },
+            },
+          ],
+        },
+      ]);
     });
   });
 

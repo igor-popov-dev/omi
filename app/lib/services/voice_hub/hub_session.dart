@@ -22,17 +22,17 @@
 // `HubSocket`/`HubClock`/`VoicePlayer` stay injectable so the turn
 // choreography below is still unit-testable with fakes and no network.
 //
-// Two deliberate scope cuts vs. the TS source, both explained in the design
-// doc and NOT filled in with placeholders here:
+// One deliberate scope cut vs. the TS source, explained in the design doc
+// and NOT filled in with a placeholder here:
 //   * No `sinkId` / output-device routing. That is a Web Audio concept
 //     (`AudioContext.setSinkId`); the Android player is a native
 //     `AudioTrack` behind a platform channel (design doc §7, step 3, not yet
 //     written) with no equivalent seam yet.
-//   * No `tools` / tool-catalog assembly. Design doc §3: the Gemini tool
-//     schema sanitizer is deferred until the hub actually declares a tool.
-//     Inbound tool-call REQUESTS from the provider are still modeled
-//     (`HubSessionEvents.onToolRequest`) — only the OUTBOUND declaration
-//     catalog is cut.
+//
+// `tools` (TS `VoiceToolDeclaration[]`, PR-C) WAS cut here (empty catalog
+// only) but is now wired — lane5.md §"ГЛАВНЫЙ ПРИОРИТЕТ 22.08" step 3
+// (`ask_claude`, the first real tool). See `BaseHubSession.tools` below and
+// `gemini_hub_session.dart`'s `sessionSetupFrame()`.
 //
 // Dart-vs-TS visibility note: TS's `protected` members (`socket`, `isOpen`,
 // `activeIdentity`, `pendingCommit`, `instructions`, `token`, `send`,
@@ -114,9 +114,21 @@ class HubEventIdentity {
   String toString() => 'HubEventIdentity(turnId: $turnId, responseId: $responseId)';
 }
 
+/// A provider-neutral tool declaration the session should advertise (TS
+/// `VoiceToolDeclaration`, `shared/types.ts`). `parameters` is plain JSON
+/// Schema — a Gemini-specific lane projects it onto Gemini's OpenAPI-3.0
+/// `Schema` subset itself (`gemini_tool_schema.dart`), so this type stays
+/// provider-agnostic.
+class VoiceToolDeclaration {
+  final String name;
+  final String description;
+  final Map<String, dynamic> parameters;
+
+  const VoiceToolDeclaration({required this.name, required this.description, required this.parameters});
+}
+
 /// A provider tool-call request surfaced to the host. Tool EXECUTION is a
-/// host concern; the lane only relays the request (see file header — the
-/// outbound declaration catalog is not modeled yet).
+/// host concern; the lane only relays the request.
 class HubToolCallRequest {
   final String name;
   final String callId;
@@ -439,6 +451,12 @@ abstract class BaseHubSession implements HubSession {
   final Duration warmTimeout;
   final VoicePlayerFactory createPlayer;
 
+  /// Subclass-facing (see file header): the provider-neutral tool catalog
+  /// this session advertises (TS `BaseHubSession.tools`, PR-C). Host-derived
+  /// and fetched fresh by `HubController` at each warm — empty when no tool
+  /// is wired, same as before this seam existed.
+  final List<VoiceToolDeclaration> tools;
+
   /// Subclass-facing (see file header): the live socket, or null when torn
   /// down / not yet connected.
   HubSocket? socket;
@@ -476,6 +494,7 @@ abstract class BaseHubSession implements HubSession {
     VoiceSessionId Function()? mintSessionId,
     this.idleRelease = hubIdleReleaseDuration,
     this.warmTimeout = hubWarmTimeoutDuration,
+    this.tools = const [],
   })  : socketFactory = socketFactory ?? defaultHubSocketFactory,
         createPlayer = playerFactory,
         clock = clock ?? const DefaultHubClock(),

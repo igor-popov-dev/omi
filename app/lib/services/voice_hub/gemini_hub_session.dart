@@ -47,21 +47,18 @@
 // controller, or any UI yet (later steps of the same priority list:
 // start/stop contract + foreground service, `ask_claude` tool, UI toggle).
 //
-// Two scope cuts carried over from `hub_session.dart` (already decided
-// there, not re-litigated here):
-//   * No tool-catalog assembly. The TS source projects a per-instance
-//     `tools` list through `sanitizeGeminiToolSchema` into
-//     `functionDeclarations`; `BaseHubSession` here has no `tools` seam
-//     (design doc §3 — deferred until the hub declares a real tool), so
-//     this setup frame always emits the same faithful EMPTY catalog
-//     (`tools: [{functionDeclarations: []}]`) the TS test asserts for the
-//     "no catalog wired" case. Inbound tool-call requests from the
-//     provider are still fully modeled (`emitToolRequest`) — only the
-//     outbound declaration list is cut, and `sanitizeGeminiToolSchema`
-//     (`geminiToolSchema.ts`) is not ported since nothing calls it yet.
-//   * No `setSinkId` — not a TS concern in this file to begin with.
+// Tool-catalog assembly (lane5.md §"ГЛАВНЫЙ ПРИОРИТЕТ 22.08" step 3): the TS
+// source projects `BaseHubSession.tools` through `sanitizeGeminiToolSchema`
+// into `functionDeclarations` on every setup frame — ported verbatim below.
+// `tools` is still just a plain injected list (see `hub_session.dart`); this
+// file only owns the Gemini-specific wire projection.
+//
+// One scope cut carried over from `hub_session.dart` (already decided
+// there, not re-litigated here): no `setSinkId` — not a TS concern in this
+// file to begin with.
 import 'dart:convert';
 
+import 'gemini_tool_schema.dart';
 import 'hub_session.dart';
 
 /// `desktop/windows/.../voice/tokenMint.ts` `GEMINI_LIVE_MODEL`, copied
@@ -80,6 +77,7 @@ class GeminiHubSession extends BaseHubSession {
     super.mintSessionId,
     super.idleRelease,
     super.warmTimeout,
+    super.tools,
     this.freeFormMode = false,
   });
 
@@ -146,7 +144,15 @@ class GeminiHubSession extends BaseHubSession {
           ],
         },
         'tools': [
-          {'functionDeclarations': const <Map<String, dynamic>>[]},
+          {
+            'functionDeclarations': tools
+                .map((t) => {
+                      'name': t.name,
+                      'description': t.description,
+                      'parameters': sanitizeGeminiToolSchema(t.parameters),
+                    })
+                .toList(),
+          },
         ],
         'inputAudioTranscription': {},
         'outputAudioTranscription': {},
