@@ -143,6 +143,21 @@ MODEL_QOS_PROFILES: Dict[str, Dict[str, Tuple[str, str]]] = {
 # (utils/memory/promotion_flex.py), bypassing get_llm()/this profile entirely, so an
 # override here would be a no-op anyway.
 #
+# Also rerouted (lane7, 23.08): proactive_notification — the mentor's three-step
+# gate/generate/critic chain (utils/llm/proactive_notification.py). This one is the
+# exception to the "no .with_structured_output() over the bridge" rule stated above:
+# all three steps DO call it, so the reroute only became possible once
+# ClaudeBridgeChatModel grew a prompt-and-parse with_structured_output()
+# (claude_bridge_client.py). Under offline OpenAI the whole feature was dead — every
+# ambient conversation hit the gate, got an AuthenticationError, and
+# _process_mentor_proactive_notification swallowed it as `gate_failed`, so Igor never
+# saw a single proactive notification.
+#
+# It stays OUT of _BRIDGE_TOOLS_FEATURES on purpose (Igor's 22.08 decision, restated
+# for lane7): the proactive layer only *suggests* — it reads the ambient transcript
+# and writes a notification, and must never reach an MCP tool. Ambient audio the user
+# did not address to the assistant is exactly the input that must not be able to act.
+
 # Deliberately kept OUT of MODEL_QOS_PROFILES: that dict is the authorized
 # premium/max/byok enumeration guarded by test_omi_qos_tiers.py (exact key set,
 # every profile's OpenAI routes locked to the two-tier map) — this is an
@@ -183,6 +198,7 @@ CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     'memory_conflict': ('sonnet', 'claude-bridge'),
     'memory_l1': ('sonnet', 'claude-bridge'),
     'memory_l2': ('sonnet', 'claude-bridge'),
+    'proactive_notification': ('sonnet', 'claude-bridge'),
 }
 
 # Pinned features — (model, provider) fixed regardless of profile or env override.
