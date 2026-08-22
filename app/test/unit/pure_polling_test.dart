@@ -18,10 +18,7 @@ void main() {
     provider.enqueueError(Exception('connection refused'));
     provider.enqueueSuccess(SttTranscriptionResult(segments: [SttSegment(text: 'hi', start: 0, end: 1)]));
 
-    final socket = PurePollingSocket(
-      config: const AudioPollingConfig(minBufferSizeBytes: 1),
-      sttProvider: provider,
-    );
+    final socket = PurePollingSocket(config: const AudioPollingConfig(minBufferSizeBytes: 1), sttProvider: provider);
     final listener = _FakeListener();
     socket.setListener(listener);
 
@@ -51,13 +48,59 @@ void main() {
     expect(socket.bufferingSince, isNull);
   });
 
+  test('a null transcribe result (terminal HTTP failure) keeps the audio buffered too', () async {
+    final provider = _FakeSttProvider();
+    // SchemaBasedSttProvider returns null (not an exception) for a final
+    // non-200 — e.g. a rejected auth token or a misconfigured URL. This used
+    // to take the success path: the frames were dropped and bufferingSince
+    // was reset, so the audio window was lost with no offline indicator.
+    provider.enqueueNull();
+    provider.enqueueSuccess(SttTranscriptionResult(segments: [SttSegment(text: 'hi', start: 0, end: 1)]));
+
+    final socket = PurePollingSocket(config: const AudioPollingConfig(minBufferSizeBytes: 1), sttProvider: provider);
+    final listener = _FakeListener();
+    socket.setListener(listener);
+    await socket.connect();
+
+    socket.send(Uint8List.fromList([1, 2, 3]));
+    await socket.flushNow();
+
+    expect(listener.errors, isEmpty);
+    expect(socket.status, PureSocketStatus.connected);
+    expect(socket.isBuffering, isTrue);
+    expect(socket.consecutiveFailures, 1);
+    expect(socket.lastSuccessAt, isNull);
+
+    socket.send(Uint8List.fromList([4]));
+    await socket.flushNow();
+
+    // The retry saw the requeued audio plus what arrived since — nothing lost.
+    expect(provider.receivedCalls.last, [1, 2, 3, 4]);
+    expect(socket.isBuffering, isFalse);
+    expect(socket.lastSuccessAt, isNotNull);
+  });
+
+  test('a successful flush records lastSuccessAt as a positive liveness signal', () async {
+    final provider = _FakeSttProvider();
+    provider.enqueueSuccess(SttTranscriptionResult(segments: []));
+
+    final socket = PurePollingSocket(config: const AudioPollingConfig(minBufferSizeBytes: 1), sttProvider: provider);
+    socket.setListener(_FakeListener());
+    await socket.connect();
+
+    expect(socket.lastSuccessAt, isNull);
+    final before = DateTime.now();
+    socket.send(Uint8List.fromList([1]));
+    await socket.flushNow();
+
+    expect(socket.lastSuccessAt, isNotNull);
+    expect(socket.lastSuccessAt!.isBefore(before), isFalse);
+  });
+
   test('keeps retrying on every subsequent flush while the endpoint stays down', () async {
     final provider = _FakeSttProvider()..alwaysThrow(Exception('still down'));
 
-    final socket = PurePollingSocket(
-      config: const AudioPollingConfig(minBufferSizeBytes: 1),
-      sttProvider: provider,
-    );
+    final socket = PurePollingSocket(config: const AudioPollingConfig(minBufferSizeBytes: 1), sttProvider: provider);
     socket.setListener(_FakeListener());
     await socket.connect();
 
@@ -74,6 +117,58 @@ void main() {
       [1, 2, 3],
     ]);
     expect(socket.bufferedBytes, 3);
+  });
+
+  test('flushes at most maxFlushBytes per request and drains the backlog progressively', () async {
+    final provider = _FakeSttProvider();
+    provider.enqueueError(Exception('outage'));
+    provider.enqueueSuccess(SttTranscriptionResult(segments: []));
+    provider.enqueueSuccess(SttTranscriptionResult(segments: []));
+
+    final socket = PurePollingSocket(
+      config: const AudioPollingConfig(minBufferSizeBytes: 1, maxFlushBytes: 3),
+      sttProvider: provider,
+    );
+    socket.setListener(_FakeListener());
+    await socket.connect();
+
+    // 5 bytes accumulate during the outage (first flush of [1,2,3] fails and
+    // requeues), then the endpoint recovers.
+    socket.send(Uint8List.fromList([1, 2, 3]));
+    await socket.flushNow();
+    socket.send(Uint8List.fromList([4, 5]));
+
+    await socket.flushNow();
+    await socket.flushNow();
+
+    // Recovery drains in capped chunks — never the whole backlog in one
+    // request (which would outgrow the request timeout and never complete).
+    expect(provider.receivedCalls, [
+      [1, 2, 3],
+      [1, 2, 3],
+      [4, 5],
+    ]);
+    expect(socket.bufferedBytes, 0);
+  });
+
+  test('a single frame larger than maxFlushBytes still flushes alone', () async {
+    final provider = _FakeSttProvider();
+    provider.enqueueSuccess(SttTranscriptionResult(segments: []));
+
+    final socket = PurePollingSocket(
+      config: const AudioPollingConfig(minBufferSizeBytes: 1, maxFlushBytes: 2),
+      sttProvider: provider,
+    );
+    socket.setListener(_FakeListener());
+    await socket.connect();
+
+    socket.send(Uint8List.fromList([1, 2, 3, 4]));
+    await socket.flushNow();
+
+    expect(provider.receivedCalls, [
+      [1, 2, 3, 4],
+    ]);
+    expect(socket.bufferedBytes, 0);
   });
 
   test('trims the oldest buffered audio once past the configured cap', () async {
@@ -104,6 +199,7 @@ class _FakeSttProvider implements ISttProvider {
 
   void enqueueError(Object error) => _behaviors.add(() => Future<SttTranscriptionResult?>.error(error));
   void enqueueSuccess(SttTranscriptionResult result) => _behaviors.add(() async => result);
+  void enqueueNull() => _behaviors.add(() async => null);
   void alwaysThrow(Object error) => _default = () => Future<SttTranscriptionResult?>.error(error);
 
   @override

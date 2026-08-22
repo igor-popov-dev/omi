@@ -22,16 +22,30 @@ class AudioPollingConfig {
   // bounded during a long outage instead of buffering forever.
   final int maxBufferBytes;
 
+  // Self-host patch: ceiling on how much audio goes into a single transcribe()
+  // request (~30s of 16kHz/16-bit mono PCM by default; callers that buffer
+  // encoded frames should scale this to the codec's byte rate). Without it,
+  // the backlog accumulated during an outage was flushed as ONE request after
+  // recovery — minutes of audio against a request timeout sized for seconds —
+  // which timed out, requeued, and never drained. Capped flushes drain the
+  // backlog progressively, one chunk per timer tick.
+  final int maxFlushBytes;
+
   const AudioPollingConfig({
     this.bufferDuration = const Duration(seconds: 3),
     this.minBufferSizeBytes = 8000,
     this.serviceId,
     this.transcoder,
     this.maxBufferBytes = 19200000,
+    this.maxFlushBytes = 960000,
   });
 }
 
 abstract class ISttProvider {
+  /// Transcribes [audioData]. Contract: a non-null result (possibly with no
+  /// segments — silence is a successful transcription of nothing) means the
+  /// attempt SUCCEEDED and the audio is consumed; null means the attempt
+  /// FAILED and [PurePollingSocket] will requeue the audio and retry it.
   Future<SttTranscriptionResult?> transcribe(Uint8List audioData, {double audioOffsetSeconds = 0});
 
   void dispose();
@@ -77,11 +91,17 @@ class PurePollingSocket implements IPureSocket {
   // success, cleared on the next successful one.
   DateTime? _bufferingSince;
   int _consecutiveFailures = 0;
+  DateTime? _lastSuccessAt;
 
   DateTime? get bufferingSince => _bufferingSince;
   int get consecutiveFailures => _consecutiveFailures;
   bool get isBuffering => _bufferingSince != null;
   int get bufferedBytes => _totalBufferBytes;
+
+  /// When the STT endpoint last returned a successful response, or null if no
+  /// flush has succeeded yet on this socket. Unlike [bufferingSince] == null,
+  /// this is a positive "transcription is actually working" signal for the UI.
+  DateTime? get lastSuccessAt => _lastSuccessAt;
 
   PurePollingSocket({required this.config, required this.sttProvider});
 
@@ -141,8 +161,18 @@ class PurePollingSocket implements IPureSocket {
 
     _isProcessing = true;
 
-    final frames = List<Uint8List>.from(_audioFrames);
-    _audioFrames.clear();
+    // Take the oldest frames up to maxFlushBytes (always at least one frame);
+    // anything past the cap stays buffered for the next tick.
+    var flushBytes = 0;
+    var cut = 0;
+    while (cut < _audioFrames.length) {
+      final frameLength = _audioFrames[cut].length;
+      if (cut > 0 && flushBytes + frameLength > config.maxFlushBytes) break;
+      flushBytes += frameLength;
+      cut++;
+    }
+    final frames = _audioFrames.sublist(0, cut);
+    _audioFrames.removeRange(0, cut);
 
     Uint8List audioData;
 
@@ -168,9 +198,24 @@ class PurePollingSocket implements IPureSocket {
     final serviceId = config.serviceId ?? 'Polling';
     try {
       final result = await sttProvider.transcribe(audioData, audioOffsetSeconds: _audioOffsetSeconds);
+      if (result == null) {
+        // Self-host patch: a null result is a terminal HTTP failure — the
+        // provider exhausted its retries or got a non-retryable 4xx (wrong
+        // URL, rejected auth token, persistent 5xx). Treat it exactly like a
+        // thrown error: requeue the frames and surface the buffering state.
+        // Previously null took the success path, so every failed flush
+        // silently dropped its audio window and reset the offline indicator.
+        CustomSttLogService.instance.error(serviceId, 'Transcription returned no result, keeping audio buffered');
+        DebugLogManager.logWarning('polling_socket_transcription_no_result', {'service_id': serviceId});
+        _consecutiveFailures++;
+        _bufferingSince ??= DateTime.now();
+        _requeueFrames(frames);
+        return;
+      }
       _bufferingSince = null;
       _consecutiveFailures = 0;
-      if (result != null && result.isNotEmpty) {
+      _lastSuccessAt = DateTime.now();
+      if (result.isNotEmpty) {
         if (result.segments.isNotEmpty) {
           _audioOffsetSeconds = result.segments.last.end;
         }

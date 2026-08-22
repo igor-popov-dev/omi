@@ -39,8 +39,11 @@ class OnDeviceAppleProvider implements ISttProvider {
           'language': effectiveLanguage,
         });
 
+        // Silence is a SUCCESSFUL transcription with no text, not a failure —
+        // return an empty result, never null. PurePollingSocket treats null as
+        // "the attempt failed, requeue and retry the same audio".
         if (result == null || result.isEmpty) {
-          return null;
+          return SttTranscriptionResult(segments: const []);
         }
 
         // Calculate duration: 16kHz * 2 bytes/sample * 1 channel = 32000 bytes/sec

@@ -426,6 +426,12 @@ class TranscriptSocketServiceFactory {
   static IPureSocket _createPollingSocket(int sampleRate, BleAudioCodec codec, CustomSttConfig config) {
     final transcoder = AudioTranscoderFactory.createToWav(sourceCodec: codec, sampleRate: sampleRate);
 
+    // Frames are buffered in their SOURCE encoding, so per-request flush caps
+    // must be sized to the codec's byte rate: ~8000 B/s for the pendant's opus
+    // stream vs sampleRate*2 for raw PCM — a PCM-sized byte cap would let an
+    // opus backlog flush minutes of audio in one request.
+    final encodedBytesPerSecond = codec.isOpusSupported() ? 8000 : sampleRate * 2;
+
     final requestConfig = config.requestConfig;
     final url = requestConfig['url'] ?? config.effectiveUrl;
     final headers =
@@ -448,6 +454,9 @@ class TranscriptSocketServiceFactory {
             minBufferSizeBytes: sampleRate * 2,
             serviceId: config.provider.name,
             transcoder: transcoder,
+            // On-device recognition runs near real-time — keep backlog-drain
+            // chunks short so one flush never occupies the recognizer for long.
+            maxFlushBytes: 15 * encodedBytesPerSecond,
           ),
           sttProvider: OnDeviceAppleProvider(language: config.language ?? 'en'),
         );
@@ -462,6 +471,7 @@ class TranscriptSocketServiceFactory {
           minBufferSizeBytes: sampleRate * 2,
           serviceId: config.provider.name,
           transcoder: transcoder,
+          maxFlushBytes: 15 * encodedBytesPerSecond,
         ),
         sttProvider: OnDeviceWhisperProvider(modelPath: config.url ?? '', language: config.language ?? 'en'),
       );
@@ -473,6 +483,9 @@ class TranscriptSocketServiceFactory {
         minBufferSizeBytes: sampleRate * 2,
         serviceId: config.provider.name,
         transcoder: transcoder,
+        // ~30s of audio per request: the provider's timeout scales with the
+        // payload, and a capped chunk drains an outage backlog progressively.
+        maxFlushBytes: 30 * encodedBytesPerSecond,
       ),
       sttProvider: SchemaBasedSttProvider(
         apiUrl: effectiveUrl,

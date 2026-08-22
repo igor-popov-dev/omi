@@ -86,15 +86,21 @@ class OnDeviceWhisperProvider implements ISttProvider {
 
         final res = await _whisper!.transcribe(transcribeRequest: req);
 
+        // Silence (or noise-only markers like [BLANK_AUDIO]) is a SUCCESSFUL
+        // transcription with no text, not a failure — return an empty result,
+        // never null. PurePollingSocket treats null as "the attempt failed,
+        // requeue and retry the same audio"; returning null here made plain
+        // silence look like an outage (offline indicator on, silent frames
+        // requeued and re-transcribed forever).
         if (res.text.isEmpty) {
-          return null;
+          return SttTranscriptionResult(segments: const []);
         }
 
         String cleanText = res.text.trim();
         cleanText = cleanText.replaceAll(RegExp(r'\[.*?\]'), '').trim();
         cleanText = cleanText.replaceAll(RegExp(r'\(.*?\)'), '').trim();
 
-        if (cleanText.isEmpty) return null;
+        if (cleanText.isEmpty) return SttTranscriptionResult(segments: const []);
 
         // Calculate duration: 16kHz * 2 bytes/sample * 1 channel = 32000 bytes/sec
         final duration = audioData.lengthInBytes / 32000.0;

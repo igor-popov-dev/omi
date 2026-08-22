@@ -97,11 +97,19 @@ class SchemaBasedSttProvider implements ISttProvider {
   // before failing, which made every buffered chunk feel like a freeze
   // during an outage. Fail fast and retry a couple of times with backoff
   // instead — most transient blips (a dropped LAN packet, a slow cold
-  // start) resolve within a retry or two, and a real outage now surfaces in
-  // well under 60s per chunk instead of after it.
-  static const _requestTimeout = Duration(seconds: 10);
+  // start) resolve within a retry or two, and a real outage now surfaces
+  // quickly for a normal ~5s chunk. The deadline scales with the payload
+  // (~+1s per 100KB, i.e. ~+10s per minute of 16kHz PCM) because draining a
+  // backlog after an outage sends bigger chunks (capped by
+  // AudioPollingConfig.maxFlushBytes) whose upload and STT compute both grow
+  // with size; 60s cap so a hung endpoint still fails in bounded time.
   static const _maxAttempts = 3;
   static const _retryBackoff = [Duration(seconds: 1), Duration(seconds: 2)];
+
+  Duration _timeoutFor(int payloadBytes) {
+    final seconds = 10 + payloadBytes ~/ 100000;
+    return Duration(seconds: seconds > 60 ? 60 : seconds);
+  }
 
   SchemaBasedSttProvider({
     required this.apiUrl,
@@ -316,6 +324,7 @@ class SchemaBasedSttProvider implements ISttProvider {
   @override
   Future<SttTranscriptionResult?> transcribe(dynamic audioData, {double audioOffsetSeconds = 0}) async {
     final Uint8List audioBytes = audioData is Uint8List ? audioData : Uint8List.fromList(audioData);
+    final requestTimeout = _timeoutFor(audioBytes.length);
     try {
       final uri = Uri.parse(apiUrl);
       http.Response response;
@@ -329,7 +338,7 @@ class SchemaBasedSttProvider implements ISttProvider {
       switch (requestBodyType) {
         case SttRequestBodyType.rawBinary:
           response = await _sendWithRetry(
-            () => _client.post(uri, headers: defaultHeaders, body: audioBytes).timeout(_requestTimeout),
+            () => _client.post(uri, headers: defaultHeaders, body: audioBytes).timeout(requestTimeout),
           );
           break;
 
@@ -341,7 +350,7 @@ class SchemaBasedSttProvider implements ISttProvider {
           response = await _sendWithRetry(
             () => _client
                 .post(uri, headers: defaultHeaders, body: jsonEncode(jsonBodyBuilder!(audioInput)))
-                .timeout(_requestTimeout),
+                .timeout(requestTimeout),
           );
           break;
 
@@ -357,7 +366,7 @@ class SchemaBasedSttProvider implements ISttProvider {
             // _client, bypassing both the injected test client and (in
             // practice) any client-level config. Route it through _client
             // like every other request path here.
-            final streamedResponse = await _client.send(request).timeout(_requestTimeout);
+            final streamedResponse = await _client.send(request).timeout(requestTimeout);
             return http.Response.fromStream(streamedResponse);
           });
           break;
