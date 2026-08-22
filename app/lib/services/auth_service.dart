@@ -21,6 +21,14 @@ import 'package:omi/services/auth/auth_token_result.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/platform/platform_manager.dart';
 
+/// Cloudflare Access headers for the two direct `http.post` auth calls below,
+/// which bypass `buildHeaders` (backend/http/shared.dart) and so don't pick
+/// up the same injection there. See docs/point-app-to-mini.md.
+Map<String, String> get _cfAccessHeaders => {
+      if (Env.cfAccessClientId.isNotEmpty) 'CF-Access-Client-Id': Env.cfAccessClientId,
+      if (Env.cfAccessClientSecret.isNotEmpty) 'CF-Access-Client-Secret': Env.cfAccessClientSecret,
+    };
+
 final class _FirebaseAuthTokenGateway implements AuthTokenGateway {
   @override
   AuthUserSnapshot? get currentUser {
@@ -602,7 +610,10 @@ class AuthService {
 
       final response = await http.post(
         Uri.parse('${Env.authApiBaseUrl}v1/auth/token'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          ..._cfAccessHeaders,
+        },
         body: {
           'grant_type': 'authorization_code',
           'code': code,
@@ -625,6 +636,53 @@ class AuthService {
       Logger.debug('Token exchange error: $e');
       return null;
     }
+  }
+
+  /// Sign in against a local dev harness with no OAuth provider involved.
+  ///
+  /// Community builds cannot complete a real OAuth flow: Google and Apple issue
+  /// OAuth clients against the official bundle id, and a community build is
+  /// deliberately signed with a suffixed one. The backend mints a Firebase custom
+  /// token against the local Auth emulator instead, and this reuses the same
+  /// custom-token sign-in the OAuth path ends with.
+  ///
+  /// The real gate is server-side and structural (the endpoint 404s unless the
+  /// backend is bound to an Auth emulator). The profile check here is only to
+  /// keep the call from being made at all outside local development.
+  Future<UserCredential?> signInWithLocalDevToken({String uid = 'local-dev-user'}) async {
+    if (Env.profile != AppEnvironmentProfile.localDev) {
+      throw StateError('Local development sign-in is only available in the local_dev profile.');
+    }
+
+    final response = await http.post(
+      Uri.parse('${Env.authApiBaseUrl}v1/auth/local-dev/custom-token'),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ..._cfAccessHeaders,
+      },
+      body: {'uid': uid},
+    );
+
+    if (response.statusCode == 404) {
+      throw StateError(
+        'This backend has no local-dev sign-in endpoint. It is only registered when the '
+        'backend runs against a Firebase Auth emulator — check the harness is up.',
+      );
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Local development sign-in failed: HTTP ${response.statusCode}');
+    }
+
+    final decoded = json.decode(response.body) as Map<String, dynamic>;
+    final customToken = decoded['custom_token'] as String?;
+    if (customToken == null || customToken.isEmpty) {
+      throw Exception('Local development sign-in returned no custom token');
+    }
+
+    final credential = await FirebaseAuth.instance.signInWithCustomToken(customToken);
+    await _updateUserPreferences(credential, 'local_dev');
+    Logger.debug('Local development sign-in successful');
+    return credential;
   }
 
   Future<UserCredential> _signInWithOAuthCredentials(Map<String, dynamic> oauthCredentials) async {

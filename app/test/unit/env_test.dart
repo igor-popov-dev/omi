@@ -171,6 +171,24 @@ void main() {
       }
     });
 
+    test('local dev accepts the self-host Cloudflare Tunnel domain', () {
+      // omi-{api,stt}.peshkomdomoy.online — Access service-token-gated ingress to
+      // mini (see docs/point-app-to-mini.md). An explicit allowlist entry, not a
+      // blanket public-host exemption: the next test proves an unrelated public
+      // host is still rejected.
+      for (final endpoint in [
+        'https://omi-api.peshkomdomoy.online/',
+        'https://omi-stt.peshkomdomoy.online/',
+        'https://peshkomdomoy.online/',
+      ]) {
+        Env.validateStartupRouting(
+          productionFamily: false,
+          configuredProfile: AppEnvironmentProfile.localDev,
+          configuredApiBaseUrl: endpoint,
+        );
+      }
+    });
+
     test('local dev still rejects public endpoints and the edges just outside CGNAT', () {
       for (final endpoint in [
         'https://api.omi.me/',
@@ -180,6 +198,10 @@ void main() {
         'http://100.63.255.255:8000/',
         'http://100.128.0.1:8000/',
         'http://8.8.8.8:8000/',
+        // Not our tunnel domain — proves the peshkomdomoy.online allowlist entry
+        // is a suffix match on that specific domain, not a substring/prefix trick.
+        'https://notpeshkomdomoy.online/',
+        'https://peshkomdomoy.online.evil.test/',
       ]) {
         expect(
           () => Env.validateStartupRouting(
