@@ -32,18 +32,26 @@
 // "additive, unconnected until explicitly wired" discipline the whole
 // `voice_hub/` series has used throughout.
 //
-// Known gap, already flagged by the tick that wrote `ask_claude_tool.dart`
-// (its header, "Auth: NOT handled here"): `AskClaudeBridgeClient` needs the
-// app's CF-Access-intercepted `http.Client` (the bridge lives behind
-// Cloudflare Access on `omi-bridge.peshkomdomoy.online`), and that
-// interceptor lives on lane2's `private` branch, not in this worktree
-// (`feat/android-realtime-hub`) — confirmed absent here by grepping for
-// "CF-Access" outside `ask_claude_tool.dart` itself. `bridgeHttpClient` is
-// therefore a REQUIRED parameter, not defaulted to a bare `http.Client()`:
-// a caller on a branch without the real interceptor must pass one in
-// explicitly (even a bare client, so the gap is visible at the call site)
-// rather than this file silently constructing one that would 302 on every
-// call once merged with `private`.
+// Formerly a known gap (flagged by the tick that wrote `ask_claude_tool.dart`,
+// its header, "Auth: NOT handled here"): `AskClaudeBridgeClient` needs a
+// `http.Client` that stamps CF-Access-Client-Id/Secret, and this worktree
+// (`feat/android-realtime-hub`) had no such client — the app's actual CF-Access
+// wiring (`buildHeaders` in `backend/http/shared.dart`) lived only on lane2's
+// `private` branch. Closed by two changes:
+//   1. Cherry-picked `400c74b5d8` ("Cloudflare Access headers for the
+//      self-host tunnel") from `private` into this branch — brings in
+//      `Env.cfAccessClientId`/`cfAccessClientSecret`, the two dart-defines
+//      everything else here reads.
+//   2. `CfAccessHttpClient` (`cf_access_http_client.dart`) — a small
+//      `http.Client` decorator built for this seam specifically, since
+//      `buildHeaders` itself is a header-builder consumed by `makeApiCall`
+//      and friends, not an injectable client (there was never a generic
+//      intercepting client to reuse, contrary to `ask_claude_tool.dart`'s
+//      original header comment — that assumption was wrong; see this
+//      file's own header note there for the correction).
+// `bridgeHttpClient` is therefore optional now, defaulting to
+// `CfAccessHttpClient()`; a caller can still inject a bare `http.Client()`
+// (or a fake) for tests or a non-tunnel deployment.
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -53,6 +61,7 @@ import 'package:omi/env/env.dart';
 import 'package:omi/services/mic/native_mic_recorder_service.dart';
 
 import 'ask_claude_tool.dart';
+import 'cf_access_http_client.dart';
 import 'gemini_hub_session.dart';
 import 'hub_controller.dart';
 import 'hub_ptt_capture.dart';
@@ -118,14 +127,16 @@ Future<List<VoiceToolDeclaration>> fetchHubTools() async => const [askClaudeTool
 ///
 /// [applyProjection] and [pttHubEnabled] are passed straight through to
 /// [VoiceHubTurnDriverDeps] (same contract, see that class's doc comments).
-/// [bridgeHttpClient] must be the app's CF-Access-intercepted client — see
-/// file header's "Known gap" note. [freeFormMode] defaults to always-off
-/// (today's manual-VAD/PTT behavior, unchanged) so a caller that hasn't
-/// wired the free-form preference yet gets the old behavior, not a crash.
+/// [bridgeHttpClient] defaults to [CfAccessHttpClient] — see file header's
+/// "Formerly a known gap" note; pass a bare `http.Client()` or a fake to
+/// override (e.g. tests, a non-tunnel deployment). [freeFormMode] defaults
+/// to always-off (today's manual-VAD/PTT behavior, unchanged) so a caller
+/// that hasn't wired the free-form preference yet gets the old behavior,
+/// not a crash.
 VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
   required VoiceTurnPresenter applyProjection,
   required bool Function() pttHubEnabled,
-  required http.Client bridgeHttpClient,
+  http.Client? bridgeHttpClient,
   bool Function() freeFormMode = _defaultFreeFormModeOff,
 }) {
   // Assigned synchronously inside `createHub` below, before the
@@ -135,7 +146,7 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
   late final HubController hub;
 
   final askClaudeExecutor = AskClaudeToolExecutor(
-    client: AskClaudeBridgeClient(httpClient: bridgeHttpClient),
+    client: AskClaudeBridgeClient(httpClient: bridgeHttpClient ?? CfAccessHttpClient()),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
   );
 

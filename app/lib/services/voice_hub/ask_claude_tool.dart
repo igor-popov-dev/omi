@@ -13,13 +13,22 @@
 //        {"type": "done", "text": "<full answer>"}
 //
 // Auth: NOT handled here. Per lane2-log.md ("наружу через туннель", 21.08
-// вечер) the app's shared http client already carries a global interceptor
-// that stamps CF-Access-Client-Id/Secret on every `*.peshkomdomoy.online`
-// request — production wiring MUST construct `AskClaudeBridgeClient` with
-// THAT client (injected via `httpClient`), never a bare `http.Client()`.
-// This port has no `~/.secrets` access story and must not duplicate
-// credential logic (night-task.md: secrets only via `~/bin/secret`, never
-// re-implemented). A bare client is fine for tests (fake, no network).
+// вечер) the bridge sits behind the same Cloudflare Access application as
+// the rest of the self-host tunnel, gated on the same two headers,
+// CF-Access-Client-Id/Secret. Correction to an earlier version of this
+// comment: there is no *generic intercepting* `http.Client` anywhere in
+// this app to inject — `buildHeaders` (backend/http/shared.dart) is a
+// header-builder consumed by `makeApiCall` and friends, each constructing
+// its own `http.Request`, not a wrapped client. Production wiring
+// (`voice_hub_production.dart`) constructs `AskClaudeBridgeClient` with
+// `CfAccessHttpClient` (`cf_access_http_client.dart`), a small decorator
+// built for this seam that reads the same `Env.cfAccessClientId`/
+// `cfAccessClientSecret` dart-defines `buildHeaders` does. This port has no
+// `~/.secrets` access story and must not duplicate credential logic
+// (night-task.md: secrets only via `~/bin/secret`, never re-implemented —
+// dart-defines are build-time config, not a secrets store, same as every
+// other credential this app already ships this way). A bare client is fine
+// for tests (fake, no network).
 //
 // `tools_enabled` on the bridge gates MCP (memory/mempalace/web search) for
 // this one call — per the doc, true is for an explicit user command only;
@@ -77,8 +86,8 @@ class AskClaudeBridgeException implements Exception {
 }
 
 /// Talks the bridge's `/ask` SSE contract. Injectable [httpClient] +
-/// [endpoint] so tests never touch the network; production must pass the
-/// app's CF-Access-intercepted client (see file header).
+/// [endpoint] so tests never touch the network; production passes a
+/// `CfAccessHttpClient` (see file header).
 class AskClaudeBridgeClient {
   final Uri endpoint;
   final http.Client httpClient;
