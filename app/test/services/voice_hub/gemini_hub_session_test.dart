@@ -123,7 +123,7 @@ class _Harness {
 
   _Harness._(this.session, this.socketFactory, this.player);
 
-  factory _Harness({HubClock? clock}) {
+  factory _Harness({HubClock? clock, bool freeFormMode = false}) {
     final socketFactory = _RecordingSocketFactory();
     final player = _FakeVoicePlayer();
     late final _Harness h;
@@ -134,6 +134,7 @@ class _Harness {
       playerFactory: (spec) async => player,
       clock: clock,
       mintSessionId: () => 'sess-1',
+      freeFormMode: freeFormMode,
       events: HubSessionEvents(
         onConnected: (sid) => h.connected.add(sid),
         onError: (message, retryable, closeCode) =>
@@ -322,6 +323,106 @@ void main() {
         expect(h.session.isWarm(), isFalse);
         expect(h.errors, [(message: 'hub warm timeout', retryable: true, closeCode: null)]);
       });
+    });
+  });
+
+  group('GeminiHubSession — freeFormMode (server VAD)', () {
+    test('setup frame carries automaticActivityDetection.disabled=false', () async {
+      final h = _Harness(freeFormMode: true);
+      await _armConnection(h);
+      h.socketFactory.open();
+      final setup = h.socket.frames()[0]['setup'] as Map<String, dynamic>;
+      final ric = setup['realtimeInputConfig'] as Map<String, dynamic>;
+      final aad = ric['automaticActivityDetection'] as Map<String, dynamic>;
+      expect(aad['disabled'], isFalse);
+    });
+
+    test('beginTurn() opens continuous input with no activityStart frame; audio flows immediately', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      expect(h.socket.riKinds(), isEmpty); // no activityStart on the wire
+      h.session.appendAudio(Uint8List.fromList([1, 2]));
+      expect(h.socket.riKinds(), ['audio']);
+    });
+
+    test('a second beginTurn() while already streaming is a no-op', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.session.appendAudio(Uint8List.fromList([1]));
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: 't2', responseId: 'r2'));
+      h.session.appendAudio(Uint8List.fromList([2]));
+      expect(h.socket.riKinds(), ['audio', 'audio']); // still just audio, streaming never toggled off
+    });
+
+    test('commitTurn() is a no-op — no activityEnd frame, server ends the turn on its own', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.session.commitTurn();
+      expect(h.socket.riKinds(), isEmpty);
+    });
+
+    test('turnComplete plays audio, fires onTurnDone, and keeps accepting the next utterance without a new beginTurn()',
+        () async {
+      final h = _Harness(freeFormMode: true);
+      var turnDoneCount = 0;
+      final session = GeminiHubSession(
+        token: 'auth_tokens/x',
+        instructions: 'INSTR',
+        socketFactory: h.socketFactory.factory,
+        playerFactory: (spec) async => h.player,
+        freeFormMode: true,
+        events: HubSessionEvents(onTurnDone: (_) => turnDoneCount++),
+      );
+      final warm = session.ensureWarm();
+      await Future<void>.value();
+      await Future<void>.value();
+      h.socketFactory.open();
+      h.socketFactory.message(jsonEncode({'setupComplete': <String, dynamic>{}}));
+      await warm;
+      session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+
+      // First utterance completes.
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('u1'))));
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(h.player.enqueued.length, 1);
+      expect(turnDoneCount, 1);
+
+      // A second utterance arrives on the SAME session, with no further
+      // beginTurn() call — the driver never calls it again in free-form
+      // mode.
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('u2'))));
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(h.player.enqueued.length, 2);
+      expect(turnDoneCount, 2);
+    });
+
+    test('interrupted clears playback but leaves streaming on (no fresh beginTurn needed)', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('g1'))));
+      expect(h.player.enqueued.length, 1);
+      h.socketFactory.message(jsonEncode(_serverContent({'interrupted': true})));
+      expect(h.player.clearCount, 1);
+      // Streaming stayed on: a new utterance's audio still plays without
+      // another beginTurn() call.
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('g2'))));
+      expect(h.player.enqueued.length, 2);
+    });
+
+    test(
+        'cancelTurn() switches free-form mode off with no activityEnd frame; input is rejected until beginTurn() again',
+        () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.session.cancelTurn();
+      expect(h.socket.riKinds(), isEmpty);
+      h.session.appendAudio(Uint8List.fromList([9]));
+      expect(h.socket.riKinds(), isEmpty); // buffered, not sent — canAcceptInput() is false again
     });
   });
 }
