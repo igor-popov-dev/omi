@@ -9901,4 +9901,18 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'డయాగ్నొస్టిక్స్‌ను షేర్ చేయలేకపోయాము. దయచేసి మళ్లీ ప్రయత్నించండి.';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

@@ -3240,5 +3240,16 @@
     "sendRawAudioToOmi": "向 Omi 发送原始音频",
     "sendRawAudioToOmiDescription": "关闭后不会向 Omi 发送原始音频；转写文本及云端功能所需数据仍可能发送至 Omi。",
     "findDevice": "查找",
-    "diagnosticsShareFailed": "无法分享诊断信息，请重试。"
+    "diagnosticsShareFailed": "无法分享诊断信息，请重试。",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

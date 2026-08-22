@@ -3194,5 +3194,16 @@
     "sendRawAudioToOmi": "未処理の音声を Omi に送信",
     "sendRawAudioToOmiDescription": "オフにすると、未処理の音声は Omi に送信されません。文字起こしとクラウド機能に必要なデータは、引き続き Omi に送信される場合があります。",
     "findDevice": "探す",
-    "diagnosticsShareFailed": "診断情報を共有できませんでした。もう一度お試しください。"
+    "diagnosticsShareFailed": "診断情報を共有できませんでした。もう一度お試しください。",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

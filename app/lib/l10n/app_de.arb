@@ -3195,5 +3195,16 @@
     "sendRawAudioToOmi": "Roh-Audio an Omi senden",
     "sendRawAudioToOmiDescription": "Deaktivieren, damit kein Roh-Audio an Omi gesendet wird. Transkripte und für Cloud-Funktionen benötigte Daten können weiterhin an Omi gesendet werden.",
     "findDevice": "Finden",
-    "diagnosticsShareFailed": "Diagnose konnte nicht geteilt werden. Bitte versuche es erneut."
+    "diagnosticsShareFailed": "Diagnose konnte nicht geteilt werden. Bitte versuche es erneut.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

@@ -3253,5 +3253,16 @@
     "sendRawAudioToOmi": "Envoyer l'audio brut à Omi",
     "sendRawAudioToOmiDescription": "Désactivez cette option pour empêcher l'envoi de l'audio brut à Omi. Les transcriptions et les données nécessaires aux fonctions cloud peuvent toujours être envoyées à Omi.",
     "findDevice": "Localiser",
-    "diagnosticsShareFailed": "Impossible de partager le diagnostic. Veuillez réessayer."
+    "diagnosticsShareFailed": "Impossible de partager le diagnostic. Veuillez réessayer.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

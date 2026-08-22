@@ -3194,5 +3194,16 @@
     "sendRawAudioToOmi": "إرسال الصوت الخام إلى Omi",
     "sendRawAudioToOmiDescription": "أوقف هذا الخيار لمنع إرسال الصوت الخام إلى Omi. قد يستمر إرسال النصوص والبيانات اللازمة للميزات السحابية إلى Omi.",
     "findDevice": "العثور",
-    "diagnosticsShareFailed": "تعذّرت مشاركة التشخيص. يُرجى المحاولة مرة أخرى."
+    "diagnosticsShareFailed": "تعذّرت مشاركة التشخيص. يُرجى المحاولة مرة أخرى.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

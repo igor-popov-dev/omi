@@ -3314,5 +3314,16 @@
     "sendRawAudioToOmi": "Nyers hang küldése az Ominak",
     "sendRawAudioToOmiDescription": "Kapcsold ki, hogy a nyers hang ne kerüljön az Omihoz. Az átiratok és a felhőfunkciókhoz szükséges adatok továbbra is elküldhetők az Ominak.",
     "findDevice": "Keresés",
-    "diagnosticsShareFailed": "A diagnosztika megosztása nem sikerült. Próbáld újra."
+    "diagnosticsShareFailed": "A diagnosztika megosztása nem sikerült. Próbáld újra.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

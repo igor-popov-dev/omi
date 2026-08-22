@@ -10784,5 +10784,16 @@
     "sendRawAudioToOmi": "שליחת שמע גולמי ל-Omi",
     "sendRawAudioToOmiDescription": "כבו כדי למנוע שליחת שמע גולמי ל-Omi. תמלילים ונתונים הדרושים לתכונות הענן עדיין עשויים להישלח ל-Omi.",
     "findDevice": "איתור",
-    "diagnosticsShareFailed": "לא ניתן היה לשתף את האבחון. נסה שוב."
+    "diagnosticsShareFailed": "לא ניתן היה לשתף את האבחון. נסה שוב.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

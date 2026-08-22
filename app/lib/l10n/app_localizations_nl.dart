@@ -9880,4 +9880,18 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Kon de diagnostiek niet delen. Probeer het opnieuw.';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

@@ -9890,4 +9890,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Не удалось поделиться диагностикой. Попробуйте ещё раз.';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Распознавание офлайн — аудио копится ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Речь распознаётся…';
+
+  @override
+  String get sttWaitingForSpeech => 'Слушаю — жду речи';
+
+  @override
+  String get sttReconnecting => 'Связь с распознаванием потеряна — переподключаюсь…';
 }

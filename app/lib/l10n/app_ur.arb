@@ -10784,5 +10784,16 @@
     "sendRawAudioToOmi": "خام آڈیو Omi کو بھیجیں",
     "sendRawAudioToOmiDescription": "خام آڈیو کو Omi بھیجے جانے سے روکنے کے لیے اسے بند کریں۔ ٹرانسکرپٹس اور کلاؤڈ فیچرز کے لیے درکار ڈیٹا اب بھی Omi کو بھیجا جا سکتا ہے۔",
     "findDevice": "تلاش کریں",
-    "diagnosticsShareFailed": "تشخیصی معلومات شیئر نہیں کی جا سکیں۔ براہ کرم دوبارہ کوشش کریں۔"
+    "diagnosticsShareFailed": "تشخیصی معلومات شیئر نہیں کی جا سکیں۔ براہ کرم دوبارہ کوشش کریں۔",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

@@ -9882,4 +9882,18 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Nie udało się udostępnić diagnostyki. Spróbuj ponownie.';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

@@ -9686,4 +9686,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => '診断情報を共有できませんでした。もう一度お試しください。';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

@@ -3253,5 +3253,16 @@
     "sendRawAudioToOmi": "Ham sesi Omi'ye gönder",
     "sendRawAudioToOmiDescription": "Ham sesin Omi'ye gönderilmesini önlemek için kapatın. Transkriptler ve bulut özelliklerinin gerektirdiği veriler yine de Omi'ye gönderilebilir.",
     "findDevice": "Bul",
-    "diagnosticsShareFailed": "Tanılama paylaşılamadı. Lütfen tekrar deneyin."
+    "diagnosticsShareFailed": "Tanılama paylaşılamadı. Lütfen tekrar deneyin.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

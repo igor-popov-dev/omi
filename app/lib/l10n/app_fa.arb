@@ -10784,5 +10784,16 @@
     "sendRawAudioToOmi": "ارسال صدای خام به Omi",
     "sendRawAudioToOmiDescription": "برای جلوگیری از ارسال صدای خام به Omi این گزینه را خاموش کنید. متن پیاده‌شده و داده‌های مورد نیاز قابلیت‌های ابری ممکن است همچنان به Omi ارسال شوند.",
     "findDevice": "پیدا کردن",
-    "diagnosticsShareFailed": "اشتراک‌گذاری اطلاعات تشخیصی ممکن نشد. لطفاً دوباره تلاش کنید."
+    "diagnosticsShareFailed": "اشتراک‌گذاری اطلاعات تشخیصی ممکن نشد. لطفاً دوباره تلاش کنید.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

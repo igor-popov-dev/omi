@@ -3218,5 +3218,16 @@
     "sendRawAudioToOmi": "Αποστολή ακατέργαστου ήχου στο Omi",
     "sendRawAudioToOmiDescription": "Απενεργοποιήστε το για να μην αποστέλλεται ακατέργαστος ήχος στο Omi. Οι απομαγνητοφωνήσεις και τα δεδομένα που απαιτούν οι λειτουργίες cloud ενδέχεται να συνεχίσουν να αποστέλλονται στο Omi.",
     "findDevice": "Εύρεση",
-    "diagnosticsShareFailed": "Δεν ήταν δυνατή η κοινοποίηση των διαγνωστικών. Δοκιμάστε ξανά."
+    "diagnosticsShareFailed": "Δεν ήταν δυνατή η κοινοποίηση των διαγνωστικών. Δοκιμάστε ξανά.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

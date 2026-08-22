@@ -9688,4 +9688,18 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => '진단 정보를 공유하지 못했습니다. 다시 시도해 주세요.';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

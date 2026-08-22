@@ -3196,5 +3196,16 @@
     "sendRawAudioToOmi": "Odesílat nezpracovaný zvuk do Omi",
     "sendRawAudioToOmiDescription": "Vypnutím zabráníte odesílání nezpracovaného zvuku do Omi. Přepisy a data potřebná pro cloudové funkce se mohou do Omi nadále odesílat.",
     "findDevice": "Najít",
-    "diagnosticsShareFailed": "Diagnostiku se nepodařilo sdílet. Zkus to znovu."
+    "diagnosticsShareFailed": "Diagnostiku se nepodařilo sdílet. Zkus to znovu.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

@@ -342,9 +342,10 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
 
   // Self-host: short status text for how long the custom STT endpoint has
   // been unreachable while audio keeps recording and buffering locally.
+  // m:ss digits are locale-neutral, unlike latin "3m"/"45s" unit suffixes.
   String _customSttBufferingText(Duration bufferingFor) {
-    if (bufferingFor.inMinutes < 1) return 'Offline, buffering';
-    return 'Offline, buffering ${bufferingFor.inMinutes}m';
+    final seconds = (bufferingFor.inSeconds % 60).toString().padLeft(2, '0');
+    return context.l10n.sttOfflineBuffering('${bufferingFor.inMinutes}:$seconds');
   }
 
   Widget _buildUnifiedRecordingUI(CaptureProvider provider, Widget? header) {

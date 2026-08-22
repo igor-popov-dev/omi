@@ -26,6 +26,7 @@ import 'package:omi/models/custom_stt_config.dart';
 import 'package:omi/providers/device_onboarding_provider.dart';
 import 'package:omi/services/capture/capture_external_actions.dart';
 import 'package:omi/services/capture/capture_metrics_tracker.dart';
+import 'package:omi/services/capture/stt_display_status.dart';
 import 'package:omi/services/capture/conversation_source_for_device.dart';
 import 'package:omi/services/capture/conversation_location_capture.dart';
 import 'package:omi/services/capture/freemium_threshold_tracker.dart';
@@ -138,6 +139,37 @@ class CaptureController extends ChangeNotifier
   Duration? get customSttBufferingDuration {
     final since = _activeCustomSttPollingSocket?.bufferingSince;
     return since == null ? null : DateTime.now().difference(since);
+  }
+
+  /// When the custom STT endpoint last answered successfully, or null if custom
+  /// STT is not in use or has not succeeded yet on the current socket.
+  DateTime? get customSttLastSuccessAt => _activeCustomSttPollingSocket?.lastSuccessAt;
+
+  // Self-host patch: positive "recognition is actually delivering" signal for
+  // the recording UI, complementing the negative bufferingSince one. Segments
+  // arrive on both the omi-ws and the custom STT paths, so this covers both.
+  DateTime? _lastSegmentReceivedAt;
+  DateTime? get lastSegmentReceivedAt => _lastSegmentReceivedAt;
+
+  /// Whether an audio source is actually producing frames right now — a
+  /// connected recording device, or an active phone-mic/system-audio session.
+  bool get _audioSourceActive =>
+      havingRecordingDevice ||
+      recordingState == RecordingState.record ||
+      recordingState == RecordingState.systemAudioRecord ||
+      recordingState == RecordingState.initialising;
+
+  /// What the recording UI should say about transcription right now. Shared by
+  /// the capture page and the home capture card so the two cannot disagree.
+  SttDisplayStatus get sttDisplayStatus {
+    return computeSttDisplayStatus(
+      isPaused: isPaused || recordingState == RecordingState.interrupted,
+      hasTerminalFailure: terminalTranscriptionFailure != null,
+      bufferingFor: customSttBufferingDuration,
+      transportHealthy: transcriptServiceReady && _audioSourceActive,
+      lastSegmentAt: _lastSegmentReceivedAt,
+      now: DateTime.now(),
+    );
   }
 
   // Phone mic WAL: buffer for splitting variable-sized PCM chunks into fixed-size frames
@@ -519,6 +551,7 @@ class CaptureController extends ChangeNotifier
     segments = [];
     photos = [];
     hasTranscripts = false;
+    _lastSegmentReceivedAt = null;
     suggestionsBySegmentId = {};
     _conversation = null;
     taggingSegmentIds = [];
@@ -805,6 +838,9 @@ class CaptureController extends ChangeNotifier
     }
     _socket?.subscribe(this, this);
     _transcriptServiceReady = true;
+    // A fresh socket has produced nothing yet — don't let segments from before
+    // the reconnect/config change keep the "live transcription" status green.
+    _lastSegmentReceivedAt = null;
     if (_sessionStartSeconds == 0) {
       _sessionStartSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     }
@@ -880,9 +916,8 @@ class CaptureController extends ChangeNotifier
       onButtonReceived: (List<int> value) {
         final snapshot = List<int>.from(value);
         if (snapshot.isEmpty || snapshot.length < 4) return;
-        var buttonState = ByteData.view(
-          Uint8List.fromList(snapshot.sublist(0, 4).reversed.toList()).buffer,
-        ).getUint32(0);
+        var buttonState =
+            ByteData.view(Uint8List.fromList(snapshot.sublist(0, 4).reversed.toList()).buffer).getUint32(0);
         Logger.debug("device button $buttonState");
 
         // Intercept for interactive device onboarding
@@ -2329,6 +2364,7 @@ class CaptureController extends ChangeNotifier
 
     _segmentsPhotosVersion++; // Bump version so Selector rebuilds
     hasTranscripts = true;
+    _lastSegmentReceivedAt = DateTime.now();
     notifyListeners();
   }
 

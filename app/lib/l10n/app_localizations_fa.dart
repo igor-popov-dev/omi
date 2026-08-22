@@ -9853,4 +9853,18 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'اشتراک‌گذاری اطلاعات تشخیصی ممکن نشد. لطفاً دوباره تلاش کنید.';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

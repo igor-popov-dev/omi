@@ -9890,4 +9890,18 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Диагностиката не можа да бъде споделена. Опитайте отново.';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

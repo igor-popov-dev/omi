@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:omi/utils/platform/platform_manager.dart';
@@ -14,11 +15,11 @@ import 'package:omi/backend/schema/transcript_segment.dart';
 import 'package:omi/pages/capture/widgets/widgets.dart';
 import 'package:omi/pages/conversation_detail/widgets/name_speaker_sheet.dart';
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/services/capture/stt_display_status.dart';
 import 'package:omi/providers/connectivity_provider.dart';
 import 'package:omi/providers/device_provider.dart';
 import 'package:omi/utils/enums.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/services/wals/wal.dart';
 import 'package:omi/widgets/confirmation_dialog.dart';
 import 'package:omi/widgets/photo_viewer_page.dart';
 import 'package:omi/widgets/transcript.dart';
@@ -40,6 +41,7 @@ class _ConversationCapturingPageState extends State<ConversationCapturingPage> w
   late bool showSummarizeConfirmation;
   late AnimationController _animationController;
   bool _isMuted = false;
+  Timer? _sttStatusTicker;
 
   @override
   void initState() {
@@ -48,6 +50,12 @@ class _ConversationCapturingPageState extends State<ConversationCapturingPage> w
     showSummarizeConfirmation = SharedPreferencesUtil().showSummarizeConfirmation;
     _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))
       ..repeat(reverse: true);
+    // The STT status strip shows durations ("buffering Nm Ns") and freshness
+    // ("transcribing" decays to "waiting for speech"), neither of which emits
+    // notifyListeners on its own — tick once a second while the page is up.
+    _sttStatusTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
     super.initState();
   }
 
@@ -93,6 +101,7 @@ class _ConversationCapturingPageState extends State<ConversationCapturingPage> w
 
   @override
   void dispose() {
+    _sttStatusTicker?.cancel();
     _controller?.dispose();
     _animationController.dispose();
     super.dispose();
@@ -236,7 +245,7 @@ class _ConversationCapturingPageState extends State<ConversationCapturingPage> w
                         // Transcripts, photos + inline WAL safety indicator
                         Column(
                           children: [
-                            _buildUnsyncedWalIndicator(provider.unsyncedSessionWals, provider.inFlightAudioSeconds),
+                            _buildSttStatusStrip(provider, effectivelyMuted: effectivelyMuted),
                             Expanded(
                               child: provider.segments.isEmpty && provider.photos.isEmpty
                                   ? Center(
@@ -315,9 +324,8 @@ class _ConversationCapturingPageState extends State<ConversationCapturingPage> w
                         // Summary Tab
                         Center(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32.0,
-                            ).copyWith(bottom: 50.0), // Adjust padding
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 32.0).copyWith(bottom: 50.0), // Adjust padding
                             child: Text(
                               provider.segments.isEmpty && provider.photos.isEmpty
                                   ? context.l10n.noSummaryYet
@@ -682,12 +690,59 @@ class _ConversationCapturingPageState extends State<ConversationCapturingPage> w
     );
   }
 
-  Widget _buildUnsyncedWalIndicator(List<Wal> unsyncedWals, int inFlightSeconds) {
+  // Locale-neutral m:ss label ("3:12", "0:45") — digits read the same in every
+  // locale, unlike hardcoded latin "3m 12s" unit suffixes.
+  static String _durationLabel(Duration d) {
+    final seconds = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '${d.inMinutes}:$seconds';
+  }
+
+  // Self-host patch: the strip above the live transcript used to show only the
+  // unsynced-WAL counter ("Nm audio saved locally"), which reads as "nothing is
+  // being recognized" even while STT is healthy. Lead with the actual
+  // transcription state — the same shared status the home capture card uses —
+  // and keep the WAL counter as a secondary line while anything is pending.
+  Widget _buildSttStatusStrip(CaptureProvider provider, {required bool effectivelyMuted}) {
+    // The page-local mute flag pauses recording through the provider too, but
+    // reflect it directly so the strip can never contradict the "Muted" title.
+    final status = effectivelyMuted ? SttDisplayStatus.paused : provider.sttDisplayStatus;
+
+    final Color dotColor;
+    final String statusText;
+    switch (status) {
+      case SttDisplayStatus.paused:
+        dotColor = const Color(0xFF9E9E9E);
+        statusText = context.l10n.paused;
+        break;
+      case SttDisplayStatus.disconnected:
+        dotColor = const Color(0xFFE57373);
+        statusText = context.l10n.sttReconnecting;
+        break;
+      case SttDisplayStatus.failed:
+        dotColor = const Color(0xFFE57373);
+        statusText = context.l10n.transcriptionUnavailable;
+        break;
+      case SttDisplayStatus.offlineBuffering:
+        dotColor = const Color(0xFFFFB74D);
+        statusText = context.l10n.sttOfflineBuffering(
+          _durationLabel(provider.customSttBufferingDuration ?? Duration.zero),
+        );
+        break;
+      case SttDisplayStatus.live:
+        dotColor = const Color(0xFF4CAF50);
+        statusText = context.l10n.sttLiveTranscribing;
+        break;
+      case SttDisplayStatus.waitingForSpeech:
+        dotColor = const Color(0xFF9E9E9E);
+        statusText = context.l10n.sttWaitingForSpeech;
+        break;
+    }
+
+    final unsyncedWals = provider.unsyncedSessionWals;
+    final inFlightSeconds = provider.inFlightAudioSeconds;
     final totalSeconds = unsyncedWals.fold<int>(0, (sum, w) => sum + w.seconds) + inFlightSeconds;
-    if (totalSeconds <= 5) return const SizedBox.shrink();
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    final label = minutes > 0 ? '${minutes}m ${seconds}s' : '${seconds}s';
+    final walLabel = _durationLabel(Duration(seconds: totalSeconds));
+
     return SafeArea(
       top: false,
       child: Padding(
@@ -699,26 +754,48 @@ class _ConversationCapturingPageState extends State<ConversationCapturingPage> w
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFF2E2E3E), width: 0.5),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: const BoxDecoration(color: Color(0xFF4CAF50), shape: BoxShape.circle),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      statusText,
+                      style: const TextStyle(color: Color(0xFFE0E0E8), fontSize: 12.5, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                context.l10n.audioSavedLocally(label),
-                style: const TextStyle(color: Color(0xFFE0E0E8), fontSize: 12.5, fontWeight: FontWeight.w500),
-              ),
-              if (inFlightSeconds > 0) ...[
-                const SizedBox(width: 8),
-                const SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF6C6C80)),
+              if (totalSeconds > 5) ...[
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        context.l10n.audioSavedLocally(walLabel),
+                        style: const TextStyle(color: Color(0xFF9A9AAC), fontSize: 11.5),
+                      ),
+                    ),
+                    if (inFlightSeconds > 0) ...[
+                      const SizedBox(width: 8),
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF6C6C80)),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ],

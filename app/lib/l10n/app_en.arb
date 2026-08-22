@@ -11650,5 +11650,16 @@
     "diagnosticsShareFailed": "Couldn't share diagnostics. Please try again.",
     "@diagnosticsShareFailed": {
         "description": "Snackbar shown when exporting device diagnostics to the share sheet fails"
-    }
+    },
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

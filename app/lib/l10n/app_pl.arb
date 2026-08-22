@@ -3253,5 +3253,16 @@
     "sendRawAudioToOmi": "Wysyłaj surowy dźwięk do Omi",
     "sendRawAudioToOmiDescription": "Wyłącz, aby surowy dźwięk nie był wysyłany do Omi. Transkrypcje i dane wymagane przez funkcje chmurowe mogą nadal być wysyłane do Omi.",
     "findDevice": "Znajdź",
-    "diagnosticsShareFailed": "Nie udało się udostępnić diagnostyki. Spróbuj ponownie."
+    "diagnosticsShareFailed": "Nie udało się udostępnić diagnostyki. Spróbuj ponownie.",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

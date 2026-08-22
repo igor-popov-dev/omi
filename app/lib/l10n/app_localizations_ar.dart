@@ -9795,4 +9795,18 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'تعذّرت مشاركة التشخيص. يُرجى المحاولة مرة أخرى.';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }
