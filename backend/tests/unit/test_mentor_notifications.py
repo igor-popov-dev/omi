@@ -765,6 +765,37 @@ def test_mentor_notification_survives_recent_conversations_failure():
     assert result is not None
 
 
+def test_gate_prompt_asks_for_an_explicit_facts_collision_check():
+    """The gate must be told to cross-check facts/goals, not just offered the criterion.
+
+    Measured on the bridge (lane7, tick 3): with the criterion alone, a conversation where
+    Игорь agrees to a Thursday 21:00 meetup while his facts say he flies at 21:40 that day
+    scored 0.10 — the model read the fact and talked itself out of the conflict. With the
+    explicit check the same case scores 0.95, while a correct plan (0.20) and small talk
+    (0.05) stay untouched.
+    """
+    source = _read_proactive_source()
+    assert "collides with a known fact or goal" in source
+    # The instruction lives inside GATE_PROMPT, after the conversation sections, so the model
+    # reads it with the data in view rather than as one more bullet in the criteria list.
+    gate = pn_mod.GATE_PROMPT
+    assert gate.index("collides with a known fact or goal") > gate.index("== CURRENT CONVERSATION ==")
+
+
+def test_gate_prompt_still_formats_with_every_placeholder():
+    """Guards the added block: an unescaped brace here would raise at the first gate call."""
+    rendered = pn_mod.GATE_PROMPT.format(
+        user_name="Игорь",
+        user_facts="- lives in Tbilisi",
+        goals_text="- ship the thing",
+        current_conversation="[Игорь]: hello",
+        recent_notifications="No recent notifications sent.",
+        current_date="2026-08-23",
+    )
+    assert "{" not in rendered and "}" not in rendered
+    assert "Игорь'S FACTS" in rendered
+
+
 def test_process_mentor_proactive_notification_gate_rejects():
     """_process_mentor_proactive_notification should return None when gate rejects."""
     _setup_app_integrations_stubs()

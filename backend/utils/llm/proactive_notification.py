@@ -92,7 +92,15 @@ IMPORTANT: Most conversations do NOT warrant a notification. Your default answer
 {current_conversation}
 
 == RECENT NOTIFICATIONS (do not flag similar topics) ==
-{recent_notifications}"""
+{recent_notifications}
+
+Before you answer, run this check explicitly and mention its outcome in `reasoning`:
+read {user_name}'S FACTS and {user_name}'S GOALS above, and compare them against anything
+{user_name} is agreeing to, scheduling, or committing to in the CURRENT CONVERSATION.
+A commitment that collides with a known fact or goal (same day, overlapping time, incompatible
+place, contradicted decision) is exactly the case worth interrupting — {user_name} usually does
+not notice these in the moment. If there is no such collision, say so and stay with
+is_relevant=false."""
 
 
 # ---------------------------------------------------------------------------
