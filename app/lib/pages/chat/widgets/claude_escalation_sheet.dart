@@ -10,8 +10,10 @@
 // честно написано внизу шторки.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import 'package:omi/backend/preferences.dart';
+import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/services/voice_hub/escalation_level.dart';
 
 Future<void> showClaudeEscalationSheet(BuildContext context) => showModalBottomSheet<void>(
@@ -78,6 +80,10 @@ class _ClaudeEscalationSheetState extends State<ClaudeEscalationSheet> {
                   HapticFeedback.selectionClick();
                   setState(() => _index = next);
                   SharedPreferencesUtil().claudeEscalationLevel = next;
+                  // Тёплый сокет хаба живёт и после остановки разговора и несёт
+                  // инструкции СТАРОГО уровня — рвём его (если разговор не идёт),
+                  // чтобы ползунок действовал со следующего же старта.
+                  context.read<CaptureProvider>().invalidateWarmVoiceSessions();
                 },
               ),
             ),

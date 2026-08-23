@@ -140,9 +140,6 @@ class CaptureController extends ChangeNotifier
   /// and resets the UI state.
   void stopFreeFormVoiceMode() {
     freeFormVoiceMode?.stop();
-    // The tail of the conversation is still buffered — post it before the mode
-    // goes away, otherwise the last few turns never reach chat history.
-    unawaited(voiceChatLog.flush());
     resetFreeFormVoiceModeUi();
   }
 
@@ -154,6 +151,24 @@ class CaptureController extends ChangeNotifier
   void resetFreeFormVoiceModeUi() {
     freeFormModeActive.value = false;
     hubProjection.value = idleVoiceTurnProjection;
+    // The tail of the conversation is still buffered — post it, THEN reload
+    // chat history so the spoken dialogue shows up right away. Записи и
+    // раньше долетали до сервера, но чат их не перечитывал — разговор
+    // «не появлялся», пока экран не переоткроют (жалоба Игоря 24.08 ~02:45).
+    // Единая точка: сюда приходят и ручная остановка, и idle-timeout, и обрыв.
+    unawaited(voiceChatLog.flush().then((_) => externalActions.refreshChatMessages()));
+  }
+
+  /// Self-host: смена уровня эскалации (ползунок Gemini ↔ Claude) должна
+  /// действовать со СЛЕДУЮЩЕГО разговора, даже если тёплый сокет ещё жив —
+  /// тёплая сессия несёт инструкции и каталог инструментов СТАРОГО уровня
+  /// (stop() сознательно оставляет сокет тёплым ради быстрого рестарта).
+  /// Живой разговор не рвём — уровень доедет при следующем старте после
+  /// остановки. PTT-хаб не трогаем: его тёплая сессия пересобирается своим
+  /// драйвером, а рвать её отсюда значило бы лезть в его внутренности.
+  void invalidateWarmVoiceSessions() {
+    if (freeFormModeActive.value) return;
+    freeFormVoiceMode?.hub.teardownSession();
   }
 
   // Self-host patch, not for upstream: a dropped socket used to end the

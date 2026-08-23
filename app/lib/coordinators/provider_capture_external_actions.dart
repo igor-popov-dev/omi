@@ -47,6 +47,9 @@ class ProviderCaptureExternalActions implements CaptureExternalActions {
   }
 
   @override
+  Future<void> refreshChatMessages() => messageProvider.refreshMessages();
+
+  @override
   void addProcessingConversation(ServerConversation conversation) {
     conversationProvider.addProcessingConversation(conversation);
   }

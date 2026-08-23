@@ -28,6 +28,7 @@ import 'package:omi/pages/settings/widgets/create_mcp_api_key_dialog.dart';
 import 'package:omi/pages/settings/widgets/developer_api_keys_section.dart';
 import 'package:omi/pages/settings/widgets/mcp_api_key_list_item.dart';
 import 'package:omi/providers/device_provider.dart';
+import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/providers/developer_mode_provider.dart';
 import 'package:omi/providers/mcp_provider.dart';
 import 'package:omi/services/voice_hub/escalation_level.dart';
@@ -213,7 +214,12 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                 max: (ClaudeEscalationLevel.values.length - 1).toDouble(),
                 divisions: ClaudeEscalationLevel.values.length - 1,
                 activeColor: const Color(0xFF22C55E),
-                onChanged: (value) => provider.onClaudeEscalationLevelChanged(value.round()),
+                onChanged: (value) {
+                  provider.onClaudeEscalationLevelChanged(value.round());
+                  // Тёплый сокет хаба переживает остановку разговора со старыми
+                  // инструкциями — рвём его, чтобы уровень применился сразу.
+                  context.read<CaptureProvider>().invalidateWarmVoiceSessions();
+                },
               ),
             ],
           ),
