@@ -91,7 +91,7 @@ class _ControllableSocketFactory {
 }
 
 /// A fake clock that records each armed timer with its delay so a test can
-/// fire a specific one (the ~10s warm timeout vs. the 180s idle release)
+/// fire a specific one (the ~10s warm timeout vs. the 120s idle release)
 /// without waiting real time — same injected-clock seam as the TS source's
 /// `HubClock`.
 class _FakeHubClock implements HubClock {
@@ -301,7 +301,7 @@ void main() {
       s.sockFactory.open(); // socket OPEN + setup frame sent, but no readiness frame ever arrives
       expect(s.session.isWarm(), isFalse);
 
-      // The ~10s warm timeout fires (NOT the 180s idle release) → a clean fast failure.
+      // The ~10s warm timeout fires (NOT the 120s idle release) → a clean fast failure.
       s.clock.fireDuration(hubWarmTimeoutDuration);
       expect(s.session.isWarm(), isFalse);
       // Surfaced through onError as retryable so the controller's strike
@@ -314,7 +314,7 @@ void main() {
       s.sockFactory.open();
       s.sockFactory.message('{"type":"ready"}'); // provider ready within the bound → markReady
       expect(s.session.isWarm(), isTrue);
-      // The warm timeout was cleared on markReady; only the 180s idle release remains.
+      // The warm timeout was cleared on markReady; only the 120s idle release remains.
       expect(s.clock.pendingFor(hubWarmTimeoutDuration), isFalse);
       expect(s.clock.pendingFor(hubIdleReleaseDuration), isTrue);
     });
@@ -346,7 +346,16 @@ void main() {
   });
 
   group('BaseHubSession — idle release (D4)', () {
-    test('teardown() after the 180s idle timer fires releases the warm socket', () {
+    // Measured 24.08 (`marathon/probes/lane5-goaway.py`): Gemini closes a
+    // socket with no traffic at ~151s, unannounced. Our own release only ever
+    // runs if it wins that race — the ported 180s value never did, so an
+    // untouched hub cycled forever on the proactive re-warm that an expected
+    // idle close triggers.
+    test('the client release fires before the server would hang up on its own', () {
+      expect(hubIdleReleaseDuration.inMilliseconds, lessThan(geminiIdleCloseMs));
+    });
+
+    test('teardown() after the 120s idle timer fires releases the warm socket', () {
       fakeAsync((async) {
         final sockFactory = _ControllableSocketFactory();
         final session = _TestHubSession(

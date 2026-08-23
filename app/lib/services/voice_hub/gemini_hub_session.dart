@@ -56,7 +56,7 @@
 // sessionResumption (design doc §10, measured on the live wire 24.08 —
 // `marathon/probes/lane5-session-resumption.py` and
 // `…-resumption-bargein.py`; there is no TS analog to port). Without it every
-// dropped socket — including the 180s idle release and Gemini's fresh-session
+// dropped socket — including the 120s idle release and Gemini's fresh-session
 // barge-in — starts a blank conversation. The setup frame therefore always
 // carries `sessionResumption` (an empty map when there is nothing to restore:
 // the server only offers handles when the key is present at all), and

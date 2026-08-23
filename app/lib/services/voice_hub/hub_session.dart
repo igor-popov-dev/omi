@@ -1,7 +1,7 @@
 // Warm-hub provider session lane — a 1:1 port of the injectable-seam half of
 // `desktop/windows/src/renderer/src/lib/voice/hub/hubSession.ts`
 // (`BaseHubSession`). Owns ONE persistent WebSocket to a realtime provider
-// and drives the per-turn frame choreography (warm/teardown, 180s idle
+// and drives the per-turn frame choreography (warm/teardown, 120s idle
 // release, 10s warm timeout, pre-open PCM buffering, spoken-audio playback)
 // that is common to every provider. Provider wire frames themselves
 // (`connectSpec`/`sessionSetupFrame`/`handleProviderMessage`/...) are NOT
@@ -310,7 +310,7 @@ class HubSocketOpenSpec {
 
 typedef HubSocketFactory = HubSocket Function(HubSocketOpenSpec spec);
 
-/// Injectable timer so the 180s idle release and 10s warm timeout are
+/// Injectable timer so the 120s idle release and 10s warm timeout are
 /// testable with fake clocks, without depending on Flutter's `fake_async`
 /// harness at the type level.
 abstract class HubClock {
@@ -328,8 +328,24 @@ class DefaultHubClock implements HubClock {
   void clearTimer(Object handle) => (handle as Timer).cancel();
 }
 
+/// How long Gemini itself tolerates a socket with no traffic before closing
+/// it — measured 24.08, twice, on two sockets in the same run
+/// (`marathon/probes/lane5-goaway.py`): 151.0s and 152.0s, close code 1008,
+/// reason "The operation was aborted.", and NO `goAway` warning first (the
+/// warning is only for sessions in use, design doc §11).
+const int geminiIdleCloseMs = 151000;
+
 /// D4: release a warm socket after this much idle time.
-const Duration hubIdleReleaseDuration = Duration(milliseconds: 180000);
+///
+/// Must stay below [geminiIdleCloseMs] — the ported value (180s) could never
+/// fire, because the server always hung up first at ~151s. That close is
+/// classified as an expected idle teardown and PROACTIVELY re-warmed
+/// (`hub_close.dart`, and the A7c policy in `hub_controller.dart`), so an
+/// untouched warm hub sat in an endless 2.5-minute cycle of mint, connect,
+/// get closed, re-warm — on a phone, and with a database row per mint. The
+/// release exists precisely to end that cycle by going cold; it only can if
+/// it wins the race.
+const Duration hubIdleReleaseDuration = Duration(milliseconds: 120000);
 
 /// Bound on a single warm attempt (see file header `markReady` port note for
 /// why this exists independently of the idle release).
@@ -488,7 +504,7 @@ abstract class HubSession {
 // MARK: - Shared base (TS `BaseHubSession`)
 // ---------------------------------------------------------------------------
 
-/// Everything every provider lane shares: connect/teardown, the 180s idle
+/// Everything every provider lane shares: connect/teardown, the 120s idle
 /// timer, the pre-open PCM buffer, spoken-audio playback through the
 /// injected [VoicePlayer], and the emit helpers. Provider subclasses
 /// (`GeminiHubSession`, design doc §8 step 2) supply the wire frames and
@@ -580,7 +596,7 @@ abstract class BaseHubSession implements HubSession {
 
   /// Bound the warm attempt: if the provider never signals readiness (the
   /// socket opens but no ready frame arrives, or it never opens at all),
-  /// fail fast instead of hanging until the 180s idle teardown.
+  /// fail fast instead of hanging until the 120s idle teardown.
   void _armWarmTimeout() {
     _clearWarmTimeout();
     _warmTimeoutHandle = clock.setTimer(warmTimeout, () {

@@ -283,7 +283,7 @@ class HubController {
   /// The handle the NEXT session should resume from, or null when the last
   /// thing the dying session said was "not safe to resume right now" (it was
   /// mid-reply — see [HubSessionEvents.onResumptionHandle]). Deliberately
-  /// survives [teardownSession]: the 180s idle release is the case this
+  /// survives [teardownSession]: the 120s idle release is the case this
   /// exists for — the socket goes away, the conversation should not.
   String? _resumptionHandle;
 
@@ -714,7 +714,7 @@ class HubController {
 
   /// The turn terminated (any reason). Releases per-turn state so the next
   /// turn starts clean, but KEEPS the warm socket — that is the whole point
-  /// of a warm hub; only the 180s idle timer or an explicit
+  /// of a warm hub; only the 120s idle timer or an explicit
   /// [teardownSession] closes it.
   void voiceTurnDidTerminate(VoiceTurnId turnId) {
     if (turnId != _activeTurnId) return;
