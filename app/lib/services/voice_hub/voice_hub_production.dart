@@ -164,6 +164,11 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
       maxTurns: 10,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
+    // Non-blocking delivery: the model is released the moment it asks and keeps
+    // the conversation going, and the real answer arrives here as a spoken-in
+    // line. Without this the whole round trip is dead air — 44s of it, measured
+    // 23.08, which the user read as the assistant having died mid-sentence.
+    announce: (text) => hub.sendUserText(text),
   );
 
   return VoiceHubTurnDriver(VoiceHubTurnDriverDeps(
@@ -249,6 +254,11 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
       maxTurns: 10,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
+    // Non-blocking delivery: the model is released the moment it asks and keeps
+    // the conversation going, and the real answer arrives here as a spoken-in
+    // line. Without this the whole round trip is dead air — 44s of it, measured
+    // 23.08, which the user read as the assistant having died mid-sentence.
+    announce: (text) => hub.sendUserText(text),
   );
 
   hub = HubController(

@@ -198,11 +198,36 @@ class AskClaudeToolExecutor {
   /// that forgot to stop — that is what the bridge-side turn cap is for.
   final Duration timeout;
 
+  /// Speaks a line into the live session (typically `HubController.sendUserText`).
+  ///
+  /// When present, the tool stops BLOCKING the conversation: the model is
+  /// released immediately with a short "it's coming" result and keeps talking,
+  /// and the real answer is delivered here whenever it lands. Without it the
+  /// executor keeps the old behaviour — the model waits in silence for the
+  /// round trip, which measured 44s on 23.08 and read to the user as a dead
+  /// assistant.
+  final void Function(String text)? announce;
+
   AskClaudeToolExecutor({
     required this.client,
     required this.sendToolResult,
+    this.announce,
     this.timeout = const Duration(seconds: 60),
   });
+
+  /// Handed to the model the instant it asks, so it can carry the conversation
+  /// instead of standing still. Deliberately an instruction, not data: a bare
+  /// "pending" string got read out loud as if it were the answer.
+  static const String _pendingResult =
+      'Запрос отправлен умной модели. Ответа пока НЕТ — не выдумывай его и не пересказывай. '
+      'Продолжай разговор обычным образом; готовый ответ придёт отдельной репликой, '
+      'и тогда ты озвучишь его.';
+
+  /// Prefix for the delivered answer. Tells the model this is material to voice,
+  /// not a new question from the user.
+  static const String _answerPrefix =
+      'Пришёл ответ от умной модели на твой запрос. Озвучь его своими словами, коротко, '
+      'вклинившись в разговор естественно (например «так, ответ есть»). Вот он: ';
 
   /// Feed this directly to `HubControllerEvents.onToolRequest` /
   /// `HubSessionEvents.onToolRequest`. Fire-and-forget by design — a hub
@@ -216,6 +241,12 @@ class AskClaudeToolExecutor {
   }
 
   Future<void> _run(HubToolCallRequest call) async {
+    final deliverOutOfBand = announce;
+    if (deliverOutOfBand != null) {
+      // Release the turn first: everything after this happens while the model
+      // is free to keep talking.
+      sendToolResult(call.callId, call.name, _pendingResult);
+    }
     // Self-host patch: this round trip used to be invisible. When it failed the
     // model simply went quiet and the mode died, and logcat showed nothing at
     // all — no way to tell a network drop from a call that was never made
@@ -229,6 +260,10 @@ class AskClaudeToolExecutor {
     final summary = '[ask_claude] ${call.callId} ${failed ? 'ОШИБКА' : 'ответ'} '
         'за ${elapsed.inMilliseconds} мс, ${output.length} символов';
     failed ? Logger.error('$summary: $output') : Logger.debug(summary);
+    if (deliverOutOfBand != null) {
+      deliverOutOfBand(failed ? output : '$_answerPrefix$output');
+      return;
+    }
     sendToolResult(call.callId, call.name, output);
   }
 

@@ -292,6 +292,66 @@ void main() {
       }
     });
 
+    test('with announce: the model is freed immediately and the answer arrives spoken-in', () async {
+      // The whole point of non-blocking delivery: until a tool result lands the
+      // model must stay silent, so a 44s round trip (measured 23.08) was 44s of
+      // dead air. Now the turn is released at once and the answer is voiced in
+      // when it arrives.
+      final client = AskClaudeBridgeClient(
+          httpClient: MockClient((r) async => http.Response(
+                _sse([
+                  {'type': 'done', 'text': 'сорок два'}
+                ]),
+                200,
+                headers: _utf8EventStreamHeaders,
+              )));
+      final recorder = _toolResultRecorder();
+      final announced = <String>[];
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: recorder.callback,
+        announce: announced.add,
+      );
+
+      executor.handle(HubToolCallRequest(
+        name: askClaudeToolName,
+        callId: 'c1',
+        argumentsJson: jsonEncode({'question': 'q'}),
+      ));
+      final released = await recorder.result;
+
+      // Released with a placeholder, not with the answer.
+      expect(released.output, contains('Ответа пока НЕТ'));
+      expect(released.output, isNot(contains('сорок два')));
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(announced.single, contains('сорок два'));
+      // Framed as material to voice, so the model does not treat it as a new
+      // question from the user.
+      expect(announced.single, contains('Озвучь'));
+    });
+
+    test('with announce: a failure is spoken in too, not swallowed', () async {
+      final client = AskClaudeBridgeClient(httpClient: MockClient((r) async => http.Response('boom', 500)));
+      final recorder = _toolResultRecorder();
+      final announced = <String>[];
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: recorder.callback,
+        announce: announced.add,
+      );
+
+      executor.handle(HubToolCallRequest(
+        name: askClaudeToolName,
+        callId: 'c1',
+        argumentsJson: jsonEncode({'question': 'q'}),
+      ));
+      await recorder.result;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(announced.single, contains('Error'));
+    });
+
     test('a hung bridge still answers the call — the model never sits in silence forever', () async {
       // Never completes: the failure this guards is a bridge that accepts the
       // request and then goes quiet, which used to leave the turn hanging with
