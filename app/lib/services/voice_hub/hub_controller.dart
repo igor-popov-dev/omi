@@ -459,7 +459,10 @@ class HubController {
       if (sid == null) throw StateError('hub session connected without a session id');
       return sid;
     } finally {
-      _warming = null;
+      // Only the warm that still owns the slot may clear it: a
+      // `teardownSession()` condemned this one and a newer warm may already
+      // have taken its place.
+      if (_warmGeneration == gen) _warming = null;
     }
   }
 
@@ -509,6 +512,15 @@ class HubController {
     // connecting when this explicit drop happened must discard its result
     // at its next commit point rather than install an orphaned socket.
     _warmGeneration += 1;
+    // Release the coalescing slot as well as bumping the generation. The warm
+    // in flight is now condemned — it will throw `HubWarmAbortedError` at its
+    // next generation check — and `ensureWarm()` hands the in-flight future
+    // straight back to its next caller. Leaving it in place made the very
+    // next `ensureWarm()` (the goAway rebuild is exactly this: teardown, then
+    // warm) inherit that guaranteed failure instead of opening a fresh
+    // socket. The condemned warm's `finally` no longer clears this slot, so
+    // it cannot take the replacement down with it.
+    _warming = null;
     _cancelReconnect();
     _reconnectStrikes = 0;
     _circuitOpenUntil = null;

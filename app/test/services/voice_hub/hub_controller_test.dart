@@ -578,6 +578,38 @@ void main() {
       await expectLater(p, throwsA(isA<HubWarmAbortedError>()));
     });
 
+    // Found by the free-form goAway rebuild (24.08), which is literally
+    // `teardownSession()` then `ensureWarm()`: the rebuild kept failing with
+    // `HubWarmAbortedError` whenever a warm happened to be in flight.
+    test('an ensureWarm after a teardownSession opens a fresh warm instead of inheriting the condemned one', () async {
+      final resolver = Completer<String>();
+      final h = _Harness();
+      h.mintTokenImpl = () => resolver.future;
+
+      final doomed = h.controller.ensureWarm();
+      unawaited(doomed.catchError((Object _) => sid));
+      await _tick(); // parked on the mint await
+
+      h.controller.teardownSession();
+
+      // The rebuild: the caller asks for a socket right after dropping one.
+      h.mintTokenImpl = () async => 'ek_token';
+      final rebuilt = h.controller.ensureWarm();
+      await _tick();
+      h.session.connect();
+
+      await expectLater(rebuilt, completion(sid));
+      expect(h.controller.isWarm(), isTrue, reason: 'пересборка получила живой сокет');
+
+      // The condemned warm resolves LAST: it must abort, and it must not
+      // clear the warm slot the replacement now owns.
+      resolver.complete('ek_token');
+      await expectLater(doomed, throwsA(isA<HubWarmAbortedError>()));
+      await _tick();
+      expect(h.controller.isWarm(), isTrue, reason: 'упавший прогрев не утащил замену за собой');
+      expect(h.createCalls, 1, reason: 'осуждённый прогрев сокет так и не построил');
+    });
+
     test('a teardownSession after the warm resolves but before it installs discards the session (no leak)', () async {
       final h = _Harness();
       final p = h.controller.ensureWarm();
