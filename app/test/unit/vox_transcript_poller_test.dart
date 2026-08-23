@@ -45,6 +45,7 @@ http.Response _page({
   int cursor = 0,
   int dropped = 0,
   String status = 'active',
+  bool reset = false,
 }) {
   // Bytes, and a charset-less content type — exactly what the adapter sends. Building
   // this with `http.Response(String, ...)` would quietly latin1-encode it and test a
@@ -57,6 +58,7 @@ http.Response _page({
       'segments': segments,
       'deleted': deleted,
       'dropped': dropped,
+      'reset': reset,
     })),
     200,
     headers: {'content-type': 'application/json'},
@@ -193,6 +195,61 @@ void main() {
 
       expect(poller.cursor, 9);
       expect(client.requests.last.queryParameters['since'], '9');
+    });
+
+    test('a restarted adapter rewinds the cursor instead of freezing the screen', () async {
+      // The adapter's buffer lives in one call session: a leg back after the grace expired,
+      // or a restart, numbers from one again. Forward-only would leave our cursor above
+      // anything that buffer will ever issue, and the rest of the call would arrive as
+      // "nothing changed" — HTTP 200, no error anywhere, the screen simply stops.
+      final client = _ScriptedClient([
+        (_) => _page(segments: [_segment('a', 'до перезапуска')], cursor: 40),
+        (_) => _page(segments: [_segment('b', 'после перезапуска')], cursor: 1, reset: true),
+      ]);
+      final seen = <String>[];
+      final poller = _poller(client)..onSegments = (s) => seen.addAll(s.map((e) => e.text));
+
+      poller.start('c1');
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      await poller.stop();
+
+      expect(seen, ['до перезапуска', 'после перезапуска']);
+      expect(poller.cursor, 1);
+      // The point of the whole test: the NEXT question is one the new buffer can answer.
+      expect(client.requests.last.queryParameters['since'], '1');
+    });
+
+    test('a rewind is only accepted when the adapter says so', () async {
+      // Same shape as above minus the flag — an out-of-order answer must not make us
+      // re-ask for text the screen already shows.
+      final client = _ScriptedClient([
+        (_) => _page(segments: [_segment('a', 'первая')], cursor: 40),
+        (_) => _page(segments: [_segment('b', 'вторая')], cursor: 1),
+      ]);
+      final poller = _poller(client);
+
+      poller.start('c1');
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      await poller.stop();
+
+      expect(poller.cursor, 40);
+      expect(client.requests.last.queryParameters['since'], '40');
+    });
+
+    test('an adapter that never mentions reset is handled like before', () async {
+      // The field is new on the server side; a build talking to an older adapter must not
+      // read a missing flag as "everything restarted".
+      final page = VoxTranscriptPage.fromJson({
+        'call_id': 'c1',
+        'status': 'active',
+        'cursor': 7,
+        'segments': [_segment('a', 'первая')],
+        'deleted': <String>[],
+        'dropped': 0,
+      });
+
+      expect(page.reset, isFalse);
+      expect(page.cursor, 7);
     });
 
     test('404 early in a call is normal and keeps the poller going', () async {

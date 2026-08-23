@@ -20,12 +20,19 @@ class VoxTranscriptPage {
   /// `active` while the call runs, `finished` once the adapter closed the session.
   final String status;
 
+  /// The adapter's numbering started over and these segments are everything it has.
+  /// Its buffer lives in the memory of one call session: a leg that comes back after the
+  /// session grace expires (a tunnel blink) — or a restart of the adapter itself — builds
+  /// a fresh buffer counting from one, below any cursor we already hold.
+  final bool reset;
+
   const VoxTranscriptPage({
     required this.segments,
     required this.deleted,
     required this.cursor,
     required this.dropped,
     required this.status,
+    this.reset = false,
   });
 
   factory VoxTranscriptPage.fromJson(Map<String, dynamic> json) {
@@ -39,6 +46,7 @@ class VoxTranscriptPage {
       cursor: json['cursor'] is int ? json['cursor'] as int : 0,
       dropped: json['dropped'] is int ? json['dropped'] as int : 0,
       status: json['status'] is String ? json['status'] as String : 'active',
+      reset: json['reset'] == true,
     );
   }
 }
@@ -167,8 +175,12 @@ class VoxTranscriptPoller {
       if (page.segments.isNotEmpty) onSegments?.call(page.segments);
       if (page.deleted.isNotEmpty) onDeleted?.call(page.deleted);
       // Advance only on the server's own count, and only forward: an out-of-order answer
-      // must not rewind the cursor and replay text the screen already shows.
-      if (page.cursor > _cursor) _cursor = page.cursor;
+      // must not rewind the cursor and replay text the screen already shows. The single
+      // exception is the adapter telling us its numbering restarted — forward-only would
+      // then pin the cursor above anything the new buffer can ever issue, and the screen
+      // would silently stop updating for the rest of the call (HTTP 200, no error, no
+      // empty-transcript verdict: just text that never arrives again).
+      if (page.reset || page.cursor > _cursor) _cursor = page.cursor;
     } catch (e) {
       _note('${e.runtimeType}');
     } finally {
