@@ -807,6 +807,15 @@ class AppResultDetailWidget extends StatefulWidget {
 }
 
 class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
+  /// Заголовок блока со сводкой. Пустой app_id — это не «неизвестное приложение», а
+  /// обычный разбор самого omi: сводку сделал он, а не сторонний шаблон. Показывать
+  /// в этом случае «Неизвестное приложение» — вводить в заблуждение на ровном месте.
+  String _resultTitle(BuildContext context) {
+    final app = widget.app;
+    if (app != null) return app.name.decodeString;
+    return widget.appResponse.appId == null ? context.l10n.summary : context.l10n.unknownApp;
+  }
+
   bool _isEditing = false;
   TextEditingController? _controller;
   FocusNode? _focusNode;
@@ -975,7 +984,7 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  widget.app != null ? widget.app!.name.decodeString : context.l10n.unknownApp,
+                                  _resultTitle(context),
                                   maxLines: 1,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w500,
@@ -1397,7 +1406,7 @@ extension _AppResultDetailWidgetSliver on _AppResultDetailWidgetState {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.app != null ? widget.app!.name.decodeString : context.l10n.unknownApp,
+                          _resultTitle(context),
                           maxLines: 1,
                           style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white, fontSize: 14),
                         ),
