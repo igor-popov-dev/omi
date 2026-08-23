@@ -560,6 +560,20 @@ abstract class BaseHubSession implements HubSession {
   Completer<void>? _warmCompleter;
   bool _errored = false;
 
+  /// Bumped by every socket this session opens and by every [teardown]. The
+  /// callbacks handed to [socketFactory] close over the value their own
+  /// socket was opened with, so anything arriving from a socket we already
+  /// dropped is ignored instead of landing on the session that replaced it.
+  ///
+  /// This is not a theoretical race: closing a WebSocket does not cancel the
+  /// incoming subscription, so EVERY deliberate close (the idle release, the
+  /// goAway rebuild, the stale-session drop inside a re-warm) is followed by
+  /// an `onDone` a round-trip later. Ungated, that reached the host as a
+  /// socket error — which the controller answers by dropping the live
+  /// session and scheduling a reconnect, i.e. the silent idle release woke
+  /// the hub straight back up.
+  int _socketGeneration = 0;
+
   BaseHubSession({
     required this.token,
     required this.instructions,
@@ -638,17 +652,28 @@ abstract class BaseHubSession implements HubSession {
     }
     _player = player;
     final spec = connectSpec();
+    final gen = ++_socketGeneration;
+    bool mine() => gen == _socketGeneration;
     socket = socketFactory(HubSocketOpenSpec(
       url: spec.url,
       protocols: spec.protocols,
-      onOpen: _onSocketOpen,
-      onMessage: _onSocketMessage,
-      onClose: (code, reason) => _handleError(
-        'websocket closed ($code)${reason.isNotEmpty ? ' $reason' : ''}',
-        true,
-        code,
-      ),
-      onError: (message) => _handleError(message, true),
+      onOpen: () {
+        if (mine()) _onSocketOpen();
+      },
+      onMessage: (data) {
+        if (mine()) _onSocketMessage(data);
+      },
+      onClose: (code, reason) {
+        if (!mine()) return;
+        _handleError(
+          'websocket closed ($code)${reason.isNotEmpty ? ' $reason' : ''}',
+          true,
+          code,
+        );
+      },
+      onError: (message) {
+        if (mine()) _handleError(message, true);
+      },
     ));
   }
 
@@ -687,6 +712,9 @@ abstract class BaseHubSession implements HubSession {
 
   @override
   void teardown() {
+    // Disown the socket's callbacks first: the close below produces an
+    // `onDone` a round-trip later, and a deliberate teardown is not an error.
+    _socketGeneration += 1;
     _clearWarmTimeout();
     final idle = _idleHandle;
     if (idle != null) {

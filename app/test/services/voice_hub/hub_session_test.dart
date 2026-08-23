@@ -377,6 +377,76 @@ void main() {
     });
   });
 
+  // Closing a WebSocket does NOT cancel its incoming subscription: the stream
+  // still delivers `onDone` (and any frame already in flight) a round-trip
+  // later. Every deliberate teardown we do — the idle release, the goAway
+  // rebuild, the stale-session drop inside a re-warm — therefore ends with a
+  // callback from a socket the session has already replaced or dropped. The
+  // test fakes never modelled that, which is why it stayed invisible.
+  group('BaseHubSession — callbacks from a socket we already dropped', () {
+    Future<({_TestHubSession session, _ControllableSocketFactory sock, List<String> errors})> warmSession() async {
+      final sockFactory = _ControllableSocketFactory();
+      final errors = <String>[];
+      final session = _TestHubSession(
+        token: 'tok',
+        instructions: 'instr',
+        socketFactory: sockFactory.factory,
+        playerFactory: _noopPlayerFactory,
+        events: HubSessionEvents(onError: (message, retryable, closeCode) => errors.add(message)),
+      );
+      unawaited(session.ensureWarm().catchError((_) {}));
+      // _openConnection awaits the player factory before creating the socket.
+      await Future<void>.value();
+      await Future<void>.value();
+      sockFactory.open();
+      sockFactory.message('{"type":"ready"}');
+      expect(session.isWarm(), isTrue);
+      return (session: session, sock: sockFactory, errors: errors);
+    }
+
+    test('the onClose that every deliberate teardown produces is NOT reported as an error', () async {
+      final h = await warmSession();
+
+      h.session.teardown();
+      // The close handshake completes and the stream ends — what the real
+      // socket does a round-trip after `close()`.
+      h.sock.spec!.onClose(1000, '');
+
+      expect(h.errors, isEmpty, reason: 'намеренное закрытие — не ошибка; иначе хаб тут же прогреется обратно');
+    });
+
+    test('a transport error on the dropped socket is not reported either', () async {
+      final h = await warmSession();
+
+      h.session.teardown();
+      h.sock.spec!.onError('connection reset');
+
+      expect(h.errors, isEmpty);
+    });
+
+    test('a frame still in flight when we dropped the socket does not reach the session', () async {
+      final h = await warmSession();
+      h.session.teardown();
+      expect(h.session.isWarm(), isFalse);
+
+      // A readiness frame is the sharpest case: ungated it would call
+      // markReady() and resurrect a session nobody asked for.
+      h.sock.spec!.onMessage('{"type":"ready"}');
+
+      expect(h.session.isWarm(), isFalse, reason: 'сессия остаётся закрытой');
+      expect(h.errors, isEmpty);
+    });
+
+    test('a genuine close on the LIVE socket is still reported', () async {
+      final h = await warmSession();
+
+      h.sock.spec!.onClose(1011, 'internal error');
+
+      expect(h.errors, hasLength(1));
+      expect(h.errors.single, contains('1011'));
+    });
+  });
+
   group('BaseHubSession — audio focus loss (native AudioFocusPolicy STOP)', () {
     test('onAudioFocusLost surfaces as a non-retryable session error and tears the session down', () async {
       final capture = _CapturingPlayerFactory();
