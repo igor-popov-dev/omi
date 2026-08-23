@@ -89,10 +89,60 @@ import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:omi/utils/notification_channel_strings.dart';
 
+/// Параметры Firebase для текущего флейвора — считаются одинаково во ВСЕХ движках.
+FirebaseOptions _firebaseOptionsForFlavor() => Env.profile == AppEnvironmentProfile.localDev
+    ? local.DefaultFirebaseOptions.currentPlatform
+    : prod.DefaultFirebaseOptions.currentPlatform;
+
+/// Инициализация Firebase, которая не убивает запуск.
+///
+/// `Firebase.apps` пуст до первого `initializeApp` даже когда нативный `[DEFAULT]`
+/// уже поднят (на Android его заводит FirebaseInitProvider из google-services.json,
+/// на macOS — нативный SDK). Поэтому старая проверка `if (Firebase.apps.isEmpty)`
+/// ничего не гарантировала: внутри `initializeApp` firebase_core подтягивает
+/// нативные приложения и, если наши apiKey/databaseURL/storageBucket не совпали
+/// с нативными, бросает `[core/duplicate-app]`
+/// (firebase_core_platform_interface/method_channel_firebase.dart).
+///
+/// Ловится это только на устройстве и выглядит катастрофой: исключение летит из
+/// `_init` до первого кадра, `runApp` не вызывается, и пользователь видит
+/// StartupFailureApp с «Omi could not start» — приложение мертво, хотя рядом
+/// живёт совершенно рабочее нативное приложение Firebase. Именно так и случилось
+/// 23.08 на self-host сборке.
+///
+/// Правильное поведение: несовпадение конфигурации — повод громко пожаловаться,
+/// но НЕ повод не запуститься. Берём то приложение, которое уже есть, и проверяем
+/// его проект нашей же проверкой — если проект действительно чужой,
+/// `validateFirebaseProject` сам всё скажет.
+Future<FirebaseApp> _ensureFirebaseApp() async {
+  if (Firebase.apps.isNotEmpty) {
+    final existing = Firebase.app();
+    Env.validateFirebaseProject(projectId: existing.options.projectId);
+    return existing;
+  }
+
+  final options = _firebaseOptionsForFlavor();
+  Env.validateFirebaseProject(projectId: options.projectId);
+  try {
+    return await Firebase.initializeApp(options: options);
+  } on FirebaseException catch (error) {
+    if (error.code != 'duplicate-app') rethrow;
+    final existing = Firebase.app();
+    debugPrint(
+      'Firebase уже поднят нативно (проект ${existing.options.projectId}), '
+      'наши параметры (${options.projectId}) с ним разошлись — работаем с существующим.',
+    );
+    Env.validateFirebaseProject(projectId: existing.options.projectId);
+    return existing;
+  }
+}
+
 /// Background message handler for FCM data messages
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  // Тот же путь, что и в _init: отдельный движок не должен поднимать [DEFAULT]
+  // с параметрами из ресурсов, расходящимися с теми, что использует UI-движок.
+  await _ensureFirebaseApp();
   await NotificationChannelStrings.loadAppLocale();
 
   await AwesomeNotifications().initialize(null, [
@@ -144,18 +194,7 @@ Future _init() async {
   LimitlessDeviceConnection.realtimeSuppressionPolicy = () => SharedPreferencesUtil().batchModeEnabled;
 
   // Firebase
-  if (Firebase.apps.isEmpty) {
-    final profile = Env.profile;
-    final options = profile == AppEnvironmentProfile.localDev
-        ? local.DefaultFirebaseOptions.currentPlatform
-        : prod.DefaultFirebaseOptions.currentPlatform;
-    Env.validateFirebaseProject(projectId: options.projectId);
-    await Firebase.initializeApp(options: options);
-  } else {
-    // Firebase may already be initialized by native SDK (macOS)
-    debugPrint('Firebase already initialized.');
-    Env.validateFirebaseProject(projectId: Firebase.app().options.projectId);
-  }
+  await _ensureFirebaseApp();
 
   if (Env.profile.usesFirebaseAuthEmulator && Env.firebaseAuthEmulatorHost.isNotEmpty) {
     await FirebaseAuth.instance.useAuthEmulator(Env.firebaseAuthEmulatorHost, Env.firebaseAuthEmulatorPort);
