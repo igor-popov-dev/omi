@@ -33,6 +33,8 @@ class _FakeSession implements HubSession {
   final List<Uint8List> appended = [];
   int cancelled = 0;
   int cleared = 0;
+  int toreDown = 0;
+  int toreDown = 0;
 
   @override
   Future<void> ensureWarm() {
@@ -64,7 +66,7 @@ class _FakeSession implements HubSession {
   @override
   void clearPlayback() => cleared += 1;
   @override
-  void teardown() {}
+  void teardown() => toreDown += 1;
 }
 
 class _FakeCapture implements HubPttCapture {
@@ -231,12 +233,19 @@ void main() {
     test('restart() rebuilds the socket and KEEPS the conversation', () async {
       final mode = await buildMode();
       await mode.start();
+      final old = session;
       session.events.onResumptionHandle?.call('H1');
 
       await mode.restart();
 
       expect(mode.isRunning, isTrue);
       expect(captureCalls, 2, reason: 'захват перезапущен');
+      // The point of the whole exercise: a NEW socket. Restarting capture
+      // around the same dying socket would look identical from the outside
+      // and achieve nothing.
+      expect(identical(session, old), isFalse, reason: 'сокет действительно новый');
+      expect(old.toreDown, 1, reason: 'старый сокет закрыт — сервер этого и требует');
+      expect(session.begun, isNotEmpty, reason: 'новый сокет получил begin-кадр');
       expect(hub.canResumeConversation, isTrue, reason: 'разговор переживает пересборку сокета');
     });
 

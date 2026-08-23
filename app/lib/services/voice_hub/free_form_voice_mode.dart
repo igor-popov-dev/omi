@@ -161,6 +161,20 @@ class FreeFormVoiceMode {
   /// [isRunning] first (`CaptureController.rebuildFreeFormVoiceModeSocket`).
   Future<void> restart() async {
     _stop(endsConversation: false);
+    // The socket itself, not just the turn: [_stop] only cancels the turn, so
+    // without this the "rebuild" would restart mic capture around the very
+    // socket it was called to replace — invisible from the outside and
+    // useless. `teardownSession` deliberately KEEPS the resumption handle
+    // (design doc §10), which is what makes the next socket a continuation.
+    // On the recovery path the session is already gone and this is a no-op.
+    hub.teardownSession();
+    // Wait for the replacement socket BEFORE capture resumes. `start()` alone
+    // does not: it fires the warm and returns, leaving the reducer's
+    // warm-wait buffer to cover the latency. That is right for a cold start
+    // and wrong here — the callers of this method speak into the session
+    // immediately afterwards (the recovery line), and text handed to a hub
+    // with no socket is dropped, not queued.
+    await hub.ensureWarm();
     await start();
   }
 
