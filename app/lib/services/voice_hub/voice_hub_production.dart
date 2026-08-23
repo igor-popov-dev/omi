@@ -150,7 +150,14 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
   late final HubController hub;
 
   final askClaudeExecutor = AskClaudeToolExecutor(
-    client: AskClaudeBridgeClient(httpClient: bridgeHttpClient ?? CfAccessHttpClient()),
+    // Voice asks for a BOUNDED agent, unlike chat: measured 23.08, the same
+    // memory question ran 12 turns / 90s unbounded on Opus (the client gave up
+    // first and the user heard nothing) versus 16s on Sonnet capped at 6 turns.
+    client: AskClaudeBridgeClient(
+      httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
+      model: 'sonnet',
+      maxTurns: 6,
+    ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
   );
 
@@ -223,7 +230,14 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   late final HubController hub;
 
   final askClaudeExecutor = AskClaudeToolExecutor(
-    client: AskClaudeBridgeClient(httpClient: bridgeHttpClient ?? CfAccessHttpClient()),
+    // Voice asks for a BOUNDED agent, unlike chat: measured 23.08, the same
+    // memory question ran 12 turns / 90s unbounded on Opus (the client gave up
+    // first and the user heard nothing) versus 16s on Sonnet capped at 6 turns.
+    client: AskClaudeBridgeClient(
+      httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
+      model: 'sonnet',
+      maxTurns: 6,
+    ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
   );
 

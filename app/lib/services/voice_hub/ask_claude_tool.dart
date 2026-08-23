@@ -101,10 +101,17 @@ class AskClaudeBridgeClient {
   /// caller opts in.
   final String? model;
 
+  /// Ceiling on the agent's turns for one answer. A conversation cannot wait
+  /// out an unbounded agent: measured 23.08, an unlimited memory question ran
+  /// 12 turns / 90s on Opus, while the same question capped at 6 turns on
+  /// Sonnet answered in 16s. Null keeps the bridge's own (unbounded) default.
+  final int? maxTurns;
+
   AskClaudeBridgeClient({
     required this.httpClient,
     Uri? endpoint,
     this.model,
+    this.maxTurns,
   }) : endpoint = endpoint ?? Uri.parse('https://omi-bridge.peshkomdomoy.online/ask');
 
   /// Sends one question, collects the streamed SSE reply, and returns the
@@ -125,6 +132,7 @@ class AskClaudeBridgeClient {
         'question': question,
         if (context.isNotEmpty) 'context': context,
         if (model != null) 'model': model,
+        if (maxTurns != null) 'max_turns': maxTurns,
         'tools_enabled': toolsEnabled,
       });
     final streamed = await httpClient.send(request);
@@ -180,15 +188,17 @@ class AskClaudeToolExecutor {
   /// session. On expiry we answer the call ourselves with an error result —
   /// the model gets its turn back and can say what happened out loud.
   ///
-  /// Sized against a measured call, not a guess: a memory-backed answer with
-  /// MCP servers cold-starting took 26s on 23.08, so a shorter deadline would
-  /// cut off exactly the calls this tool exists for.
+  /// Sized against measured calls, not a guess: a memory-backed answer runs
+  /// ~16s once the bridge is asked for a bounded agent (Sonnet, capped turns),
+  /// and the previous 45s ceiling was itself hit live on 23.08 by an unbounded
+  /// 90s call. The headroom is for a cold start, not for waiting out an agent
+  /// that forgot to stop — that is what the bridge-side turn cap is for.
   final Duration timeout;
 
   AskClaudeToolExecutor({
     required this.client,
     required this.sendToolResult,
-    this.timeout = const Duration(seconds: 45),
+    this.timeout = const Duration(seconds: 60),
   });
 
   /// Feed this directly to `HubControllerEvents.onToolRequest` /
