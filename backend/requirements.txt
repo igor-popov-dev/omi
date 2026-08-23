@@ -231,3 +231,6 @@ pycountry==24.6.1
 langdetect==1.0.9
 lc3py==1.1.3; sys_platform == "linux" and platform_machine == "x86_64"
 twilio==9.5.0
+
+# On-prem: Mongo document-store adapter (STORAGE_BACKEND=mongo). Lazily imported by the adapter.
+pymongo==4.10.1
