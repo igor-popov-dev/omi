@@ -218,16 +218,37 @@ class AskClaudeToolExecutor {
   /// Handed to the model the instant it asks, so it can carry the conversation
   /// instead of standing still. Deliberately an instruction, not data: a bare
   /// "pending" string got read out loud as if it were the answer.
+  ///
+  /// «НЕ отвечай сам» — урок живого теста 24.08: прежняя формулировка
+  /// «продолжай разговор обычным образом» читалась моделью как разрешение
+  /// ответить на вопрос самостоятельно, и ответ Opus затем звучал второй
+  /// репликой — то самое «раздвоение личности» (WORKLOG 24.08 ~02:50).
   static const String _pendingResult =
-      'Запрос отправлен умной модели. Ответа пока НЕТ — не выдумывай его и не пересказывай. '
-      'Продолжай разговор обычным образом; готовый ответ придёт отдельной репликой, '
-      'и тогда ты озвучишь его.';
+      'Запрос отправлен умной модели. Ответа пока НЕТ — не выдумывай его, не пересказывай '
+      'и НЕ отвечай на этот вопрос сам: ответ придёт отдельной репликой, и тогда ты его '
+      'озвучишь. До тех пор можешь коротко поддерживать разговор на другие темы.';
 
-  /// Prefix for the delivered answer. Tells the model this is material to voice,
-  /// not a new question from the user.
-  static const String _answerPrefix =
-      'Пришёл ответ от умной модели на твой запрос. Озвучь его своими словами, коротко, '
-      'вклинившись в разговор естественно (например «так, ответ есть»). Вот он: ';
+  /// Frame for the delivered answer. Tells the model this is material to
+  /// voice, not a new question from the user, and NAMES the question it
+  /// answers — к моменту доставки разговор мог уйти на реплику-две вперёд,
+  /// и безымянное «так, ответ есть» звучало невпопад (живой тест 24.08).
+  static String _answerFor(String? question, String output) {
+    final trimmed = question == null || question.isEmpty
+        ? null
+        : (question.length > 90 ? '${question.substring(0, 90)}…' : question);
+    final about = trimmed == null ? '' : ' на вопрос «$trimmed»';
+    return 'Пришёл ответ от умной модели$about. Озвучь его своими словами, коротко, '
+        'вклинившись в разговор естественно (например «так, ответ есть»); если разговор '
+        'уже ушёл с этой темы, сначала назови, к чему это ответ. Вот он: $output';
+  }
+
+  /// Monotonic counter of announce-path calls: the NEWEST call supersedes the
+  /// delivery of every older, still-in-flight answer (single-flight). Реальный
+  /// случай с живого теста 24.08: пока ехал ответ на старый вопрос, пользователь
+  /// спросил новое — старый ответ прилетал позже нового вопроса и звучал как
+  /// вторая личность. Устаревший ответ теперь просто не озвучивается (модель
+  /// свой ход уже получила через `_pendingResult`, ничего не зависает).
+  int _announceGeneration = 0;
 
   /// Feed this directly to `HubControllerEvents.onToolRequest` /
   /// `HubSessionEvents.onToolRequest`. Fire-and-forget by design — a hub
@@ -242,9 +263,12 @@ class AskClaudeToolExecutor {
 
   Future<void> _run(HubToolCallRequest call) async {
     final deliverOutOfBand = announce;
+    var generation = 0;
     if (deliverOutOfBand != null) {
       // Release the turn first: everything after this happens while the model
-      // is free to keep talking.
+      // is free to keep talking. The generation snapshot makes this call the
+      // newest one — and instantly stales every older in-flight answer.
+      generation = ++_announceGeneration;
       sendToolResult(call.callId, call.name, _pendingResult);
     }
     // Self-host patch: this round trip used to be invisible. When it failed the
@@ -261,10 +285,29 @@ class AskClaudeToolExecutor {
         'за ${elapsed.inMilliseconds} мс, ${output.length} символов';
     failed ? Logger.error('$summary: $output') : Logger.debug(summary);
     if (deliverOutOfBand != null) {
-      deliverOutOfBand(failed ? output : '$_answerPrefix$output');
+      if (generation != _announceGeneration) {
+        // Superseded: пока этот ответ ехал, модель спросила что-то новее —
+        // разговор уже там, а запоздалый ответ прозвучал бы «второй личностью».
+        Logger.debug('[ask_claude] ${call.callId} ответ устарел (есть более новый запрос) — не озвучиваем');
+        return;
+      }
+      deliverOutOfBand(failed ? output : _answerFor(_questionOf(call), output));
       return;
     }
     sendToolResult(call.callId, call.name, output);
+  }
+
+  /// The question text of a call, for labeling its delivered answer.
+  /// Parse errors return null — доставка важнее подписи (у `_resolve` своя,
+  /// говорящая обработка кривых аргументов).
+  static String? _questionOf(HubToolCallRequest call) {
+    try {
+      final decoded = jsonDecode(call.argumentsJson);
+      final q = decoded is Map<String, dynamic> ? decoded['question'] : null;
+      return q is String ? q : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<String> _resolve(HubToolCallRequest call) async {

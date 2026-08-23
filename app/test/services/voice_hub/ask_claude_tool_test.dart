@@ -331,6 +331,79 @@ void main() {
       expect(announced.single, contains('Озвучь'));
     });
 
+    test('with announce: the spoken answer names the question it answers', () async {
+      // К моменту доставки разговор мог уйти вперёд (живой тест 24.08):
+      // безымянное «так, ответ есть» звучало невпопад. Ответ обязан называть
+      // свой вопрос.
+      final client = AskClaudeBridgeClient(
+          httpClient: MockClient((r) async => http.Response(
+                _sse([
+                  {'type': 'done', 'text': 'сорок два'}
+                ]),
+                200,
+                headers: _utf8EventStreamHeaders,
+              )));
+      final recorder = _toolResultRecorder();
+      final announced = <String>[];
+      final executor =
+          AskClaudeToolExecutor(client: client, sendToolResult: recorder.callback, announce: announced.add);
+
+      executor.handle(HubToolCallRequest(
+        name: askClaudeToolName,
+        callId: 'c1',
+        argumentsJson: jsonEncode({'question': 'сколько будет шесть на девять'}),
+      ));
+      await recorder.result;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(announced.single, contains('сколько будет шесть на девять'));
+      expect(announced.single, contains('сорок два'));
+    });
+
+    test('a newer call supersedes an older in-flight answer — only the newest is spoken', () async {
+      // Живой тест 24.08: пока ехал ответ на старый вопрос, пользователь
+      // спросил новое; запоздалый ответ звучал «второй личностью» не к месту.
+      // Правило: озвучивается только ответ самого нового запроса.
+      final slowFirst = Completer<http.Response>();
+      var calls = 0;
+      final client = AskClaudeBridgeClient(httpClient: MockClient((r) {
+        calls++;
+        if (calls == 1) return slowFirst.future;
+        return Future.value(http.Response(
+          _sse([
+            {'type': 'done', 'text': 'новый ответ'}
+          ]),
+          200,
+          headers: _utf8EventStreamHeaders,
+        ));
+      }));
+      final announced = <String>[];
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: (_, __, ___) {},
+        announce: announced.add,
+      );
+
+      executor.handle(HubToolCallRequest(
+          name: askClaudeToolName, callId: 'old', argumentsJson: jsonEncode({'question': 'старый вопрос'})));
+      executor.handle(HubToolCallRequest(
+          name: askClaudeToolName, callId: 'new', argumentsJson: jsonEncode({'question': 'новый вопрос'})));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // Старый ответ приходит ПОСЛЕ нового вопроса — и должен быть отброшен.
+      slowFirst.complete(http.Response(
+        _sse([
+          {'type': 'done', 'text': 'старый ответ'}
+        ]),
+        200,
+        headers: _utf8EventStreamHeaders,
+      ));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(announced, hasLength(1));
+      expect(announced.single, contains('новый ответ'));
+      expect(announced.single, isNot(contains('старый ответ')));
+    });
+
     test('with announce: a failure is spoken in too, not swallowed', () async {
       final client = AskClaudeBridgeClient(httpClient: MockClient((r) async => http.Response('boom', 500)));
       final recorder = _toolResultRecorder();
