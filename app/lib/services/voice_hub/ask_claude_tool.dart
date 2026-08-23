@@ -133,6 +133,9 @@ class AskClaudeBridgeClient {
         if (context.isNotEmpty) 'context': context,
         if (model != null) 'model': model,
         if (maxTurns != null) 'max_turns': maxTurns,
+        // Ответ пойдёт в озвучку: мост включает правила устного стиля (короче
+        // двух фраз, без списков) — в речи структура не читается, а секунды стоит.
+        'voice': true,
         'tools_enabled': toolsEnabled,
       });
     final streamed = await httpClient.send(request);

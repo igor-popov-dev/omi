@@ -161,7 +161,7 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     // the problem, the turn count was).
     client: AskClaudeBridgeClient(
       httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
-      maxTurns: 6,
+      maxTurns: 10,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
   );
@@ -246,7 +246,7 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     // the problem, the turn count was).
     client: AskClaudeBridgeClient(
       httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
-      maxTurns: 6,
+      maxTurns: 10,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
   );

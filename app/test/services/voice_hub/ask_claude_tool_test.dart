@@ -59,6 +59,10 @@ void main() {
         'question': 'который час?',
         'context': 'CTX',
         'model': 'sonnet',
+        // Self-host patch: the answer is read aloud, so the bridge is asked for
+        // spoken style (two phrases, 50 words, no lists) — structure is unreadable
+        // in speech but still costs seconds.
+        'voice': true,
         'tools_enabled': true,
       });
     });
