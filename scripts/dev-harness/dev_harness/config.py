@@ -352,6 +352,11 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
         # screen 500s (backend/utils/other/storage.py raises when the bucket is missing).
         "STORAGE_EMULATOR_HOST": os.environ.get("STORAGE_EMULATOR_HOST", "http://127.0.0.1:4443"),
         "BUCKET_SPEECH_PROFILES": os.environ.get("BUCKET_SPEECH_PROFILES", "speech-profiles"),
+        # Voice messages in chat take a different route than the listen socket: the wav is
+        # uploaded to GCS first (backend/utils/chat.py, get_syncing_file_temporal_signed_url).
+        # Without a bucket name that upload raises ValueError, which maps to invalid_input —
+        # a 400 before VAD and before the provider are ever reached (lane1, 23.08).
+        "BUCKET_TEMPORAL_SYNC_LOCAL": os.environ.get("BUCKET_TEMPORAL_SYNC_LOCAL", "syncing-temporal-local"),
     }
     # claude-bridge chat provider (backend/utils/llm/claude_bridge_client.py, PLAN.md §Этап 1):
     # not in safety._ALLOWED_ENV_KEYS, so the wrapper script's `export MODEL_QOS=claude_bridge` /
@@ -393,6 +398,43 @@ def child_env_for(cfg: HarnessConfig) -> dict[str, str]:
         "TWILIO_TWIML_APP_SID",
         "BASE_API_URL",
     ):
+        _value = os.environ.get(_key, "").strip()
+        if _value:
+            extra[_key] = _value
+    # Self-host patch (private branch, not for upstream): the Voximplant flavour of the dialer
+    # (backend/utils/voximplant_service.py). PHONE_CALL_PROVIDER picks the provider, the rest is
+    # what the login-hash endpoint needs; the application user's password stays out of here —
+    # only its md5 travels. None of these are in safety._ALLOWED_ENV_KEYS either, and none match
+    # _PROVIDER_SECRET_RE, so this hand-off is their only way in.
+    for _key in (
+        "PHONE_CALL_PROVIDER",
+        "VOX_NODE",
+        "VOX_ACCOUNT_NAME",
+        "VOX_APPLICATION",
+        "VOX_APP_USER",
+        "VOX_APP_USER_MD5",
+    ):
+        _value = os.environ.get(_key, "").strip()
+        if _value:
+            extra[_key] = _value
+    # Self-host patch (private branch, not for upstream): server-side STT. The backend reaches a
+    # self-hosted engine only through the `parakeet` provider (WS /v3/stream), which our shim on
+    # 8771 implements over GigaAM/whisper (marathon/stt_stream_shim.py, docs/phone-call-stt.md).
+    # HOSTED_PARAKEET_API_URL points at that shim and STT_SERVICE_MODELS pins the provider order
+    # to it — neither is in safety._ALLOWED_ENV_KEYS, so this hand-off is their only way in.
+    for _key in (
+        "HOSTED_PARAKEET_API_URL",
+        "STT_SERVICE_MODELS",
+    ):
+        _value = os.environ.get(_key, "").strip()
+        if _value:
+            extra[_key] = _value
+    # Self-host patch (private branch, not for upstream): post-processing. The listen socket does
+    # not finalize a conversation itself — it asks the pusher service, and without
+    # HOSTED_PUSHER_API_URL it logs "Pusher unavailable; finalization remains queued" and the
+    # conversation stays in_progress forever, invisible in GET /v1/conversations (lane6, 22.08).
+    # Our pusher runs on 127.0.0.1:8012 (bin/pusher-up.sh). Not in safety._ALLOWED_ENV_KEYS.
+    for _key in ("HOSTED_PUSHER_API_URL",):
         _value = os.environ.get(_key, "").strip()
         if _value:
             extra[_key] = _value

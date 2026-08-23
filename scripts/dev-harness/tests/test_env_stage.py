@@ -99,6 +99,79 @@ def test_gemini_key_falls_back_to_offline_placeholder_when_unset(monkeypatch) ->
     assert child["GEMINI_API_KEY"] == "omi-local-harness-offline-gemini-not-real"
 
 
+def _offline_cfg() -> config.HarnessConfig:
+    return config.HarnessConfig(
+        repo_root=REPO_ROOT,
+        instance="default",
+        provider_mode="offline",
+        layout=safety.layout_for_instance(REPO_ROOT, "default"),
+    )
+
+
+def test_temporal_sync_bucket_is_always_named() -> None:
+    """Voice messages in chat upload the wav to GCS before any transcription happens; an
+    unnamed bucket raises ValueError there, which the STT layer maps to invalid_input and
+    the client sees as a bare 400 (lane1, 23.08)."""
+    assert config.child_env_for(_offline_cfg())["BUCKET_TEMPORAL_SYNC_LOCAL"] == "syncing-temporal-local"
+
+
+def test_voximplant_settings_reach_the_backend(monkeypatch) -> None:
+    """None of the dialer settings are in safety._ALLOWED_ENV_KEYS, so this hand-off is the
+    only path from ~/.secrets/voximplant.env into the backend process. Without it
+    PHONE_CALL_PROVIDER goes missing and the dialer silently falls back to Twilio."""
+    for key, value in {
+        "PHONE_CALL_PROVIDER": "voximplant",
+        "VOX_NODE": "node-99",
+        "VOX_ACCOUNT_NAME": "acct",
+        "VOX_APPLICATION": "app",
+        "VOX_APP_USER": "user",
+        "VOX_APP_USER_MD5": "0" * 32,
+    }.items():
+        monkeypatch.setenv(key, value)
+    child = config.child_env_for(_offline_cfg())
+    assert child["PHONE_CALL_PROVIDER"] == "voximplant"
+    assert child["VOX_NODE"] == "node-99"
+    assert child["VOX_ACCOUNT_NAME"] == "acct"
+    assert child["VOX_APPLICATION"] == "app"
+    assert child["VOX_APP_USER"] == "user"
+    assert child["VOX_APP_USER_MD5"] == "0" * 32
+
+
+def test_voximplant_console_credentials_stay_out_of_the_backend(monkeypatch) -> None:
+    """The dialer only ever needs the md5 of the application user's password and never the
+    console API key — the secrets file promises both stay on the host, so pin that."""
+    monkeypatch.setenv("VOX_APP_USER_PASSWORD", "console-password")
+    monkeypatch.setenv("VOX_API_KEY", "console-api-key")
+    child = config.child_env_for(_offline_cfg())
+    assert "VOX_APP_USER_PASSWORD" not in child
+    assert child.get("VOX_API_KEY") != "console-api-key"
+
+
+def test_dialer_settings_absent_when_unset(monkeypatch) -> None:
+    """A harness instance with no dialer configured must not see empty settings: an empty
+    PHONE_CALL_PROVIDER is not the same as an unset one for backend/utils/voximplant_service."""
+    for key in ("PHONE_CALL_PROVIDER", "VOX_NODE", "VOX_APP_USER_MD5", "HOSTED_PARAKEET_API_URL"):
+        monkeypatch.setenv(key, "")
+    child = config.child_env_for(_offline_cfg())
+    assert "PHONE_CALL_PROVIDER" not in child
+    assert "VOX_NODE" not in child
+    assert "VOX_APP_USER_MD5" not in child
+    assert "HOSTED_PARAKEET_API_URL" not in child
+
+
+def test_self_hosted_stt_and_pusher_urls_reach_the_backend(monkeypatch) -> None:
+    """HOSTED_PARAKEET_API_URL points the `parakeet` provider at our own shim, and without
+    HOSTED_PUSHER_API_URL the listen socket leaves every conversation in_progress forever
+    (lane6, 22.08). Neither is in safety._ALLOWED_ENV_KEYS."""
+    monkeypatch.setenv("HOSTED_PARAKEET_API_URL", "http://127.0.0.1:8771")
+    monkeypatch.setenv("STT_SERVICE_MODELS", "parakeet")
+    monkeypatch.setenv("HOSTED_PUSHER_API_URL", "http://127.0.0.1:8012")
+    child = config.child_env_for(_offline_cfg())
+    assert child["HOSTED_PARAKEET_API_URL"] == "http://127.0.0.1:8771"
+    assert child["STT_SERVICE_MODELS"] == "parakeet"
+    assert child["HOSTED_PUSHER_API_URL"] == "http://127.0.0.1:8012"
+
+
 def test_nondefault_port_offset_propagates_to_every_harness_service() -> None:
     cfg = config.load_config(REPO_ROOT, env={"OMI_HARNESS_PORT_OFFSET": "321"})
 
