@@ -282,7 +282,8 @@ class PhoneCallProvider extends ChangeNotifier {
       }
     } else {
       // Initialize native Twilio SDK
-      var initialized = await _nativeService.initialize(token!.accessToken);
+      final twilioToken = token!;
+      var initialized = await _nativeService.initialize(twilioToken.accessToken);
       if (generation != _sessionGeneration) return false;
       if (!initialized) {
         _callState = PhoneCallState.idle;
@@ -293,7 +294,7 @@ class PhoneCallProvider extends ChangeNotifier {
 
       // Schedule token refresh before expiry (3-minute buffer)
 
-      _scheduleTokenRefresh(token.ttl);
+      _scheduleTokenRefresh(twilioToken.ttl);
     }
 
     // Make the call through whichever SDK just logged in
