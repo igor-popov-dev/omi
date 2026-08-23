@@ -164,6 +164,17 @@ class StreamingPcmPlayer(
         }
     }
 
+    /** Native audio-focus ducking/unducking (`AudioFocusCoordinator`'s DUCK/RESUME
+     *  actions) — a plain volume change on the live track, no Dart round trip
+     *  needed since nothing about the queued PCM data or turn state changes. */
+    fun setVolume(volume: Float) {
+        try {
+            track?.setVolume(volume)
+        } catch (e: Exception) {
+            Log.w(TAG, "setVolume($volume) failed: ${e.message}")
+        }
+    }
+
     /** Idempotent teardown. Safe to call more than once or before any [enqueue]. */
     fun close() {
         clearEpoch += 1 // Invalidate any in-flight post-roll drain callback.

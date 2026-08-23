@@ -221,7 +221,13 @@ abstract class VoicePlayer {
 class VoicePlayerStartSpec {
   final void Function() onStarted;
   final void Function() onDrained;
-  const VoicePlayerStartSpec({required this.onStarted, required this.onDrained});
+
+  /// Fires once if the player permanently lost Android audio focus (see
+  /// `NativeVoicePlayer.onAudioFocusLost`'s doc) — optional so existing/fake
+  /// players that don't model focus at all (most tests) need not supply it.
+  final void Function()? onAudioFocusLost;
+
+  const VoicePlayerStartSpec({required this.onStarted, required this.onDrained, this.onAudioFocusLost});
 }
 
 typedef VoicePlayerFactory = Future<VoicePlayer> Function(VoicePlayerStartSpec spec);
@@ -545,6 +551,10 @@ abstract class BaseHubSession implements HubSession {
       player = await createPlayer(VoicePlayerStartSpec(
         onStarted: () => events.onSpeakingStart?.call(),
         onDrained: () => events.onSpeakingEnd?.call(),
+        // Not retryable: another app (or an incoming call) holding audio focus
+        // would very likely re-trigger the same loss on an immediate retry —
+        // end the session cleanly instead, same as any other fatal drop.
+        onAudioFocusLost: () => _handleError('audio focus lost', false),
       ));
     } catch (_) {
       _handleError('audio player init failed', true);

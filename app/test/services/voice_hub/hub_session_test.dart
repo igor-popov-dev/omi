@@ -35,6 +35,19 @@ class _NoopVoicePlayer implements VoicePlayer {
 
 Future<VoicePlayer> _noopPlayerFactory(VoicePlayerStartSpec spec) async => _NoopVoicePlayer();
 
+/// A player factory that captures the [VoicePlayerStartSpec] passed by
+/// `_openConnection`, so a test can invoke `spec.onAudioFocusLost` directly —
+/// the real trigger (native `AudioFocusPolicy` STOP) has no Dart-level fake
+/// to drive it through, unlike the socket/clock seams above.
+class _CapturingPlayerFactory {
+  VoicePlayerStartSpec? spec;
+
+  Future<VoicePlayer> factory(VoicePlayerStartSpec spec) async {
+    this.spec = spec;
+    return _NoopVoicePlayer();
+  }
+}
+
 /// A controllable socket whose `send` throws when not OPEN, exactly like a
 /// real `WebSocket` — so a missing guard in `BaseHubSession.send` would
 /// surface as a thrown error, and the guard's presence as a silently-dropped
@@ -347,6 +360,35 @@ void main() {
         async.elapse(hubIdleReleaseDuration + const Duration(seconds: 1));
         expect(session.isWarm(), isFalse);
       });
+    });
+  });
+
+  group('BaseHubSession — audio focus loss (native AudioFocusPolicy STOP)', () {
+    test('onAudioFocusLost surfaces as a non-retryable session error and tears the session down', () async {
+      final capture = _CapturingPlayerFactory();
+      final sockFactory = _ControllableSocketFactory();
+      final errors = <({String message, bool retryable})>[];
+      final session = _TestHubSession(
+        token: 'tok',
+        instructions: 'instr',
+        socketFactory: sockFactory.factory,
+        playerFactory: capture.factory,
+        events: HubSessionEvents(
+          onError: (message, retryable, closeCode) => errors.add((message: message, retryable: retryable)),
+        ),
+      );
+      unawaited(session.ensureWarm().catchError((_) {}));
+      // _openConnection awaits the player factory before creating the socket.
+      await Future<void>.value();
+      await Future<void>.value();
+      sockFactory.open();
+      sockFactory.message('{"type":"ready"}');
+      expect(session.isWarm(), isTrue);
+
+      capture.spec!.onAudioFocusLost!();
+
+      expect(errors, [(message: 'audio focus lost', retryable: false)]);
+      expect(session.isWarm(), isFalse);
     });
   });
 }

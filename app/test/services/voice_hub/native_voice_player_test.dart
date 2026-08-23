@@ -137,6 +137,34 @@ void main() {
     expect(startedCount, 0);
   });
 
+  test('onAudioFocusLost for the current session id reaches the spec callback', () async {
+    int lostCount = 0;
+    final player = await NativeVoicePlayer.create(
+      VoicePlayerStartSpec(onStarted: () {}, onDrained: () {}, onAudioFocusLost: () => lostCount++),
+      hostApi: host,
+      registerFlutterApi: false,
+    );
+    player.onAudioFocusLost(player.sessionId);
+    expect(lostCount, 1);
+  });
+
+  test('onAudioFocusLost for a stale session id is dropped', () async {
+    int lostCount = 0;
+    final player = await NativeVoicePlayer.create(
+      VoicePlayerStartSpec(onStarted: () {}, onDrained: () {}, onAudioFocusLost: () => lostCount++),
+      hostApi: host,
+      registerFlutterApi: false,
+    );
+    player.onAudioFocusLost(player.sessionId + 999);
+    expect(lostCount, 0);
+  });
+
+  test('onAudioFocusLost is a no-op when the spec did not supply a callback', () async {
+    final player = await create();
+    // Must not throw despite the spec omitting onAudioFocusLost entirely.
+    player.onAudioFocusLost(player.sessionId);
+  });
+
   test('successive sessions mint strictly increasing ids', () async {
     final a = await create();
     final b = await create();

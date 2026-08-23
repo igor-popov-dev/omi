@@ -223,6 +223,18 @@ abstract class StreamingPcmPlayerFlutterApi {
   /// audio it just discarded.
   void onDrained(int sessionId);
 
+  /// Fires once when the app permanently loses audio focus while this
+  /// session's player is live (another app started its own playback/call, or
+  /// the OS handed focus to an incoming phone call — see native
+  /// `AudioFocusPolicy.actionFor`'s STOP case). By the time this arrives the
+  /// native side has already cleared the AudioTrack and abandoned the focus
+  /// request; Dart-side (`BaseHubSession._openConnection`'s
+  /// `VoicePlayerStartSpec.onAudioFocusLost`) treats it as a non-retryable
+  /// session error, same path as a fatal socket drop. A merely transient/
+  /// duckable loss does NOT reach Dart at all — the native side handles
+  /// those itself by lowering/restoring `AudioTrack` volume.
+  void onAudioFocusLost(int sessionId);
+
   static void setUp(StreamingPcmPlayerFlutterApi? api, {BinaryMessenger? binaryMessenger, String messageChannelSuffix = '',}) {
     messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
     {
@@ -258,6 +270,27 @@ abstract class StreamingPcmPlayerFlutterApi {
           final int arg_sessionId = args[0]! as int;
           try {
             api.onDrained(arg_sessionId);
+            return wrapResponse(empty: true);
+          } on PlatformException catch (e) {
+            return wrapResponse(error: e);
+          }          catch (e) {
+            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
+          }
+        });
+      }
+    }
+    {
+      final pigeonVar_channel = BasicMessageChannel<Object?>(
+          'dev.flutter.pigeon.omi_streaming_pcm_player.StreamingPcmPlayerFlutterApi.onAudioFocusLost$messageChannelSuffix', pigeonChannelCodec,
+          binaryMessenger: binaryMessenger);
+      if (api == null) {
+        pigeonVar_channel.setMessageHandler(null);
+      } else {
+        pigeonVar_channel.setMessageHandler((Object? message) async {
+          final List<Object?> args = message! as List<Object?>;
+          final int arg_sessionId = args[0]! as int;
+          try {
+            api.onAudioFocusLost(arg_sessionId);
             return wrapResponse(empty: true);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);

@@ -57,7 +57,7 @@ class MainActivity: FlutterActivity() {
         // output, design doc §7/§4 step 3). One controller per Activity attach,
         // matching the BLE/PhoneMic engines above.
         val pcmPlayerController = streamingPcmPlayerController
-            ?: StreamingPcmPlayerController(mainThreadHandler()).also { streamingPcmPlayerController = it }
+            ?: StreamingPcmPlayerController(mainThreadHandler(), applicationContext).also { streamingPcmPlayerController = it }
         pcmPlayerController.bindFlutterApi(StreamingPcmPlayerFlutterApi(flutterEngine.dartExecutor.binaryMessenger))
         StreamingPcmPlayerHostApi.setUp(flutterEngine.dartExecutor.binaryMessenger, StreamingPcmPlayerHostApiImpl(pcmPlayerController))
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NATIVE_BLE_TRANSCRIPT_CHANNEL).setMethodCallHandler {

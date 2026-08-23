@@ -1,5 +1,6 @@
 package com.friend.ios.voiceplayer
 
+import android.content.Context
 import android.os.Handler
 import android.util.Log
 
@@ -10,10 +11,17 @@ import android.util.Log
  * scale (playback has no rebuild-on-interruption story). All methods are called
  * on the Pigeon main thread; this class does not introduce any locking of its
  * own because of that.
+ *
+ * Also owns the [AudioFocusCoordinator] for the live player's session (one
+ * focus request per session, requested alongside the player in [start] and
+ * abandoned alongside it in [close]/[shutdown] — see that class's doc for why
+ * this granularity, not per-turn).
  */
-class StreamingPcmPlayerController(mainHandler: Handler) {
+class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
     companion object {
         private const val TAG = "StreamingPcmPlayerCtrl"
+        private const val DUCK_VOLUME = 0.2f
+        private const val FULL_VOLUME = 1.0f
     }
 
     private val emitter = StreamingPcmPlayerEventEmitter(mainHandler)
@@ -21,6 +29,13 @@ class StreamingPcmPlayerController(mainHandler: Handler) {
 
     private var player: StreamingPcmPlayer? = null
     private var activeSessionId: Long? = null
+
+    private val audioFocus = AudioFocusCoordinator(
+        context = context,
+        onStop = { handleAudioFocusStop() },
+        onDuck = { player?.setVolume(DUCK_VOLUME) },
+        onResume = { player?.setVolume(FULL_VOLUME) },
+    )
 
     fun bindFlutterApi(api: StreamingPcmPlayerFlutterApi) = emitter.bind(api)
     fun unbindFlutterApi() = emitter.unbind()
@@ -42,11 +57,27 @@ class StreamingPcmPlayerController(mainHandler: Handler) {
                 onDrained = { emitter.emitDrained(sessionId) },
             )
             activeSessionId = sessionId
+            audioFocus.request()
             callback(Result.success(Unit))
         } catch (e: Exception) {
             Log.e(TAG, "start($sessionId) failed", e)
             callback(Result.failure(StreamingPcmPlayerPigeonError("track_init_failed", e.message ?: "AudioTrack init failed", null)))
         }
+    }
+
+    /** [AudioFocusAction.STOP]: another app permanently claimed focus (or a
+     *  transient claim we chose not to try resuming — see [AudioFocusPolicy]'s
+     *  doc). Tear the live session down exactly like an explicit [close], then
+     *  tell Dart why so the hub session can end cleanly instead of sending
+     *  audio into a track nothing will hear. No-op if nothing is live (a
+     *  stray/late focus callback after an explicit close already ran). */
+    private fun handleAudioFocusStop() {
+        val sessionId = activeSessionId ?: return
+        player?.close()
+        player = null
+        activeSessionId = null
+        audioFocus.abandon()
+        emitter.emitAudioFocusLost(sessionId)
     }
 
     fun enqueuePcm16(bytes: ByteArray, sessionId: Long) {
@@ -72,6 +103,7 @@ class StreamingPcmPlayerController(mainHandler: Handler) {
             player?.close()
             player = null
             activeSessionId = null
+            audioFocus.abandon()
         }
         callback(Result.success(Unit))
     }
@@ -83,6 +115,7 @@ class StreamingPcmPlayerController(mainHandler: Handler) {
         player?.close()
         player = null
         activeSessionId = null
+        audioFocus.abandon()
     }
 
     private fun isActive(sessionId: Long, caller: String): Boolean {

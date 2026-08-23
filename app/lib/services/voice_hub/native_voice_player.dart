@@ -26,6 +26,7 @@ class NativeVoicePlayer implements VoicePlayer, StreamingPcmPlayerFlutterApi {
   final int sessionId;
   final void Function() _onStarted;
   final void Function() _onDrained;
+  final void Function()? _onAudioFocusLost;
 
   /// The single live instance whose [sessionId] outbound native events are
   /// routed to; older instances that already [close]d are simply no longer
@@ -33,7 +34,13 @@ class NativeVoicePlayer implements VoicePlayer, StreamingPcmPlayerFlutterApi {
   /// find no matching instance and are dropped by [_dispatchStarted]/[_dispatchDrained].
   static NativeVoicePlayer? _current;
 
-  NativeVoicePlayer._(this._hostApi, this.sessionId, this._onStarted, this._onDrained);
+  NativeVoicePlayer._(
+    this._hostApi,
+    this.sessionId,
+    this._onStarted,
+    this._onDrained,
+    this._onAudioFocusLost,
+  );
 
   /// Matches [VoicePlayerFactory]: builds and starts the native player, then
   /// resolves once it is ready to receive [enqueuePcm16]. Throws whatever
@@ -47,7 +54,7 @@ class NativeVoicePlayer implements VoicePlayer, StreamingPcmPlayerFlutterApi {
   }) async {
     final api = hostApi ?? StreamingPcmPlayerHostApi();
     final sessionId = _nextSessionId++;
-    final player = NativeVoicePlayer._(api, sessionId, spec.onStarted, spec.onDrained);
+    final player = NativeVoicePlayer._(api, sessionId, spec.onStarted, spec.onDrained, spec.onAudioFocusLost);
     if (registerFlutterApi) {
       StreamingPcmPlayerFlutterApi.setUp(player);
     }
@@ -97,6 +104,13 @@ class NativeVoicePlayer implements VoicePlayer, StreamingPcmPlayerFlutterApi {
     final current = _current;
     if (current == null || current.sessionId != sessionId) return;
     current._onDrained();
+  }
+
+  @override
+  void onAudioFocusLost(int sessionId) {
+    final current = _current;
+    if (current == null || current.sessionId != sessionId) return;
+    current._onAudioFocusLost?.call();
   }
 }
 

@@ -84,4 +84,16 @@ abstract class StreamingPcmPlayerFlutterApi {
   /// the pending callback — barge-in does not get a stray `onDrained` for
   /// audio it just discarded.
   void onDrained(int sessionId);
+
+  /// Fires once when the app permanently loses audio focus while this
+  /// session's player is live (another app started its own playback/call, or
+  /// the OS handed focus to an incoming phone call — see native
+  /// `AudioFocusPolicy.actionFor`'s STOP case). By the time this arrives the
+  /// native side has already cleared the AudioTrack and abandoned the focus
+  /// request; Dart-side (`BaseHubSession._openConnection`'s
+  /// `VoicePlayerStartSpec.onAudioFocusLost`) treats it as a non-retryable
+  /// session error, same path as a fatal socket drop. A merely transient/
+  /// duckable loss does NOT reach Dart at all — the native side handles
+  /// those itself by lowering/restoring `AudioTrack` volume.
+  void onAudioFocusLost(int sessionId);
 }

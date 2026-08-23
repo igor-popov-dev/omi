@@ -39,6 +39,14 @@ class StreamingPcmPlayerEventEmitter(private val mainHandler: Handler) {
         }
     }
 
+    fun emitAudioFocusLost(sessionId: Long) {
+        mainHandler.post {
+            api?.onAudioFocusLost(sessionId) { result ->
+                result.exceptionOrNull()?.let { Log.w(TAG, "onAudioFocusLost delivery failed: ${it.message}") }
+            }
+        }
+    }
+
     companion object {
         private const val TAG = "StreamingPcmPlayerEmit"
     }
