@@ -198,9 +198,13 @@ class CaptureController extends ChangeNotifier
       isResponseActive: false,
     );
 
-    mode.stop();
     try {
-      await mode.start();
+      // restart(), not stop()+start(): the public stop() means "the USER
+      // ended the conversation" and makes the hub forget it (design doc §10),
+      // so recovering through it handed the new socket a blank session — and
+      // the line below, which asks the model to pick up where it left off,
+      // was then a lie it could not act on.
+      await mode.restart();
       Logger.debug('[VoiceMode] сессия восстановлена, попытка ${_voiceRecoveries.length}');
       mode.announce(_voiceRecoveryPrompt);
     } catch (e) {

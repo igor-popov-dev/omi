@@ -140,6 +140,26 @@ class FreeFormVoiceMode {
     if (endsConversation) hub.forgetConversation();
   }
 
+  /// Rebuilds the socket WITHOUT ending the conversation: stop capture, drop
+  /// the turn, start again. The hub keeps its resumption handle across the
+  /// two, so the new socket picks the conversation up where the old one left
+  /// it (design doc §10).
+  ///
+  /// Two callers, one shape. A recovered drop
+  /// (`CaptureController.recoverFreeFormVoiceMode`) — which used to call the
+  /// public [stop], i.e. told the hub the USER had ended the conversation, so
+  /// the "continue where we left off" line it then spoke was a lie: the
+  /// reconnected model had been handed a blank session. And a `goAway`
+  /// warning ([HubControllerEvents.onGoAway]), where the point is to spend the
+  /// notice on a rebuild BEFORE the socket dies, so nothing is lost at all.
+  ///
+  /// No-op while not running: there is nothing to rebuild.
+  Future<void> restart() async {
+    if (_turnId == null) return;
+    _stop(endsConversation: false);
+    await start();
+  }
+
   /// Self-host patch, not for upstream: hand the live session a line of text as
   /// if the user had said it, so the model speaks it back in its own voice.
   ///

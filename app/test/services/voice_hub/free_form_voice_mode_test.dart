@@ -228,6 +228,25 @@ void main() {
       expect(session.cancelled, 1);
     });
 
+    test('restart() rebuilds the socket and KEEPS the conversation', () async {
+      final mode = await buildMode();
+      await mode.start();
+      session.events.onResumptionHandle?.call('H1');
+
+      await mode.restart();
+
+      expect(mode.isRunning, isTrue);
+      expect(captureCalls, 2, reason: 'захват перезапущен');
+      expect(hub.canResumeConversation, isTrue, reason: 'разговор переживает пересборку сокета');
+    });
+
+    test('restart() while not running is a no-op (nothing to rebuild)', () async {
+      final mode = await buildMode();
+      await mode.restart();
+      expect(mode.isRunning, isFalse);
+      expect(captureCalls, 0);
+    });
+
     test('stop() while not running is a no-op', () async {
       final mode = await buildMode();
       mode.stop();

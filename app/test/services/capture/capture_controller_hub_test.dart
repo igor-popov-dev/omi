@@ -217,13 +217,14 @@ void main() {
 
   group('FreeFormVoiceMode wiring (startFreeFormVoiceMode/stopFreeFormVoiceMode)', () {
     late _FakeHubSession session;
+    late HubController hub;
     late _FakeHubCapture capture;
     int captureCalls = 0;
     Object? captureError;
     int idleTimeoutCalls = 0;
 
     FreeFormVoiceMode buildMode() {
-      final hub = HubController(
+      hub = HubController(
         buildInstructions: () => 'INSTRUCTIONS',
         mintToken: () async => 'ek_token',
         createSession: (spec) {
@@ -315,6 +316,23 @@ void main() {
       // what happened — otherwise the user hears silence resume with no reason.
       expect(session.userTexts, isNotEmpty);
       expect(session.userTexts.single, contains('Связь прервалась'));
+    });
+
+    // The recovery used to go through the public stop(), which since the
+    // conversation-resumption work means "the USER ended the conversation" —
+    // so the reconnected model was handed a blank session and the recovery
+    // line ("продолжай с того места, где мы остановились") asked it to
+    // continue something it had never heard.
+    test('recoverFreeFormVoiceMode: keeps the conversation, so the model really can continue it', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      session.events.onResumptionHandle?.call('H1');
+      expect(hub.canResumeConversation, isTrue);
+
+      await provider.recoverFreeFormVoiceMode(StateError('socket closed 1011'));
+
+      expect(hub.canResumeConversation, isTrue);
     });
 
     test('recoverFreeFormVoiceMode: gives up after repeated drops rather than looping', () async {
