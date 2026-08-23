@@ -19,12 +19,24 @@ import 'package:omi/backend/schema/transcript_segment.dart';
 import 'package:omi/models/audio_route.dart';
 import 'package:omi/services/auth/auth_token_result.dart';
 import 'package:omi/services/phone_call_service.dart';
+import 'package:omi/services/voximplant_call_service.dart';
 import 'package:omi/utils/logger.dart';
 
-enum TranscriptionStatus { idle, connecting, active, reconnecting, failed }
+/// State of the transcription link for the CURRENT call.
+///
+/// [cloud] is not a degraded [active]: on a Voximplant call the audio is streamed to our
+/// backend by the cloud scenario, so this app has no socket to watch at all. Reporting
+/// [active] there would claim knowledge the app does not have.
+enum TranscriptionStatus { idle, connecting, active, reconnecting, failed, cloud }
 
 class PhoneCallProvider extends ChangeNotifier {
   final PhoneCallService _nativeService = PhoneCallService();
+  final VoximplantCallService _voxService = VoximplantCallService();
+
+  /// True while the current call runs through Voximplant, where the cloud — not this app —
+  /// captures both legs and feeds them to our backend.
+  bool _cloudAudio = false;
+  bool get cloudAudio => _cloudAudio;
 
   // Call state
   PhoneCallState _callState = PhoneCallState.idle;
@@ -107,6 +119,10 @@ class PhoneCallProvider extends ChangeNotifier {
     _nativeService.onMuteConfirmed = _onMuteConfirmed;
     _nativeService.onSpeakerConfirmed = _onSpeakerConfirmed;
     _nativeService.startListening();
+    _voxService.onCallStateChanged = _onCallStateChanged;
+    _voxService.onError = _onNativeError;
+    _voxService.onMuteConfirmed = _onMuteConfirmed;
+    _voxService.onSpeakerConfirmed = _onSpeakerConfirmed;
     _initialLoad = loadVerifiedNumbers();
   }
 
@@ -234,11 +250,14 @@ class PhoneCallProvider extends ChangeNotifier {
     _contactName = await _resolveContactName(phoneNumber);
     if (generation != _sessionGeneration) return false;
 
-    // Get Twilio token
+    // Ask the backend for call credentials. Which provider answers is the deployment's
+    // choice, not a build-time constant: Twilio hands back an access token, Voximplant
+    // hands back the node to connect to and expects a one-time key in return.
     var tokenResult = await api.getPhoneCallToken();
     if (generation != _sessionGeneration) return false;
     var token = tokenResult.token;
-    if (token == null) {
+    var handshake = tokenResult.voximplant;
+    if (token == null && handshake == null) {
       _callState = PhoneCallState.idle;
       // The backend refuses for several different reasons (no verified number, quota
       // exhausted, plan without calling). Reporting its own reason beats guessing one.
@@ -247,28 +266,50 @@ class PhoneCallProvider extends ChangeNotifier {
       return false;
     }
 
-    // Initialize native Twilio SDK
-    var initialized = await _nativeService.initialize(token.accessToken);
-    if (generation != _sessionGeneration) return false;
-    if (!initialized) {
-      _callState = PhoneCallState.idle;
-      _error = 'Failed to initialize call service';
-      notifyListeners();
-      return false;
+    _cloudAudio = handshake != null;
+
+    if (handshake != null) {
+      var loginError = await _voxService.login(
+        handshake,
+        (key) async => (await api.getPhoneCallToken(oneTimeKey: key)).voximplant,
+      );
+      if (generation != _sessionGeneration) return false;
+      if (loginError != null) {
+        _callState = PhoneCallState.idle;
+        _error = loginError;
+        notifyListeners();
+        return false;
+      }
+    } else {
+      // Initialize native Twilio SDK
+      var initialized = await _nativeService.initialize(token!.accessToken);
+      if (generation != _sessionGeneration) return false;
+      if (!initialized) {
+        _callState = PhoneCallState.idle;
+        _error = 'Failed to initialize call service';
+        notifyListeners();
+        return false;
+      }
+
+      // Schedule token refresh before expiry (3-minute buffer)
+
+      _scheduleTokenRefresh(token.ttl);
     }
 
-    // Schedule token refresh before expiry (3-minute buffer)
-
-    _scheduleTokenRefresh(token.ttl);
-
-    // Make the call via native layer
-    var callStarted = await _nativeService.makeCall(
-      phoneNumber: phoneNumber,
-      callId: callId,
-      contactName: _contactName,
-    );
+    // Make the call through whichever SDK just logged in
+    var callStarted = _cloudAudio
+        ? await _voxService.makeCall(
+            phoneNumber: phoneNumber,
+            callId: callId,
+            uid: SharedPreferencesUtil().uid,
+          )
+        : await _nativeService.makeCall(
+            phoneNumber: phoneNumber,
+            callId: callId,
+            contactName: _contactName,
+          );
     if (generation != _sessionGeneration) {
-      if (callStarted) unawaited(_nativeService.endCall());
+      if (callStarted) unawaited(_endCallOnTransport());
       return false;
     }
 
@@ -285,24 +326,35 @@ class PhoneCallProvider extends ChangeNotifier {
     return true;
   }
 
+  /// Hangs up on whichever SDK is carrying the current call.
+  Future<void> _endCallOnTransport() => _cloudAudio ? _voxService.endCall() : _nativeService.endCall();
+
   Future<void> endCall() async {
-    await _nativeService.endCall();
+    await _endCallOnTransport();
     _onCallEnded();
   }
 
   void toggleMute() {
-    // Don't update state here — wait for native confirmation via _onMuteConfirmed
-    _nativeService.toggleMute(!_isMuted);
+    // Don't update state here — wait for confirmation via _onMuteConfirmed
+    if (_cloudAudio) {
+      _voxService.toggleMute(!_isMuted);
+    } else {
+      _nativeService.toggleMute(!_isMuted);
+    }
   }
 
   void toggleSpeaker() {
-    // Don't update state here — wait for native confirmation via _onSpeakerConfirmed
-    _nativeService.toggleSpeaker(!_isSpeakerOn);
+    // Don't update state here — wait for confirmation via _onSpeakerConfirmed
+    if (_cloudAudio) {
+      _voxService.toggleSpeaker(!_isSpeakerOn);
+    } else {
+      _nativeService.toggleSpeaker(!_isSpeakerOn);
+    }
   }
 
   Future<void> loadAudioRoutes() async {
     final generation = _sessionGeneration;
-    final routes = await _nativeService.getAudioRoutes();
+    final routes = _cloudAudio ? await _voxService.getAudioRoutes() : await _nativeService.getAudioRoutes();
     if (generation != _sessionGeneration) return;
     _availableRoutes = routes;
     notifyListeners();
@@ -310,7 +362,8 @@ class PhoneCallProvider extends ChangeNotifier {
 
   Future<void> selectAudioRoute(AudioRoute route) async {
     final generation = _sessionGeneration;
-    var success = await _nativeService.selectAudioRoute(route.id);
+    var success =
+        _cloudAudio ? await _voxService.selectAudioRoute(route.id) : await _nativeService.selectAudioRoute(route.id);
     if (generation != _sessionGeneration) return;
     if (success) {
       _selectedRoute = route;
@@ -320,7 +373,10 @@ class PhoneCallProvider extends ChangeNotifier {
   }
 
   void sendDtmf(String digit) {
-    if (_callState == PhoneCallState.active) {
+    if (_callState != PhoneCallState.active) return;
+    if (_cloudAudio) {
+      _voxService.sendDtmf(digit);
+    } else {
       _nativeService.sendDtmf(digit);
     }
   }
@@ -344,7 +400,14 @@ class PhoneCallProvider extends ChangeNotifier {
     if (state == PhoneCallState.active && _callStartTime == null) {
       _callStartTime = DateTime.now();
       _startDurationTimer();
-      _connectTranscriptionSocket();
+      if (_cloudAudio) {
+        // The cloud scenario already streams both legs into `v4/listen` under this call_id.
+        // A socket from the app would not fail loudly — it would quietly create a SECOND
+        // conversation for the same call (lane 6 tick 22, vox-dual-session-probe.py).
+        _transcriptionStatus = TranscriptionStatus.cloud;
+      } else {
+        _connectTranscriptionSocket();
+      }
       PlatformManager.instance.analytics.phoneCallConnected();
     } else if (state == PhoneCallState.ended || state == PhoneCallState.failed) {
       _onCallEnded();
@@ -404,6 +467,7 @@ class PhoneCallProvider extends ChangeNotifier {
       _contactName = null;
       _callStartTime = null;
       _callDuration = Duration.zero;
+      _cloudAudio = false;
       _transcriptSegments.clear();
       _availableRoutes = [];
       _selectedRoute = null;
@@ -645,13 +709,14 @@ class PhoneCallProvider extends ChangeNotifier {
     _disconnectTranscriptionSocket();
     _tokenRefreshTimer?.cancel();
     _nativeService.dispose();
+    _voxService.dispose();
     super.dispose();
   }
 
   void clearUserData() {
     _sessionGeneration++;
     _sessionEnabled = false;
-    if (_callState != PhoneCallState.idle) unawaited(_nativeService.endCall());
+    if (_callState != PhoneCallState.idle) unawaited(_endCallOnTransport());
     _stopDurationTimer();
     _disconnectTranscriptionSocket();
     _tokenRefreshTimer?.cancel();
