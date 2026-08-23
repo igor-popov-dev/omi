@@ -22,7 +22,10 @@ void main() {
     });
   });
 
-  test('uninitialized prefs (this test env) resolve to the pre-slider default, balanced', () {
+  test('with the slider hidden, the level is pinned to balanced regardless of stored prefs', () {
+    // Решение Игоря 24.08 ~02:10: ползунок скрыт после «раздвоения» на правом
+    // крае, но в prefs могло остаться 4 — пин гарантирует стандартный режим.
+    expect(claudeEscalationSliderEnabled, isFalse);
     expect(currentClaudeEscalationLevel(), ClaudeEscalationLevel.balanced);
   });
 

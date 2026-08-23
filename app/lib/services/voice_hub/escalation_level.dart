@@ -71,10 +71,22 @@ enum ClaudeEscalationLevel {
       };
 }
 
-/// Текущий уровень из настроек. Без инициализированных prefs (юнит-тесты)
-/// честно падает в дефолт — `getInt` возвращает defaultValue.
-ClaudeEscalationLevel currentClaudeEscalationLevel() =>
-    ClaudeEscalationLevel.fromIndex(SharedPreferencesUtil().claudeEscalationLevel);
+/// Ползунок СКРЫТ (решение Игоря 24.08 ~02:10 после живого теста): на правом
+/// крае модель «двоилась» — неблокирующая доставка ask_claude велит ей
+/// «продолжать разговор», она отвечает сама, а через ~12 с прилетает ответ
+/// Opus второй репликой. Пока доставка не переделана под высокие уровни
+/// (см. WORKLOG 24.08 ~02:30, раздел идей), уровень жёстко приколочен к
+/// balanced, UI спрятан. Механика уровней сохранена целиком — вернуть =
+/// поставить true.
+const bool claudeEscalationSliderEnabled = false;
+
+/// Текущий уровень: пока ползунок скрыт — всегда [balanced] (стандартный
+/// режим), значение из prefs игнорируется (там могло остаться 4 с теста).
+/// С включённым ползунком — из настроек; без инициализированных prefs
+/// (юнит-тесты) честно падает в дефолт — `getInt` возвращает defaultValue.
+ClaudeEscalationLevel currentClaudeEscalationLevel() => claudeEscalationSliderEnabled
+    ? ClaudeEscalationLevel.fromIndex(SharedPreferencesUtil().claudeEscalationLevel)
+    : ClaudeEscalationLevel.balanced;
 
 // Общая голосовая персона — начало инструкций на всех уровнях.
 const String _kPersona = 'You are Omi, a warm and concise voice assistant running on the '

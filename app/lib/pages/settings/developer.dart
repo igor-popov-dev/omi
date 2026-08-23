@@ -1660,14 +1660,17 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                           value: provider.freeFormMode,
                           onChanged: provider.onFreeFormModeChanged,
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          child: Divider(color: Colors.grey.shade800, height: 1),
-                        ),
-                        // Ползунок «мозг голосового режима»: 0 = чистый Gemini
-                        // Live, 4 = каждый ответ через Claude. Дубль шторки по
-                        // долгому нажатию на кнопку голосового режима в чате.
-                        _buildClaudeEscalationItem(provider),
+                        // Ползунок «мозг голосового режима» (0 = чистый Gemini
+                        // Live, 4 = каждый ответ через Claude) СКРЫТ вместе с
+                        // шторкой в чате: на правом крае модель «двоилась»
+                        // (см. claudeEscalationSliderEnabled). Код сохранён.
+                        if (claudeEscalationSliderEnabled) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Divider(color: Colors.grey.shade800, height: 1),
+                          ),
+                          _buildClaudeEscalationItem(provider),
+                        ],
                       ],
                     ),
                   ),

@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/pages/chat/widgets/claude_escalation_sheet.dart';
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/services/voice_hub/escalation_level.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 
 class FreeFormVoiceModeButton extends StatelessWidget {
@@ -38,13 +39,15 @@ class FreeFormVoiceModeButton extends StatelessWidget {
           child: GestureDetector(
             onTap: () => _onTap(context, captureProvider, active),
             // Долгое нажатие — ползунок «как часто голосовой режим ходит к
-            // Claude» (5 ячеек, escalation_level.dart). Уровень читается при
-            // открытии сессии, так что менять его можно и при активном
-            // режиме — подхватится со следующего запуска.
-            onLongPress: () {
-              HapticFeedback.mediumImpact();
-              showClaudeEscalationSheet(context);
-            },
+            // Claude» (5 ячеек, escalation_level.dart). Скрыт вместе с самим
+            // ползунком (см. claudeEscalationSliderEnabled) — на правом крае
+            // модель «двоилась», Игорь убрал до переделки доставки.
+            onLongPress: !claudeEscalationSliderEnabled
+                ? null
+                : () {
+                    HapticFeedback.mediumImpact();
+                    showClaudeEscalationSheet(context);
+                  },
             child: Container(
               height: 38,
               width: 38,
