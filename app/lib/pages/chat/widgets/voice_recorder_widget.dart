@@ -78,15 +78,31 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
           case VoiceRecorderState.transcribing:
             return SizedBox(
               height: 44,
-              child: Center(
-                child: ShimmerWithTimeout(
-                  baseColor: const Color(0xFF35343B),
-                  highlightColor: Colors.white,
-                  child: Text(
-                    context.l10n.transcribing,
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: ShimmerWithTimeout(
+                        baseColor: const Color(0xFF35343B),
+                        highlightColor: Colors.white,
+                        child: Text(
+                          context.l10n.transcribing,
+                          style: const TextStyle(color: Colors.white, fontSize: 15),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  // Self-host patch: transcription can hang (backend down, STT
+                  // unreachable), and this state had no exit at all — the composer
+                  // stayed locked on "Расшифровываю…" indefinitely.
+                  GestureDetector(
+                    onTap: provider.close,
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 8, right: 4),
+                      child: Icon(Icons.close, color: Color(0xFF8E8E93), size: 20),
+                    ),
+                  ),
+                ],
               ),
             );
 
