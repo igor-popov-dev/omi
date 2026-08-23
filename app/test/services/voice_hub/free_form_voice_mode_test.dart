@@ -306,5 +306,90 @@ void main() {
       expect(clock.pending, isFalse);
       expect(idleTimeoutCalls, 0);
     });
+
+    // The regression these guard: before `freeFormActivityEvents` existed
+    // NOTHING called `noteActivity()` in production, so the mode auto-stopped
+    // a fixed interval after `start()` however much the user was talking.
+    group('freeFormActivityEvents', () {
+      // A rearm is observed through the resolver: change what it returns, fire
+      // an event, and a fresh `lastDuration` proves the timer was re-armed
+      // rather than left alone.
+      Future<(FreeFormVoiceMode, HubControllerEvents, void Function(Duration?))> wired(
+        HubControllerEvents inner,
+      ) async {
+        Duration? current = const Duration(minutes: 3);
+        final mode = await buildMode(idleTimeout: () => current);
+        await mode.start();
+        return (mode, freeFormActivityEvents(inner, mode.noteActivity), (Duration? d) => current = d);
+      }
+
+      test('every content event rearms the clock and still reaches the inner handler', () async {
+        final seen = <String>[];
+        final (_, events, setTimeout) = await wired(HubControllerEvents(
+          onInputTranscript: (t, f, i) => seen.add('in:$t'),
+          onAssistantText: (t, f, i) => seen.add('out:$t'),
+          onSpeakingStart: () => seen.add('speak-start'),
+          onSpeakingEnd: () => seen.add('speak-end'),
+          onToolRequest: (call, i) => seen.add('tool:${call.name}'),
+          onTurnDone: (i) => seen.add('turn-done'),
+        ));
+
+        var minutes = 4;
+        for (final fire in <void Function()>[
+          () => events.onInputTranscript!('привет', false, null),
+          () => events.onAssistantText!('здравствуй', false, null),
+          () => events.onSpeakingStart!(),
+          () => events.onSpeakingEnd!(),
+          () => events.onToolRequest!(
+              const HubToolCallRequest(name: 'ask_claude', callId: 'c1', argumentsJson: '{}'), null),
+          () => events.onTurnDone!(null),
+        ]) {
+          setTimeout(Duration(minutes: minutes));
+          fire();
+          expect(clock.lastDuration, Duration(minutes: minutes),
+              reason: 'event #$minutes did not rearm the idle timer');
+          minutes += 1;
+        }
+
+        expect(seen, [
+          'in:привет',
+          'out:здравствуй',
+          'speak-start',
+          'speak-end',
+          'tool:ask_claude',
+          'turn-done',
+        ]);
+      });
+
+      test('an event the host does not listen to still rearms the clock', () async {
+        final (mode, events, setTimeout) = await wired(const HubControllerEvents());
+
+        setTimeout(const Duration(minutes: 7));
+        events.onInputTranscript!('слышно?', false, null);
+
+        expect(clock.lastDuration, const Duration(minutes: 7));
+        expect(mode.isRunning, isTrue);
+      });
+
+      // A socket that reconnects itself in an empty room must still time out —
+      // otherwise the auto-off never fires on an abandoned session, which is
+      // the whole point of the timeout (it is billed per minute of input).
+      test('connect/error/cascade are NOT activity: passed through, clock untouched', () async {
+        var connected = 0;
+        var errors = 0;
+        final (_, events, setTimeout) = await wired(HubControllerEvents(
+          onConnected: (_) => connected += 1,
+          onError: (_) => errors += 1,
+        ));
+
+        setTimeout(const Duration(minutes: 9));
+        events.onConnected!('sess-2');
+        events.onError!(const HubControllerError(reason: 'socket died', retryable: true, aliveForMs: 1200));
+
+        expect(connected, 1);
+        expect(errors, 1);
+        expect(clock.lastDuration, const Duration(minutes: 3), reason: 'clock was rearmed by a non-content event');
+      });
+    });
   });
 }

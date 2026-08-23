@@ -31,18 +31,22 @@
 //     (`main.dart`) and never rebuilt — reading it per arm is what makes a
 //     changed setting apply to the next session instead of the next launch.
 //
-// Deliberately NOT owned here (open, tracked in the lane journal):
-//   * WHO calls `noteActivity()`. The natural driver is every
-//     `HubController` content event (input transcript, speaking start/end,
-//     turn done) — but `HubController` takes a single `HubControllerEvents`
-//     at construction, owned by the not-yet-written per-turn driver /
-//     mode host (design doc §8 step 5). Wiring that fan-out is that host's
-//     job, not this file's; `noteActivity()` is the seam it will call.
-//   * Android audio focus (`AudioManager.requestAudioFocus`) — no Dart seam
-//     exists for it yet; native foreground-service work, not this file.
-//   * The UI toggle / notification (priority-22.08 step 5) and the
-//     `ask_claude` tool (step 3, blocked on lane2's bridge contract) —
-//     both out of scope here.
+// WHO calls `noteActivity()` — answered at the bottom of this file by
+// `freeFormActivityEvents`, which wraps the `HubControllerEvents` the mode's
+// host hands to `HubController` so every content event rearms the clock.
+// Until that existed nothing called `noteActivity()` in production at all, so
+// the mode auto-stopped a fixed interval after `start()` no matter how much
+// the user was talking (see that function's own doc comment).
+//
+// Deliberately NOT owned here — all three now exist elsewhere, this file just
+// isn't where they live:
+//   * Android audio focus and the mic's foreground service — native, on the
+//     other side of the platform channels this file never touches
+//     (`AudioFocusCoordinator.kt`; `PhoneMicController` starts
+//     `PhoneMicForegroundService` for every capture, so the continuous capture
+//     `start()` opens is background-safe without anything extra here).
+//   * The UI toggle (`free_form_voice_mode_button.dart`) and the `ask_claude`
+//     tool (`ask_claude_tool.dart`, wired in `voice_hub_production.dart`).
 import 'dart:async';
 
 import 'free_form_voice_timeout.dart';
@@ -161,4 +165,58 @@ class FreeFormVoiceMode {
       _idleHandle = null;
     }
   }
+}
+
+/// Wraps [inner] so every hub CONTENT event also restarts the silence-timeout
+/// clock through [note] (i.e. [FreeFormVoiceMode.noteActivity]).
+///
+/// This closes the "WHO calls noteActivity()" hole this file's header opened:
+/// until it was wired, nothing in production called it at all, so the mode
+/// auto-stopped exactly [FreeFormVoiceMode.resolveIdleTimeout] after `start()`
+/// — mid-conversation, however much the user was actually talking. The timeout
+/// exists to stop billing for an ABANDONED session (priority-22.08 step 6), not
+/// to cap a live one.
+///
+/// "Content" is the set that can only happen because someone is talking:
+/// transcripts either way, the reply's speaking start/end, a tool request, and
+/// the turn's completion. Connect/error/cascade-handoff are deliberately NOT
+/// activity — a socket that reconnects itself in an empty room must still time
+/// out. Live wire evidence for the set (lane5 harness against real Gemini Live,
+/// 23.08): server VAD reports `speechState: SPEECH` ~0.2s after speech onset
+/// and streams `inputTranscription` for it, so a talking user rearms the clock
+/// well inside any sane timeout; `turnComplete` trails the reply's last audio
+/// chunk by ~2.5s, which is why the arm is not left to it alone.
+///
+/// Callbacks that are null on [inner] are still armed here — [note] must fire
+/// whether or not the host happens to listen to that particular event.
+HubControllerEvents freeFormActivityEvents(HubControllerEvents inner, void Function() note) {
+  return HubControllerEvents(
+    onConnected: inner.onConnected,
+    onError: inner.onError,
+    onCascadeHandoff: inner.onCascadeHandoff,
+    onInputTranscript: (text, isFinal, identity) {
+      note();
+      inner.onInputTranscript?.call(text, isFinal, identity);
+    },
+    onAssistantText: (text, isFinal, identity) {
+      note();
+      inner.onAssistantText?.call(text, isFinal, identity);
+    },
+    onSpeakingStart: () {
+      note();
+      inner.onSpeakingStart?.call();
+    },
+    onSpeakingEnd: () {
+      note();
+      inner.onSpeakingEnd?.call();
+    },
+    onToolRequest: (call, identity) {
+      note();
+      inner.onToolRequest?.call(call, identity);
+    },
+    onTurnDone: (identity) {
+      note();
+      inner.onTurnDone?.call(identity);
+    },
+  );
 }

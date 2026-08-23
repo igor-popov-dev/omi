@@ -233,6 +233,10 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   void Function()? onIdleTimeout,
 }) {
   late final HubController hub;
+  // Same `late final` idiom as `hub` above and in
+  // `createProductionVoiceHubTurnDriver`: assigned below before this function
+  // returns, and only ever read from a callback the live socket fires later.
+  late final FreeFormVoiceMode mode;
 
   final askClaudeExecutor = AskClaudeToolExecutor(
     // Voice asks for a BOUNDED agent, unlike chat — but deliberately does NOT
@@ -251,17 +255,25 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
   );
 
+  // Wrapped so every content event rearms the silence-timeout clock: the
+  // timeout is there to stop billing for an ABANDONED session, and without
+  // this wrapper nothing called `noteActivity()` in production at all, so a
+  // live conversation was cut off a fixed interval after `start()` (see
+  // `freeFormActivityEvents`).
   hub = HubController(
-    events: HubControllerEvents(
-      onConnected: events.onConnected,
-      onError: events.onError,
-      onInputTranscript: events.onInputTranscript,
-      onAssistantText: events.onAssistantText,
-      onSpeakingStart: events.onSpeakingStart,
-      onSpeakingEnd: events.onSpeakingEnd,
-      onToolRequest: (call, identity) => askClaudeExecutor.handle(call),
-      onTurnDone: events.onTurnDone,
-      onCascadeHandoff: events.onCascadeHandoff,
+    events: freeFormActivityEvents(
+      HubControllerEvents(
+        onConnected: events.onConnected,
+        onError: events.onError,
+        onInputTranscript: events.onInputTranscript,
+        onAssistantText: events.onAssistantText,
+        onSpeakingStart: events.onSpeakingStart,
+        onSpeakingEnd: events.onSpeakingEnd,
+        onToolRequest: (call, identity) => askClaudeExecutor.handle(call),
+        onTurnDone: events.onTurnDone,
+        onCascadeHandoff: events.onCascadeHandoff,
+      ),
+      () => mode.noteActivity(),
     ),
     buildInstructions: buildProductionHubInstructions,
     mintToken: mintGeminiHubToken,
@@ -276,11 +288,12 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     fetchTools: fetchHubTools,
   );
 
-  return FreeFormVoiceMode(
+  mode = FreeFormVoiceMode(
     hub: hub,
     startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
     mintTurnId: () => const Uuid().v4(),
     resolveIdleTimeout: resolveIdleTimeout,
     onIdleTimeout: onIdleTimeout,
   );
+  return mode;
 }
