@@ -283,6 +283,10 @@ void main() {
       mainSource.indexOf('validateApplicationStartupRouting();'),
       lessThan(mainSource.indexOf('ServiceManager.init()')),
     );
-    expect(mainSource, contains('Env.validateFirebaseProject(projectId: Firebase.app().options.projectId);'));
+    // f454ad4ed4 (фикс duplicate-app) свернул инициализацию Firebase в единый
+    // хелпер: валидация проекта осталась обязательной на старте, но зовётся
+    // теперь от existing.options/options, а не от Firebase.app(). Трипвайр
+    // сторожит сам факт валидации, а не форму аргумента.
+    expect(mainSource, contains('Env.validateFirebaseProject('));
   });
 }
