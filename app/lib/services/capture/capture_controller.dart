@@ -32,6 +32,7 @@ import 'package:omi/services/capture/freemium_threshold_tracker.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
+import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection, idleVoiceTurnProjection;
 import 'package:omi/services/voice_playback/omi_voice_playback_service.dart';
 import 'package:omi/services/sockets/transcription_service.dart';
 import 'package:omi/services/audio_sources/audio_source.dart';
@@ -84,6 +85,14 @@ class CaptureController extends ChangeNotifier
   // for now — see `voice_turn_driver.dart`'s file header (~line 73) for the
   // intended contract this will eventually replace.
   VoiceHubTurnDriver? hubTurnDriver;
+
+  /// Live listening/thinking/speaking projection from `hubTurnDriver`, fed
+  /// by whatever `applyProjection` callback production wiring gave the
+  /// driver (see `voice_hub_production.dart`). Stays at
+  /// [idleVoiceTurnProjection] whenever `hubTurnDriver` is unset or no hub
+  /// turn is active — a UI consumer can watch this unconditionally without
+  /// checking `hubTurnDriver`/`pttHubEnabled` itself.
+  final ValueNotifier<VoiceTurnUiProjection> hubProjection = ValueNotifier(idleVoiceTurnProjection);
 
   // Cache refresh for backend-created persons
   Future<void>? _peopleRefreshFuture;
@@ -1464,6 +1473,7 @@ class CaptureController extends ChangeNotifier
     _autoSyncFallbackTimer?.cancel();
     _peopleRefreshFuture = null; // Clear in-flight tracker
     BleBridge.instance.removeBatchRecordingFinalizedListener(_onOfflineRecordingFinalized);
+    hubProjection.dispose();
 
     super.dispose();
   }

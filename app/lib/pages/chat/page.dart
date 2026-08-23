@@ -21,6 +21,7 @@ import 'package:omi/backend/schema/message.dart';
 import 'package:omi/gen/assets.gen.dart';
 import 'package:omi/pages/apps/widgets/capability_apps_page.dart';
 import 'package:omi/pages/chat/widgets/ai_message.dart';
+import 'package:omi/pages/chat/widgets/hub_voice_status_indicator.dart';
 import 'package:omi/pages/settings/widgets/plans_sheet.dart';
 import 'package:omi/pages/chat/widgets/user_message.dart';
 import 'package:omi/pages/chat/widgets/voice_recorder_widget.dart';
@@ -373,6 +374,10 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
 
                       return Column(
                         children: [
+                          // Realtime voice hub status (listening/thinking/speaking) —
+                          // hidden unless a hub turn is actually active (pttHubEnabled
+                          // dev flag + pendant gesture). See widget header.
+                          const HubVoiceStatusIndicator(),
                           // Selected images display above the send bar
                           Consumer<MessageProvider>(
                             builder: (context, provider, child) {
