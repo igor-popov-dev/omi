@@ -166,6 +166,19 @@ class HubSessionEvents {
   /// Assistant reply text (for the on-screen bubble / logging).
   final void Function(String text, bool isFinal, HubEventIdentity? identity)? onAssistantText;
 
+  /// The provider's own VAD's verdict on whether the user is speaking right
+  /// now: `true` on speech onset, `false` when it decides the utterance
+  /// ended. Only server-VAD sessions (free-form mode) emit this — in PTT mode
+  /// the gesture, not the provider, owns utterance boundaries.
+  ///
+  /// Measured on the live wire 23.08 (see design doc §9), because when this
+  /// fires decides what it may be used for: `true` lands 0.24s after speech
+  /// onset, `false` lands 1.2s after speech stops (VAD hangover), and — the
+  /// part that makes it usable as a UI state — `false` is NOT repeated during
+  /// idle silence: 3s of silence before the first word produced no event at
+  /// all. So "false" means "you just finished talking", not "it is quiet".
+  final void Function(bool isSpeaking)? onUserSpeechState;
+
   /// Spoken audio began audibly playing (echo gate: activate).
   final void Function()? onSpeakingStart;
 
@@ -188,6 +201,7 @@ class HubSessionEvents {
     this.onConnected,
     this.onInputTranscript,
     this.onAssistantText,
+    this.onUserSpeechState,
     this.onSpeakingStart,
     this.onSpeakingEnd,
     this.onToolRequest,
@@ -750,6 +764,10 @@ abstract class BaseHubSession implements HubSession {
 
   void emitInputTranscript(String text, bool isFinal, [HubEventIdentity? identity]) {
     events.onInputTranscript?.call(text, isFinal, identity ?? activeIdentity);
+  }
+
+  void emitUserSpeechState(bool isSpeaking) {
+    events.onUserSpeechState?.call(isSpeaking);
   }
 
   void emitAssistantText(String text, bool isFinal, [HubEventIdentity? identity]) {

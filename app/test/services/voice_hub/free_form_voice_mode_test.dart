@@ -328,6 +328,7 @@ void main() {
         final (_, events, setTimeout) = await wired(HubControllerEvents(
           onInputTranscript: (t, f, i) => seen.add('in:$t'),
           onAssistantText: (t, f, i) => seen.add('out:$t'),
+          onUserSpeechState: (speaking) => seen.add('vad:$speaking'),
           onSpeakingStart: () => seen.add('speak-start'),
           onSpeakingEnd: () => seen.add('speak-end'),
           onToolRequest: (call, i) => seen.add('tool:${call.name}'),
@@ -338,6 +339,10 @@ void main() {
         for (final fire in <void Function()>[
           () => events.onInputTranscript!('привет', false, null),
           () => events.onAssistantText!('здравствуй', false, null),
+          // The user simply opening their mouth counts — and counts earliest:
+          // the VAD says so ~1s before any transcript of that sentence exists.
+          () => events.onUserSpeechState!(true),
+          () => events.onUserSpeechState!(false),
           () => events.onSpeakingStart!(),
           () => events.onSpeakingEnd!(),
           () => events.onToolRequest!(
@@ -354,6 +359,8 @@ void main() {
         expect(seen, [
           'in:привет',
           'out:здравствуй',
+          'vad:true',
+          'vad:false',
           'speak-start',
           'speak-end',
           'tool:ask_claude',

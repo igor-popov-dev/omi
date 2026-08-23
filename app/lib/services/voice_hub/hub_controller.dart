@@ -94,6 +94,10 @@ class HubControllerEvents {
   final void Function(HubControllerError error)? onError;
   final void Function(String text, bool isFinal, HubEventIdentity? identity)? onInputTranscript;
   final void Function(String text, bool isFinal, HubEventIdentity? identity)? onAssistantText;
+
+  /// Server-VAD's "user is / is not speaking" verdict — see
+  /// [HubSessionEvents.onUserSpeechState] for what it does and does not mean.
+  final void Function(bool isSpeaking)? onUserSpeechState;
   final void Function()? onSpeakingStart;
   final void Function()? onSpeakingEnd;
   final void Function(HubToolCallRequest call, HubEventIdentity? identity)? onToolRequest;
@@ -105,12 +109,37 @@ class HubControllerEvents {
     this.onError,
     this.onInputTranscript,
     this.onAssistantText,
+    this.onUserSpeechState,
     this.onSpeakingStart,
     this.onSpeakingEnd,
     this.onToolRequest,
     this.onTurnDone,
     this.onCascadeHandoff,
   });
+
+  /// Same handlers with individual ones swapped out. Exists so callers that
+  /// only want to intercept ONE event (production wiring routes
+  /// [onToolRequest] to the `ask_claude` executor) don't hand-copy the other
+  /// eight — a copy that silently drops whatever the copy was written before.
+  /// That is not hypothetical: [onUserSpeechState] was added 23.08 and every
+  /// unit test passed while the production path quietly discarded it, because
+  /// the wiring listed fields by name.
+  HubControllerEvents copyWith({
+    void Function(HubToolCallRequest call, HubEventIdentity? identity)? onToolRequest,
+  }) {
+    return HubControllerEvents(
+      onConnected: onConnected,
+      onError: onError,
+      onInputTranscript: onInputTranscript,
+      onAssistantText: onAssistantText,
+      onUserSpeechState: onUserSpeechState,
+      onSpeakingStart: onSpeakingStart,
+      onSpeakingEnd: onSpeakingEnd,
+      onToolRequest: onToolRequest ?? this.onToolRequest,
+      onTurnDone: onTurnDone,
+      onCascadeHandoff: onCascadeHandoff,
+    );
+  }
 }
 
 /// How the controller builds the (Gemini-only) provider session — injected
@@ -565,6 +594,7 @@ class HubController {
       onError: (message, retryable, closeCode) => _handleError(message, retryable, closeCode),
       onInputTranscript: (text, isFinal, identity) => events.onInputTranscript?.call(text, isFinal, identity),
       onAssistantText: (text, isFinal, identity) => events.onAssistantText?.call(text, isFinal, identity),
+      onUserSpeechState: (isSpeaking) => events.onUserSpeechState?.call(isSpeaking),
       onSpeakingStart: () => events.onSpeakingStart?.call(),
       onSpeakingEnd: () => events.onSpeakingEnd?.call(),
       onToolRequest: (call, identity) => events.onToolRequest?.call(call, identity),

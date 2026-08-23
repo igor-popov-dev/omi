@@ -357,6 +357,15 @@ class GeminiHubSession extends BaseHubSession {
       _pendingToolCallIds.clear();
       clearPlayback();
     }
+    // Server-VAD verdict (free-form mode only; manual mode never sends it).
+    // Unknown values are ignored rather than guessed at: a future third state
+    // must not silently read as "user stopped talking".
+    final speechState = sc['speechState'];
+    if (speechState == 'SPEECH') {
+      emitUserSpeechState(true);
+    } else if (speechState == 'NON_SPEECH') {
+      emitUserSpeechState(false);
+    }
     final it = sc['inputTranscription'] as Map<String, dynamic>?;
     if (it != null && it['text'] is String) emitInputTranscript(it['text'] as String, false);
     final ot = sc['outputTranscription'] as Map<String, dynamic>?;

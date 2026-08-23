@@ -202,6 +202,15 @@ HubControllerEvents freeFormActivityEvents(HubControllerEvents inner, void Funct
       note();
       inner.onAssistantText?.call(text, isFinal, identity);
     },
+    // The earliest activity signal there is: the server VAD calls speech
+    // 0.24s after the first syllable, whereas the transcript of the same
+    // utterance only lands ~1.2s after the user stops (measured 23.08,
+    // design doc §9). Someone mid-sentence when the idle timer is about to
+    // fire is exactly who must not be cut off.
+    onUserSpeechState: (isSpeaking) {
+      note();
+      inner.onUserSpeechState?.call(isSpeaking);
+    },
     onSpeakingStart: () {
       note();
       inner.onSpeakingStart?.call();

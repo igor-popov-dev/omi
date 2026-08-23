@@ -262,17 +262,11 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   // `freeFormActivityEvents`).
   hub = HubController(
     events: freeFormActivityEvents(
-      HubControllerEvents(
-        onConnected: events.onConnected,
-        onError: events.onError,
-        onInputTranscript: events.onInputTranscript,
-        onAssistantText: events.onAssistantText,
-        onSpeakingStart: events.onSpeakingStart,
-        onSpeakingEnd: events.onSpeakingEnd,
-        onToolRequest: (call, identity) => askClaudeExecutor.handle(call),
-        onTurnDone: events.onTurnDone,
-        onCascadeHandoff: events.onCascadeHandoff,
-      ),
+      // copyWith, not a hand-listed copy: the only event this wiring owns is
+      // the tool call (it goes to the `ask_claude` executor instead of the
+      // host); everything else must reach the host untouched, including
+      // events added after this line was written.
+      events.copyWith(onToolRequest: (call, identity) => askClaudeExecutor.handle(call)),
       () => mode.noteActivity(),
     ),
     buildInstructions: buildProductionHubInstructions,

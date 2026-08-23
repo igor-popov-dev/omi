@@ -136,6 +136,7 @@ class _EventLog {
   int errorCalls = 0;
   final List<({String text, bool isFinal})> assistantText = [];
   final List<({String text, bool isFinal})> inputTranscript = [];
+  final List<bool> userSpeechStates = [];
   int speakingStart = 0;
   int speakingEnd = 0;
   int turnDoneCalls = 0;
@@ -152,6 +153,7 @@ class _EventLog {
         },
         onAssistantText: (text, isFinal, identity) => assistantText.add((text: text, isFinal: isFinal)),
         onInputTranscript: (text, isFinal, identity) => inputTranscript.add((text: text, isFinal: isFinal)),
+        onUserSpeechState: (isSpeaking) => userSpeechStates.add(isSpeaking),
         onSpeakingStart: () => speakingStart += 1,
         onSpeakingEnd: () => speakingEnd += 1,
         onTurnDone: (identity) => turnDoneCalls += 1,
@@ -613,6 +615,14 @@ void main() {
       expect(h.log.turnDoneCalls, 1);
     });
 
+    test('passes the server-VAD speech state through to the host', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onUserSpeechState?.call(true);
+      h.session.events.onUserSpeechState?.call(false);
+      expect(h.log.userSpeechStates, [true, false]);
+    });
+
     test('surfaces a session error with aliveForMs and drops the handle so ensureWarm rebuilds', () async {
       final h = _Harness();
       await _warmed(h);
@@ -899,6 +909,65 @@ void main() {
       unawaited(p.catchError((Object _) => sid));
       await _tick();
       expect(h.mintCalls, before + 1);
+    });
+  });
+
+  group('HubControllerEvents.copyWith', () {
+    // Guards the production wiring in `voice_hub_production.dart`, which
+    // swaps ONE handler (tool calls go to the ask_claude executor) and must
+    // pass the rest through. Hand-listing the fields there silently dropped
+    // `onUserSpeechState` the day it was added — every other test still
+    // passed, and only the on-screen indicator was dead.
+    test('replaces onToolRequest and keeps every other handler alive', () {
+      final seen = <String>[];
+      final original = HubControllerEvents(
+        onConnected: (sid) => seen.add('connected:$sid'),
+        onError: (e) => seen.add('error:${e.reason}'),
+        onInputTranscript: (t, f, i) => seen.add('in:$t'),
+        onAssistantText: (t, f, i) => seen.add('out:$t'),
+        onUserSpeechState: (speaking) => seen.add('vad:$speaking'),
+        onSpeakingStart: () => seen.add('speak-start'),
+        onSpeakingEnd: () => seen.add('speak-end'),
+        onToolRequest: (call, i) => seen.add('tool-original:${call.name}'),
+        onTurnDone: (i) => seen.add('turn-done'),
+        onCascadeHandoff: (h) => seen.add('cascade'),
+      );
+
+      final copied = original.copyWith(onToolRequest: (call, i) => seen.add('tool-replaced:${call.name}'));
+
+      copied.onConnected!('s1');
+      copied.onError!(const HubControllerError(reason: 'boom', retryable: false, aliveForMs: 0));
+      copied.onInputTranscript!('привет', false, null);
+      copied.onAssistantText!('здравствуй', false, null);
+      copied.onUserSpeechState!(true);
+      copied.onSpeakingStart!();
+      copied.onSpeakingEnd!();
+      copied.onToolRequest!(const HubToolCallRequest(name: 'ask_claude', callId: 'c1', argumentsJson: '{}'), null);
+      copied.onTurnDone!(null);
+      copied.onCascadeHandoff!(const HubCascadeHandoff(frames: [], committed: false));
+
+      expect(seen, [
+        'connected:s1',
+        'error:boom',
+        'in:привет',
+        'out:здравствуй',
+        'vad:true',
+        'speak-start',
+        'speak-end',
+        'tool-replaced:ask_claude',
+        'turn-done',
+        'cascade',
+      ]);
+    });
+
+    test('without arguments it is a faithful copy — the original tool handler survives', () {
+      final seen = <String>[];
+      final original = HubControllerEvents(onToolRequest: (call, i) => seen.add('tool:${call.name}'));
+
+      original.copyWith().onToolRequest!(
+          const HubToolCallRequest(name: 'ask_claude', callId: 'c1', argumentsJson: '{}'), null);
+
+      expect(seen, ['tool:ask_claude']);
     });
   });
 }

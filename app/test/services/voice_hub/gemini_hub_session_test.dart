@@ -120,6 +120,7 @@ class _Harness {
   final _FakeVoicePlayer player;
   final List<({String message, bool retryable, int? closeCode})> errors = [];
   final List<String> connected = [];
+  final List<bool> speechStates = [];
 
   _Harness._(this.session, this.socketFactory, this.player);
 
@@ -138,6 +139,7 @@ class _Harness {
       tools: tools,
       events: HubSessionEvents(
         onConnected: (sid) => h.connected.add(sid),
+        onUserSpeechState: (isSpeaking) => h.speechStates.add(isSpeaking),
         onError: (message, retryable, closeCode) =>
             h.errors.add((message: message, retryable: retryable, closeCode: closeCode)),
       ),
@@ -392,6 +394,62 @@ void main() {
       h.session.beginTurn(const HubBeginTurnOptions(turnId: 't2', responseId: 'r2'));
       h.session.appendAudio(Uint8List.fromList([2]));
       expect(h.socket.riKinds(), ['audio', 'audio']); // still just audio, streaming never toggled off
+    });
+
+    // Wire shape + timing measured against live Gemini 23.08 (design doc §9):
+    // SPEECH lands 0.24s after speech onset, NON_SPEECH 1.2s after it stops,
+    // and neither repeats during idle silence.
+    test('serverContent.speechState surfaces as onUserSpeechState', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+
+      h.socketFactory.message(jsonEncode(_serverContent({'speechState': 'SPEECH'})));
+      h.socketFactory.message(jsonEncode(_serverContent({'speechState': 'NON_SPEECH'})));
+
+      expect(h.speechStates, [true, false]);
+    });
+
+    test('an unknown speechState value is ignored, not guessed at as "stopped talking"', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+
+      h.socketFactory.message(jsonEncode(_serverContent({'speechState': 'SPEECH_STATE_UNSPECIFIED'})));
+      h.socketFactory.message(jsonEncode(_serverContent({'modelTurn': <String, dynamic>{}})));
+
+      expect(h.speechStates, isEmpty);
+    });
+
+    test('speechState riding along with a transcript emits both, in wire order', () async {
+      final h = _Harness(freeFormMode: true);
+      var transcripts = <String>[];
+      final session = GeminiHubSession(
+        token: 'auth_tokens/x',
+        instructions: 'INSTR',
+        socketFactory: h.socketFactory.factory,
+        playerFactory: (spec) async => h.player,
+        mintSessionId: () => 'sess-1',
+        freeFormMode: true,
+        events: HubSessionEvents(
+          onUserSpeechState: (isSpeaking) => h.speechStates.add(isSpeaking),
+          onInputTranscript: (text, isFinal, _) => transcripts.add(text),
+        ),
+      );
+      final warm = session.ensureWarm();
+      await Future<void>.value();
+      await Future<void>.value();
+      h.socketFactory.open();
+      h.socketFactory.message(jsonEncode({'setupComplete': <String, dynamic>{}}));
+      await warm;
+
+      // The live wire delivers the end-of-utterance verdict and the final
+      // transcript in the same frame, 10ms apart from the reply's first audio.
+      h.socketFactory.message(jsonEncode(_serverContent({
+        'speechState': 'NON_SPEECH',
+        'inputTranscription': {'text': 'привет'},
+      })));
+
+      expect(h.speechStates, [false]);
+      expect(transcripts, ['привет']);
     });
 
     test('commitTurn() is a no-op — no activityEnd frame, server ends the turn on its own', () async {
