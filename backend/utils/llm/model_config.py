@@ -186,23 +186,23 @@ _BRIDGE_TOOLS_FEATURES = {'chat_responses'}
 
 CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     **_TWO_TIER_MODEL_PROFILE,
-    'chat_responses': ('sonnet', 'claude-bridge'),
-    'conv_discard': ('sonnet', 'claude-bridge'),
-    # Решение Игоря 23.08: разбор беседы пробуем на Opus — это единственное, что он
-    # читает глазами (заголовок и обзор в списке бесед) и по чему судит о качестве.
-    # Остальные фичи остаются на Sonnet: они служебные, а Opus заметно быстрее
-    # выедает пятичасовое окно подписки, из которого живёт весь self-host.
+    'chat_responses': ('opus', 'claude-bridge'),
+    'conv_discard': ('opus', 'claude-bridge'),
+    # Решение Игоря 23.08: весь self-host работает на Opus — подписка Max ($200)
+    # должна выдержать. Если окно начнёт выгорать, дешевле всего вернуть на Sonnet
+    # служебные фичи (memory_*, conv_discard, conv_folder): их вызывают на КАЖДОМ
+    # разговоре, а результат пользователь глазами не читает.
     'conv_structure': ('opus', 'claude-bridge'),
     'conv_action_items': ('opus', 'claude-bridge'),
-    'conv_app_result': ('sonnet', 'claude-bridge'),
-    'conv_folder': ('sonnet', 'claude-bridge'),
-    'memories': ('sonnet', 'claude-bridge'),
-    'learnings': ('sonnet', 'claude-bridge'),
-    'memory_category': ('sonnet', 'claude-bridge'),
-    'memory_conflict': ('sonnet', 'claude-bridge'),
-    'memory_l1': ('sonnet', 'claude-bridge'),
-    'memory_l2': ('sonnet', 'claude-bridge'),
-    'proactive_notification': ('sonnet', 'claude-bridge'),
+    'conv_app_result': ('opus', 'claude-bridge'),
+    'conv_folder': ('opus', 'claude-bridge'),
+    'memories': ('opus', 'claude-bridge'),
+    'learnings': ('opus', 'claude-bridge'),
+    'memory_category': ('opus', 'claude-bridge'),
+    'memory_conflict': ('opus', 'claude-bridge'),
+    'memory_l1': ('opus', 'claude-bridge'),
+    'memory_l2': ('opus', 'claude-bridge'),
+    'proactive_notification': ('opus', 'claude-bridge'),
 }
 
 # Pinned features — (model, provider) fixed regardless of profile or env override.
