@@ -460,9 +460,12 @@ class PhoneCallProvider extends ChangeNotifier {
     PlatformManager.instance.analytics.phoneCallEnded(durationSeconds: _callDuration.inSeconds);
     _callState = PhoneCallState.ended;
     _stopDurationTimer();
-    // Take the poller out before the teardown stops it: the backend's last window lands
-    // after the hang-up, and one final read is the only chance to catch the tail. The
-    // adapter keeps a finished call's text precisely so this read has something to find.
+    // Take the poller out before the teardown stops it. The closing words of the call
+    // arrive about a second AFTER the hang-up — the adapter feeds the backend a second
+    // of silence at that point so the STT shim cuts the last, unfinished phrase while
+    // the socket is still open (lane 6 tick 38, measured on the live path). Draining
+    // reads until the adapter reports the call finished; the adapter keeps a finished
+    // call's text for exactly that.
     final poller = _transcriptPoller;
     _transcriptPoller = null;
     _disconnectTranscriptionSocket();
@@ -473,7 +476,14 @@ class PhoneCallProvider extends ChangeNotifier {
     _audioBuffer.clear();
     notifyListeners();
 
-    // Reset state after a short delay so UI can show "Call Ended"
+    // Reset state after a short delay so UI can show "Call Ended".
+    //
+    // The transcript is deliberately NOT cleared here. Draining outlives this delay:
+    // the closing words land ~1.3s after the hang-up and the adapter only confirms the
+    // text is complete when it closes the upstream socket, a few seconds later. Wiping
+    // the list on a two-second timer threw exactly that tail away — the part of the
+    // call that took the longest to get onto the screen. Nothing leaks: a new call
+    // clears the list before it dials, and so does `clearUserData`.
     Future.delayed(const Duration(seconds: 2), () {
       _callState = PhoneCallState.idle;
       _currentCallId = null;
@@ -482,7 +492,6 @@ class PhoneCallProvider extends ChangeNotifier {
       _callStartTime = null;
       _callDuration = Duration.zero;
       _cloudAudio = false;
-      _transcriptSegments.clear();
       _availableRoutes = [];
       _selectedRoute = null;
       notifyListeners();

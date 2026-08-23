@@ -82,6 +82,8 @@ VoxTranscriptPoller _poller(
   Duration interval = const Duration(milliseconds: 10),
   int maxConsecutiveFailures = 5,
   Duration maxInterval = const Duration(seconds: 30),
+  Duration drainInterval = const Duration(milliseconds: 5),
+  Duration drainWindow = const Duration(seconds: 2),
 }) {
   return VoxTranscriptPoller(
     baseUrl: 'https://vox.example',
@@ -90,6 +92,8 @@ VoxTranscriptPoller _poller(
     interval: interval,
     maxConsecutiveFailures: maxConsecutiveFailures,
     maxInterval: maxInterval,
+    drainInterval: drainInterval,
+    drainWindow: drainWindow,
   );
 }
 
@@ -362,7 +366,57 @@ void main() {
       expect(client.requests.length, afterStop);
     });
 
-    test('drain() reads the tail once after the call ended', () async {
+    test('drain() keeps reading until the adapter says finished — the closing words land later', () async {
+      // The shape of a real hang-up: the adapter feeds the backend a second of silence
+      // so the shim cuts the unfinished last phrase, and that text comes back about a
+      // second later (lane 6 tick 38, measured). A single farewell read cannot catch it
+      // by construction — it happens before the text exists.
+      final client = _ScriptedClient([
+        (_) => _page(cursor: 1),
+        (_) => _page(cursor: 1),
+        (_) => _page(cursor: 1),
+        (_) => _page(segments: [_segment('z', 'последнее слово')], cursor: 2, status: 'finished'),
+      ]);
+      final delivered = <String>[];
+      final poller = _poller(client, interval: const Duration(seconds: 30))
+        ..onSegments = (s) => delivered.addAll(s.map((e) => e.text));
+
+      poller.start('c1');
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      final beforeDrain = client.requests.length;
+      await poller.drain();
+      final afterDrain = client.requests.length;
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+
+      expect(delivered, ['последнее слово']);
+      expect(afterDrain - beforeDrain, greaterThan(1), reason: 'один опрос хвост не ловит');
+      expect(client.requests.length, afterDrain, reason: '«finished» — значит больше ничего не придёт');
+    });
+
+    test('drain() stops at its own window if the adapter never says finished', () async {
+      // The adapter can die between the hang-up and the drain, and then `finished` never
+      // comes. Without a cap this loop would keep asking a public endpoint forever, from
+      // a phone whose call is long over.
+      final client = _ScriptedClient([(_) => _page(cursor: 1)]);
+      final poller = _poller(
+        client,
+        interval: const Duration(seconds: 30),
+        drainInterval: const Duration(milliseconds: 10),
+        drainWindow: const Duration(milliseconds: 120),
+      );
+
+      poller.start('c1');
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      final beforeDrain = client.requests.length;
+      await poller.drain().timeout(const Duration(seconds: 2));
+      final afterDrain = client.requests.length;
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(afterDrain - beforeDrain, greaterThan(1), reason: 'опрашивал всё окно, а не один раз');
+      expect(client.requests.length, afterDrain, reason: 'окно кончилось — опрос прекращён');
+    });
+
+    test('drain() reads once when the call is already finished', () async {
       final client = _ScriptedClient([
         (_) => _page(cursor: 1),
         (_) => _page(segments: [_segment('z', 'последнее слово')], cursor: 2, status: 'finished'),
@@ -373,12 +427,11 @@ void main() {
 
       poller.start('c1');
       await Future<void>.delayed(const Duration(milliseconds: 40));
+      final beforeDrain = client.requests.length;
       await poller.drain();
-      final afterDrain = client.requests.length;
-      await Future<void>.delayed(const Duration(milliseconds: 40));
 
       expect(delivered, ['последнее слово']);
-      expect(client.requests.length, afterDrain, reason: 'дочитали хвост — и на этом всё');
+      expect(client.requests.length - beforeDrain, 1, reason: 'ответ «finished» с первого раза — второго опроса нет');
     });
 
     test('a gap in the buffer is reported, not swallowed', () async {

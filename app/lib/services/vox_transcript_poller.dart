@@ -69,6 +69,8 @@ class VoxTranscriptPoller {
     this.interval = const Duration(seconds: 2),
     this.maxConsecutiveFailures = 5,
     this.maxInterval = const Duration(seconds: 30),
+    this.drainInterval = const Duration(milliseconds: 500),
+    this.drainWindow = const Duration(seconds: 12),
   })  : _baseUrl = (baseUrl ?? Env.voxTranscriptBaseUrl).trim(),
         _client = client ?? http.Client(),
         _authHeader = authHeader ?? getAuthHeader;
@@ -84,6 +86,15 @@ class VoxTranscriptPoller {
   /// The slowest the poller will ever go. It never stops on its own — a call outlives a
   /// server-side hiccup far more often than the other way round.
   final Duration maxInterval;
+
+  /// How often [drain] asks after the hang-up. Faster than [interval] on purpose: the
+  /// closing words land about a second after the call ends and the screen is waiting.
+  final Duration drainInterval;
+
+  /// The cap on [drain]. It is a safety net, not the normal exit: draining stops as soon
+  /// as the adapter reports the call `finished`, which is the exact moment after which
+  /// no further text can ever arrive.
+  final Duration drainWindow;
 
   Timer? _timer;
   String? _callId;
@@ -122,22 +133,40 @@ class VoxTranscriptPoller {
     _callId = null;
   }
 
-  /// One last read after the call ended, and one is enough — measured, not assumed.
+  /// Keep reading for a few seconds after the call ended: that is where the closing
+  /// words are.
   ///
-  /// The comment here used to say the backend's final window lands after the hang-up.
-  /// Lane 6 tick 37 measured the live path twice (45s and 32s of speech): after the
-  /// hang-up nothing arrives at all, for 40 seconds of asking. The last window lands
-  /// 5-6 seconds BEFORE the call ends; the speech after it is finalised when the socket
-  /// closes and goes to the saved conversation, which is where the screen should read
-  /// the closing words from. What this read is genuinely for is the gap between the last
-  /// scheduled poll and the hang-up — up to one [interval]. Errors are not worth
-  /// reporting: the call is over.
+  /// A single read used to be enough, and for the right reason at the time. Tick 37
+  /// measured the live path twice and nothing at all arrived after a hang-up — the STT
+  /// shim cuts a segment on 0.6s of silence, a conversation ends mid-word instead, and
+  /// that last segment was only finalised when the socket closed, landing in the saved
+  /// conversation where no socket could carry it back. The last 5-6 seconds of every
+  /// call were invisible here.
+  ///
+  /// Tick 38 fixed the cause on the adapter: at hang-up it now feeds the backend a
+  /// second of digital silence, so the shim cuts the last phrase while the socket is
+  /// still open. Measured on the live path (30s of speech, both legs): the tail arrives
+  /// 1.3s AFTER the hang-up — which a single farewell read cannot catch by construction.
+  ///
+  /// So this reads until the adapter says `finished`, which it does once the upstream
+  /// socket is closed and the buffer can no longer change ([drainWindow] caps the wait).
+  /// Errors are not worth reporting: the call is over.
   Future<void> drain() async {
     if (!configured || _callId == null) return;
     _timer?.cancel();
     _timer = null;
     _stopped = true;
-    await _pollOnce();
+    final deadline = DateTime.now().add(drainWindow);
+    while (true) {
+      final status = await _pollOnce();
+      if (status == 'finished') break;
+      if (!DateTime.now().isBefore(deadline)) {
+        Logger.debug('VoxTranscriptPoller: drain gave up after ${drainWindow.inMilliseconds}ms, '
+            'the adapter never reported the call finished');
+        break;
+      }
+      await Future<void>.delayed(drainInterval);
+    }
     _callId = null;
   }
 
@@ -170,8 +199,12 @@ class VoxTranscriptPoller {
     });
   }
 
-  Future<void> _pollOnce() async {
-    if (_polling || _callId == null) return;
+  /// Returns the call status the adapter reported (`active` / `finished`), or null when
+  /// this poll produced no answer at all — a failure, a 404, or a poll already in flight.
+  /// [drain] needs that distinction: `finished` is the only proof that the text is
+  /// complete, and "no answer" must not be mistaken for it.
+  Future<String?> _pollOnce() async {
+    if (_polling || _callId == null) return null;
     _polling = true;
     final callId = _callId!;
     try {
@@ -188,11 +221,11 @@ class VoxTranscriptPoller {
         // Normal early in a call: the adapter has no session until the first audio frame
         // arrives from the cloud. Not a failure, and the cursor must not move.
         _failures = 0;
-        return;
+        return null;
       }
       if (response.statusCode != 200) {
         _note('HTTP ${response.statusCode}');
-        return;
+        return null;
       }
 
       // `response.body` here would be WRONG: the adapter answers `application/json`
@@ -212,8 +245,10 @@ class VoxTranscriptPoller {
       // would silently stop updating for the rest of the call (HTTP 200, no error, no
       // empty-transcript verdict: just text that never arrives again).
       if (page.reset || page.cursor > _cursor) _cursor = page.cursor;
+      return page.status;
     } catch (e) {
       _note('${e.runtimeType}');
+      return null;
     } finally {
       _polling = false;
     }
