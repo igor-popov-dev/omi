@@ -106,6 +106,19 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
                       child: Icon(Icons.refresh, color: Colors.white, size: 20),
                     ),
                   ),
+                  // Self-host patch, not for upstream: a failed transcription had
+                  // retry as its ONLY exit. When the failure is not transient (the
+                  // backend is down, the recording is unusable) the error bar sits
+                  // in the composer permanently, with no way to dismiss it and get
+                  // the text field back. close() drops the recording and its temp
+                  // files and returns the composer to idle.
+                  GestureDetector(
+                    onTap: provider.close,
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 4, right: 8),
+                      child: Icon(Icons.close, color: Color(0xFF8E8E93), size: 20),
+                    ),
+                  ),
                 ],
               ),
             );

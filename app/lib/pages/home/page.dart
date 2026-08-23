@@ -24,6 +24,7 @@ import 'package:omi/pages/action_items/action_items_page.dart';
 import 'package:omi/pages/apps/app_detail/app_detail.dart';
 import 'package:omi/pages/apps/page.dart';
 import 'package:omi/pages/chat/page.dart';
+import 'package:omi/pages/chat/widgets/free_form_voice_mode_button.dart';
 import 'package:omi/pages/conversation_detail/page.dart';
 import 'package:omi/pages/conversations/conversations_page.dart';
 import 'package:omi/pages/conversations/auto_sync_page.dart';
@@ -995,12 +996,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
               child: Container(
                 width: 42,
                 height: 42,
-                margin: const EdgeInsets.only(right: 6),
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                 child: const FaIcon(FontAwesomeIcons.microphone, size: 15, color: Colors.black),
               ),
             ),
+            // Self-host patch, not for upstream: the same hands-free voice-mode
+            // toggle the chat composer carries, so the mode can be started from
+            // the home screen without opening a conversation first. Hidden
+            // entirely unless the `freeFormMode` dev flag is on.
+            const FreeFormVoiceModeButton(),
+            const SizedBox(width: 6),
           ],
         ),
       ),

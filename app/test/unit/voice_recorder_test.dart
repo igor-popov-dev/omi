@@ -488,6 +488,32 @@ void main() {
       expect(provider.hasPendingRecording, isFalse);
     });
 
+    // Self-host patch, not for upstream: backs the dismiss (×) control added to
+    // the error bar in voice_recorder_widget.dart. Reported live 23.08 — retry
+    // was the only exit, so a non-transient failure held the composer forever.
+    test('dismissing a stuck recording frees the composer and does not resurrect it', () async {
+      final wavFile = File(path.join(tempDir.path, 'stuck.wav'));
+      final sink = wavFile.openWrite();
+      sink.add(WavBytesUtil.getWavHeader(32000, 16000));
+      sink.add(Uint8List(32000));
+      await sink.flush();
+      await sink.close();
+      await SharedPreferencesUtil().saveString('voice_recorder_pending_wav_path', wavFile.path);
+
+      final provider = VoiceRecorderProvider();
+      await provider.checkPendingRecording();
+      expect(provider.state, equals(VoiceRecorderState.pendingRecovery));
+
+      provider.close();
+      // close() deletes the temp file asynchronously; the state flip is synchronous.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(provider.state, equals(VoiceRecorderState.idle));
+      expect(provider.isActive, isFalse);
+      expect(SharedPreferencesUtil().getString('voice_recorder_pending_wav_path'), isEmpty);
+      expect(wavFile.existsSync(), isFalse);
+    });
+
     test('retry preserves pending WAV when transcription returns empty text', () async {
       final wavFile = await createPendingWav('empty_retry.wav');
       var transcriptCallbackCalled = false;
