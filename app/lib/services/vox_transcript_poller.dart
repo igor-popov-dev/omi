@@ -68,6 +68,7 @@ class VoxTranscriptPoller {
     Future<String> Function()? authHeader,
     this.interval = const Duration(seconds: 2),
     this.maxConsecutiveFailures = 5,
+    this.maxInterval = const Duration(seconds: 30),
   })  : _baseUrl = (baseUrl ?? Env.voxTranscriptBaseUrl).trim(),
         _client = client ?? http.Client(),
         _authHeader = authHeader ?? getAuthHeader;
@@ -76,7 +77,13 @@ class VoxTranscriptPoller {
   final http.Client _client;
   final Future<String> Function() _authHeader;
   final Duration interval;
+
+  /// How many failures in a row before backing off. Not a stop condition: see [_nextDelay].
   final int maxConsecutiveFailures;
+
+  /// The slowest the poller will ever go. It never stops on its own — a call outlives a
+  /// server-side hiccup far more often than the other way round.
+  final Duration maxInterval;
 
   Timer? _timer;
   String? _callId;
@@ -127,6 +134,23 @@ class VoxTranscriptPoller {
     _callId = null;
   }
 
+  /// How long to wait before the next poll: [interval] while things work, then a widening
+  /// backoff — but never a full stop.
+  ///
+  /// Stopping for good was the previous behaviour and it turned somebody else's minute
+  /// into our whole call. The adapter verifies the app's token against Google on every
+  /// poll, and Google answering 429 or 503 used to come back as HTTP 403 — five polls,
+  /// ten seconds, and the live transcript was dead until hang-up, with one line in the
+  /// app log and nothing at all on screen. The adapter now says 503 for "could not ask"
+  /// (lane 6, tick 37), but the lesson holds for every transient failure: slow down,
+  /// keep asking, and catch up when it recovers — the cursor makes that free.
+  Duration get _nextDelay {
+    if (_failures < maxConsecutiveFailures) return interval;
+    final steps = (_failures - maxConsecutiveFailures + 1).clamp(1, 5);
+    final ms = interval.inMilliseconds * (1 << steps);
+    return Duration(milliseconds: ms < maxInterval.inMilliseconds ? ms : maxInterval.inMilliseconds);
+  }
+
   /// Re-arms after each poll finishes instead of firing on a fixed period: a poll that
   /// takes longer than [interval] would otherwise stack requests on top of each other,
   /// and a public endpoint is the wrong place to do that.
@@ -135,7 +159,7 @@ class VoxTranscriptPoller {
     if (_stopped) return;
     _timer = Timer(delay, () async {
       await _pollOnce();
-      if (!_stopped) _arm(interval);
+      if (!_stopped) _arm(_nextDelay);
     });
   }
 
@@ -190,11 +214,9 @@ class VoxTranscriptPoller {
 
   void _note(String reason) {
     _failures++;
-    if (_failures >= maxConsecutiveFailures) {
-      Logger.error('VoxTranscriptPoller: giving up after $_failures failures ($reason)');
-      _stopped = true;
-      _timer?.cancel();
-      _timer = null;
+    if (_failures == maxConsecutiveFailures) {
+      Logger.error('VoxTranscriptPoller: $_failures polls in a row failed ($reason) — backing off '
+          'to at most ${maxInterval.inMilliseconds}ms between tries, still polling');
     } else {
       Logger.debug('VoxTranscriptPoller: poll failed ($reason), attempt $_failures');
     }

@@ -81,6 +81,7 @@ VoxTranscriptPoller _poller(
   _ScriptedClient client, {
   Duration interval = const Duration(milliseconds: 10),
   int maxConsecutiveFailures = 5,
+  Duration maxInterval = const Duration(seconds: 30),
 }) {
   return VoxTranscriptPoller(
     baseUrl: 'https://vox.example',
@@ -88,6 +89,7 @@ VoxTranscriptPoller _poller(
     authHeader: () async => 'Bearer test-token',
     interval: interval,
     maxConsecutiveFailures: maxConsecutiveFailures,
+    maxInterval: maxInterval,
   );
 }
 
@@ -271,18 +273,66 @@ void main() {
       expect(delivered, ['наконец']);
     });
 
-    test('a wall of real failures stops the poller instead of hammering a public endpoint', () async {
+    test('a wall of real failures slows the poller down but never kills it', () async {
       final client = _ScriptedClient([(_) => http.Response('nope', 500)], repeatLast: true);
-      final poller = _poller(client, maxConsecutiveFailures: 3);
+      final poller = _poller(client, maxConsecutiveFailures: 3, maxInterval: const Duration(milliseconds: 40));
 
       poller.start('c1');
       await Future<void>.delayed(const Duration(milliseconds: 120));
-      final afterGivingUp = client.requests.length;
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+      final duringBackoff = client.requests.length;
+      await Future<void>.delayed(const Duration(milliseconds: 150));
 
-      expect(afterGivingUp, 3);
-      expect(client.requests.length, afterGivingUp, reason: 'после отказа опрос не возобновляется сам');
+      // Two things at once, and neither alone is the point: the endpoint is public, so
+      // a broken server must not be hammered — and the call outlives the hiccup, so the
+      // poller must still be alive when it ends.
+      expect(duringBackoff, lessThan(12), reason: 'после отказов опрос обязан замедлиться');
+      expect(client.requests.length, greaterThan(duringBackoff), reason: 'но не прекратиться совсем');
       await poller.stop();
+    });
+
+    test('a passing outage costs the tail of a call, not all of it', () async {
+      // Exactly the shape of the failure this replaced: the adapter used to answer 403
+      // whenever Google could not be asked about the app's token (429, 5xx). Five polls
+      // later the poller was dead for good — for a call that had another twenty minutes
+      // to run, and a token that was never anything but valid.
+      final client = _ScriptedClient([
+        (_) => http.Response('{"error":"upstream"}', 503),
+        (_) => http.Response('{"error":"upstream"}', 503),
+        (_) => http.Response('{"error":"upstream"}', 503),
+        (_) => http.Response('{"error":"upstream"}', 503),
+        (_) => http.Response('{"error":"upstream"}', 503),
+        (_) => http.Response('{"error":"upstream"}', 503),
+        (_) => _page(segments: [_segment('a', 'после аварии')], cursor: 1),
+      ]);
+      final delivered = <String>[];
+      final poller = _poller(client, maxConsecutiveFailures: 3, maxInterval: const Duration(milliseconds: 20))
+        ..onSegments = (s) => delivered.addAll(s.map((e) => e.text));
+
+      poller.start('c1');
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await poller.stop();
+
+      expect(delivered, ['после аварии']);
+    });
+
+    test('recovery restores the normal interval, so the screen is not left crawling', () async {
+      final client = _ScriptedClient([
+        (_) => http.Response('{"error":"upstream"}', 503),
+        (_) => http.Response('{"error":"upstream"}', 503),
+        (_) => http.Response('{"error":"upstream"}', 503),
+      ]);
+      final poller = _poller(client, maxConsecutiveFailures: 2, maxInterval: const Duration(milliseconds: 200));
+
+      poller.start('c1');
+      // Long enough for the backoff to bite, then for the healthy answers (the script is
+      // exhausted, so the client serves empty pages) to bring the pace back.
+      await Future<void>.delayed(const Duration(milliseconds: 260));
+      final atRecovery = client.requests.length;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await poller.stop();
+
+      expect(client.requests.length - atRecovery, greaterThan(3),
+          reason: 'после успеха счётчик отказов обнулён — значит и пауза вернулась к обычной');
     });
 
     test('a slow poll does not stack requests on top of each other', () async {
