@@ -34,7 +34,6 @@ class _FakeSession implements HubSession {
   int cancelled = 0;
   int cleared = 0;
   int toreDown = 0;
-  int toreDown = 0;
 
   @override
   Future<void> ensureWarm() {
