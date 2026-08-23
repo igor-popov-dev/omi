@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -313,6 +314,14 @@ class SchemaBasedSttProvider implements ISttProvider {
           'HTTP ${response.statusCode}, retrying (${i + 1}/$_maxAttempts)',
         );
       } catch (e) {
+        // A timeout is deliberately NOT retried here: with a fat payload it
+        // means the chunk does not fit the link budget, and re-sending the
+        // IDENTICAL bytes just burns another full timeout (observed live: a
+        // ~30s backlog chunk on a slow phone uplink timed out, retried at the
+        // same size twice more, and the drain wedged forever). Fail fast —
+        // PurePollingSocket reacts by halving its flush window and retrying a
+        // smaller chunk on the next tick.
+        if (e is TimeoutException) rethrow;
         if (isLastAttempt) rethrow;
         CustomSttLogService.instance.warning('SchemaSTT', 'Request failed ($e), retrying (${i + 1}/$_maxAttempts)');
       }

@@ -103,6 +103,27 @@ class PurePollingSocket implements IPureSocket {
   /// this is a positive "transcription is actually working" signal for the UI.
   DateTime? get lastSuccessAt => _lastSuccessAt;
 
+  // Self-host patch: adaptive flush window. A fixed per-request cap wedges on
+  // a slow uplink — a chunk that cannot finish inside the request timeout is
+  // requeued and retried at the SAME size forever (observed live: a ~30s
+  // backlog chunk vs a phone uplink with ~3x headroom at best). On failure the
+  // window halves down to [AudioPollingConfig.minBufferSizeBytes] until a
+  // chunk fits; each success doubles it back toward
+  // [AudioPollingConfig.maxFlushBytes], so steady state is unaffected.
+  late int _adaptiveFlushBytes = config.maxFlushBytes;
+  int get adaptiveFlushBytes => _adaptiveFlushBytes;
+
+  void _shrinkFlushWindow(int attemptedBytes) {
+    final halved = attemptedBytes ~/ 2;
+    _adaptiveFlushBytes = halved < config.minBufferSizeBytes ? config.minBufferSizeBytes : halved;
+  }
+
+  void _growFlushWindow() {
+    if (_adaptiveFlushBytes >= config.maxFlushBytes) return;
+    final doubled = _adaptiveFlushBytes * 2;
+    _adaptiveFlushBytes = doubled > config.maxFlushBytes ? config.maxFlushBytes : doubled;
+  }
+
   PurePollingSocket({required this.config, required this.sttProvider});
 
   @override
@@ -161,13 +182,13 @@ class PurePollingSocket implements IPureSocket {
 
     _isProcessing = true;
 
-    // Take the oldest frames up to maxFlushBytes (always at least one frame);
-    // anything past the cap stays buffered for the next tick.
+    // Take the oldest frames up to the adaptive flush window (always at least
+    // one frame); anything past the cap stays buffered for the next tick.
     var flushBytes = 0;
     var cut = 0;
     while (cut < _audioFrames.length) {
       final frameLength = _audioFrames[cut].length;
-      if (cut > 0 && flushBytes + frameLength > config.maxFlushBytes) break;
+      if (cut > 0 && flushBytes + frameLength > _adaptiveFlushBytes) break;
       flushBytes += frameLength;
       cut++;
     }
@@ -209,12 +230,14 @@ class PurePollingSocket implements IPureSocket {
         DebugLogManager.logWarning('polling_socket_transcription_no_result', {'service_id': serviceId});
         _consecutiveFailures++;
         _bufferingSince ??= DateTime.now();
+        _shrinkFlushWindow(flushBytes);
         _requeueFrames(frames);
         return;
       }
       _bufferingSince = null;
       _consecutiveFailures = 0;
       _lastSuccessAt = DateTime.now();
+      _growFlushWindow();
       if (result.isNotEmpty) {
         if (result.segments.isNotEmpty) {
           _audioOffsetSeconds = result.segments.last.end;
@@ -230,6 +253,7 @@ class PurePollingSocket implements IPureSocket {
       DebugLogManager.logError(e, trace, 'polling_socket_transcription_error', {'service_id': serviceId});
       _consecutiveFailures++;
       _bufferingSince ??= DateTime.now();
+      _shrinkFlushWindow(flushBytes);
       _requeueFrames(frames);
       // Self-host patch: do NOT call onError()/propagate this as a fatal
       // socket error here. sttProvider.transcribe() already retries

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:fake_async/fake_async.dart';
@@ -39,6 +40,33 @@ void main() {
 
       expect(calls, 3);
       expect(segmentCount, 1);
+    });
+  });
+
+  test('does not retry a timeout — the same payload would just burn another timeout', () {
+    fakeAsync((async) {
+      var calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        // Never answer: the .timeout() on the request fires instead.
+        await Completer<void>().future;
+        throw StateError('unreachable');
+      });
+
+      Object? error;
+      providerWith(client).transcribe(audio).catchError((Object e) {
+        error = e;
+        return null;
+      });
+
+      // Past the request deadline plus where retry backoffs would have been.
+      async.elapse(const Duration(seconds: 60));
+
+      // One attempt only: PurePollingSocket reacts to the propagated timeout
+      // by halving its flush window, so re-sending the identical bytes here
+      // would only delay that adaptation.
+      expect(calls, 1);
+      expect(error, isA<TimeoutException>());
     });
   });
 
@@ -98,11 +126,12 @@ void main() {
         return null;
       });
 
-      // Old behavior needed 60s+ to fail a *single* attempt; 3 attempts at a
-      // 10s timeout plus backoff should all resolve well before 40s.
-      async.elapse(const Duration(seconds: 40));
+      // A hang now surfaces after a SINGLE ~10s timeout: timeouts are no
+      // longer retried at the same payload size (the caller adapts its chunk
+      // size instead), so the whole failure resolves in one attempt.
+      async.elapse(const Duration(seconds: 15));
 
-      expect(calls, 3);
+      expect(calls, 1);
       expect(error, isNotNull);
     });
   });

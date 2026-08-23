@@ -37,13 +37,16 @@ void main() {
     expect(socket.bufferingSince, isNotNull);
 
     // More audio arrives while still "offline".
+    provider.enqueueSuccess(SttTranscriptionResult(segments: [SttSegment(text: 'again', start: 1, end: 2)]));
     socket.send(Uint8List.fromList([4, 5, 6]));
     await socket.flushNow();
+    await socket.flushNow();
 
-    // The retry call must have seen both the requeued and the newly
-    // captured audio — nothing was dropped while offline.
-    expect(provider.receivedCalls.last, [1, 2, 3, 4, 5, 6]);
-    expect(listener.messages, hasLength(1));
+    // After a failure the flush window shrinks, so the requeued audio and the
+    // newly captured audio drain as separate (oldest-first) chunks — but
+    // nothing was dropped while offline.
+    expect(provider.receivedCalls.skip(1).expand((c) => c), [1, 2, 3, 4, 5, 6]);
+    expect(listener.messages, hasLength(2));
     expect(socket.isBuffering, isFalse);
     expect(socket.bufferingSince, isNull);
   });
@@ -71,11 +74,14 @@ void main() {
     expect(socket.consecutiveFailures, 1);
     expect(socket.lastSuccessAt, isNull);
 
+    provider.enqueueSuccess(SttTranscriptionResult(segments: []));
     socket.send(Uint8List.fromList([4]));
     await socket.flushNow();
+    await socket.flushNow();
 
-    // The retry saw the requeued audio plus what arrived since — nothing lost.
-    expect(provider.receivedCalls.last, [1, 2, 3, 4]);
+    // The retries drained the requeued audio plus what arrived since (in
+    // shrunken, oldest-first chunks) — nothing lost.
+    expect(provider.receivedCalls.skip(1).expand((c) => c), [1, 2, 3, 4]);
     expect(socket.isBuffering, isFalse);
     expect(socket.lastSuccessAt, isNotNull);
   });
@@ -111,12 +117,49 @@ void main() {
     socket.send(Uint8List.fromList([3]));
     await socket.flushNow();
 
+    // With the adaptive window floored after the first failure, every retry
+    // re-attempts the OLDEST chunk (never a merged, ever-growing payload —
+    // that re-send-the-same-plus-more pattern is what wedged a slow uplink),
+    // and everything stays buffered.
     expect(provider.receivedCalls, [
       [1],
-      [1, 2],
-      [1, 2, 3],
+      [1],
+      [1],
     ]);
     expect(socket.bufferedBytes, 3);
+  });
+
+  test('a failed flush halves the window; successes grow it back (adaptive backlog drain)', () async {
+    final provider = _FakeSttProvider();
+    provider.enqueueError(Exception('timeout'));
+    provider.alwaysSucceedEmpty();
+
+    final socket = PurePollingSocket(
+      config: const AudioPollingConfig(minBufferSizeBytes: 1, maxFlushBytes: 8),
+      sttProvider: provider,
+    );
+    socket.setListener(_FakeListener());
+    await socket.connect();
+
+    // 8 one-byte frames — a "backlog" the full window would send at once.
+    for (final byte in [1, 2, 3, 4, 5, 6, 7, 8]) {
+      socket.send(Uint8List.fromList([byte]));
+    }
+
+    await socket.flushNow(); // 8 bytes, fails → window halves to 4
+    expect(socket.adaptiveFlushBytes, 4);
+
+    await socket.flushNow(); // [1,2,3,4] succeeds → window grows back to 8
+    expect(socket.adaptiveFlushBytes, 8);
+
+    await socket.flushNow(); // remaining [5,6,7,8]
+
+    expect(provider.receivedCalls, [
+      [1, 2, 3, 4, 5, 6, 7, 8],
+      [1, 2, 3, 4],
+      [5, 6, 7, 8],
+    ]);
+    expect(socket.bufferedBytes, 0);
   });
 
   test('flushes at most maxFlushBytes per request and drains the backlog progressively', () async {
@@ -187,8 +230,12 @@ void main() {
     }
 
     expect(socket.bufferedBytes, lessThanOrEqualTo(5));
-    // Newest audio survives; oldest was dropped.
-    expect(provider.receivedCalls.last.last, 7);
+    // The adaptive window floors during the outage, so each retry attempts the
+    // then-oldest byte; the cap trims oldest-first on requeue (newest audio
+    // survives): the final attempt still saw byte 2, after which the requeue
+    // trimmed it, leaving [3..7] (5 bytes) buffered.
+    expect(provider.receivedCalls.last, [2]);
+    expect(socket.bufferedBytes, 5);
   });
 }
 
@@ -200,6 +247,7 @@ class _FakeSttProvider implements ISttProvider {
   void enqueueError(Object error) => _behaviors.add(() => Future<SttTranscriptionResult?>.error(error));
   void enqueueSuccess(SttTranscriptionResult result) => _behaviors.add(() async => result);
   void enqueueNull() => _behaviors.add(() async => null);
+  void alwaysSucceedEmpty() => _default = () async => SttTranscriptionResult(segments: []);
   void alwaysThrow(Object error) => _default = () => Future<SttTranscriptionResult?>.error(error);
 
   @override
