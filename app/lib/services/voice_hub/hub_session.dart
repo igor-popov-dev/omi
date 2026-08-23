@@ -191,6 +191,22 @@ class HubSessionEvents {
   /// The model finished this turn (spoken reply complete).
   final void Function(HubEventIdentity? identity)? onTurnDone;
 
+  /// The provider handed us a token that would let a LATER socket resume
+  /// THIS conversation instead of starting blank — or `null` when resuming
+  /// right now would be unsafe (see below). The host (`HubController`) keeps
+  /// the last non-null value and feeds it to the next session.
+  ///
+  /// The null is the load-bearing half. Measured on the live wire 24.08
+  /// (`marathon/probes/lane5-resumption-bargein.py`, design doc §10):
+  /// resuming a handle that was captured while the model was mid-reply makes
+  /// the server REPLAY that whole abandoned reply — and it arrives glued to
+  /// the answer to the user's next question, inside one `turnComplete`, so a
+  /// client cannot filter it out. A user who interrupts would hear the very
+  /// monologue they interrupted, from the top. So a session emits `null`
+  /// the moment a reply generation starts and re-offers its handle only once
+  /// that generation is closed.
+  final void Function(String? handle)? onResumptionHandle;
+
   /// The session cannot continue (handshake failed or a fatal mid-session
   /// drop). [closeCode] is the WS close code when the drop came from a
   /// socket close; null for non-close faults (a provider error frame, an
@@ -206,6 +222,7 @@ class HubSessionEvents {
     this.onSpeakingEnd,
     this.onToolRequest,
     this.onTurnDone,
+    this.onResumptionHandle,
     this.onError,
   });
 }
@@ -483,6 +500,13 @@ abstract class BaseHubSession implements HubSession {
   /// is wired, same as before this seam existed.
   final List<VoiceToolDeclaration> tools;
 
+  /// Subclass-facing: resume the conversation a PREVIOUS session was having
+  /// instead of starting blank. Null (the default) == every session before
+  /// this seam existed: a fresh, empty conversation. Supplied by
+  /// `HubController` from the last handle a dying session offered; the
+  /// provider subclass decides how to put it on the wire.
+  final String? resumptionHandle;
+
   /// Subclass-facing (see file header): the live socket, or null when torn
   /// down / not yet connected.
   HubSocket? socket;
@@ -521,6 +545,7 @@ abstract class BaseHubSession implements HubSession {
     this.idleRelease = hubIdleReleaseDuration,
     this.warmTimeout = hubWarmTimeoutDuration,
     this.tools = const [],
+    this.resumptionHandle,
   })  : socketFactory = socketFactory ?? defaultHubSocketFactory,
         createPlayer = playerFactory,
         clock = clock ?? const DefaultHubClock(),
@@ -781,6 +806,13 @@ abstract class BaseHubSession implements HubSession {
 
   void emitTurnDone([HubEventIdentity? identity]) {
     events.onTurnDone?.call(identity ?? activeIdentity);
+  }
+
+  /// Subclass-facing: offer (or withdraw, with `null`) the handle a later
+  /// socket could resume this conversation with. See
+  /// [HubSessionEvents.onResumptionHandle] for why `null` matters.
+  void emitResumptionHandle(String? handle) {
+    events.onResumptionHandle?.call(handle);
   }
 
   void _handleError(String message, bool retryable, [int? closeCode]) {

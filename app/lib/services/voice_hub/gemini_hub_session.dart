@@ -53,6 +53,22 @@
 // `tools` is still just a plain injected list (see `hub_session.dart`); this
 // file only owns the Gemini-specific wire projection.
 //
+// sessionResumption (design doc §10, measured on the live wire 24.08 —
+// `marathon/probes/lane5-session-resumption.py` and
+// `…-resumption-bargein.py`; there is no TS analog to port). Without it every
+// dropped socket — including the 180s idle release and Gemini's fresh-session
+// barge-in — starts a blank conversation. The setup frame therefore always
+// carries `sessionResumption` (an empty map when there is nothing to restore:
+// the server only offers handles when the key is present at all), and
+// `sessionResumptionUpdate` frames are surfaced to the host.
+// The measured trap that shapes the code: a handle captured while the model
+// was MID-REPLY makes the resumed session replay that abandoned reply — and
+// it arrives glued in front of the answer to the user's next question, inside
+// a single `turnComplete`, so no client-side filter can separate them (27s of
+// unwanted monologue in the probe). Hence `_replyInFlight`: the handle is
+// withdrawn (`onResumptionHandle(null)`) the moment a generation starts and
+// re-offered only at its `turnComplete`.
+//
 // One scope cut carried over from `hub_session.dart` (already decided
 // there, not re-litigated here): no `setSinkId` — not a TS concern in this
 // file to begin with.
@@ -78,6 +94,7 @@ class GeminiHubSession extends BaseHubSession {
     super.idleRelease,
     super.warmTimeout,
     super.tools,
+    super.resumptionHandle,
     this.freeFormMode = false,
   });
 
@@ -110,6 +127,13 @@ class GeminiHubSession extends BaseHubSession {
   bool _responsePending = false;
   final Set<String> _pendingToolCallIds = {};
   int _syntheticToolCallCounter = 0;
+
+  // Session resumption (design doc §10, measured 24.08). `_latestHandle` is
+  // the freshest token the server offered; `_replyInFlight` is true while the
+  // server has an unfinished reply generation, which is exactly when that
+  // handle must NOT be used — resuming it replays the abandoned reply.
+  String? _latestHandle;
+  bool _replyInFlight = false;
 
   @override
   HubConnectSpec connectSpec() {
@@ -161,6 +185,11 @@ class GeminiHubSession extends BaseHubSession {
           'turnCoverage': 'TURN_INCLUDES_AUDIO_ACTIVITY_AND_ALL_VIDEO',
         },
         'contextWindowCompression': {'slidingWindow': {}},
+        // Session resumption. An empty map = "no conversation to restore, but
+        // do hand me handles" — the server only emits `sessionResumptionUpdate`
+        // when this key is present at all. With a handle, this socket picks up
+        // the conversation a previous one was having.
+        'sessionResumption': resumptionHandle == null ? <String, dynamic>{} : {'handle': resumptionHandle},
       },
     };
   }
@@ -307,6 +336,26 @@ class GeminiHubSession extends BaseHubSession {
     _responsePending = false;
     _pendingToolCallIds.clear();
     _streamingActive = false;
+    // NOT cleared: `_latestHandle`/`_replyInFlight` are about the CONVERSATION,
+    // which outlives this socket — that is the whole point of resumption. The
+    // handle already reached the host via [emitResumptionHandle]; wiping it
+    // here would only make a re-warm on this same object forget it.
+  }
+
+  /// Hand the host the current handle, unless a reply generation is in
+  /// flight — see [HubSessionEvents.onResumptionHandle].
+  void _offerResumptionHandle() {
+    if (_replyInFlight) return;
+    final handle = _latestHandle;
+    if (handle != null) emitResumptionHandle(handle);
+  }
+
+  /// The server started producing a reply. Withdraw the handle until this
+  /// generation closes: a socket that dies right now must NOT be resumed.
+  void _markReplyInFlight() {
+    if (_replyInFlight) return;
+    _replyInFlight = true;
+    emitResumptionHandle(null);
   }
 
   /// The gate `handleProviderMessage` uses to accept tool calls / reply
@@ -321,6 +370,22 @@ class GeminiHubSession extends BaseHubSession {
   void handleProviderMessage(Map<String, dynamic> obj) {
     if (obj.containsKey('setupComplete')) {
       markReady();
+      return;
+    }
+    final resumption = obj['sessionResumptionUpdate'] as Map<String, dynamic>?;
+    if (resumption != null) {
+      // Measured cadence (design doc §10): the first handle lands ~1.2s after
+      // the first turn's activity, NOT on a timer — an idle socket that never
+      // carried a turn is handed nothing, so an early drop simply has no
+      // conversation worth restoring. `resumable: false` is the server saying
+      // this point is not resumable; keep the previous handle rather than
+      // downgrading to a bad one.
+      final handle = resumption['newHandle'];
+      final resumable = resumption['resumable'];
+      if (handle is String && handle.isNotEmpty && resumable != false) {
+        _latestHandle = handle;
+        _offerResumptionHandle();
+      }
       return;
     }
     // usageMetadata (client-reported billing) is a host concern — deferred,
@@ -369,9 +434,17 @@ class GeminiHubSession extends BaseHubSession {
     final it = sc['inputTranscription'] as Map<String, dynamic>?;
     if (it != null && it['text'] is String) emitInputTranscript(it['text'] as String, false);
     final ot = sc['outputTranscription'] as Map<String, dynamic>?;
-    if (ot != null && ot['text'] is String) emitAssistantText(ot['text'] as String, false);
+    if (ot != null && ot['text'] is String) {
+      _markReplyInFlight();
+      emitAssistantText(ot['text'] as String, false);
+    }
     final modelTurn = sc['modelTurn'] as Map<String, dynamic>?;
     final parts = (modelTurn?['parts'] as List<dynamic>?) ?? const [];
+    // Deliberately NOT gated by `_turnGateOpen`: audio we ignore locally
+    // (abandoned turn) is still a generation the SERVER considers unfinished,
+    // and that is what would be replayed on resume. The gate below decides
+    // what we play; this decides whether the conversation is safe to resume.
+    if (parts.isNotEmpty) _markReplyInFlight();
     for (final partRaw in parts) {
       final part = partRaw as Map<String, dynamic>;
       if (part['text'] is String) emitAssistantText(part['text'] as String, false);
@@ -383,6 +456,14 @@ class GeminiHubSession extends BaseHubSession {
       }
     }
     if (sc['turnComplete'] == true) {
+      // The server closed this generation — nothing left to replay, so the
+      // handle is safe to offer again. Done BEFORE the gated branches below,
+      // which return early on turns we ignore locally: the server finished
+      // regardless of whether we wanted the audio. `interrupted` deliberately
+      // does not do this — it arrives ~0.1s BEFORE its own turnComplete
+      // (design doc §9), so waiting costs nothing and never latches.
+      _replyInFlight = false;
+      _offerResumptionHandle();
       if (_pendingToolCallIds.isNotEmpty) return; // defer until tool results are in
       if (freeFormMode) {
         // A completion that arrives after the mode was switched off

@@ -122,9 +122,18 @@ class _Harness {
   final List<String> connected = [];
   final List<bool> speechStates = [];
 
+  /// Every value the session offered via `onResumptionHandle`, nulls
+  /// included — the nulls are the safety half of the contract.
+  final List<String?> resumptionHandles = [];
+
   _Harness._(this.session, this.socketFactory, this.player);
 
-  factory _Harness({HubClock? clock, bool freeFormMode = false, List<VoiceToolDeclaration> tools = const []}) {
+  factory _Harness({
+    HubClock? clock,
+    bool freeFormMode = false,
+    List<VoiceToolDeclaration> tools = const [],
+    String? resumptionHandle,
+  }) {
     final socketFactory = _RecordingSocketFactory();
     final player = _FakeVoicePlayer();
     late final _Harness h;
@@ -137,9 +146,11 @@ class _Harness {
       mintSessionId: () => 'sess-1',
       freeFormMode: freeFormMode,
       tools: tools,
+      resumptionHandle: resumptionHandle,
       events: HubSessionEvents(
         onConnected: (sid) => h.connected.add(sid),
         onUserSpeechState: (isSpeaking) => h.speechStates.add(isSpeaking),
+        onResumptionHandle: (handle) => h.resumptionHandles.add(handle),
         onError: (message, retryable, closeCode) =>
             h.errors.add((message: message, retryable: retryable, closeCode: closeCode)),
       ),
@@ -519,6 +530,138 @@ void main() {
       expect(h.socket.riKinds(), isEmpty);
       h.session.appendAudio(Uint8List.fromList([9]));
       expect(h.socket.riKinds(), isEmpty); // buffered, not sent — canAcceptInput() is false again
+    });
+  });
+
+  // Session resumption — every assertion below mirrors a measurement from
+  // `marathon/probes/lane5-session-resumption.py` /
+  // `marathon/probes/lane5-resumption-bargein.py` (design doc §10), NOT the
+  // API docs.
+  group('sessionResumption', () {
+    Map<String, dynamic> setupOf(_Harness h) => (h.socket.frames().first['setup'] as Map<String, dynamic>);
+
+    Map<String, dynamic> resumptionUpdate(String handle, {bool? resumable}) => {
+          'sessionResumptionUpdate': {
+            'newHandle': handle,
+            if (resumable != null) 'resumable': resumable,
+          }
+        };
+
+    test('setup frame asks for handles even with nothing to resume (empty map, not absent)', () async {
+      final h = _Harness();
+      await _armConnection(h);
+      h.socketFactory.open();
+      expect(setupOf(h)['sessionResumption'], <String, dynamic>{});
+    });
+
+    test('a supplied handle rides the setup frame', () async {
+      final h = _Harness(resumptionHandle: 'HANDLE-7');
+      await _armConnection(h);
+      h.socketFactory.open();
+      expect(setupOf(h)['sessionResumption'], {'handle': 'HANDLE-7'});
+    });
+
+    test('an offered handle reaches the host', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1', resumable: true)));
+      expect(h.resumptionHandles, ['H1']);
+    });
+
+    test('resumable:false is ignored — the previous good handle is kept, not downgraded', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1', resumable: true)));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H2', resumable: false)));
+      expect(h.resumptionHandles, ['H1']);
+    });
+
+    test('a reply starting withdraws the handle (null), and turnComplete re-offers it', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      expect(h.resumptionHandles, ['H1']);
+      // The model starts speaking: resuming from here would replay this very
+      // reply on the next socket (measured 24.08 — 102 chunks of an
+      // abandoned monologue glued in front of the next answer).
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('a1'))));
+      expect(h.resumptionHandles, ['H1', null]);
+      // Still speaking — a handle that arrives mid-reply is stored but not offered.
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H2')));
+      expect(h.resumptionHandles, ['H1', null]);
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(h.resumptionHandles, ['H1', null, 'H2']);
+    });
+
+    test('withdrawal fires once per generation, not once per audio chunk', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      for (var i = 0; i < 5; i++) {
+        h.socketFactory.message(jsonEncode(_serverContent(_audioPart('a$i'))));
+      }
+      expect(h.resumptionHandles, ['H1', null]);
+    });
+
+    test('a reply we ignore locally still withdraws the handle — the SERVER is the one replaying it', () async {
+      // Manual mode, no committed turn: `_responsePending` is false, so this
+      // audio is dropped on the floor locally. The server does not know that,
+      // and would replay the generation on resume.
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('ghost'))));
+      expect(h.player.enqueued, isEmpty); // not played...
+      expect(h.resumptionHandles, ['H1', null]); // ...but still unsafe to resume
+    });
+
+    test('interrupted does not re-offer on its own; its own turnComplete does (no latch)', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('a1'))));
+      expect(h.resumptionHandles, ['H1', null]);
+      h.socketFactory.message(jsonEncode(_serverContent({'interrupted': true})));
+      expect(h.resumptionHandles, ['H1', null]);
+      // ~0.1s later on the real wire (design doc §9) — this is what unlatches.
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(h.resumptionHandles, ['H1', null, 'H1']);
+    });
+
+    test('a turn deferred on tool results still re-offers the handle at turnComplete', () async {
+      final h = _Harness(freeFormMode: true, tools: const [
+        VoiceToolDeclaration(name: 'ask_claude', description: 'd', parameters: {'type': 'object'}),
+      ]);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      h.socketFactory.message(jsonEncode({
+        'toolCall': {
+          'functionCalls': [
+            {'id': 'c1', 'name': 'ask_claude', 'args': <String, dynamic>{}}
+          ]
+        }
+      }));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('filler'))));
+      expect(h.resumptionHandles, ['H1', null]);
+      // turnComplete arrives while a tool call is still pending: the reply
+      // bookkeeping defers, but the SERVER closed the generation, so the
+      // handle must come back regardless.
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(h.resumptionHandles, ['H1', null, 'H1']);
+    });
+
+    test('no handle is invented when the server never offered one', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('a1'))));
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      // The withdrawal still fires (safety), but nothing is offered back.
+      expect(h.resumptionHandles, [null]);
     });
   });
 }
