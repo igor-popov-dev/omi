@@ -7283,6 +7283,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get voiceFailedToTranscribe => '音声の文字起こしに失敗しました';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => '文字起こしエクスポート';
 
   @override

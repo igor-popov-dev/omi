@@ -7427,6 +7427,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Neizdevās transkribēt audio';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Transkripcijas eksports';
 
   @override

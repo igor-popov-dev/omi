@@ -7431,6 +7431,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Prepis zvoka ni uspel';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Izvoz Prepisа';
 
   @override

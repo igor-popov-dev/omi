@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Érvénytelen napi összefoglaló webhook URL",
     "devModeSettingsSaved": "Beállítások mentve!",
     "voiceFailedToTranscribe": "Nem sikerült átírni a hangot",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Átirat exportálása",
     "pdfConversationExport": "Beszélgetés exportálása",
     "pdfTitleLabel": "Cím: {title}",

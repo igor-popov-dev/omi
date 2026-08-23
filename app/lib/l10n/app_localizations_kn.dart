@@ -7437,6 +7437,9 @@ class AppLocalizationsKn extends AppLocalizations {
   String get voiceFailedToTranscribe => 'ಆಡಿಯೋ ಟ್ರಾನ್ಸ್‌ಕ್ರೈಬ್ ವಿಫಲವಾಗಿದೆ';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'ಟ್ರಾನ್ಸ್‌ಕ್ರಿಪ್ಟ್ ರಕಷ್ಯ';
 
   @override

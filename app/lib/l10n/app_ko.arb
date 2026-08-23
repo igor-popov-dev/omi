@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "잘못된 일일 요약 웹훅 URL",
     "devModeSettingsSaved": "설정이 저장되었습니다!",
     "voiceFailedToTranscribe": "오디오 텍스트 변환 실패",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "녹취록 내보내기",
     "pdfConversationExport": "대화 내보내기",
     "pdfTitleLabel": "제목: {title}",

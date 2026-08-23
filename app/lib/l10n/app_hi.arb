@@ -2363,6 +2363,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "अमान्य दैनिक सारांश वेबहुक URL",
     "devModeSettingsSaved": "सेटिंग्स सहेजी गईं!",
     "voiceFailedToTranscribe": "ऑडियो ट्रांसक्राइब करने में विफल",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "ट्रांसक्रिप्ट निर्यात",
     "pdfConversationExport": "वार्तालाप निर्यात",
     "pdfTitleLabel": "शीर्षक: {title}",

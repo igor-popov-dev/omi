@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Nederīgs dienas kopsavilkuma webhook URL",
     "devModeSettingsSaved": "Iestatījumi saglabāti!",
     "voiceFailedToTranscribe": "Neizdevās transkribēt audio",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Transkripcijas eksports",
     "pdfConversationExport": "Sarunas eksports",
     "pdfTitleLabel": "Nosaukums: {title}",

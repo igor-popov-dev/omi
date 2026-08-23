@@ -7456,6 +7456,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Trascrizione audio non riuscita';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Esportazione trascrizione';
 
   @override

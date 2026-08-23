@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "URL webhook pentru rezumatul zilnic invalidă",
     "devModeSettingsSaved": "Setări salvate!",
     "voiceFailedToTranscribe": "Nu s-a reușit transcrierea audio",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Export transcriere",
     "pdfConversationExport": "Export conversație",
     "pdfTitleLabel": "Titlu: {title}",

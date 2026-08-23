@@ -7463,6 +7463,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Αποτυχία μεταγραφής ήχου';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Εξαγωγή μεταγραφής';
 
   @override

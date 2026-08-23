@@ -7416,6 +7416,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Nepavyko transkribuoti garso';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Transkripcijos eksportas';
 
   @override

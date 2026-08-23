@@ -7410,6 +7410,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Falha ao transcrever o áudio';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Exportar transcrição';
 
   @override

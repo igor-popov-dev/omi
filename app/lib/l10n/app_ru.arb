@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Недействительный URL вебхука дневного отчёта",
     "devModeSettingsSaved": "Настройки сохранены!",
     "voiceFailedToTranscribe": "Не удалось транскрибировать аудио",
+    "voiceNoSpeechDetected": "Речь не распознана — запишите заново",
     "pdfTranscriptExport": "Экспорт транскрипции",
     "pdfConversationExport": "Экспорт беседы",
     "pdfTitleLabel": "Заголовок: {title}",

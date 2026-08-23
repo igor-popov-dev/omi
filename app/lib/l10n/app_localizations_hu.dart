@@ -7444,6 +7444,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Nem sikerült átírni a hangot';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Átirat exportálása';
 
   @override

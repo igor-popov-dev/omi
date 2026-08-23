@@ -106,6 +106,33 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
               ),
             );
 
+          // Nothing was recognized in the recording. Re-uploading the same
+          // bytes would return the same empty result, so the only offer here
+          // is a fresh take — and it reads as an outcome, not as an error.
+          case VoiceRecorderState.noSpeechDetected:
+            return SizedBox(
+              height: 44,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.voiceNoSpeechDetected,
+                      style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: provider.recordAgain,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(Icons.mic_none, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            );
+
           case VoiceRecorderState.transcribeFailed:
           case VoiceRecorderState.pendingRecovery:
             return SizedBox(

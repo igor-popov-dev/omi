@@ -7454,6 +7454,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get voiceFailedToTranscribe => 'ఆడియోను ట్రాన్‌స్‌క్రిబ్ చేయడానికి విఫలమైంది';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'ట్రాన్‌స్క్రిప్ట్ ఎక్సపోర్ట్';
 
   @override

@@ -2367,6 +2367,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "无效的每日摘要 webhook URL",
     "devModeSettingsSaved": "设置已保存！",
     "voiceFailedToTranscribe": "音频转录失败",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "导出文字记录",
     "pdfConversationExport": "导出对话",
     "pdfTitleLabel": "标题：{title}",

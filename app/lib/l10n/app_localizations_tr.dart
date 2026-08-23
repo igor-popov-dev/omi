@@ -7422,6 +7422,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Ses metne dönüştürülemedi';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Döküm Dışa Aktar';
 
   @override

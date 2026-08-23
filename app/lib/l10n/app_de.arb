@@ -2344,6 +2344,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Ungültige Webhook-URL für Tageszusammenfassung",
     "devModeSettingsSaved": "Einstellungen gespeichert!",
     "voiceFailedToTranscribe": "Audiotranskription fehlgeschlagen",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Transkript-Export",
     "pdfConversationExport": "Gesprächs-Export",
     "pdfTitleLabel": "Titel: {title}",

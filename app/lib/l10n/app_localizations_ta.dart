@@ -7464,6 +7464,9 @@ class AppLocalizationsTa extends AppLocalizations {
   String get voiceFailedToTranscribe => 'ஆடியோ மாற்றுவதில் தோல்வி';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'மாற்றுரை ஏற்றுமதி';
 
   @override

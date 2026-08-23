@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Virheellinen päiväyhteenvedon webhook-URL",
     "devModeSettingsSaved": "Asetukset tallennettu!",
     "voiceFailedToTranscribe": "Äänen litterointi epäonnistui",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Litteraation vienti",
     "pdfConversationExport": "Keskustelun vienti",
     "pdfTitleLabel": "Otsikko: {title}",

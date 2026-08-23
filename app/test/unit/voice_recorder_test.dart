@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:omi/backend/http/api/messages.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/providers/voice_recorder_provider.dart';
 import 'package:omi/utils/audio/wav_bytes.dart';
@@ -514,7 +515,7 @@ void main() {
       expect(wavFile.existsSync(), isFalse);
     });
 
-    test('retry preserves pending WAV when transcription returns empty text', () async {
+    test('retry reports no speech (not an error) when the transcript comes back empty', () async {
       final wavFile = await createPendingWav('empty_retry.wav');
       var transcriptCallbackCalled = false;
 
@@ -524,11 +525,28 @@ void main() {
 
       await provider.retry();
 
-      expect(provider.state, equals(VoiceRecorderState.transcribeFailed));
+      expect(provider.state, equals(VoiceRecorderState.noSpeechDetected));
+      expect(provider.hasNoSpeechDetected, isTrue);
       expect(provider.isActive, isTrue);
       expect(transcriptCallbackCalled, isFalse);
+      // The recording survives until the user asks for a new one — a wordless
+      // result is not a reason to delete audio behind their back.
       expect(wavFile.existsSync(), isTrue);
       expect(SharedPreferencesUtil().getString('voice_recorder_pending_wav_path'), equals(wavFile.path));
+    });
+
+    test('a wordless recording is reported as no speech, not as a failure', () async {
+      final wavFile = await createPendingWav('no_speech.wav');
+
+      final provider = VoiceRecorderProvider(
+        transcriber: (_) async => throw const VoiceMessageNoSpeechException('stt_empty_unexpected'),
+      );
+      await provider.checkPendingRecording();
+
+      await provider.retry();
+
+      expect(provider.state, equals(VoiceRecorderState.noSpeechDetected));
+      expect(wavFile.existsSync(), isTrue);
     });
 
     test('retry preserves pending WAV when transcription throws', () async {

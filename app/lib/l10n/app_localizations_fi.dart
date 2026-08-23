@@ -7408,6 +7408,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Äänen litterointi epäonnistui';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Litteraation vienti';
 
   @override

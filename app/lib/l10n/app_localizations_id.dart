@@ -7419,6 +7419,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Gagal mentranskripsi audio';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Ekspor Transkrip';
 
   @override

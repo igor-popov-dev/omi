@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Kehtetu päeva kokkuvõtte veebihaagi URL",
     "devModeSettingsSaved": "Seaded salvestatud!",
     "voiceFailedToTranscribe": "Heli transkribeerimine ebaõnnestus",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Transkriptsiooni eksport",
     "pdfConversationExport": "Vestluse eksport",
     "pdfTitleLabel": "Pealkiri: {title}",

@@ -7438,6 +7438,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Неуспешно транскрибиране на аудио';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Експорт на транскрипт';
 
   @override

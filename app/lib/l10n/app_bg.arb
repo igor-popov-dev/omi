@@ -2345,6 +2345,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Невалиден URL адрес на уебхук за дневно обобщение",
     "devModeSettingsSaved": "Настройките са запазени!",
     "voiceFailedToTranscribe": "Неуспешно транскрибиране на аудио",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Експорт на транскрипт",
     "pdfConversationExport": "Експорт на разговор",
     "pdfTitleLabel": "Заглавие: {title}",

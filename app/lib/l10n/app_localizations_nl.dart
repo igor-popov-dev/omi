@@ -7431,6 +7431,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Audiotranscriptie mislukt';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Transcript exporteren';
 
   @override

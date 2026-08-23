@@ -7355,6 +7355,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get voiceFailedToTranscribe => 'فشل في نسخ الصوت';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'تصدير النص';
 
   @override

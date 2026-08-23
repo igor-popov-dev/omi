@@ -13899,6 +13899,12 @@ abstract class AppLocalizations {
   /// **'Failed to transcribe audio'**
   String get voiceFailedToTranscribe;
 
+  /// Shown when a voice recording was transcribed but contained no recognizable speech
+  ///
+  /// In en, this message translates to:
+  /// **'No speech detected — record again'**
+  String get voiceNoSpeechDetected;
+
   /// Title for PDF transcript export document
   ///
   /// In en, this message translates to:

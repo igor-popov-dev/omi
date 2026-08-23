@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Ogiltig webhook-URL för daglig sammanfattning",
     "devModeSettingsSaved": "Inställningar sparade!",
     "voiceFailedToTranscribe": "Kunde inte transkribera ljud",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Transkriptionsexport",
     "pdfConversationExport": "Samtalsexport",
     "pdfTitleLabel": "Titel: {title}",

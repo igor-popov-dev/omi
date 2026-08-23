@@ -7408,6 +7408,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Heli transkribeerimine ebaõnnestus';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Transkriptsiooni eksport';
 
   @override

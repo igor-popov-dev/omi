@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Μη έγκυρη διεύθυνση URL webhook για ημερήσια σύνοψη",
     "devModeSettingsSaved": "Οι ρυθμίσεις αποθηκεύτηκαν!",
     "voiceFailedToTranscribe": "Αποτυχία μεταγραφής ήχου",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Εξαγωγή μεταγραφής",
     "pdfConversationExport": "Εξαγωγή συνομιλίας",
     "pdfTitleLabel": "Τίτλος: {title}",

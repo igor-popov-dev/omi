@@ -7426,6 +7426,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Nie udało się transkrybować dźwięku';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Eksport transkrypcji';
 
   @override

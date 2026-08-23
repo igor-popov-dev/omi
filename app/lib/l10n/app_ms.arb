@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "URL webhook ringkasan harian tidak sah",
     "devModeSettingsSaved": "Tetapan disimpan!",
     "voiceFailedToTranscribe": "Gagal mentranskrip audio",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Eksport Transkrip",
     "pdfConversationExport": "Eksport Perbualan",
     "pdfTitleLabel": "Tajuk: {title}",

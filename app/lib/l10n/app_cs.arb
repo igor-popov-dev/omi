@@ -2322,6 +2322,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Neplatná URL adresa webhooku pro denní shrnutí",
     "devModeSettingsSaved": "Nastavení uloženo!",
     "voiceFailedToTranscribe": "Nepodařilo se přepsat zvuk",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Export přepisu",
     "pdfConversationExport": "Export konverzace",
     "pdfTitleLabel": "Název: {title}",

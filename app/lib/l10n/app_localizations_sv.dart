@@ -7414,6 +7414,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Kunde inte transkribera ljud';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Transkriptionsexport';
 
   @override

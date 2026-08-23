@@ -7437,6 +7437,9 @@ class AppLocalizationsHr extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Transkripcija zvuka nije uspjela';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Izvoz Transkripcije';
 
   @override

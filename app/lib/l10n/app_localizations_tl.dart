@@ -7479,6 +7479,9 @@ class AppLocalizationsTl extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Nabigo ang pag-transcribe ng audio';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Transcript Export';
 
   @override

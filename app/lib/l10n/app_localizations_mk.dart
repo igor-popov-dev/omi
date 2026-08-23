@@ -7452,6 +7452,9 @@ class AppLocalizationsMk extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Неуспешна транскрипција на аудио';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Извоз на Транскрипт';
 
   @override

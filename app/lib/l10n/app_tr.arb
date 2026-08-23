@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Geçersiz günlük özet webhook URL'si",
     "devModeSettingsSaved": "Ayarlar kaydedildi!",
     "voiceFailedToTranscribe": "Ses metne dönüştürülemedi",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Döküm Dışa Aktar",
     "pdfConversationExport": "Sohbet Dışa Aktar",
     "pdfTitleLabel": "Başlık: {title}",

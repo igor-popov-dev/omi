@@ -7421,6 +7421,9 @@ class AppLocalizationsUr extends AppLocalizations {
   String get voiceFailedToTranscribe => 'آڈیو کو ٹرانسکرائب کرنے میں ناکام';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'ٹرانسکرپٹ برآمد';
 
   @override

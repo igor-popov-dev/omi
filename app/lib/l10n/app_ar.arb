@@ -2343,6 +2343,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "عنوان URL للويب هوك لملخص اليوم غير صالح",
     "devModeSettingsSaved": "تم حفظ الإعدادات!",
     "voiceFailedToTranscribe": "فشل في نسخ الصوت",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "تصدير النص",
     "pdfConversationExport": "تصدير المحادثة",
     "pdfTitleLabel": "العنوان: {title}",

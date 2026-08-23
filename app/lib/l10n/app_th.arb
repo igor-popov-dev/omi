@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "URL เว็บฮุคสรุปรายวันไม่ถูกต้อง",
     "devModeSettingsSaved": "บันทึกการตั้งค่าแล้ว!",
     "voiceFailedToTranscribe": "ไม่สามารถถอดเสียงได้",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "ส่งออกบทถอดเสียง",
     "pdfConversationExport": "ส่งออกการสนทนา",
     "pdfTitleLabel": "ชื่อเรื่อง: {title}",

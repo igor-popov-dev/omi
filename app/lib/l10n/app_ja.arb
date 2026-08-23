@@ -2363,6 +2363,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "日次の要約のWebhook URLが無効です",
     "devModeSettingsSaved": "設定を保存しました！",
     "voiceFailedToTranscribe": "音声の文字起こしに失敗しました",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "文字起こしエクスポート",
     "pdfConversationExport": "会話エクスポート",
     "pdfTitleLabel": "タイトル: {title}",

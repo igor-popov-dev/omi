@@ -7413,6 +7413,9 @@ class AppLocalizationsFa extends AppLocalizations {
   String get voiceFailedToTranscribe => 'رونوشت صدا ناموفق بود';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'صادرات رونوشت';
 
   @override

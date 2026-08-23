@@ -7433,6 +7433,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Не удалось транскрибировать аудио';
 
   @override
+  String get voiceNoSpeechDetected => 'Речь не распознана — запишите заново';
+
+  @override
   String get pdfTranscriptExport => 'Экспорт транскрипции';
 
   @override

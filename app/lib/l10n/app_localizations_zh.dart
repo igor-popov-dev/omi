@@ -7274,6 +7274,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get voiceFailedToTranscribe => '音频转录失败';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => '导出文字记录';
 
   @override

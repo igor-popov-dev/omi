@@ -7432,6 +7432,9 @@ class AppLocalizationsBs extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Greška pri transkribiranju zvuka';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Izvoz transkripcije';
 
   @override

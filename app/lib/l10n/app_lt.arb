@@ -2221,6 +2221,7 @@
     "vocabularyHint": "Omi, Callie, OpenAI",
     "voiceAndPeople": "Balsas ir Žmonės",
     "voiceFailedToTranscribe": "Nepavyko transkribuoti garso",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "waitingForTranscriptOrPhotos": "Laukiama transkripcijos arba nuotraukų...",
     "wantDifferentName": "Norite, kad jus vadintų kitaip?",
     "wasThisHelpful": "Ar tai buvo naudinga?",

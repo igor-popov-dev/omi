@@ -7403,6 +7403,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Nepodařilo se přepsat zvuk';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Export přepisu';
 
   @override

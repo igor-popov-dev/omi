@@ -9187,6 +9187,7 @@
     "@voiceFailedToTranscribe": {
         "description": "Error message when voice transcription fails"
     },
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "ట్రాన్‌స్క్రిప్ట్ ఎక్సపోర్ట్",
     "@pdfTranscriptExport": {
         "description": "Title for PDF transcript export document"

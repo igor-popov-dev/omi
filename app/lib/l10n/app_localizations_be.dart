@@ -7432,6 +7432,9 @@ class AppLocalizationsBe extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Не вдалося пераскладаць аўдыё';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Экспорт транскрыпцыі';
 
   @override

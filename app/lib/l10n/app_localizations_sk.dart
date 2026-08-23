@@ -7400,6 +7400,9 @@ class AppLocalizationsSk extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Nepodarilo sa prepísať hlas';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Export prepisu';
 
   @override

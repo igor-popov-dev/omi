@@ -7410,6 +7410,9 @@ class AppLocalizationsVi extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Không thể phiên âm giọng nói';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => 'Xuất Bản ghi';
 
   @override

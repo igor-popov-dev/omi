@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "Ugyldig webhook-URL for daglig oppsummering",
     "devModeSettingsSaved": "Innstillinger lagret!",
     "voiceFailedToTranscribe": "Kunne ikke transkribere lyd",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Eksporter transkripsjon",
     "pdfConversationExport": "Eksporter samtale",
     "pdfTitleLabel": "Tittel: {title}",

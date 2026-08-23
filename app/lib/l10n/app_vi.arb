@@ -2362,6 +2362,7 @@
     "devModeInvalidDaySummaryWebhookUrl": "URL webhook Day Summary không hợp lệ",
     "devModeSettingsSaved": "Đã lưu cài đặt",
     "voiceFailedToTranscribe": "Không thể phiên âm giọng nói",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Xuất Bản ghi",
     "pdfConversationExport": "Xuất Cuộc trò chuyện",
     "pdfTitleLabel": "Tiêu đề: {title}",

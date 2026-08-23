@@ -7285,6 +7285,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get voiceFailedToTranscribe => '오디오 텍스트 변환 실패';
 
   @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
   String get pdfTranscriptExport => '녹취록 내보내기';
 
   @override
