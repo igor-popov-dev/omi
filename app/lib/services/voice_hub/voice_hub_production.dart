@@ -150,12 +150,17 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
   late final HubController hub;
 
   final askClaudeExecutor = AskClaudeToolExecutor(
-    // Voice asks for a BOUNDED agent, unlike chat: measured 23.08, the same
-    // memory question ran 12 turns / 90s unbounded on Opus (the client gave up
-    // first and the user heard nothing) versus 16s on Sonnet capped at 6 turns.
+    // Voice asks for a BOUNDED agent, unlike chat — but deliberately does NOT
+    // pick a model: that is the bridge's call (ASK_CLAUDE_MODEL on mini, Opus 5
+    // per Игорь's standing rule), so the brain is chosen in one place instead of
+    // being silently downgraded from here.
+    //
+    // What actually cost 90s of silence on 23.08 was an UNBOUNDED agent: the
+    // same memory question ran 12 turns and the client gave up first. Capped at
+    // 6 turns it answers in ~19s on Opus (~16s on Sonnet — the model was never
+    // the problem, the turn count was).
     client: AskClaudeBridgeClient(
       httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
-      model: 'sonnet',
       maxTurns: 6,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
@@ -230,12 +235,17 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   late final HubController hub;
 
   final askClaudeExecutor = AskClaudeToolExecutor(
-    // Voice asks for a BOUNDED agent, unlike chat: measured 23.08, the same
-    // memory question ran 12 turns / 90s unbounded on Opus (the client gave up
-    // first and the user heard nothing) versus 16s on Sonnet capped at 6 turns.
+    // Voice asks for a BOUNDED agent, unlike chat — but deliberately does NOT
+    // pick a model: that is the bridge's call (ASK_CLAUDE_MODEL on mini, Opus 5
+    // per Игорь's standing rule), so the brain is chosen in one place instead of
+    // being silently downgraded from here.
+    //
+    // What actually cost 90s of silence on 23.08 was an UNBOUNDED agent: the
+    // same memory question ran 12 turns and the client gave up first. Capped at
+    // 6 turns it answers in ~19s on Opus (~16s on Sonnet — the model was never
+    // the problem, the turn count was).
     client: AskClaudeBridgeClient(
       httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
-      model: 'sonnet',
       maxTurns: 6,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
