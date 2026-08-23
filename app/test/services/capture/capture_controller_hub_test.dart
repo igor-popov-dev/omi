@@ -19,8 +19,12 @@ import 'package:omi/backend/preferences.dart';
 import 'package:omi/env/env.dart';
 import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/services/services.dart';
+import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
 import 'package:omi/services/voice_hub/hub_controller.dart';
+import 'package:omi/services/voice_hub/hub_ptt_capture.dart';
+import 'package:omi/services/voice_hub/hub_session.dart';
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
+import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceSessionId, idleVoiceTurnProjection;
 
 class _TestConnectivityPlatform extends ConnectivityPlatform {
   @override
@@ -92,6 +96,54 @@ class _CountingHubTurnDriver extends VoiceHubTurnDriver {
   }
 }
 
+/// A minimal fake provider session for `FreeFormVoiceMode` wiring tests —
+/// connects instantly on `ensureWarm()`, same pattern as
+/// `free_form_voice_mode_test.dart`'s own `_FakeSession` (not shared across
+/// test files, so duplicated here at the minimum this file actually needs).
+class _FakeHubSession implements HubSession {
+  @override
+  HubProvider get provider => HubProvider.gemini;
+  @override
+  int get requiredInputSampleRate => 16000;
+  @override
+  HubBargeInStrategy get bargeInStrategy => HubBargeInStrategy.freshSession;
+
+  final VoiceSessionId sessionId;
+  final HubSessionEvents events;
+  _FakeHubSession(this.sessionId, this.events);
+
+  int cancelled = 0;
+
+  @override
+  Future<void> ensureWarm() {
+    events.onConnected?.call(sessionId);
+    return Future.value();
+  }
+
+  @override
+  bool isWarm() => true;
+  @override
+  void beginTurn([HubBeginTurnOptions opts = const HubBeginTurnOptions()]) {}
+  @override
+  void appendAudio(Uint8List pcm) {}
+  @override
+  void commitTurn() {}
+  @override
+  void cancelTurn() => cancelled += 1;
+  @override
+  void sendToolResult(String callId, String name, String output) {}
+  @override
+  void clearPlayback() {}
+  @override
+  void teardown() {}
+}
+
+class _FakeHubCapture implements HubPttCapture {
+  int disposeCalls = 0;
+  @override
+  void dispose() => disposeCalls += 1;
+}
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -156,5 +208,106 @@ void main() {
     provider.handleSingleTapButtonEvent('device-1'); // end
     expect(driver.beginCalls, 1);
     expect(driver.endCalls, 1);
+  });
+
+  group('FreeFormVoiceMode wiring (startFreeFormVoiceMode/stopFreeFormVoiceMode)', () {
+    late _FakeHubSession session;
+    late _FakeHubCapture capture;
+    int captureCalls = 0;
+    Object? captureError;
+    int idleTimeoutCalls = 0;
+
+    FreeFormVoiceMode buildMode() {
+      final hub = HubController(
+        buildInstructions: () => 'INSTRUCTIONS',
+        mintToken: () async => 'ek_token',
+        createSession: (spec) {
+          session = _FakeHubSession('sess-1', spec.events);
+          return session;
+        },
+      );
+      return FreeFormVoiceMode(
+        hub: hub,
+        startCapture: (options) async {
+          captureCalls += 1;
+          if (captureError != null) throw captureError!;
+          capture = _FakeHubCapture();
+          return capture;
+        },
+        mintTurnId: () => 'turn-1',
+        // No idle-timeout test in this group exercises real time — kept
+        // off (null) so a stray timer never fires against a disposed
+        // provider between tests.
+        idleTimeout: null,
+        onIdleTimeout: () => idleTimeoutCalls += 1,
+      );
+    }
+
+    setUp(() {
+      captureCalls = 0;
+      captureError = null;
+      idleTimeoutCalls = 0;
+    });
+
+    test('startFreeFormVoiceMode: flips freeFormModeActive and starts the mode', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+
+      await provider.startFreeFormVoiceMode();
+
+      expect(provider.freeFormModeActive.value, isTrue);
+      expect(provider.freeFormVoiceMode!.isRunning, isTrue);
+      expect(captureCalls, 1);
+    });
+
+    test('startFreeFormVoiceMode: no-op with no mode set (must not throw)', () async {
+      final provider = CaptureProvider();
+      expect(provider.freeFormVoiceMode, isNull);
+
+      await provider.startFreeFormVoiceMode();
+
+      expect(provider.freeFormModeActive.value, isFalse);
+    });
+
+    test('startFreeFormVoiceMode: a capture failure resets UI state and rethrows', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      captureError = StateError('mic denied');
+
+      await expectLater(provider.startFreeFormVoiceMode(), throwsStateError);
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.hubProjection.value, idleVoiceTurnProjection);
+    });
+
+    test('stopFreeFormVoiceMode: stops the mode and resets UI state', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+
+      provider.stopFreeFormVoiceMode();
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.hubProjection.value, idleVoiceTurnProjection);
+      expect(provider.freeFormVoiceMode!.isRunning, isFalse);
+      expect(capture.disposeCalls, 1);
+      expect(session.cancelled, 1);
+    });
+
+    test('resetFreeFormVoiceModeUi: resets UI state without calling stop() on the mode', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+
+      // Simulates the `onIdleTimeout`/`onDisconnected` callers wired in
+      // `main.dart`: the mode has already torn itself down (or is about to,
+      // right after this callback returns), so this must NOT re-cancel the
+      // hub turn — only the UI-facing notifiers reset.
+      provider.resetFreeFormVoiceModeUi();
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.hubProjection.value, idleVoiceTurnProjection);
+      expect(session.cancelled, 0);
+    });
   });
 }

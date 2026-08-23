@@ -1,0 +1,70 @@
+// The hands-free voice-mode toggle from ДОПОЛНЕНИЕ 22.08 п.1 ("справа от
+// иконки микрофона, круглая, как в ChatGPT/Claude"). Gated by the
+// `freeFormMode` dev flag — `preferences.dart`'s own doc comment for that
+// flag already reads "hands-free voice-mode button in chat (experimental)",
+// i.e. this button IS what that flag was added to gate (`developer.dart`'s
+// settings toggle). Hidden entirely while the flag is off, same discipline
+// as every other experimental hub surface in this series
+// (`HubVoiceStatusIndicator`, `pttHubEnabled`'s gesture routing).
+//
+// Tapping the button calls `CaptureController.startFreeFormVoiceMode()` /
+// `stopFreeFormVoiceMode()` (`main.dart` wires `capture.freeFormVoiceMode`
+// at bootstrap via `createProductionFreeFormVoiceMode`) — a real network
+// call the moment it turns on (mints a token, opens a socket, starts
+// continuous mic capture), not a stub: real per-minute-billed voice traffic
+// (ДОПОЛНЕНИЕ 22.08 п.6), which is exactly why it stays behind the flag.
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:provider/provider.dart';
+
+import 'package:omi/backend/preferences.dart';
+import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/utils/alerts/app_snackbar.dart';
+
+class FreeFormVoiceModeButton extends StatelessWidget {
+  const FreeFormVoiceModeButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!SharedPreferencesUtil().freeFormMode) return const SizedBox.shrink();
+    final captureProvider = context.watch<CaptureProvider>();
+    return ValueListenableBuilder<bool>(
+      valueListenable: captureProvider.freeFormModeActive,
+      builder: (context, active, _) {
+        return Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: GestureDetector(
+            onTap: () => _onTap(context, captureProvider, active),
+            child: Container(
+              height: 38,
+              width: 38,
+              decoration: BoxDecoration(
+                color: active ? Colors.white : const Color(0xFF4A4A4F),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: FaIcon(
+                  active ? FontAwesomeIcons.stop : FontAwesomeIcons.waveSquare,
+                  color: active ? const Color(0xFF1f1f25) : Colors.grey.shade400,
+                  size: 16,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _onTap(BuildContext context, CaptureProvider captureProvider, bool active) {
+    HapticFeedback.mediumImpact();
+    if (active) {
+      captureProvider.stopFreeFormVoiceMode();
+      return;
+    }
+    captureProvider.startFreeFormVoiceMode().catchError((Object error) {
+      AppSnackbar.showSnackbarError('Voice mode failed to start: $error');
+    });
+  }
+}

@@ -31,6 +31,7 @@ import 'package:omi/services/capture/conversation_location_capture.dart';
 import 'package:omi/services/capture/freemium_threshold_tracker.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
+import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
 import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection, idleVoiceTurnProjection;
 import 'package:omi/services/voice_playback/omi_voice_playback_service.dart';
@@ -93,6 +94,53 @@ class CaptureController extends ChangeNotifier
   /// turn is active — a UI consumer can watch this unconditionally without
   /// checking `hubTurnDriver`/`pttHubEnabled` itself.
   final ValueNotifier<VoiceTurnUiProjection> hubProjection = ValueNotifier(idleVoiceTurnProjection);
+
+  // Optional, settable dependency for the hands-free (server-VAD) voice
+  // mode toggle (ДОПОЛНЕНИЕ 22.08 п.1). Nullable and unset by production
+  // wiring unless the `freeFormMode` dev flag's button is even reachable —
+  // see `voice_hub_production.dart`'s `createProductionFreeFormVoiceMode`
+  // for why this is a SEPARATE `HubController` from [hubTurnDriver]'s, not
+  // shared. Safe to construct always (no I/O until [startFreeFormVoiceMode]
+  // actually calls `start()`), same discipline as `hubTurnDriver`.
+  FreeFormVoiceMode? freeFormVoiceMode;
+
+  /// Whether [freeFormVoiceMode] is currently running — the toggle button's
+  /// source of truth (`FreeFormVoiceMode.isRunning` itself isn't listenable).
+  final ValueNotifier<bool> freeFormModeActive = ValueNotifier(false);
+
+  /// Starts [freeFormVoiceMode] (a real network call: mints a token, opens a
+  /// socket, starts continuous mic capture) and flips [freeFormModeActive].
+  /// No-op if [freeFormVoiceMode] is unset or already running. On a start
+  /// failure, resets both [freeFormModeActive] and [hubProjection] back to
+  /// idle and rethrows so a caller (the toggle button) can surface the error.
+  Future<void> startFreeFormVoiceMode() async {
+    final mode = freeFormVoiceMode;
+    if (mode == null || freeFormModeActive.value) return;
+    freeFormModeActive.value = true;
+    try {
+      await mode.start();
+    } catch (_) {
+      resetFreeFormVoiceModeUi();
+      rethrow;
+    }
+  }
+
+  /// Stops [freeFormVoiceMode] (idempotent, matches `FreeFormVoiceMode.stop`)
+  /// and resets the UI state.
+  void stopFreeFormVoiceMode() {
+    freeFormVoiceMode?.stop();
+    resetFreeFormVoiceModeUi();
+  }
+
+  /// Resets [freeFormModeActive]/[hubProjection] to idle WITHOUT calling
+  /// `FreeFormVoiceMode.stop()` — for callers where the mode has already
+  /// stopped itself (the hub-level `onError` handler wired in production,
+  /// and `createProductionFreeFormVoiceMode`'s `onIdleTimeout`, which calls
+  /// `stop()` internally right after firing that callback).
+  void resetFreeFormVoiceModeUi() {
+    freeFormModeActive.value = false;
+    hubProjection.value = idleVoiceTurnProjection;
+  }
 
   // Cache refresh for backend-created persons
   Future<void>? _peopleRefreshFuture;
@@ -1474,6 +1522,8 @@ class CaptureController extends ChangeNotifier
     _peopleRefreshFuture = null; // Clear in-flight tracker
     BleBridge.instance.removeBatchRecordingFinalizedListener(_onOfflineRecordingFinalized);
     hubProjection.dispose();
+    freeFormVoiceMode?.stop();
+    freeFormModeActive.dispose();
 
     super.dispose();
   }
