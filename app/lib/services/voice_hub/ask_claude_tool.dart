@@ -169,7 +169,20 @@ class AskClaudeToolExecutor {
   /// without constructing one.
   final void Function(String callId, String name, String output) sendToolResult;
 
-  AskClaudeToolExecutor({required this.client, required this.sendToolResult});
+  /// Deadline for one bridge round trip.
+  ///
+  /// A voice turn cannot wait indefinitely: until a tool result arrives the
+  /// model stays silent, so a bridge that hangs reads to the user as the
+  /// assistant having died mid-sentence, with no way out but killing the
+  /// session. On expiry we answer the call ourselves with an error result —
+  /// the model gets its turn back and can say what happened out loud.
+  final Duration timeout;
+
+  AskClaudeToolExecutor({
+    required this.client,
+    required this.sendToolResult,
+    this.timeout = const Duration(seconds: 25),
+  });
 
   /// Feed this directly to `HubControllerEvents.onToolRequest` /
   /// `HubSessionEvents.onToolRequest`. Fire-and-forget by design — a hub
@@ -201,7 +214,13 @@ class AskClaudeToolExecutor {
     }
     final useTools = args['use_tools'] == true;
     try {
-      return await client.ask(question: question, toolsEnabled: useTools);
+      return await client.ask(question: question, toolsEnabled: useTools).timeout(timeout);
+    } on TimeoutException {
+      // Phrased as an instruction, not a bare error: this string is what the
+      // model reads before speaking, and silence is the failure we are fixing.
+      return 'Error: ask_claude did not answer within ${timeout.inSeconds} seconds. '
+          'Tell the user briefly that the lookup is taking too long, then answer from '
+          'what you already know if you can.';
     } catch (e) {
       return 'Error: ask_claude bridge call failed: $e';
     }

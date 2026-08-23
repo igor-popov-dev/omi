@@ -116,9 +116,11 @@ String buildProductionHubInstructions() => _kHubInstructions;
 const String _kHubInstructions = 'You are Omi, a warm and concise voice assistant running on the '
     "user's phone. Speak naturally and briefly, like a helpful friend, not a chatbot reading a "
     'list. For anything that needs real reasoning, remembered context, or looking something up — '
-    "rather than a quick reply you're confident in — call the ask_claude tool instead of guessing, "
-    'and say a short filler like "one sec, let me check" out loud in the SAME turn while it runs, '
-    'so the user is never left in silence.';
+    "rather than a quick reply you're confident in — use the ask_claude tool instead of guessing. "
+    'ORDER MATTERS: FIRST say a short filler out loud, like "one sec, let me check", and only '
+    'THEN call the tool. The call itself is seconds of silence, so a filler spoken after the '
+    'result lands is useless — the user has already sat through the wait wondering whether you '
+    'heard them at all.';
 
 /// Production [HubFetchTools]: the one tool this app declares today.
 Future<List<VoiceToolDeclaration>> fetchHubTools() async => const [askClaudeToolDeclaration];

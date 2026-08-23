@@ -251,5 +251,31 @@ void main() {
 
       expect(result.output, contains('Error'));
     });
+
+    test('a hung bridge still answers the call — the model never sits in silence forever', () async {
+      // Never completes: the failure this guards is a bridge that accepts the
+      // request and then goes quiet, which used to leave the turn hanging with
+      // no tool result and no speech.
+      final client = AskClaudeBridgeClient(httpClient: MockClient((r) => Completer<http.Response>().future));
+      final recorder = _toolResultRecorder();
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: recorder.callback,
+        timeout: const Duration(milliseconds: 20),
+      );
+
+      executor.handle(HubToolCallRequest(
+        name: askClaudeToolName,
+        callId: 'c1',
+        argumentsJson: jsonEncode({'question': 'q'}),
+      ));
+      final result = await recorder.result;
+
+      expect(result.callId, 'c1');
+      expect(result.output, contains('Error'));
+      // The result doubles as a speaking instruction, so the model says
+      // something instead of just swallowing an error code.
+      expect(result.output, contains('Tell the user'));
+    });
   });
 }

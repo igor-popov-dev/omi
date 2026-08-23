@@ -42,6 +42,17 @@ void main() {
     test('mentions the ask_claude escape hatch, so the model knows to reach for it', () {
       expect(buildProductionHubInstructions(), contains('ask_claude'));
     });
+
+    test('demands the filler BEFORE the tool call, not merely in the same turn', () {
+      // Observed on the phone: an instruction that only asked for a filler "in
+      // the same turn" got one spoken *after* the result arrived, so the user
+      // heard a long silence and then "one sec, let me check" glued to the
+      // answer. The prompt has to state the order.
+      final instructions = buildProductionHubInstructions();
+      expect(instructions, contains('FIRST'));
+      expect(instructions, contains('THEN call the tool'));
+      expect(instructions.indexOf('FIRST'), lessThan(instructions.indexOf('THEN call the tool')));
+    });
   });
 
   group('fetchHubTools', () {
