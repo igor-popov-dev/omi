@@ -39,6 +39,7 @@ import database.chat as chat_db
 import database.screen_activity as screen_activity_db
 import database.daily_summaries as daily_summaries_db
 from database._client import db
+from database.mcp_auth_read import mcp_auth_read
 from models.memories import MemoryDB, Memory, MemoryCategory
 from utils.conversations.render import redact_conversation_for_list
 from utils.conversations.mcp_transcript_search import (
@@ -109,6 +110,19 @@ OPENAI_APPS_CHALLENGE_TOKEN = "ZsVB_wpc4R35_tHloCZCokY6H2fBkKyBJrz-4MtXjYE"
 
 MCP_SCOPES_SUPPORTED = list(MCP_FULL_ACCESS_SCOPES)
 MCP_LEGACY_API_KEY_SCOPES = list(MCP_FULL_ACCESS_SCOPES)
+
+
+def _enforce_mcp_account_deletion(uid: str) -> None:
+    """Run the account-deletion fence with the MCP path's bounded deadline.
+
+    The fence reads Firestore on every MCP request, so it needs the same
+    bounded deadline as the token lookup beside it (database/mcp_auth_read.py):
+    left on the client default it would park a shared pool worker for 300
+    seconds per in-flight request during a Firestore outage. The fence keeps
+    failing closed — an unreadable deletion marker is still a 503, just a prompt
+    one.
+    """
+    enforce_account_deletion_http_access(uid, read=mcp_auth_read)
 
 
 def _enforce_mcp_cutover_access(uid: str) -> None:
@@ -195,7 +209,7 @@ def authenticate_api_key_auth_context(authorization: Optional[str]) -> Optional[
     user_data = auth_result.context
     if not user_data or not user_data.get("user_id"):
         return None
-    enforce_account_deletion_http_access(user_data["user_id"])
+    _enforce_mcp_account_deletion(user_data["user_id"])
     _enforce_mcp_cutover_access(user_data["user_id"])
     return _mcp_memory_context_from_auth_data(user_data)
 
@@ -237,7 +251,7 @@ def _authenticate_mcp_token(token: str) -> Optional[MCPAuthContext]:
         user_data = auth_result.context
         if not user_data or not user_data.get("user_id"):
             return None
-        enforce_account_deletion_http_access(user_data["user_id"])
+        _enforce_mcp_account_deletion(user_data["user_id"])
         _enforce_mcp_cutover_access(user_data["user_id"])
         return MCPAuthContext(
             uid=user_data["user_id"],
@@ -251,7 +265,7 @@ def _authenticate_mcp_token(token: str) -> Optional[MCPAuthContext]:
     oauth_context = mcp_oauth_db.validate_access_token(token, MCP_RESOURCE_URL)
     if not oauth_context:
         return None
-    enforce_account_deletion_http_access(oauth_context["uid"])
+    _enforce_mcp_account_deletion(oauth_context["uid"])
     _enforce_mcp_cutover_access(oauth_context["uid"])
     return MCPAuthContext(
         uid=oauth_context["uid"],

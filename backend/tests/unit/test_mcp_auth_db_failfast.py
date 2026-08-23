@@ -164,3 +164,111 @@ def test_importing_the_helper_stays_cheap():
         check=True,
     )
     assert result.stdout.strip() == "False False", result.stdout
+
+
+# ---------------------------------------------------------------------------
+# The account-deletion fence, the second Firestore read on the same gate.
+#
+# Bounding the token lookup alone left the gate half-fixed: every authenticated
+# MCP request then runs the deletion fence, which reads ``account_deletions``
+# with the client's own 300-second retry deadline. That read only becomes the
+# first one to stall once the token lookup stops stalling, so the two bounds
+# belong together.
+# ---------------------------------------------------------------------------
+
+
+class _FakeSnapshot:
+    def __init__(self, data):
+        self.exists = data is not None
+        self._data = data
+
+    def to_dict(self):
+        return dict(self._data or {})
+
+
+class _FakeDeletionClient:
+    """Minimal ``account_deletions`` client that records how it was read."""
+
+    def __init__(self, data=None):
+        self.data = data
+        self.plain_gets = 0
+        self.read_calls = 0
+
+    def collection(self, name):
+        assert name == 'account_deletions'
+        return self
+
+    def document(self, _uid):
+        return self
+
+    def get(self, **_kwargs):
+        self.plain_gets += 1
+        return _FakeSnapshot(self.data)
+
+
+def test_deletion_marker_read_uses_the_callers_bounded_read():
+    from database import users as users_db
+
+    client = _FakeDeletionClient({'wipe_status': 'running'})
+    seen = []
+
+    def bounded_read(reference):
+        seen.append(reference)
+        client.read_calls += 1
+        return _FakeSnapshot(client.data)
+
+    status = users_db.get_user_deletion_wipe_status('uid-1', firestore_client=client, read=bounded_read)
+
+    assert status is not None
+    assert client.read_calls == 1
+    assert client.plain_gets == 0, "a supplied read must replace the unbounded .get(), not run beside it"
+    assert seen and seen[0] is client
+
+
+def test_deletion_marker_read_without_a_reader_keeps_the_default_get():
+    from database import users as users_db
+
+    client = _FakeDeletionClient(None)
+
+    assert users_db.get_user_deletion_wipe_status('uid-1', firestore_client=client) is None
+    assert client.plain_gets == 1
+
+
+def test_mcp_path_bounds_the_deletion_fence(mcp_sse, monkeypatch):
+    """Every MCP auth entry point must reach the fence with the bounded read."""
+    calls = []
+
+    def spy(uid, *, read=None):
+        calls.append((uid, read))
+
+    monkeypatch.setattr(mcp_sse, "enforce_account_deletion_http_access", spy)
+    monkeypatch.setattr(mcp_sse, "_enforce_mcp_cutover_access", lambda _uid: None)
+    monkeypatch.setattr(
+        mcp_sse.mcp_oauth_db,
+        "validate_access_token",
+        lambda *a, **k: {"uid": "u1", "scopes": ["memories.read"], "client_id": "omi", "grant_id": "g1"},
+    )
+
+    assert mcp_sse.authenticate_mcp_request("Bearer some-oauth-access-token") is not None
+    assert calls == [("u1", mcp_auth_read.mcp_auth_read)]
+
+
+def test_deletion_fence_outage_is_a_prompt_503_on_the_mcp_path(mcp_sse, monkeypatch):
+    """An unreadable deletion marker still fails closed — but as 503, not 401."""
+    monkeypatch.setattr(
+        mcp_sse.mcp_oauth_db,
+        "validate_access_token",
+        lambda *a, **k: {"uid": "u1", "scopes": ["memories.read"], "client_id": "omi", "grant_id": "g1"},
+    )
+
+    def boom(_uid, **_kwargs):
+        raise _quota_retry_error()
+
+    from utils.other import endpoints as endpoints_module
+
+    monkeypatch.setattr(endpoints_module, "get_user_deletion_wipe_status", boom)
+
+    with pytest.raises(HTTPException) as excinfo:
+        mcp_sse.authenticate_mcp_request("Bearer some-oauth-access-token")
+
+    assert excinfo.value.status_code == 503
