@@ -25,7 +25,7 @@ import 'package:omi/utils/logger.dart';
 ///
 /// The public surface mirrors [PhoneCallService] so `PhoneCallProvider` can hold either one.
 class VoximplantCallService {
-  /// Larger than the 200 bytes Voximplant allows in `customData`.
+  /// Voximplant silently drops `customData` longer than this.
   static const int _customDataLimit = 200;
 
   Function(PhoneCallState state)? onCallStateChanged;
