@@ -582,6 +582,14 @@ class HubController {
       _clearGoAway();
       return;
     }
+    // A rebuild is already under way, so this warning belongs to the socket
+    // being replaced. Measured 24.08: the server sends goAway TWICE, 0.4s
+    // apart — without this the duplicate would tear down the socket built in
+    // response to the first one.
+    if (_warming != null) {
+      _clearGoAway();
+      return;
+    }
     if (_replyGenerating) return;
     final timeLeft = _goAwayTimeLeft;
     _clearGoAway();

@@ -1172,6 +1172,29 @@ void main() {
       expect(h.specHandles, [null, 'H1']);
     });
 
+    test('the duplicate warning (the server sends two) does not tear down the replacement', () async {
+      // Measured 24.08: the same goAway frame arrived twice, 0.4s apart —
+      // inside the time the rebuild takes.
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      final old = h.session;
+
+      old.events.onGoAway?.call(const Duration(seconds: 50));
+      // The duplicate lands mid-rebuild — the replacement session object
+      // already exists, it just has not connected yet.
+      await _tick();
+      old.events.onGoAway?.call(const Duration(seconds: 50));
+      h.session.connect();
+      await _tick();
+
+      expect(h.createCalls, 2, reason: 'ровно одна пересборка на два предупреждения');
+      expect(h.session.toreDown, 0, reason: 'новый сокет не снесён дубликатом');
+      // And the host is told once: a second warning would restart the
+      // free-form mode a second time, cutting the socket it just rebuilt.
+      expect(h.log.goAways, [const Duration(seconds: 50)]);
+    });
+
     test('a warning overtaken by the drop it warned about does not touch the next socket', () async {
       final h = _Harness();
       await _warmed(h);
