@@ -67,8 +67,13 @@ class CaptureController extends ChangeNotifier
     with MessageNotifierMixin
     implements ITransctiptSegmentSocketServiceListener {
   static const MethodChannel _nativeBleTranscriptChannel = MethodChannel('com.friend.ios/native_ble_transcript');
-  static const int _maxInProgressConversationRefreshAttempts = 30;
-  static const Duration _inProgressConversationRefreshInterval = Duration(seconds: 2);
+  // 12 attempts * 5s keeps the same ~1min give-up window as before, but at a
+  // third of the request rate: this poll is a Firestore read on our self-host
+  // backend, and 2s was aggressive enough that, combined with frequent socket
+  // reconnects, it once accounted for 68% of the backend's traffic and
+  // exhausted the project's daily Firestore quota.
+  static const int _maxInProgressConversationRefreshAttempts = 12;
+  static const Duration _inProgressConversationRefreshInterval = Duration(seconds: 5);
 
   final ConversationLocationCapture _conversationLocationCapture;
   final Future<void> Function()? _inProgressConversationLoader;
@@ -1885,13 +1890,27 @@ class CaptureController extends ChangeNotifier
 
   void _startInProgressConversationRefresh() {
     if (!_canRefreshInProgressConversation || segments.isNotEmpty || photos.isNotEmpty) return;
+    // A socket reconnect calls this on every attempt. If a poll cycle is already
+    // running, leave it alone instead of resetting the attempt counter — otherwise
+    // a flaky connection (reconnecting more often than the ~1min cap) keeps this
+    // polling GET /v1/conversations indefinitely instead of ever hitting the cap
+    // (each poll is a Firestore read; this starved the whole backend's quota once).
+    if (_inProgressConversationRefreshTimer?.isActive ?? false) return;
 
-    _stopInProgressConversationRefresh();
     _inProgressConversationRefreshAttempts = 0;
     _inProgressConversationRefreshTimer = Timer.periodic(_inProgressConversationRefreshInterval, (_) {
       _refreshInProgressConversationTick();
     });
   }
+
+  @visibleForTesting
+  void startInProgressConversationRefreshForTesting() => _startInProgressConversationRefresh();
+
+  @visibleForTesting
+  bool get inProgressConversationRefreshActiveForTesting => _inProgressConversationRefreshTimer?.isActive ?? false;
+
+  @visibleForTesting
+  int get inProgressConversationRefreshAttemptsForTesting => _inProgressConversationRefreshAttempts;
 
   void _stopInProgressConversationRefresh() {
     _inProgressConversationRefreshTimer?.cancel();
