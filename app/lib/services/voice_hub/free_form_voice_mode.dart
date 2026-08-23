@@ -118,7 +118,18 @@ class FreeFormVoiceMode {
 
   /// Idempotent: a [stop] while not running is a no-op. Does NOT fire
   /// [onIdleTimeout] — that only fires when the timer itself elapses.
-  void stop() {
+  ///
+  /// An explicit stop also ENDS THE CONVERSATION
+  /// ([HubController.forgetConversation]), while the silence auto-stop does
+  /// not. The hub can now resume a conversation across sockets (design doc
+  /// §10), so the two stops stopped being the same thing: switching the mode
+  /// off by hand reads as "we're done", whereas falling out on silence is the
+  /// mode saving money on an abandoned session — coming back to that within
+  /// the handle's lifetime should pick the conversation up, not open a blank
+  /// one the user has to re-explain themselves to.
+  void stop() => _stop(endsConversation: true);
+
+  void _stop({required bool endsConversation}) {
     final turnId = _turnId;
     if (turnId == null) return;
     _cancelIdleTimer();
@@ -126,6 +137,7 @@ class FreeFormVoiceMode {
     _capture = null;
     _turnId = null;
     hub.cancelTurn(turnId);
+    if (endsConversation) hub.forgetConversation();
   }
 
   /// Self-host patch, not for upstream: hand the live session a line of text as
@@ -154,7 +166,7 @@ class FreeFormVoiceMode {
     _idleHandle = clock.setTimer(timeout, () {
       _idleHandle = null;
       onIdleTimeout?.call();
-      stop();
+      _stop(endsConversation: false);
     });
   }
 

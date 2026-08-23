@@ -165,6 +165,30 @@ void main() {
       lastOnChunk = null;
     });
 
+    // Conversation resumption (design doc §10): the two ways the mode ends
+    // stopped meaning the same thing once the hub could carry a conversation
+    // across sockets.
+    test('an explicit stop() ends the conversation, not just the socket', () async {
+      final mode = await buildMode();
+      await mode.start();
+      session.events.onResumptionHandle?.call('H1');
+      expect(hub.canResumeConversation, isTrue);
+
+      mode.stop();
+      expect(hub.canResumeConversation, isFalse);
+    });
+
+    test('the silence auto-stop keeps the conversation — coming back continues it', () async {
+      final mode = await buildMode();
+      await mode.start();
+      session.events.onResumptionHandle?.call('H1');
+
+      clock.fire(); // the idle timer elapses -> auto-stop
+      expect(mode.isRunning, isFalse);
+      expect(idleTimeoutCalls, 1);
+      expect(hub.canResumeConversation, isTrue);
+    });
+
     test('start() opens one hub turn and starts continuous capture', () async {
       final mode = await buildMode();
       await mode.start();
