@@ -21,6 +21,9 @@ from utils.conversations.search import (
     merge_conversation_search_ids,
     parse_exact_conversation_reference,
 )
+
+# Self-host patch (see utils/selfhost_retrieval.py and docs/selfhost-patches.md).
+from utils.selfhost_retrieval import local_keyword_conversation_ids
 from utils.retrieval.safety import safe_isoformat
 import logging
 
@@ -229,8 +232,24 @@ def search_conversations_text(
             keyword_ids = keyword_search_conversation_ids(
                 uid=uid, query=query, limit=limit, start_date=starts_at, end_date=ends_at
             )
-            vector_ids = vector_db.query_vectors(query=query, uid=uid, starts_at=starts_at, ends_at=ends_at, k=limit)
+            # Self-host patch, not for upstream: the vector leg is optional here.
+            # Embeddings need a provider this deployment deliberately does not have, and
+            # its failure used to take the whole tool down — including the keyword hits
+            # that were already in hand — so the caller got a 500 instead of an answer.
+            try:
+                vector_ids = vector_db.query_vectors(
+                    query=query, uid=uid, starts_at=starts_at, ends_at=ends_at, k=limit
+                )
+            except Exception as e:
+                logger.warning("search_conversations_text: vector leg unavailable for uid=%s: %s", uid, e)
+                vector_ids = []
             conversation_ids = merge_conversation_search_ids(keyword_ids, vector_ids)
+            if not conversation_ids:
+                # Neither external service answered (no Typesense, no embeddings). Fall back
+                # to local ranking so the model still receives material to judge.
+                conversation_ids = local_keyword_conversation_ids(
+                    uid=uid, query=query, limit=limit, start_date=starts_at, end_date=ends_at
+                )
 
         if not conversation_ids:
             date_info = ""
