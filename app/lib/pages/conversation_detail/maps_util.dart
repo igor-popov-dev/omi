@@ -25,7 +25,21 @@ enum MapProvider {
 class MapsUtil {
   /// Что использовать. По умолчанию — источник, для которого ничего не нужно
   /// настраивать: пустая карта хуже простой карты.
-  static MapProvider provider = MapProvider.openStreetMap;
+  static MapProvider provider = _fromEnv();
+
+  static MapProvider _fromEnv() {
+    // Позволяет выбрать картограф на сборке, не трогая код:
+    // --dart-define=OMI_MAP_PROVIDER=yandex|google|osm
+    const raw = String.fromEnvironment('OMI_MAP_PROVIDER', defaultValue: 'osm');
+    switch (raw.toLowerCase()) {
+      case 'yandex':
+        return MapProvider.yandex;
+      case 'google':
+        return MapProvider.google;
+      default:
+        return MapProvider.openStreetMap;
+    }
+  }
 
   static String getMapImageUrl(double lat, double lng) {
     switch (provider) {
