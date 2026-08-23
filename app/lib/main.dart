@@ -360,6 +360,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               events: freeFormModeProjectionEvents(
                 applyProjection: (projection) => capture.hubProjection.value = projection,
                 onDisconnected: capture.recoverFreeFormVoiceMode,
+                onSocketExpiring: capture.rebuildFreeFormVoiceModeSocket,
               ),
               // Read per arm, not captured once: the user can change the
               // auto-off in Developer -> Experimental while the app is

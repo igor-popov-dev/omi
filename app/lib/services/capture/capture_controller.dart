@@ -138,6 +138,28 @@ class CaptureController extends ChangeNotifier
     resetFreeFormVoiceModeUi();
   }
 
+  /// The provider warned that the socket is about to close (`goAway` —
+  /// measured 24.08: ~9 minutes into a live session, 50 seconds of notice,
+  /// design doc §11). Rebuilds it NOW, while the old one still works, so the
+  /// drop never lands in the middle of the conversation. The conversation
+  /// itself carries over on the resumption handle, and nothing is said out
+  /// loud: unlike a recovered drop, there is nothing to apologise for.
+  ///
+  /// A rebuild that fails is handed to the ordinary drop recovery — that path
+  /// owns the retry budget and the "give up and stop" decision, so failing
+  /// here must not invent a second policy.
+  Future<void> rebuildFreeFormVoiceModeSocket() async {
+    final mode = freeFormVoiceMode;
+    if (mode == null || !freeFormModeActive.value || !mode.isRunning) return;
+    Logger.debug('[VoiceMode] сервер предупредил о закрытии сокета — пересобираю заранее');
+    try {
+      await mode.restart();
+    } catch (e) {
+      Logger.error('[VoiceMode] упреждающая пересборка не удалась: $e');
+      await recoverFreeFormVoiceMode(e);
+    }
+  }
+
   /// Resets [freeFormModeActive]/[hubProjection] to idle WITHOUT calling
   /// `FreeFormVoiceMode.stop()` — for callers where the mode has already
   /// stopped itself (the hub-level `onError` handler wired in production,

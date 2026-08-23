@@ -78,13 +78,21 @@ const VoiceTurnUiProjection _speakingProjection = VoiceTurnUiProjection(
 /// `CaptureController.recoverFreeFormVoiceMode`). Self-host patch: the error
 /// used to be dropped here, which is why a drop ended the conversation with
 /// nothing said and nothing logged.
+/// [onSocketExpiring] fires on the provider's `goAway` — its warning that the
+/// socket is about to be closed (measured 24.08: it lands ~9 minutes into a
+/// live session with 50 seconds to spare, design doc §11). The mode owns the
+/// mic and the begin frame, so the hub cannot rebuild under it on its own;
+/// the caller is expected to `restart()` the mode, which keeps the
+/// conversation and spends the notice instead of taking the drop.
 HubControllerEvents freeFormModeProjectionEvents({
   required VoiceTurnPresenter applyProjection,
   required void Function(Object error) onDisconnected,
+  required void Function() onSocketExpiring,
 }) {
   return HubControllerEvents(
     onConnected: (_) => applyProjection(_listeningProjection),
     onError: (error) => onDisconnected(error),
+    onGoAway: (_) => onSocketExpiring(),
     // Server VAD is the only source of utterance boundaries here, so it is
     // also the only honest source for the indicator. Note what is NOT wired:
     // `onTurnDone`. `turnComplete` arrives ~2.5s before the queued audio has

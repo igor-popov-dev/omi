@@ -240,11 +240,14 @@ void main() {
       expect(hub.canResumeConversation, isTrue, reason: 'разговор переживает пересборку сокета');
     });
 
-    test('restart() while not running is a no-op (nothing to rebuild)', () async {
+    test('restart() starts a stopped mode rather than politely doing nothing', () async {
+      // The recovery path calls this after a failed rebuild has already left
+      // the mode stopped; a no-op there would leave the toggle showing "on"
+      // with no session behind it.
       final mode = await buildMode();
       await mode.restart();
-      expect(mode.isRunning, isFalse);
-      expect(captureCalls, 0);
+      expect(mode.isRunning, isTrue);
+      expect(captureCalls, 1);
     });
 
     test('stop() while not running is a no-op', () async {

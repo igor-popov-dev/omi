@@ -363,6 +363,51 @@ void main() {
       expect(provider.hubProjection.value, idleVoiceTurnProjection);
     });
 
+    // goAway: the provider warns ~9 minutes in with 50 seconds of notice
+    // (measured 24.08, `marathon/probes/lane5-goaway.py`). Spending it beats
+    // taking the drop — nothing is lost and nothing is said out loud.
+    test('rebuildFreeFormVoiceModeSocket: rebuilds silently, keeping the mode and the conversation', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      session.events.onResumptionHandle?.call('H1');
+
+      await provider.rebuildFreeFormVoiceModeSocket();
+
+      expect(provider.freeFormModeActive.value, isTrue);
+      expect(provider.freeFormVoiceMode!.isRunning, isTrue);
+      expect(captureCalls, 2, reason: 'сокет и захват пересобраны');
+      expect(hub.canResumeConversation, isTrue);
+      // Unlike a recovered drop, nothing is announced: the user never lost
+      // anything, so there is nothing to apologise for.
+      expect(session.userTexts, isEmpty);
+    });
+
+    test('rebuildFreeFormVoiceModeSocket: no-op when the mode is not running', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+
+      await provider.rebuildFreeFormVoiceModeSocket();
+
+      expect(captureCalls, 0);
+      expect(provider.freeFormModeActive.value, isFalse);
+    });
+
+    test('rebuildFreeFormVoiceModeSocket: a failed rebuild falls back to the drop recovery', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      captureError = StateError('mic gone');
+
+      await provider.rebuildFreeFormVoiceModeSocket();
+
+      // The recovery path owns the retry budget and the give-up decision;
+      // this one must not invent a second policy. Here recovery itself
+      // cannot restart either, so it stops the mode cleanly.
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.hubProjection.value, idleVoiceTurnProjection);
+    });
+
     test('resetFreeFormVoiceModeUi: resets UI state without calling stop() on the mode', () async {
       final provider = CaptureProvider();
       provider.freeFormVoiceMode = buildMode();

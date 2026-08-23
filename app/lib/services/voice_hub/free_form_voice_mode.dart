@@ -153,9 +153,13 @@ class FreeFormVoiceMode {
   /// warning ([HubControllerEvents.onGoAway]), where the point is to spend the
   /// notice on a rebuild BEFORE the socket dies, so nothing is lost at all.
   ///
-  /// No-op while not running: there is nothing to rebuild.
+  /// Ends with the mode RUNNING even if it was not running when called — the
+  /// recovery path leans on that: by the time it runs, a failed rebuild may
+  /// already have left the mode stopped, and a polite no-op there would leave
+  /// the user looking at a live "voice mode on" button with no session behind
+  /// it. Callers that only want to rebuild something already live check
+  /// [isRunning] first (`CaptureController.rebuildFreeFormVoiceModeSocket`).
   Future<void> restart() async {
-    if (_turnId == null) return;
     _stop(endsConversation: false);
     await start();
   }

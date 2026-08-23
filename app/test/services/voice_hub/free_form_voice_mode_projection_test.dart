@@ -12,14 +12,17 @@ void main() {
   group('freeFormModeProjectionEvents', () {
     late List<VoiceTurnUiProjection> applied;
     late int disconnectCalls;
+    late int expiringCalls;
     late HubControllerEvents events;
 
     setUp(() {
       applied = [];
       disconnectCalls = 0;
+      expiringCalls = 0;
       events = freeFormModeProjectionEvents(
         applyProjection: (p) => applied.add(p),
         onDisconnected: (_) => disconnectCalls += 1,
+        onSocketExpiring: () => expiringCalls += 1,
       );
     });
 
@@ -104,6 +107,17 @@ void main() {
       events.onError!(const HubControllerError(reason: 'boom', retryable: false, aliveForMs: 0));
 
       expect(disconnectCalls, 1);
+      expect(applied, isEmpty);
+    });
+
+    test('goAway asks for a rebuild without touching the on-screen state', () {
+      // The user is mid-conversation and the rebuild is meant to be
+      // invisible: showing "reconnecting" for a socket that still works
+      // would be a worse lie than saying nothing.
+      events.onGoAway!(const Duration(seconds: 50));
+
+      expect(expiringCalls, 1);
+      expect(disconnectCalls, 0);
       expect(applied, isEmpty);
     });
 
