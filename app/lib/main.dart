@@ -49,6 +49,7 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/providers/auth_provider.dart';
 import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart';
+import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/services/voice_hub/voice_hub_production.dart';
 import 'package:omi/providers/connectivity_provider.dart';
 import 'package:omi/providers/conversation_provider.dart';
@@ -360,6 +361,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 applyProjection: (projection) => capture.hubProjection.value = projection,
                 onDisconnected: capture.recoverFreeFormVoiceMode,
               ),
+              // Read per arm, not captured once: the user can change the
+              // auto-off in Developer -> Experimental while the app is
+              // running, and this object is built once here and never rebuilt.
+              resolveIdleTimeout: () =>
+                  freeFormIdleTimeoutFromMinutes(SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes),
               onIdleTimeout: capture.resetFreeFormVoiceModeUi,
             );
             return capture;

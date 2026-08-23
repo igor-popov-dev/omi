@@ -12,6 +12,7 @@ import 'package:omi/backend/schema/person.dart';
 import 'package:omi/env/env.dart';
 import 'package:omi/models/custom_stt_config.dart';
 import 'package:omi/models/stt_provider.dart';
+import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/utils/logger.dart';
 
 class SharedPreferencesUtil {
@@ -312,6 +313,16 @@ class SharedPreferencesUtil {
   set freeFormMode(bool value) => saveBool('freeFormMode', value);
 
   bool get freeFormMode => getBool('freeFormMode');
+
+  // Free-form Voice Mode auto-off: minutes of silence before the mode stops
+  // itself. 0 means "never" — see `freeFormIdleTimeoutFromMinutes`. The mode
+  // bills per minute of streamed audio, so a session left running by accident
+  // costs real money; the default matches the value that was hard-coded before
+  // this setting existed.
+  set freeFormVoiceIdleTimeoutMinutes(int value) => saveInt('freeFormVoiceIdleTimeoutMinutes', value);
+
+  int get freeFormVoiceIdleTimeoutMinutes =>
+      getInt('freeFormVoiceIdleTimeoutMinutes', defaultValue: kDefaultFreeFormVoiceIdleTimeoutMinutes);
 
   // Notification frequency (0-5): 0 = off, 5 = most frequent. Default is 0 (disabled)
   set notificationFrequency(int value) => saveInt('notificationFrequency', value);

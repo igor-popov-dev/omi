@@ -22,9 +22,14 @@
 //     which `GeminiHubSession.freeFormMode` already re-interprets as "turn
 //     the mode off" (tick 28: stops accepting input, no `activityEnd` frame
 //     sent — there is no manual window to close).
-//   * The silence-timeout auto-stop: `idleTimeout` (default 3 minutes, `null`
-//     disables it) restarts every time `noteActivity()` is called and calls
-//     `stop()` plus `onIdleTimeout` when it elapses untouched.
+//   * The silence-timeout auto-stop: `resolveIdleTimeout` (default 3 minutes,
+//     `null` disables it) restarts every time `noteActivity()` is called and
+//     calls `stop()` plus `onIdleTimeout` when it elapses untouched. It is a
+//     RESOLVER, not a fixed `Duration`, because the setting behind it is
+//     user-editable at runtime (`freeFormVoiceIdleTimeoutMinutes`, Developer →
+//     Experimental) while this object is built once at app bootstrap
+//     (`main.dart`) and never rebuilt — reading it per arm is what makes a
+//     changed setting apply to the next session instead of the next launch.
 //
 // Deliberately NOT owned here (open, tracked in the lane journal):
 //   * WHO calls `noteActivity()`. The natural driver is every
@@ -40,6 +45,7 @@
 //     both out of scope here.
 import 'dart:async';
 
+import 'free_form_voice_timeout.dart';
 import 'hub_controller.dart';
 import 'hub_ptt_capture.dart';
 import 'hub_session.dart' show HubClock, DefaultHubClock;
@@ -53,9 +59,10 @@ class FreeFormVoiceMode {
   final int Function() now;
 
   /// How long the mode may run with no [noteActivity] call before it
-  /// auto-stops. `null` disables the timer entirely (the mode then only
-  /// stops via an explicit [stop] call).
-  final Duration? idleTimeout;
+  /// auto-stops, re-read every time the timer is armed. Returning `null`
+  /// disables the timer entirely (the mode then only stops via an explicit
+  /// [stop] call).
+  final Duration? Function() resolveIdleTimeout;
 
   /// Fired right before the idle-timeout auto-[stop] runs, so a host can
   /// e.g. surface a notification. NOT fired on an explicit [stop] call.
@@ -67,10 +74,13 @@ class FreeFormVoiceMode {
     required this.mintTurnId,
     HubClock? clock,
     int Function()? now,
-    this.idleTimeout = const Duration(minutes: 3),
+    Duration? Function()? resolveIdleTimeout,
     this.onIdleTimeout,
   })  : clock = clock ?? const DefaultHubClock(),
-        now = now ?? _defaultNow;
+        now = now ?? _defaultNow,
+        resolveIdleTimeout = resolveIdleTimeout ?? _defaultIdleTimeout;
+
+  static Duration? _defaultIdleTimeout() => freeFormIdleTimeoutFromMinutes(kDefaultFreeFormVoiceIdleTimeoutMinutes);
 
   static int _defaultNow() => DateTime.now().millisecondsSinceEpoch;
 
@@ -135,7 +145,7 @@ class FreeFormVoiceMode {
 
   void _armIdleTimer() {
     _cancelIdleTimer();
-    final timeout = idleTimeout;
+    final timeout = resolveIdleTimeout();
     if (timeout == null) return;
     _idleHandle = clock.setTimer(timeout, () {
       _idleHandle = null;

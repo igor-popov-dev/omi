@@ -229,7 +229,7 @@ bool _defaultFreeFormModeOff() => false;
 FreeFormVoiceMode createProductionFreeFormVoiceMode({
   required HubControllerEvents events,
   http.Client? bridgeHttpClient,
-  Duration? idleTimeout = const Duration(minutes: 3),
+  Duration? Function()? resolveIdleTimeout,
   void Function()? onIdleTimeout,
 }) {
   late final HubController hub;
@@ -280,7 +280,7 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     hub: hub,
     startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
     mintTurnId: () => const Uuid().v4(),
-    idleTimeout: idleTimeout,
+    resolveIdleTimeout: resolveIdleTimeout,
     onIdleTimeout: onIdleTimeout,
   );
 }

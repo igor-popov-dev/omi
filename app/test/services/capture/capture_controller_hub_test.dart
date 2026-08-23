@@ -243,7 +243,7 @@ void main() {
         // No idle-timeout test in this group exercises real time — kept
         // off (null) so a stray timer never fires against a disposed
         // provider between tests.
-        idleTimeout: null,
+        resolveIdleTimeout: () => null,
         onIdleTimeout: () => idleTimeoutCalls += 1,
       );
     }

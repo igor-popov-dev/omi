@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
+import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/services/voice_hub/hub_controller.dart';
 import 'package:omi/services/voice_hub/hub_ptt_capture.dart';
 import 'package:omi/services/voice_hub/hub_session.dart';
@@ -76,10 +77,15 @@ class _FakeClock implements HubClock {
   final Map<int, void Function()> _timers = {};
   int _seq = 0;
 
+  /// The duration the most recent [setTimer] was armed with — what a test
+  /// asserting "the timeout the mode actually used" needs to see.
+  Duration? lastDuration;
+
   @override
   Object setTimer(Duration duration, void Function() fire) {
     final id = ++_seq;
     _timers[id] = fire;
+    lastDuration = duration;
     return id;
   }
 
@@ -131,7 +137,9 @@ void main() {
     // here exercises `FreeFormVoiceMode`'s own start/stop/idle-timeout
     // logic against an already-warm session, not `HubController`'s
     // cold-start race (covered separately by `hub_controller_test.dart`).
-    Future<FreeFormVoiceMode> buildMode({Duration? idleTimeout = const Duration(minutes: 3)}) async {
+    // `idleTimeout` is passed as a resolver, mirroring production: the real
+    // one reads a user-editable preference on every arm.
+    Future<FreeFormVoiceMode> buildMode({Duration? Function()? idleTimeout}) async {
       hub = buildHub();
       await hub.ensureWarm();
       clock = _FakeClock();
@@ -144,7 +152,7 @@ void main() {
         },
         clock: clock,
         now: () => 0,
-        idleTimeout: idleTimeout,
+        resolveIdleTimeout: idleTimeout ?? () => const Duration(minutes: 3),
         onIdleTimeout: () => idleTimeoutCalls += 1,
       );
     }
@@ -213,7 +221,7 @@ void main() {
     });
 
     test('idle timeout auto-stops and fires onIdleTimeout', () async {
-      final mode = await buildMode(idleTimeout: const Duration(minutes: 3));
+      final mode = await buildMode(idleTimeout: () => const Duration(minutes: 3));
       await mode.start();
       expect(clock.pending, isTrue);
 
@@ -245,12 +253,49 @@ void main() {
       expect(clock.pending, isFalse);
     });
 
-    test('idleTimeout: null disables the auto-stop timer', () async {
-      final mode = await buildMode(idleTimeout: null);
+    test('a resolver returning null disables the auto-stop timer', () async {
+      final mode = await buildMode(idleTimeout: () => null);
       await mode.start();
 
       expect(clock.pending, isFalse);
       expect(mode.isRunning, isTrue);
+    });
+
+    // The setting behind the resolver is user-editable while the app runs, and
+    // this object is built once at bootstrap — so a changed value has to reach
+    // the timer without anything being rebuilt.
+    test('the idle timeout is re-read on every arm, not captured once', () async {
+      Duration? current = const Duration(minutes: 3);
+      final mode = await buildMode(idleTimeout: () => current);
+      await mode.start();
+      expect(clock.lastDuration, const Duration(minutes: 3));
+
+      current = const Duration(minutes: 10);
+      mode.noteActivity();
+      expect(clock.lastDuration, const Duration(minutes: 10));
+
+      // ...including all the way to "never", which must cancel the pending
+      // timer rather than leave the old one armed.
+      current = null;
+      mode.noteActivity();
+      expect(clock.pending, isFalse);
+      expect(mode.isRunning, isTrue);
+    });
+
+    test('a mode built without a resolver still auto-stops after the stock 3 minutes', () async {
+      hub = buildHub();
+      await hub.ensureWarm();
+      clock = _FakeClock();
+      final mode = FreeFormVoiceMode(
+        hub: hub,
+        startCapture: fakeStartCapture,
+        mintTurnId: () => 'turn-default',
+        clock: clock,
+        now: () => 0,
+      );
+      await mode.start();
+
+      expect(clock.lastDuration, Duration(minutes: kDefaultFreeFormVoiceIdleTimeoutMinutes));
     });
 
     test('an explicit stop() cancels a pending idle timer without firing onIdleTimeout', () async {
