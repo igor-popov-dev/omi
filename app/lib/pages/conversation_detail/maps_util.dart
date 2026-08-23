@@ -52,24 +52,27 @@ class MapsUtil {
     }
   }
 
-  /// OpenStreetMap через staticmap-сервис: ключ не нужен.
-  static String _openStreetMapUrl(double lat, double lng) {
-    return "https://staticmap.openstreetmap.de/staticmap.php"
-        "?center=$lat,$lng&zoom=15&size=800x500&maptype=mapnik"
-        "&markers=$lat,$lng,red-pushpin";
-  }
+  /// Карта без единого ключа. Публичный staticmap.openstreetmap.de оказался мёртв
+  /// (соединение не устанавливается), поэтому берём давнюю схему Яндекса — она
+  /// отдаёт PNG без авторизации и покрывает мир целиком.
+  static String _openStreetMapUrl(double lat, double lng) => _yandexLegacyUrl(lat, lng);
 
-  /// Яндекс.Карты Static API. Ключ бесплатный, но обязательный: без него сервис
-  /// отвечает ошибкой, поэтому при пустом ключе честно отдаём OpenStreetMap.
+  /// Яндекс.Карты. Ключ нужен только новому Static API (`/v1`); прежняя схема
+  /// `/1.x/` работает без него, поэтому при пустом ключе не падаем в ошибку, а
+  /// просто идём этим путём. У Яндекса порядок координат обратный: долгота,широта.
   static String _yandexUrl(double lat, double lng) {
     final key = Env.yandexMapsApiKey;
     if (key == null || key.isEmpty) {
-      return _openStreetMapUrl(lat, lng);
+      return _yandexLegacyUrl(lat, lng);
     }
-    // У Яндекса порядок координат обратный: долгота,широта.
     return "https://static-maps.yandex.ru/v1"
         "?ll=$lng,$lat&z=15&size=650,450&lang=ru_RU&apikey=$key"
         "&pt=$lng,$lat,pm2rdm";
+  }
+
+  static String _yandexLegacyUrl(double lat, double lng) {
+    return "https://static-maps.yandex.ru/1.x/"
+        "?ll=$lng,$lat&z=15&size=650,450&l=map&pt=$lng,$lat,pm2rdm";
   }
 
   static String _googleUrl(double lat, double lng) {
