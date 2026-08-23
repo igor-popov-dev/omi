@@ -126,6 +126,10 @@ class _Harness {
   /// included — the nulls are the safety half of the contract.
   final List<String?> resumptionHandles = [];
 
+  /// Every `goAway` warning, with the deadline the server named (null when
+  /// it named none).
+  final List<Duration?> goAways = [];
+
   _Harness._(this.session, this.socketFactory, this.player);
 
   factory _Harness({
@@ -151,6 +155,7 @@ class _Harness {
         onConnected: (sid) => h.connected.add(sid),
         onUserSpeechState: (isSpeaking) => h.speechStates.add(isSpeaking),
         onResumptionHandle: (handle) => h.resumptionHandles.add(handle),
+        onGoAway: (timeLeft) => h.goAways.add(timeLeft),
         onError: (message, retryable, closeCode) =>
             h.errors.add((message: message, retryable: retryable, closeCode: closeCode)),
       ),
@@ -662,6 +667,76 @@ void main() {
       h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
       // The withdrawal still fires (safety), but nothing is offered back.
       expect(h.resumptionHandles, [null]);
+    });
+  });
+
+  // goAway — the server's warning that it is about to hang up. Measured
+  // 24.08 (`marathon/probes/lane5-goaway.py`, design doc §11): a socket
+  // carrying no traffic is closed outright at ~151s with 1008 and NO
+  // warning, so this path only ever runs for a socket in use. The parsing
+  // is deliberately shape-tolerant: the warning is worth more than the
+  // deadline, and losing the whole frame to an unexpected encoding of a
+  // protobuf Duration would be the expensive half of the trade.
+  group('goAway', () {
+    test('a named deadline reaches the host as a Duration', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {'timeLeft': '10s'}
+      }));
+      expect(h.goAways, [const Duration(seconds: 10)]);
+    });
+
+    test('fractional seconds survive (protobuf writes "1.5s", not milliseconds)', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {'timeLeft': '1.5s'}
+      }));
+      expect(h.goAways, [const Duration(milliseconds: 1500)]);
+    });
+
+    test('the object form of a Duration is understood too', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {
+          'timeLeft': {'seconds': 3, 'nanos': 500000000}
+        }
+      }));
+      expect(h.goAways, [const Duration(milliseconds: 3500)]);
+    });
+
+    test('a deadline-less warning is still reported (null, not dropped)', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({'goAway': <String, dynamic>{}}));
+      expect(h.goAways, [null]);
+    });
+
+    test('an unparseable deadline degrades to null instead of losing the warning', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {'timeLeft': 'soon'}
+      }));
+      expect(h.goAways, [null]);
+    });
+
+    test('the warning is not an error and does not end the session', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {'timeLeft': '5s'}
+      }));
+      expect(h.errors, isEmpty);
+      expect(h.session.isWarm(), isTrue);
+      // The socket still works: a handle offered after the warning is still
+      // passed on — that handle is exactly what the rebuild will use.
+      h.socketFactory.message(jsonEncode({
+        'sessionResumptionUpdate': {'newHandle': 'H1'}
+      }));
+      expect(h.resumptionHandles, ['H1']);
     });
   });
 }

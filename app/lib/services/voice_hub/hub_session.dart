@@ -207,6 +207,15 @@ class HubSessionEvents {
   /// that generation is closed.
   final void Function(String? handle)? onResumptionHandle;
 
+  /// The provider announced that it is about to close this socket, with
+  /// however much time it says is left (null when it named no deadline).
+  ///
+  /// This is a WARNING, not a failure: the socket still works meanwhile.
+  /// With a resumption handle in hand the host can rebuild the socket while
+  /// the conversation is idle, so the drop never lands in the middle of an
+  /// exchange — see `HubController.requestSessionRefresh`.
+  final void Function(Duration? timeLeft)? onGoAway;
+
   /// The session cannot continue (handshake failed or a fatal mid-session
   /// drop). [closeCode] is the WS close code when the drop came from a
   /// socket close; null for non-close faults (a provider error frame, an
@@ -223,6 +232,7 @@ class HubSessionEvents {
     this.onToolRequest,
     this.onTurnDone,
     this.onResumptionHandle,
+    this.onGoAway,
     this.onError,
   });
 }
@@ -813,6 +823,12 @@ abstract class BaseHubSession implements HubSession {
   /// [HubSessionEvents.onResumptionHandle] for why `null` matters.
   void emitResumptionHandle(String? handle) {
     events.onResumptionHandle?.call(handle);
+  }
+
+  /// Subclass-facing: the provider warned that this socket is about to be
+  /// closed. See [HubSessionEvents.onGoAway].
+  void emitGoAway(Duration? timeLeft) {
+    events.onGoAway?.call(timeLeft);
   }
 
   void _handleError(String message, bool retryable, [int? closeCode]) {

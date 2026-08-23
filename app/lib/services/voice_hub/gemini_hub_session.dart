@@ -350,6 +350,28 @@ class GeminiHubSession extends BaseHubSession {
     if (handle != null) emitResumptionHandle(handle);
   }
 
+  /// A protobuf Duration as it arrives over JSON: normally the string form
+  /// ("10s", "1.5s"), but the object form ({seconds, nanos}) and a bare
+  /// number are accepted too. Null when there is nothing parseable — a
+  /// deadline-less warning is still a warning worth passing on.
+  static Duration? _parseProtoDuration(dynamic raw) {
+    if (raw is num) return Duration(microseconds: (raw * 1000000).round());
+    if (raw is Map) {
+      final seconds = raw['seconds'];
+      final nanos = raw['nanos'];
+      if (seconds == null && nanos == null) return null;
+      final s = seconds is num ? seconds.toDouble() : double.tryParse('${seconds ?? 0}') ?? 0;
+      final n = nanos is num ? nanos.toDouble() : double.tryParse('${nanos ?? 0}') ?? 0;
+      return Duration(microseconds: (s * 1000000 + n / 1000).round());
+    }
+    if (raw is String) {
+      final seconds = double.tryParse(raw.endsWith('s') ? raw.substring(0, raw.length - 1) : raw);
+      if (seconds == null) return null;
+      return Duration(microseconds: (seconds * 1000000).round());
+    }
+    return null;
+  }
+
   /// The server started producing a reply. Withdraw the handle until this
   /// generation closes: a socket that dies right now must NOT be resumed.
   void _markReplyInFlight() {
@@ -386,6 +408,17 @@ class GeminiHubSession extends BaseHubSession {
         _latestHandle = handle;
         _offerResumptionHandle();
       }
+      return;
+    }
+    final goAway = obj['goAway'];
+    if (goAway != null) {
+      // The server is about to hang up (session/token lifetime reached). It
+      // keeps serving until it does, so this is a chance to rebuild the
+      // socket at a quiet moment instead of dropping mid-sentence — the host
+      // decides when, we only report it. `timeLeft` is a protobuf Duration,
+      // which JSON-encodes as a string ("10s", "1.5s"); tolerate the other
+      // shapes rather than lose the warning to a format surprise.
+      emitGoAway(goAway is Map<String, dynamic> ? _parseProtoDuration(goAway['timeLeft']) : null);
       return;
     }
     // usageMetadata (client-reported billing) is a host concern — deferred,
