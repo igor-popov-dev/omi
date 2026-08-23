@@ -358,7 +358,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
               events: freeFormModeProjectionEvents(
                 applyProjection: (projection) => capture.hubProjection.value = projection,
-                onDisconnected: capture.resetFreeFormVoiceModeUi,
+                onDisconnected: capture.recoverFreeFormVoiceMode,
               ),
               onIdleTimeout: capture.resetFreeFormVoiceModeUi,
             );

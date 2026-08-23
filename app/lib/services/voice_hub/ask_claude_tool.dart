@@ -41,6 +41,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:omi/utils/logger.dart';
+
 import 'hub_session.dart' show HubToolCallRequest, VoiceToolDeclaration;
 
 /// The name Gemini must call to reach the bridge — matches
@@ -201,7 +203,19 @@ class AskClaudeToolExecutor {
   }
 
   Future<void> _run(HubToolCallRequest call) async {
+    // Self-host patch: this round trip used to be invisible. When it failed the
+    // model simply went quiet and the mode died, and logcat showed nothing at
+    // all — no way to tell a network drop from a call that was never made
+    // (reported 23.08). Timings and outcome are logged; the question and the
+    // answer are not, they are user content.
+    final startedAt = DateTime.now();
+    Logger.debug('[ask_claude] запрос ${call.callId} -> ${client.endpoint}');
     final output = await _resolve(call);
+    final elapsed = DateTime.now().difference(startedAt);
+    final failed = output.startsWith('Error:');
+    final summary = '[ask_claude] ${call.callId} ${failed ? 'ОШИБКА' : 'ответ'} '
+        'за ${elapsed.inMilliseconds} мс, ${output.length} символов';
+    failed ? Logger.error('$summary: $output') : Logger.debug(summary);
     sendToolResult(call.callId, call.name, output);
   }
 

@@ -419,6 +419,12 @@ abstract class HubSession {
   /// Return a tool result to the model so it can continue speaking.
   void sendToolResult(String callId, String name, String output);
 
+  /// Self-host patch, not for upstream: hand the model a line of text as if the
+  /// user had said it. Used to make a recovered session explain itself out loud
+  /// — after a reconnect the model has no memory of the drop, so without this
+  /// the user hears silence resume mid-conversation with no explanation.
+  void sendUserText(String text);
+
   /// Barge-in seam (design doc §6, added for `voice_turn_driver.dart`):
   /// immediately drop everything the spoken-audio player has already
   /// buffered. Gemini's own barge-in strategy is a fresh session, not an
@@ -702,6 +708,12 @@ abstract class BaseHubSession implements HubSession {
     onSendToolResult(callId, name, output);
   }
 
+  @override
+  void sendUserText(String text) {
+    touchIdle();
+    onSendUserText(text);
+  }
+
   // MARK: Emit helpers (subclass-facing — see file header; never log PII)
 
   /// Drops a control frame that races a socket still CONNECTING instead of
@@ -801,6 +813,9 @@ abstract class BaseHubSession implements HubSession {
 
   /// Provider tool-result frames.
   void onSendToolResult(String callId, String name, String output);
+
+  /// Provider frame carrying a line of user text (see [sendUserText]).
+  void onSendUserText(String text);
 
   /// Provider-specific flush at `markReady` (e.g. Gemini deferred
   /// activityStart).

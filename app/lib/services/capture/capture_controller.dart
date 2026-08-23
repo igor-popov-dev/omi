@@ -148,6 +148,67 @@ class CaptureController extends ChangeNotifier
     hubProjection.value = idleVoiceTurnProjection;
   }
 
+  // Self-host patch, not for upstream: a dropped socket used to end the
+  // conversation in silence. Reported 23.08 — "спросил, повисел, выключился",
+  // with nothing said and nothing logged, so the user could not tell a crash
+  // from being ignored.
+  static const int _maxVoiceRecoveries = 3;
+  static const Duration _voiceRecoveryWindow = Duration(minutes: 2);
+  final List<DateTime> _voiceRecoveries = [];
+
+  /// What the recovered session says out loud. Phrased as an instruction, not a
+  /// transcript line: the model reads it as the user speaking and answers in its
+  /// own voice, in whatever language the conversation is in.
+  static const String _voiceRecoveryPrompt =
+      'Связь прервалась и только что восстановилась. Скажи мне об этом одной короткой фразой '
+      'и продолжай разговор с того места, где мы остановились.';
+
+  /// Recovers the free-form session after a hub error instead of shutting the
+  /// mode down: logs the cause, reconnects, and has the model say out loud that
+  /// it dropped. Falls back to a clean stop when recovery itself fails or when
+  /// drops keep coming — reconnecting forever would burn per-minute billing on a
+  /// session that cannot hold.
+  Future<void> recoverFreeFormVoiceMode(Object error) async {
+    final mode = freeFormVoiceMode;
+    Logger.error('[VoiceMode] сессия оборвалась: $error');
+    if (mode == null || !freeFormModeActive.value) {
+      resetFreeFormVoiceModeUi();
+      return;
+    }
+
+    final now = DateTime.now();
+    _voiceRecoveries.removeWhere((at) => now.difference(at) > _voiceRecoveryWindow);
+    if (_voiceRecoveries.length >= _maxVoiceRecoveries) {
+      Logger.error('[VoiceMode] ${_voiceRecoveries.length} обрывов подряд — выключаю режим');
+      _voiceRecoveries.clear();
+      mode.stop();
+      resetFreeFormVoiceModeUi();
+      return;
+    }
+    _voiceRecoveries.add(now);
+
+    hubProjection.value = const VoiceTurnUiProjection(
+      isListening: false,
+      isLocked: false,
+      isFollowUp: false,
+      transcript: '',
+      hint: 'Связь прервалась, восстанавливаю…',
+      isThinking: true,
+      isResponseWaiting: false,
+      isResponseActive: false,
+    );
+
+    mode.stop();
+    try {
+      await mode.start();
+      Logger.debug('[VoiceMode] сессия восстановлена, попытка ${_voiceRecoveries.length}');
+      mode.announce(_voiceRecoveryPrompt);
+    } catch (e) {
+      Logger.error('[VoiceMode] восстановить не удалось: $e');
+      resetFreeFormVoiceModeUi();
+    }
+  }
+
   // Cache refresh for backend-created persons
   Future<void>? _peopleRefreshFuture;
 

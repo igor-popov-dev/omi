@@ -40,16 +40,18 @@ const VoiceTurnUiProjection _speakingProjection = VoiceTurnUiProjection(
 /// call should be given so a running mode's listening/speaking state reaches
 /// [applyProjection] (typically the setter for `CaptureController.hubProjection`,
 /// same sink the PTT driver writes to). [onDisconnected] fires on the hub's
-/// `onError` — a hub-level error leaves nothing left to listen for, so the
-/// caller is expected to also stop the mode there (see
-/// `CaptureController.stopFreeFormVoiceMode`).
+/// `onError`, carrying the error itself so the caller can log the cause and
+/// decide what to do — recover the session or stop the mode (see
+/// `CaptureController.recoverFreeFormVoiceMode`). Self-host patch: the error
+/// used to be dropped here, which is why a drop ended the conversation with
+/// nothing said and nothing logged.
 HubControllerEvents freeFormModeProjectionEvents({
   required VoiceTurnPresenter applyProjection,
-  required void Function() onDisconnected,
+  required void Function(Object error) onDisconnected,
 }) {
   return HubControllerEvents(
     onConnected: (_) => applyProjection(_listeningProjection),
-    onError: (_) => onDisconnected(),
+    onError: (error) => onDisconnected(error),
     onSpeakingStart: () => applyProjection(_speakingProjection),
     onSpeakingEnd: () => applyProjection(_listeningProjection),
     onInputTranscript: (text, isFinal, identity) {

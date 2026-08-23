@@ -103,6 +103,11 @@ class _FakeSession implements HubSession {
   }
 
   @override
+  void sendUserText(String text) => userTexts.add(text);
+
+  final List<String> userTexts = [];
+
+  @override
   void clearPlayback() {
     cleared += 1;
   }

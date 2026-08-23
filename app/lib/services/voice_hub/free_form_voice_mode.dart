@@ -114,6 +114,18 @@ class FreeFormVoiceMode {
     hub.cancelTurn(turnId);
   }
 
+  /// Self-host patch, not for upstream: hand the live session a line of text as
+  /// if the user had said it, so the model speaks it back in its own voice.
+  ///
+  /// Used after a recovered drop: a reconnected session has no memory of the
+  /// error, so without this the conversation just resumes and the user is left
+  /// guessing whether anything was heard. No-op while not running — there is no
+  /// socket to speak through.
+  void announce(String text) {
+    if (_turnId == null || text.isEmpty) return;
+    hub.sendUserText(text);
+  }
+
   /// Restarts the silence-timeout clock. No-op while not running. See file
   /// header for who is expected to call this once the mode host exists.
   void noteActivity() {

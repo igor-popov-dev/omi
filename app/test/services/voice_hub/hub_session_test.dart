@@ -183,6 +183,11 @@ class _TestHubSession extends BaseHubSession {
   void onSendToolResult(String callId, String name, String output) {}
 
   @override
+  void onSendUserText(String text) => sentUserTexts.add(text);
+
+  final List<String> sentUserTexts = [];
+
+  @override
   void onProviderReady() {}
 
   @override

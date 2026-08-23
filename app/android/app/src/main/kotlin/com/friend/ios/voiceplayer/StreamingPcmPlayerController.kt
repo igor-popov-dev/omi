@@ -37,6 +37,10 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
         onResume = { player?.setVolume(FULL_VOLUME) },
     )
 
+    // Self-host patch: same session granularity as [audioFocus] — a voice session
+    // talks through the user's headset, ambient capture never does.
+    private val voiceRoute = VoiceRouteCoordinator(context)
+
     fun bindFlutterApi(api: StreamingPcmPlayerFlutterApi) = emitter.bind(api)
     fun unbindFlutterApi() = emitter.unbind()
 
@@ -58,6 +62,7 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
             )
             activeSessionId = sessionId
             audioFocus.request()
+            voiceRoute.engage()
             callback(Result.success(Unit))
         } catch (e: Exception) {
             Log.e(TAG, "start($sessionId) failed", e)
@@ -77,6 +82,7 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
         player = null
         activeSessionId = null
         audioFocus.abandon()
+        voiceRoute.release()
         emitter.emitAudioFocusLost(sessionId)
     }
 
@@ -104,6 +110,7 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
             player = null
             activeSessionId = null
             audioFocus.abandon()
+            voiceRoute.release()
         }
         callback(Result.success(Unit))
     }
@@ -116,6 +123,7 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
         player = null
         activeSessionId = null
         audioFocus.abandon()
+        voiceRoute.release()
     }
 
     private fun isActive(sessionId: Long, caller: String): Boolean {

@@ -132,6 +132,11 @@ class _FakeHubSession implements HubSession {
   void cancelTurn() => cancelled += 1;
   @override
   void sendToolResult(String callId, String name, String output) {}
+
+  @override
+  void sendUserText(String text) => userTexts.add(text);
+
+  final List<String> userTexts = [];
   @override
   void clearPlayback() {}
   @override
@@ -292,6 +297,52 @@ void main() {
       expect(provider.freeFormVoiceMode!.isRunning, isFalse);
       expect(capture.disposeCalls, 1);
       expect(session.cancelled, 1);
+    });
+
+    // Self-host patch, not for upstream: a dropped socket used to end the
+    // conversation in silence (reported 23.08 — "спросил, повисел, выключился").
+    test('recoverFreeFormVoiceMode: reconnects instead of ending the conversation', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+
+      await provider.recoverFreeFormVoiceMode(StateError('socket closed 1011'));
+
+      expect(provider.freeFormModeActive.value, isTrue, reason: 'режим остаётся включённым');
+      expect(provider.freeFormVoiceMode!.isRunning, isTrue);
+      expect(captureCalls, 2, reason: 'захват перезапущен');
+      // The recovered session has no memory of the drop, so it is told to say
+      // what happened — otherwise the user hears silence resume with no reason.
+      expect(session.userTexts, isNotEmpty);
+      expect(session.userTexts.single, contains('Связь прервалась'));
+    });
+
+    test('recoverFreeFormVoiceMode: gives up after repeated drops rather than looping', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+
+      // Reconnecting forever would burn per-minute billing on a session that
+      // cannot hold, so the fourth drop in the window stops the mode.
+      for (var i = 0; i < 4; i++) {
+        await provider.recoverFreeFormVoiceMode(StateError('drop $i'));
+      }
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.hubProjection.value, idleVoiceTurnProjection);
+      expect(provider.freeFormVoiceMode!.isRunning, isFalse);
+    });
+
+    test('recoverFreeFormVoiceMode: a mode that will not restart stops cleanly', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      captureError = StateError('mic gone');
+
+      await provider.recoverFreeFormVoiceMode(StateError('socket closed'));
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.hubProjection.value, idleVoiceTurnProjection);
     });
 
     test('resetFreeFormVoiceModeUi: resets UI state without calling stop() on the mode', () async {

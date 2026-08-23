@@ -270,6 +270,23 @@ class GeminiHubSession extends BaseHubSession {
   }
 
   @override
+  void onSendUserText(String text) {
+    send({
+      'clientContent': {
+        'turns': [
+          {
+            'role': 'user',
+            'parts': [
+              {'text': text},
+            ],
+          },
+        ],
+        'turnComplete': true,
+      },
+    });
+  }
+
+  @override
   void onProviderReady() {
     // Open the speech window if a turn started before we connected.
     if (_pendingActivityStart) {

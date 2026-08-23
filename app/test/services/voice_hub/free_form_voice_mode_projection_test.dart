@@ -19,7 +19,7 @@ void main() {
       disconnectCalls = 0;
       events = freeFormModeProjectionEvents(
         applyProjection: (p) => applied.add(p),
-        onDisconnected: () => disconnectCalls += 1,
+        onDisconnected: (_) => disconnectCalls += 1,
       );
     });
 

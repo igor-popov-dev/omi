@@ -144,6 +144,9 @@ class _FakeSession implements HubSession {
   void sendToolResult(String callId, String name, String output) => toolResults.add((callId: callId, output: output));
 
   @override
+  void sendUserText(String text) {}
+
+  @override
   void clearPlayback() => cleared += 1;
 
   @override

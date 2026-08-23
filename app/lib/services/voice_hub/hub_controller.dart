@@ -501,6 +501,10 @@ class HubController {
   /// can finish the turn. No-op when no session exists (a torn-down /
   /// barged-in turn). The driver applies the turn-epoch gate before calling
   /// this, so a stale turn's result never reaches the provider.
+  /// Self-host patch: speak-through seam for recovery messages — see
+  /// [HubSession.sendUserText].
+  void sendUserText(String text) => session?.sendUserText(text);
+
   void sendToolResult(String callId, String name, String output) {
     session?.sendToolResult(callId, name, output);
   }
