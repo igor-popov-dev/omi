@@ -1833,9 +1833,21 @@ def process_conversation(
     # Omi-STT path never pays for the uncached users/... document read.
     uses_custom_stt = getattr(conversation, 'uses_custom_stt', False) is True
     if uses_custom_stt:
-        # Deferred: users_db.is_byok_active does an uncached Firestore read, so
-        # it only runs for custom-STT conversations, not every finalization.
-        has_llm_byok_key = bool(users_db.is_byok_active(uid) and (get_byok_key('openai') or get_byok_key('anthropic')))
+        # Self-host patch, not for upstream: this gate exists so a user with their
+        # own STT cannot spend Omi's LLM budget for free. On a self-hosted deploy
+        # there is no Omi budget to protect — every model call already goes to the
+        # operator's own backend (MODEL_QOS=claude_bridge routes conversation
+        # structuring, memories and the mentor to our bridge). Leaving the gate on
+        # meant every conversation finished with an empty title and no summary,
+        # which is exactly what the feature is for.
+        if os.getenv('MODEL_QOS') == 'claude_bridge':
+            has_llm_byok_key = True
+        else:
+            # Deferred: users_db.is_byok_active does an uncached Firestore read, so
+            # it only runs for custom-STT conversations, not every finalization.
+            has_llm_byok_key = bool(
+                users_db.is_byok_active(uid) and (get_byok_key('openai') or get_byok_key('anthropic'))
+            )
     else:
         has_llm_byok_key = False
     if uses_custom_stt and should_skip_custom_stt_postprocessing(
