@@ -81,6 +81,63 @@ const VoiceToolDeclaration askClaudeToolDeclaration = VoiceToolDeclaration(
   },
 );
 
+const List<String> _ruWeekdays = [
+  'понедельник',
+  'вторник',
+  'среда',
+  'четверг',
+  'пятница',
+  'суббота',
+  'воскресенье',
+];
+
+const List<String> _ruMonthsGenitive = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+];
+
+String _two(int value) => value.toString().padLeft(2, '0');
+
+/// The one fact the bridge cannot look up: what time it is for the user.
+///
+/// Measured live on 23.08 against the real bridge: asked «который час и что у
+/// меня в памяти про kadrio?» — the exact question Игорь named as the
+/// acceptance check for voice mode — the brain answered «точное время сказать
+/// не могу … известна только дата из контекста» and burned ~20s on memory
+/// tools. Handed the same question with this line in `context` it answered
+/// «19:37, воскресенье, 23 августа 2026 (UTC+03:00)» in 4s. The clock has to
+/// come from the client: the bridge process has no notion of where the user
+/// is, and `claude -p` has no shell in that sandbox to ask.
+///
+/// Deliberately self-describing («Время на устройстве пользователя: …»)
+/// because the bridge wraps whatever it gets under the header «Контекст из
+/// памяти omi:» (`ask_claude_bridge.py` `build_prompt`) — the sentence has to
+/// read correctly under a header that calls it memory.
+///
+/// Formatted by hand rather than through `intl`: this string is built on a
+/// voice turn, where a missing `initializeDateFormatting` locale would throw
+/// mid-call, and the vocabulary needed is two fixed lists.
+String deviceClockContext(DateTime local) {
+  final offset = local.timeZoneOffset;
+  final sign = offset.isNegative ? '-' : '+';
+  final absolute = offset.abs();
+  final utcOffset = 'UTC$sign${_two(absolute.inHours)}:${_two(absolute.inMinutes.remainder(60))}';
+  return 'Время на устройстве пользователя: '
+      '${_ruWeekdays[local.weekday - 1]}, '
+      '${local.day} ${_ruMonthsGenitive[local.month - 1]} ${local.year}, '
+      '${_two(local.hour)}:${_two(local.minute)} ($utcOffset).';
+}
+
 class AskClaudeBridgeException implements Exception {
   final String message;
   const AskClaudeBridgeException(this.message);
@@ -195,10 +252,16 @@ class AskClaudeToolExecutor {
   /// that forgot to stop — that is what the bridge-side turn cap is for.
   final Duration timeout;
 
+  /// Клок устройства — сюда, чтобы тесты не зависели от настоящего времени.
+  /// Production leaves the default: the phone's own clock is the user's real
+  /// time and timezone, which is exactly what [deviceClockContext] states.
+  final DateTime Function() now;
+
   AskClaudeToolExecutor({
     required this.client,
     required this.sendToolResult,
     this.timeout = const Duration(seconds: 60),
+    this.now = DateTime.now,
   });
 
   /// Feed this directly to `HubControllerEvents.onToolRequest` /
@@ -246,7 +309,9 @@ class AskClaudeToolExecutor {
     // exact failure this tool exists to avoid. Only an explicit false opts out.
     final useTools = args['use_tools'] != false;
     try {
-      return await client.ask(question: question, toolsEnabled: useTools).timeout(timeout);
+      return await client
+          .ask(question: question, context: deviceClockContext(now()), toolsEnabled: useTools)
+          .timeout(timeout);
     } on TimeoutException {
       // Phrased as an instruction, not a bare error: this string is what the
       // model reads before speaking, and silence is the failure we are fixing.

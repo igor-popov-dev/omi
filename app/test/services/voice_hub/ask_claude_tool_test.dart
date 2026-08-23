@@ -154,6 +154,28 @@ void main() {
     });
   });
 
+  group('deviceClockContext', () {
+    test('states the device clock in Russian, self-describing under the bridge memory header', () {
+      // 23.08.2026 — воскресенье; the offset suffix depends on the machine's
+      // timezone, so only the deterministic prefix is pinned here (UTC offset
+      // formatting has its own test below).
+      final text = deviceClockContext(DateTime(2026, 8, 23, 19, 37));
+
+      expect(text, startsWith('Время на устройстве пользователя: воскресенье, 23 августа 2026, 19:37 (UTC'));
+      expect(text, endsWith(').'));
+    });
+
+    test('pads single-digit hours and minutes', () {
+      expect(deviceClockContext(DateTime(2026, 1, 5, 9, 4)), contains('понедельник, 5 января 2026, 09:04'));
+    });
+
+    test('formats the UTC offset with sign and padding', () {
+      // A UTC DateTime has a zero timeZoneOffset on every machine — the one
+      // offset value a test can pin without depending on the host timezone.
+      expect(deviceClockContext(DateTime.utc(2026, 8, 23, 19, 37)), endsWith('(UTC+00:00).'));
+    });
+  });
+
   group('AskClaudeToolExecutor', () {
     test('ignores a tool call whose name is not ask_claude', () async {
       var calls = 0;
@@ -200,6 +222,33 @@ void main() {
 
       expect(jsonDecode(captured!.body)['tools_enabled'], true);
       expect(result, (callId: 'call-1', name: askClaudeToolName, output: 'ANSWER'));
+    });
+
+    test('sends the device clock as context on every call', () async {
+      http.Request? captured;
+      final client = AskClaudeBridgeClient(httpClient: MockClient((r) async {
+        captured = r;
+        return http.Response(
+            _sse([
+              {'type': 'done', 'text': 'ANSWER'}
+            ]),
+            200);
+      }));
+      final recorder = _toolResultRecorder();
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: recorder.callback,
+        now: () => DateTime(2026, 8, 23, 19, 37),
+      );
+
+      executor.handle(HubToolCallRequest(
+        name: askClaudeToolName,
+        callId: 'call-clock',
+        argumentsJson: jsonEncode({'question': 'который час?'}),
+      ));
+      await recorder.result;
+
+      expect(jsonDecode(captured!.body)['context'], deviceClockContext(DateTime(2026, 8, 23, 19, 37)));
     });
 
     test('a missing/empty question never calls the bridge and returns an error result', () async {
