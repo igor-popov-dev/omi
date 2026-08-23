@@ -252,6 +252,42 @@ void main() {
       expect(result.output, contains('Error'));
     });
 
+    test('tools are on unless the model explicitly opts out', () async {
+      // The bridge loads MCP servers only when tools_enabled is true, so a call
+      // that omits use_tools used to reach Claude with no memory at all — it
+      // answered "I have no memory tools" and went hunting through the file
+      // system instead (observed live, 23.08).
+      Future<http.Response> respond(http.Request r) async => http.Response(
+            _sse([
+              {'type': 'done', 'text': 'ANSWER'}
+            ]),
+            200,
+          );
+
+      for (final entry in {
+        {'question': 'q'}: true, // omitted -> on
+        {'question': 'q', 'use_tools': true}: true,
+        {'question': 'q', 'use_tools': false}: false, // explicit opt-out honoured
+      }.entries) {
+        http.Request? captured;
+        final client = AskClaudeBridgeClient(httpClient: MockClient((r) {
+          captured = r;
+          return respond(r);
+        }));
+        final recorder = _toolResultRecorder();
+        final executor = AskClaudeToolExecutor(client: client, sendToolResult: recorder.callback);
+
+        executor.handle(HubToolCallRequest(
+          name: askClaudeToolName,
+          callId: 'c',
+          argumentsJson: jsonEncode(entry.key),
+        ));
+        await recorder.result;
+
+        expect(jsonDecode(captured!.body)['tools_enabled'], entry.value, reason: 'args: ${entry.key}');
+      }
+    });
+
     test('a hung bridge still answers the call — the model never sits in silence forever', () async {
       // Never completes: the failure this guards is a bridge that accepts the
       // request and then goes quiet, which used to leave the turn hanging with

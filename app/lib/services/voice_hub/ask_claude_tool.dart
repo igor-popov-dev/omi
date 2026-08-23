@@ -57,9 +57,9 @@ const VoiceToolDeclaration askClaudeToolDeclaration = VoiceToolDeclaration(
       'приватный мост — используй для многошаговых рассуждений, разбора кода, доступа к '
       'памяти (omi/mempalace) или веб-поиска, которые ты сам сделать не можешь. Вызывай '
       'ТОЛЬКО по явной просьбе пользователя в этом же ходе разговора, никогда фоново/сам '
-      'по себе. Прежде чем вызвать инструмент, ОБЯЗАТЕЛЬНО вслух скажи короткую фразу вроде '
-      '"секунду, уточню" — вызов может занять несколько секунд, и без этой фразы будет '
-      'немая пауза.',
+      'по себе. СНАЧАЛА вслух скажи ровно "секунду, уточняю" и ТОЛЬКО ПОТОМ вызывай '
+      'инструмент — вызов занимает несколько секунд, и фраза, сказанная после результата, '
+      'бесполезна: пользователь уже отсидел паузу в тишине.',
   parameters: {
     'type': 'object',
     'properties': {
@@ -69,9 +69,10 @@ const VoiceToolDeclaration askClaudeToolDeclaration = VoiceToolDeclaration(
       },
       'use_tools': {
         'type': 'boolean',
-        'description': 'true, только если пользователь явно просит проверить память/факты/'
-            'найти что-то в интернете; false для обычного рассуждения без побочных вызовов. '
-            'По умолчанию false.',
+        'description': 'По умолчанию true: с ним у "умной модели" есть память (omi/mempalace) '
+            'и веб-поиск. Ставь false ТОЛЬКО для чистого рассуждения, которому не нужны ни '
+            'факты о пользователе, ни что-либо из интернета — без инструментов модель не '
+            'знает о пользователе ничего.',
       },
     },
     'required': ['question'],
@@ -176,12 +177,16 @@ class AskClaudeToolExecutor {
   /// assistant having died mid-sentence, with no way out but killing the
   /// session. On expiry we answer the call ourselves with an error result —
   /// the model gets its turn back and can say what happened out loud.
+  ///
+  /// Sized against a measured call, not a guess: a memory-backed answer with
+  /// MCP servers cold-starting took 26s on 23.08, so a shorter deadline would
+  /// cut off exactly the calls this tool exists for.
   final Duration timeout;
 
   AskClaudeToolExecutor({
     required this.client,
     required this.sendToolResult,
-    this.timeout = const Duration(seconds: 25),
+    this.timeout = const Duration(seconds: 45),
   });
 
   /// Feed this directly to `HubControllerEvents.onToolRequest` /
@@ -212,7 +217,10 @@ class AskClaudeToolExecutor {
     if (question is! String || question.isEmpty) {
       return 'Error: ask_claude called without a question';
     }
-    final useTools = args['use_tools'] == true;
+    // Default ON, not off: without tools the bridge starts Claude with no MCP servers at
+    // all, so it knows nothing about the user and answers "I have no memory tools" — the
+    // exact failure this tool exists to avoid. Only an explicit false opts out.
+    final useTools = args['use_tools'] != false;
     try {
       return await client.ask(question: question, toolsEnabled: useTools).timeout(timeout);
     } on TimeoutException {
