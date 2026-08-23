@@ -122,9 +122,16 @@ class VoxTranscriptPoller {
     _callId = null;
   }
 
-  /// One last read after the call ended: the backend's final window lands seconds after
-  /// the hang-up, and the adapter holds a finished call's text for a while precisely so
-  /// the tail is not lost. Errors here are not worth reporting — the call is over.
+  /// One last read after the call ended, and one is enough — measured, not assumed.
+  ///
+  /// The comment here used to say the backend's final window lands after the hang-up.
+  /// Lane 6 tick 37 measured the live path twice (45s and 32s of speech): after the
+  /// hang-up nothing arrives at all, for 40 seconds of asking. The last window lands
+  /// 5-6 seconds BEFORE the call ends; the speech after it is finalised when the socket
+  /// closes and goes to the saved conversation, which is where the screen should read
+  /// the closing words from. What this read is genuinely for is the gap between the last
+  /// scheduled poll and the hang-up — up to one [interval]. Errors are not worth
+  /// reporting: the call is over.
   Future<void> drain() async {
     if (!configured || _callId == null) return;
     _timer?.cancel();
