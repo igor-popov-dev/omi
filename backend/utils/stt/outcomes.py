@@ -18,7 +18,7 @@ _PUBLIC_FAILURES: dict[TranscriptionOutcome, tuple[int, str, str]] = {
     TranscriptionOutcome.EMPTY_UNEXPECTED: (
         502,
         'stt_empty_unexpected',
-        'Speech was detected, but the transcription provider returned no transcript.',
+        'No speech could be recognized in the recording. Please record again.',
     ),
     TranscriptionOutcome.TIMEOUT: (504, 'stt_timeout', 'The transcription provider timed out.'),
     TranscriptionOutcome.UPSTREAM_ERROR: (
@@ -62,7 +62,6 @@ class TranscriptionFailure(RuntimeError):
         self.retryable = (
             outcome
             in {
-                TranscriptionOutcome.EMPTY_UNEXPECTED,
                 TranscriptionOutcome.TIMEOUT,
                 TranscriptionOutcome.UPSTREAM_ERROR,
             }
@@ -124,6 +123,14 @@ def failure_from_exception(error: BaseException, *, provider: str | None = None)
 
 
 def empty_unexpected_failure(provider: str | None = None) -> TranscriptionFailure:
-    """Create the shared failure for speech-positive audio with an empty result."""
+    """Create the shared failure for speech-positive audio with an empty result.
+
+    Not retryable on purpose. Every caller of this helper holds pre-recorded
+    audio, so a retry re-sends bytes that cannot change to a provider that
+    already read them as wordless — the same empty result comes back, and a
+    client that trusts ``retryable`` loops on it forever. The outcome itself
+    stays ``empty_unexpected`` so a genuinely broken recognizer is still
+    distinguishable in metrics from VAD-confirmed silence.
+    """
 
     return TranscriptionFailure(TranscriptionOutcome.EMPTY_UNEXPECTED, provider=provider)
