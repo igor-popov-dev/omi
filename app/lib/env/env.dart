@@ -176,6 +176,9 @@ abstract class Env {
 
   static String? get googleMapsApiKey => _instance.googleMapsApiKey;
 
+  /// Ключ Яндекс.Карт (Static API). Нужен, только если выбран этот картограф.
+  static String? get yandexMapsApiKey => const String.fromEnvironment('OMI_YANDEX_MAPS_API_KEY');
+
   static String? get intercomAppId => _instance.intercomAppId;
 
   static String? get intercomIOSApiKey => _instance.intercomIOSApiKey;

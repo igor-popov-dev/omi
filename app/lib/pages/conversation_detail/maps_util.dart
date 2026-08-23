@@ -5,8 +5,60 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:omi/env/env.dart';
 
+/// Источник картинки карты для страницы разговора.
+///
+/// Google Static Maps требует ключ и включённый биллинг, и в странах, где Google
+/// Maps не основной картограф, он же не самый полезный. Поэтому источник выбирается,
+/// а не зашит: без ключа берётся OpenStreetMap, который работает вообще без
+/// регистрации, поэтому карта не остаётся пустой рамкой «не удалось загрузить».
+enum MapProvider {
+  /// OpenStreetMap — без ключа и без биллинга, работает везде.
+  openStreetMap,
+
+  /// Яндекс.Карты — подробнее в России и СНГ; нужен бесплатный ключ Static API.
+  yandex,
+
+  /// Google — тёмная тема и стилизация, нужен ключ с включённым биллингом.
+  google,
+}
+
 class MapsUtil {
+  /// Что использовать. По умолчанию — источник, для которого ничего не нужно
+  /// настраивать: пустая карта хуже простой карты.
+  static MapProvider provider = MapProvider.openStreetMap;
+
   static String getMapImageUrl(double lat, double lng) {
+    switch (provider) {
+      case MapProvider.openStreetMap:
+        return _openStreetMapUrl(lat, lng);
+      case MapProvider.yandex:
+        return _yandexUrl(lat, lng);
+      case MapProvider.google:
+        return _googleUrl(lat, lng);
+    }
+  }
+
+  /// OpenStreetMap через staticmap-сервис: ключ не нужен.
+  static String _openStreetMapUrl(double lat, double lng) {
+    return "https://staticmap.openstreetmap.de/staticmap.php"
+        "?center=$lat,$lng&zoom=15&size=800x500&maptype=mapnik"
+        "&markers=$lat,$lng,red-pushpin";
+  }
+
+  /// Яндекс.Карты Static API. Ключ бесплатный, но обязательный: без него сервис
+  /// отвечает ошибкой, поэтому при пустом ключе честно отдаём OpenStreetMap.
+  static String _yandexUrl(double lat, double lng) {
+    final key = Env.yandexMapsApiKey;
+    if (key == null || key.isEmpty) {
+      return _openStreetMapUrl(lat, lng);
+    }
+    // У Яндекса порядок координат обратный: долгота,широта.
+    return "https://static-maps.yandex.ru/v1"
+        "?ll=$lng,$lat&z=15&size=650,450&lang=ru_RU&apikey=$key"
+        "&pt=$lng,$lat,pm2rdm";
+  }
+
+  static String _googleUrl(double lat, double lng) {
     // Dark theme Google Maps with minimal labels
     const String baseUrl = "https://maps.googleapis.com/maps/api/staticmap";
     final String center = "center=$lat,$lng";
