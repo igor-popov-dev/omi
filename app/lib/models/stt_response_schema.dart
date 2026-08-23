@@ -37,6 +37,10 @@ class SttResponseSchema {
     segmentsSpeakerField: 'speaker',
     segmentsSpeakerIdField: 'speaker_id',
     segmentsIsUserField: 'is_user',
+    // Without this the live transcript falls back to "Speaker N" even when the
+    // server already knows whose voice it is: the label comes from the person
+    // looked up by this id, not from the speaker name.
+    segmentsPersonIdField: 'person_id',
     textPath: 'text',
   );
 
