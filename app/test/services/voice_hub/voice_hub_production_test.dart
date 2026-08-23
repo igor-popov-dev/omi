@@ -16,6 +16,15 @@
 //     against fakes, do). The `toolExecutor` wiring this function adds is
 //     covered instead at the seam it plugs into: `voice_turn_driver_test.dart`
 //     "hub tool loop (real executor wired)".
+//   * `createProductionFreeFormVoiceMode` — same reasoning: its
+//     `startCapture` factory is the same real-platform-channel
+//     `nativeMicHubCaptureFactory`/`NativeMicRecorderService` pair above,
+//     and its own start/stop/idle-timeout logic is already exercised
+//     hermetically against a plain `HubController` in
+//     `free_form_voice_mode_test.dart`. The `onToolRequest` wiring this
+//     function adds is the same `AskClaudeToolExecutor` seam as
+//     `createProductionVoiceHubTurnDriver`'s, so it needs no separate
+//     coverage here either.
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/ask_claude_tool.dart';

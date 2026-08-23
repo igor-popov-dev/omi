@@ -55,6 +55,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 
 import 'package:omi/backend/http/shared.dart';
 import 'package:omi/env/env.dart';
@@ -62,6 +63,7 @@ import 'package:omi/services/mic/native_mic_recorder_service.dart';
 
 import 'ask_claude_tool.dart';
 import 'cf_access_http_client.dart';
+import 'free_form_voice_mode.dart';
 import 'gemini_hub_session.dart';
 import 'hub_controller.dart';
 import 'hub_ptt_capture.dart';
@@ -176,3 +178,83 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
 }
 
 bool _defaultFreeFormModeOff() => false;
+
+/// Assembles a real, network-backed [FreeFormVoiceMode] — the free-form
+/// (server-VAD) sibling of [createProductionVoiceHubTurnDriver], same "not
+/// auto-invoked" discipline (see file header): nothing calls this yet.
+///
+/// Deliberately built on its OWN [HubController], not the one inside a
+/// [VoiceHubTurnDriver] built by [createProductionVoiceHubTurnDriver] —
+/// investigated and rejected sharing one instance between the two modes
+/// (lane5-log.md, tick after 503ad1ed0c): `VoiceHubTurnDriver` wires
+/// `HubControllerEvents` internally against its own private `_hub` and its
+/// own `_turnId` field (`voice_turn_driver.dart`'s `_hubEvents()` — e.g.
+/// `onInputTranscript` bails out whenever `_turnId == null`); a turn opened
+/// by [FreeFormVoiceMode] under its own minted id would drive that same
+/// `HubController` while the driver's `_turnId` stays null, so every
+/// transcript/speaking/tool event would be silently dropped by the driver's
+/// own guards rather than routed anywhere. Splitting the controller avoids
+/// that dead-drop entirely, at the cost of two independent warm sockets
+/// (each mints its own token) if a caller ever ran both modes at once — an
+/// accepted cost because the two modes are mutually exclusive by design
+/// (one voice-input surface active at a time; the eventual UI toggle is
+/// expected to tear one down before starting the other, not run both).
+///
+/// [events] receives every hub event the PTT driver would otherwise
+/// consume (connect/error/transcript/speaking/turn-done) — required, no
+/// no-op default (same discipline as `applyProjection` above: an unwired
+/// sink should be visible in the caller's dependency list, not silently
+/// swallowed here). `onToolRequest` on the [HubControllerEvents] you pass in
+/// is never read — this factory always owns tool execution itself (real
+/// `ask_claude` wiring, same as the PTT driver), exactly like
+/// [createProductionVoiceHubTurnDriver] never lets a caller override that
+/// either. `onCascadeHandoff` will never fire on this controller: that event
+/// exists only for the PTT driver's warm-wait race
+/// (`HubController.handoffWarmWaitToCascade`), which nothing here ever
+/// calls — free-form mode has no warm-wait/cascade concept.
+FreeFormVoiceMode createProductionFreeFormVoiceMode({
+  required HubControllerEvents events,
+  http.Client? bridgeHttpClient,
+  Duration? idleTimeout = const Duration(minutes: 3),
+  void Function()? onIdleTimeout,
+}) {
+  late final HubController hub;
+
+  final askClaudeExecutor = AskClaudeToolExecutor(
+    client: AskClaudeBridgeClient(httpClient: bridgeHttpClient ?? CfAccessHttpClient()),
+    sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
+  );
+
+  hub = HubController(
+    events: HubControllerEvents(
+      onConnected: events.onConnected,
+      onError: events.onError,
+      onInputTranscript: events.onInputTranscript,
+      onAssistantText: events.onAssistantText,
+      onSpeakingStart: events.onSpeakingStart,
+      onSpeakingEnd: events.onSpeakingEnd,
+      onToolRequest: (call, identity) => askClaudeExecutor.handle(call),
+      onTurnDone: events.onTurnDone,
+      onCascadeHandoff: events.onCascadeHandoff,
+    ),
+    buildInstructions: buildProductionHubInstructions,
+    mintToken: mintGeminiHubToken,
+    createSession: (spec) => GeminiHubSession(
+      token: spec.token,
+      instructions: spec.instructions,
+      playerFactory: nativeVoicePlayerFactory,
+      events: spec.events,
+      tools: spec.tools,
+      freeFormMode: true,
+    ),
+    fetchTools: fetchHubTools,
+  );
+
+  return FreeFormVoiceMode(
+    hub: hub,
+    startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
+    mintTurnId: () => const Uuid().v4(),
+    idleTimeout: idleTimeout,
+    onIdleTimeout: onIdleTimeout,
+  );
+}
