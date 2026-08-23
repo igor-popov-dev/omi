@@ -108,4 +108,86 @@ void main() {
       expect(VoximplantCallService.parseAudioDevice('Telepathy'), isNull);
     });
   });
+
+  group('VoximplantCallService microphone foreground service', () {
+    /// Records what the platform channel would have been asked to do.
+    ({VoximplantCallService service, List<bool> calls}) serviceWatching({bool refuse = false}) {
+      final calls = <bool>[];
+      final service = VoximplantCallService(holdMicService: (hold) async {
+        calls.add(hold);
+        return !(refuse && hold);
+      });
+      return (service: service, calls: calls);
+    }
+
+    test('the states that carry audio hold the service, the rest release it', () {
+      // Ringing counts: the user can put the app in the background while it is still
+      // ringing, and Android suspends the microphone of a backgrounded app regardless.
+      expect(VoximplantCallService.micServiceHeldIn(PhoneCallState.connecting), isTrue);
+      expect(VoximplantCallService.micServiceHeldIn(PhoneCallState.ringing), isTrue);
+      expect(VoximplantCallService.micServiceHeldIn(PhoneCallState.active), isTrue);
+      expect(VoximplantCallService.micServiceHeldIn(PhoneCallState.ended), isFalse);
+      expect(VoximplantCallService.micServiceHeldIn(PhoneCallState.failed), isFalse);
+      expect(VoximplantCallService.micServiceHeldIn(PhoneCallState.idle), isFalse);
+    });
+
+    test('a whole call holds the service once and releases it once', () async {
+      final w = serviceWatching();
+      for (final state in [
+        PhoneCallState.connecting,
+        PhoneCallState.ringing,
+        PhoneCallState.active,
+        PhoneCallState.ended,
+      ]) {
+        w.service.emitState(state);
+      }
+      await pumpEventQueue();
+
+      // Not [true, true, true, false]: starting an already running service is a no-op the
+      // user pays for in wakeups, and the released state has to be reached exactly once.
+      expect(w.calls, [true, false]);
+    });
+
+    test('a failed call releases the service just like a normal hangup', () async {
+      final w = serviceWatching();
+      w.service.emitState(PhoneCallState.connecting);
+      w.service.emitState(PhoneCallState.failed);
+      await pumpEventQueue();
+
+      expect(w.calls, [true, false]);
+    });
+
+    test('a refused service is not "stopped" afterwards', () async {
+      // Android can refuse to start a foreground service (no permission, background start).
+      // Stopping what never started would be harmless noise here, but the same bookkeeping
+      // error in the other direction leaves the microphone notification up for good.
+      final w = serviceWatching(refuse: true);
+      w.service.emitState(PhoneCallState.connecting);
+      await pumpEventQueue();
+      w.service.emitState(PhoneCallState.ended);
+      await pumpEventQueue();
+
+      expect(w.calls, [true]);
+    });
+
+    test('two states in the same turn do not start the service twice', () async {
+      // Both emits land before the first await resolves — the flag has to be set before it.
+      final w = serviceWatching();
+      w.service.emitState(PhoneCallState.connecting);
+      w.service.emitState(PhoneCallState.ringing);
+      await pumpEventQueue();
+
+      expect(w.calls, [true]);
+    });
+
+    test('the state still reaches the listener while the service is being held', () async {
+      final w = serviceWatching();
+      final seen = <PhoneCallState>[];
+      w.service.onCallStateChanged = seen.add;
+      w.service.emitState(PhoneCallState.active);
+      await pumpEventQueue();
+
+      expect(seen, [PhoneCallState.active]);
+    });
+  });
 }

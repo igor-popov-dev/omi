@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_voximplant/flutter_voximplant.dart';
 import 'package:omi/backend/schema/phone_call.dart';
 import 'package:omi/models/audio_route.dart';
@@ -23,10 +26,26 @@ import 'package:omi/utils/logger.dart';
 ///   password never leaves the server). Hence [login] takes the node from the backend's
 ///   keyless answer and calls back into it once more with the key.
 ///
+/// * **The microphone foreground service is this class's job.** On the Twilio path the
+///   Kotlin plugin starts it around `Voice.connect`; nothing in that plugin runs here, and
+///   Android suspends microphone capture for a backgrounded app no matter which SDK holds
+///   the call. So every state change goes through [emitState], which holds the service for
+///   exactly the states that carry audio — see [micServiceHeldIn].
+///
 /// The public surface mirrors [PhoneCallService] so `PhoneCallProvider` can hold either one.
 class VoximplantCallService {
   /// Voximplant silently drops `customData` longer than this.
   static const int _customDataLimit = 200;
+
+  /// Same channel the Twilio path uses; only the two mic-service methods are called on it.
+  static const MethodChannel _platform = MethodChannel('com.omi/phone_calls');
+
+  /// Holds/releases the Android microphone foreground service. Injectable so the state
+  /// machine below can be tested without a platform channel.
+  final Future<bool> Function(bool hold) holdMicService;
+
+  VoximplantCallService({Future<bool> Function(bool hold)? holdMicService})
+      : holdMicService = holdMicService ?? _defaultHoldMicService;
 
   Function(PhoneCallState state)? onCallStateChanged;
   Function(PhoneCallError error)? onError;
@@ -37,6 +56,7 @@ class VoximplantCallService {
   VICall? _call;
   bool _isMuted = false;
   bool _audioListenerAttached = false;
+  bool _micHeld = false;
 
   /// The SDK is connected and logged in — a call may be placed.
   bool get isLoggedIn => _loggedIn;
@@ -125,7 +145,7 @@ class VoximplantCallService {
       final call = await client.call(phoneNumber, settings: settings);
       _bindCall(call);
       _isMuted = false;
-      onCallStateChanged?.call(PhoneCallState.connecting);
+      emitState(PhoneCallState.connecting);
       return true;
     } on VIException catch (e) {
       Logger.error('VoximplantCallService: call failed: ${e.code} ${e.message}');
@@ -212,6 +232,10 @@ class VoximplantCallService {
 
   void dispose() {
     _call = null;
+    // A held service outlives this object: it is a system service with a notification, not
+    // a listener. Releasing it here is what keeps a torn-down provider from leaving the
+    // microphone notification up until the process dies.
+    unawaited(_syncMicService(false));
     Voximplant().audioDeviceManager.onAudioDeviceChanged = null;
     _audioListenerAttached = false;
   }
@@ -227,6 +251,23 @@ class VoximplantCallService {
       if (node.name.toLowerCase() == wanted) return node;
     }
     return null;
+  }
+
+  /// Whether the microphone foreground service must be held while the call is in [state].
+  ///
+  /// Held from the moment the call is placed, not from [PhoneCallState.active]: the app can
+  /// be backgrounded while it is still ringing, and the microphone has to survive that.
+  static bool micServiceHeldIn(PhoneCallState state) {
+    switch (state) {
+      case PhoneCallState.connecting:
+      case PhoneCallState.ringing:
+      case PhoneCallState.active:
+        return true;
+      case PhoneCallState.idle:
+      case PhoneCallState.ended:
+      case PhoneCallState.failed:
+        return false;
+    }
   }
 
   /// The `{"uid": …, "call_id": …}` the cloud scenario parses, or null if it would not fit.
@@ -281,6 +322,44 @@ class VoximplantCallService {
   // *********** PRIVATE HELPERS ********************
   // ************************************************
 
+  /// The single door every call state leaves through, so the microphone service can never
+  /// be left running by a path that forgot about it.
+  ///
+  /// Not private only so the tests can drive the state machine without an SDK.
+  @visibleForTesting
+  void emitState(PhoneCallState state) {
+    unawaited(_syncMicService(micServiceHeldIn(state)));
+    onCallStateChanged?.call(state);
+  }
+
+  Future<void> _syncMicService(bool hold) async {
+    if (hold == _micHeld) return;
+    // Set before awaiting: two state changes can land in the same event-loop turn (ringing
+    // then failed), and a flag set after the await would let both see the old value and
+    // start the service twice — or, worse, release it and then hold it forever.
+    _micHeld = hold;
+    final ok = await holdMicService(hold);
+    if (!ok && hold) {
+      _micHeld = false;
+      Logger.error('VoximplantCallService: mic foreground service refused; '
+          'audio will drop if the app is backgrounded');
+    }
+  }
+
+  static Future<bool> _defaultHoldMicService(bool hold) async {
+    // Android only: iOS keeps the microphone alive through the `audio` background mode
+    // declared in Info.plist, and the iOS plugin has no such method to call.
+    if (kIsWeb || !Platform.isAndroid) return true;
+    try {
+      final result =
+          await _platform.invokeMethod<bool>(hold ? 'startMicForegroundService' : 'stopMicForegroundService');
+      return hold ? (result ?? false) : true;
+    } catch (e) {
+      Logger.error('VoximplantCallService: mic foreground service error: $e');
+      return false;
+    }
+  }
+
   void _attachAudioDeviceListener() {
     if (_audioListenerAttached) return;
     Voximplant().audioDeviceManager.onAudioDeviceChanged = (manager, device) {
@@ -291,18 +370,18 @@ class VoximplantCallService {
 
   void _bindCall(VICall call) {
     _call = call;
-    call.onCallRinging = (call, headers) => onCallStateChanged?.call(PhoneCallState.ringing);
-    call.onCallConnected = (call, headers) => onCallStateChanged?.call(PhoneCallState.active);
+    call.onCallRinging = (call, headers) => emitState(PhoneCallState.ringing);
+    call.onCallConnected = (call, headers) => emitState(PhoneCallState.active);
     call.onCallDisconnected = (call, headers, answeredElsewhere) {
       _call = null;
-      onCallStateChanged?.call(PhoneCallState.ended);
+      emitState(PhoneCallState.ended);
     };
     call.onCallFailed = (call, code, description, headers) {
       _call = null;
       // 486 and 603 are the scenario refusing (quota, direction, no verified number) or the
       // other side declining — telling them apart matters more than the SIP number does.
       _reportError('SIP_$code', description.trim().isEmpty ? 'The call could not be completed.' : description);
-      onCallStateChanged?.call(PhoneCallState.failed);
+      emitState(PhoneCallState.failed);
     };
   }
 
