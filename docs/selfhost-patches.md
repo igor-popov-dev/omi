@@ -37,6 +37,12 @@
 | Индикация записи | — | `app/lib/services/capture/stt_display_status.dart`, `capture_controller.dart`, `app/lib/pages/conversation_capturing/page.dart` | Видимое состояние распознавания вместо «Listening» без информации |
 | Подпись сборки | — | `app/android/app/build.gradle` | Свой ключ подписи (`OMI_SELFHOST_SIGNING`) |
 | Голосовой хаб | `app/lib/services/voice_hub/*`, `app/android/.../voiceplayer/*` | точки подключения в `main.dart`, `capture_controller.dart`, `pages/chat/` | Свободный голосовой режим (Gemini Live + Charon) и инструмент `ask_claude` — наш клей, в upstream не отдаём |
+| Гарнитура в голосовом режиме | `app/android/.../voiceplayer/VoiceRouteCoordinator.kt` | `StreamingPcmPlayerController.kt` — поле + `engage()`/`release()` рядом с audio focus | `AudioSource.MIC` следует медийной маршрутизации, поэтому Bluetooth-наушники микрофон не отдавали: ответ звучал в ушах, а говорил человек в телефон. На время сессии звук уходит в режим связи и закрепляется за гарнитурой; область узкая — фоновая запись это не затрагивает |
+| Голосовой диалог в чате | `app/lib/services/voice_hub/voice_chat_log.dart`, `backend/routers/selfhost_voice_log.py` | `backend/main.py` — одна строка `include_router`; `free_form_voice_mode_projection.dart`, `capture_controller.dart`, `main.dart` — проводка | Голос жил в своём сокете и не попадал в историю: два ассистента, каждый не знает о другом. Роут сохраняет уже произнесённые реплики дословно и НЕ генерирует ответ — обмен состоялся вслух |
+| Неблокирующий `ask_claude` | `app/lib/services/voice_hub/ask_claude_tool.dart` (поле `announce`) | — | Пока не пришёл tool result, Gemini обязана молчать, поэтому круг к Opus был мёртвым эфиром (44 с, замер 23.08). Ход освобождается сразу, ответ приходит отдельной репликой и озвучивается |
+| Устойчивость голосового режима | `capture_controller.dart` (`recoverFreeFormVoiceMode`), `hub_session.dart`/`gemini_hub_session.dart` (`sendUserText`) | `free_form_voice_mode_projection.dart` — ошибка доезжает с причиной | Обрыв гасил разговор молча, без слова вслух и без строчки в логе. Теперь сессия переподключается и объясняется голосом; три обрыва за две минуты — выключение, чтобы не жечь поминутную оплату |
+| Выходы из записи голосового сообщения | — | `app/lib/pages/chat/widgets/voice_recorder_widget.dart` — крестик в состояниях `recording`, `transcribing`, `transcribeFailed` | Записи и расшифровке некуда было деться: единственной кнопкой была отправка, и зависшее распознавание блокировало композер намертво |
+| Устный стиль и потолок ходов | `marathon/ask_claude_bridge.py` (флаг `voice`, `max_turns`) в штабе omi-jarvis | `voice_hub_production.dart` — `maxTurns`, `ask_claude_tool.dart` — `'voice': true` | Ответ читается вслух: две фразы, 50 слов, без списков. Потолок ходов — против агента, который уходит на 12 ходов и 90 секунд; пустой результат при обрыве превращается во фразу, а не в тишину |
 
 ## Пробросы окружения на mini (вне git — теряются молча)
 
@@ -47,6 +53,11 @@
 - `MCP_RESOURCE_URL`, `MCP_AUTHORIZATION_SERVER_URL` — иначе MCP OAuth указывает на прод omi.
 - `FIREBASE_*` — свой Firebase-проект.
 - `BUCKET_TEMPORAL_SYNC_LOCAL` — без него заливка аудио падает до распознавания.
+- `ASK_CLAUDE_MODEL=opus` в `~/Library/LaunchAgents/ai.omi-jarvis.claude-bridge.plist` —
+  модель мозга. Правило «Opus 5 везде» и карта всех трёх мест выбора модели — `~/omi-jarvis/PLAN.md` §4.
+- `ASK_CLAUDE_MCP_CONFIG` — курированный набор MCP (`bridge-mcp-config.json`: memory,
+  mempalace, omi). Ключ MCP в нём протухает при ротации: если Claude отвечает «нет
+  инструментов памяти», сверь его с `OMI_MCP_TOKEN` в `~/.secrets/omi.env`.
 - Незакоммиченная правка `backend/config/stt_provider_policy.py` в боевом дереве — без неё
   русский уходит к чужому провайдеру и транскрипт звонка молча пустой.
 
