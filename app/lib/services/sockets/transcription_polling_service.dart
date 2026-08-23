@@ -330,6 +330,15 @@ class SchemaBasedSttProvider implements ISttProvider {
     throw StateError('unreachable');
   }
 
+  // Self-host fix: force a fresh connection per transcribe() request.
+  // Keep-alive reuse wedged real uploads through the Cloudflare tunnel: the
+  // FIRST request of a process completed (fresh TCP+TLS), every LATER one
+  // stalled mid-body until the client-side deadline (CF edge logged 25x 499
+  // "client closed" vs 2x 200 in one 40-minute window) — the pooled socket
+  // goes stale between flushes but is never detected as dead. One extra TLS
+  // handshake per flush (~100ms every ~5s) is noise next to a wedged drain.
+  static const _connectionClose = {'connection': 'close'};
+
   @override
   Future<SttTranscriptionResult?> transcribe(dynamic audioData, {double audioOffsetSeconds = 0}) async {
     final Uint8List audioBytes = audioData is Uint8List ? audioData : Uint8List.fromList(audioData);
@@ -347,7 +356,9 @@ class SchemaBasedSttProvider implements ISttProvider {
       switch (requestBodyType) {
         case SttRequestBodyType.rawBinary:
           response = await _sendWithRetry(
-            () => _client.post(uri, headers: defaultHeaders, body: audioBytes).timeout(requestTimeout),
+            () => _client
+                .post(uri, headers: {...defaultHeaders, ..._connectionClose}, body: audioBytes)
+                .timeout(requestTimeout),
           );
           break;
 
@@ -358,7 +369,8 @@ class SchemaBasedSttProvider implements ISttProvider {
           final audioInput = audioUrlFromUpload ?? base64Encode(audioBytes);
           response = await _sendWithRetry(
             () => _client
-                .post(uri, headers: defaultHeaders, body: jsonEncode(jsonBodyBuilder!(audioInput)))
+                .post(uri,
+                    headers: {...defaultHeaders, ..._connectionClose}, body: jsonEncode(jsonBodyBuilder!(audioInput)))
                 .timeout(requestTimeout),
           );
           break;
@@ -367,6 +379,7 @@ class SchemaBasedSttProvider implements ISttProvider {
           response = await _sendWithRetry(() async {
             final request = http.MultipartRequest('POST', uri)
               ..headers.addAll(defaultHeaders)
+              ..headers.addAll(_connectionClose)
               ..fields.addAll(defaultFields)
               ..files.add(http.MultipartFile.fromBytes(audioFieldName, audioBytes, filename: 'audio.wav'));
 
