@@ -139,6 +139,11 @@ class _AppsListState extends State<_AppsList> {
     }
   }
 
+  // Загрузка закончилась — независимо от того, что пришло. Без этого флага «пусто»
+  // и «ещё грузится» неразличимы: обе ветки давали пустые списки, и лист навсегда
+  // застревал в скелете (у пользователя без единого установленного шаблона — всегда).
+  bool _loaded = false;
+
   Future<void> _fetchApps() async {
     try {
       await Future.wait([
@@ -147,6 +152,10 @@ class _AppsListState extends State<_AppsList> {
       ]);
     } catch (e) {
       Logger.debug('Error fetching apps: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loaded = true);
+      }
     }
   }
 
@@ -227,7 +236,7 @@ class _AppsListState extends State<_AppsList> {
     final enabledApps = widget.provider.cachedEnabledConversationApps;
     final suggestedApps = widget.provider.cachedSuggestedApps;
 
-    final isLoading = enabledApps.isEmpty && suggestedApps.isEmpty;
+    final isLoading = !_loaded && enabledApps.isEmpty && suggestedApps.isEmpty;
 
     if (isLoading) {
       return _buildShimmerLoading();
