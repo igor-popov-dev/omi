@@ -196,6 +196,9 @@ class _Harness {
   int createCalls = 0;
   _FakeSession? _session;
   List<VoiceToolDeclaration>? lastSpecTools;
+
+  /// Handle each built session was handed, in build order (nulls included).
+  final List<String?> specHandles = [];
   final _now = _NowBox(1000);
   final _FakeReconnectClock clock = _FakeReconnectClock();
   Future<String> Function() mintTokenImpl = () async => 'ek_token';
@@ -211,6 +214,7 @@ class _Harness {
       createSession: (spec) {
         createCalls += 1;
         lastSpecTools = spec.tools;
+        specHandles.add(spec.resumptionHandle);
         _session = _FakeSession(sid, spec.events);
         return _session!;
       },
@@ -968,6 +972,102 @@ void main() {
           const HubToolCallRequest(name: 'ask_claude', callId: 'c1', argumentsJson: '{}'), null);
 
       expect(seen, ['tool:ask_claude']);
+    });
+  });
+
+  // Conversation resumption (design doc §10). What the controller owns is
+  // narrow but load-bearing: the handle must outlive the SOCKET (that is the
+  // whole point of the 180s idle release case) without outliving the
+  // CONVERSATION, and a handle the server rejects must not keep poisoning
+  // every retry.
+  group('HubController — conversation resumption', () {
+    test('the first session is built with no handle; a handle offered later reaches the next one', () async {
+      final h = _Harness();
+      await _warmed(h);
+      expect(h.specHandles, [null]);
+
+      h.session.events.onResumptionHandle?.call('H1');
+      // The socket goes away (idle release) — the conversation must not.
+      h.controller.teardownSession();
+      await _warmed(h);
+      expect(h.specHandles, [null, 'H1']);
+    });
+
+    test('a withdrawn handle (model was mid-reply) is not used', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      h.session.events.onResumptionHandle?.call(null);
+      h.controller.teardownSession();
+      await _warmed(h);
+      expect(h.specHandles, [null, null]);
+      expect(h.controller.canResumeConversation, isFalse);
+    });
+
+    test('a handle older than the TTL is dropped rather than resumed into', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      h.controller.teardownSession();
+      h.nowMs = h.nowMs + HubController.resumptionHandleTtlMs + 1;
+      await _warmed(h);
+      expect(h.specHandles, [null, null]);
+    });
+
+    test('a handle just inside the TTL is still used', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      h.controller.teardownSession();
+      h.nowMs = h.nowMs + HubController.resumptionHandleTtlMs - 1;
+      await _warmed(h);
+      expect(h.specHandles, [null, 'H1']);
+    });
+
+    test('a session that dies BEFORE connecting discards the handle it carried', () async {
+      // Measured 24.08: a handle the server no longer knows closes the socket
+      // with 1008 "session not found" at handshake. Keeping it would fail
+      // every re-warm identically until the circuit opened.
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      h.controller.teardownSession();
+
+      final p = h.controller.ensureWarm();
+      unawaited(p.catchError((Object _) => sid));
+      await _tick();
+      expect(h.specHandles, [null, 'H1']); // built with the handle...
+      await _failBeforeConnect(h);
+      expect(h.controller.canResumeConversation, isFalse);
+
+      await _warmed(h);
+      expect(h.specHandles, [null, 'H1', null]); // ...and the retry goes blank
+    });
+
+    test('a session that dies AFTER connecting keeps the handle — the drop is not the handle\'s fault', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      h.controller.teardownSession();
+      await _warmed(h); // connected fine while carrying H1
+      h.session.events.onResumptionHandle?.call('H2');
+      h.session.fail('mid-session drop', true, 1011);
+      await _tick();
+      expect(h.controller.canResumeConversation, isTrue);
+      await _warmed(h);
+      expect(h.specHandles.last, 'H2');
+    });
+
+    test('forgetConversation() ends the conversation, unlike teardownSession()', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      expect(h.controller.canResumeConversation, isTrue);
+      h.controller.forgetConversation();
+      expect(h.controller.canResumeConversation, isFalse);
+      h.controller.teardownSession();
+      await _warmed(h);
+      expect(h.specHandles, [null, null]);
     });
   });
 }

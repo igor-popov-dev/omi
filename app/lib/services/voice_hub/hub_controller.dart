@@ -153,11 +153,17 @@ class HubSessionSpec {
   /// Empty when no `fetchTools` seam is wired or its fetch failed.
   final List<VoiceToolDeclaration> tools;
 
+  /// Resume the conversation the previous socket was having instead of
+  /// starting blank (design doc §10). Null == a fresh conversation, which is
+  /// every session before this seam existed.
+  final String? resumptionHandle;
+
   const HubSessionSpec({
     required this.token,
     required this.instructions,
     required this.events,
     this.tools = const [],
+    this.resumptionHandle,
   });
 }
 
@@ -234,6 +240,13 @@ class HubController {
   /// Backoff before a scheduled re-warm.
   static const Duration reconnectBackoff = Duration(milliseconds: 1500);
 
+  /// How long a resumption handle is considered to belong to "the current
+  /// conversation". A product cut, not an API limit: coming back after a long
+  /// gap should feel like a new conversation, not a silent continuation of
+  /// one the user has forgotten. The server may well expire handles sooner —
+  /// that path is handled too (see [_handleInFlight]).
+  static const int resumptionHandleTtlMs = 15 * 60 * 1000;
+
   /// After the strike budget is spent the re-warm circuit OPENS for this
   /// cooldown instead of hammering a dead endpoint forever. See
   /// [ensureWarm] for the half-open probe semantics.
@@ -251,6 +264,25 @@ class HubController {
   /// in-flight warm captures it at the start and, at each commit point,
   /// discards its result if the generation moved.
   int _warmGeneration = 0;
+
+  // Conversation resumption (design doc §10) ------------------------------
+  /// The handle the NEXT session should resume from, or null when the last
+  /// thing the dying session said was "not safe to resume right now" (it was
+  /// mid-reply — see [HubSessionEvents.onResumptionHandle]). Deliberately
+  /// survives [teardownSession]: the 180s idle release is the case this
+  /// exists for — the socket goes away, the conversation should not.
+  String? _resumptionHandle;
+
+  /// When [_resumptionHandle] was captured (via [now]), for the staleness cut.
+  int? _resumptionHandleAt;
+
+  /// The handle handed to the session currently being built. Lets a session
+  /// that dies BEFORE ever connecting blame — and discard — the handle it was
+  /// built with. Measured 24.08: a handle the server no longer knows does not
+  /// degrade gracefully, it closes the socket with 1008 "BidiGenerateContent
+  /// session not found" before setupComplete. Without this, one stale handle
+  /// would keep failing every warm until the strike budget opened the circuit.
+  String? _handleInFlight;
 
   // A7c reconnect budget ------------------------------------------------
   int _reconnectStrikes = 0;
@@ -360,11 +392,14 @@ class HubController {
       if (_warmGeneration != gen) throw HubWarmAbortedError();
 
       final instructions = buildInstructions();
+      final resume = _usableResumptionHandle();
+      _handleInFlight = resume;
       final newSession = createSession(HubSessionSpec(
         token: token,
         instructions: instructions,
         events: _sessionEvents(),
         tools: tools,
+        resumptionHandle: resume,
       ));
       session = newSession;
 
@@ -398,6 +433,35 @@ class HubController {
     } finally {
       _warming = null;
     }
+  }
+
+  /// The handle to build the next session with: the last one offered, unless
+  /// it has aged past [resumptionHandleTtlMs] (in which case it is forgotten
+  /// here rather than lingering).
+  String? _usableResumptionHandle() {
+    final handle = _resumptionHandle;
+    final at = _resumptionHandleAt;
+    if (handle == null || at == null) return null;
+    if (now() - at > resumptionHandleTtlMs) {
+      _resumptionHandle = null;
+      _resumptionHandleAt = null;
+      return null;
+    }
+    return handle;
+  }
+
+  /// Whether the next warm would continue the current conversation. Exposed
+  /// for tests and for hosts that want to show "continuing" vs "new".
+  bool get canResumeConversation => _usableResumptionHandle() != null;
+
+  /// End the conversation, not just the socket: the next session starts
+  /// blank. For the host to call when the USER closed the conversation
+  /// (leaving voice mode), as opposed to the socket merely dropping —
+  /// [teardownSession] deliberately keeps the handle.
+  void forgetConversation() {
+    _resumptionHandle = null;
+    _resumptionHandleAt = null;
+    _handleInFlight = null;
   }
 
   bool isWarm() => session?.isWarm() ?? false;
@@ -598,6 +662,10 @@ class HubController {
       onSpeakingStart: () => events.onSpeakingStart?.call(),
       onSpeakingEnd: () => events.onSpeakingEnd?.call(),
       onToolRequest: (call, identity) => events.onToolRequest?.call(call, identity),
+      onResumptionHandle: (handle) {
+        _resumptionHandle = handle;
+        _resumptionHandleAt = handle == null ? null : now();
+      },
       onTurnDone: (identity) {
         // A completed turn proves the hub works — reset the strike budget
         // and close any open circuit.
@@ -611,6 +679,8 @@ class HubController {
   void _handleConnected(VoiceSessionId sid) {
     sessionId = sid;
     connectedAt = now();
+    // The handle (if any) was accepted — it is no longer on trial.
+    _handleInFlight = null;
     // A live socket supersedes any pending reconnect backoff. NB:
     // connecting alone does NOT reset the strike budget — only a
     // proven-good signal does (a completed turn, or a socket that survives
@@ -638,6 +708,17 @@ class HubController {
   void _handleError(String message, bool retryable, int? closeCode) {
     final connected = connectedAt;
     final aliveForMs = connected != null ? math.max(0, now() - connected) : 0;
+    // Died before ever connecting while carrying a resumption handle: the
+    // handle is the prime suspect (an expired one is rejected at handshake —
+    // 1008 "session not found"), and keeping it would fail every retry the
+    // same way. Drop it so the re-warm starts a blank conversation instead of
+    // burning the strike budget on a corpse. A session that DID connect is
+    // not evidence against its handle, so this only fires pre-connect.
+    if (connected == null && _handleInFlight != null) {
+      _resumptionHandle = null;
+      _resumptionHandleAt = null;
+    }
+    _handleInFlight = null;
     // Classify BEFORE forwarding: the forward drives the reducer's
     // terminal, which clears `_activeTurnId`, so the turn-at-close-time
     // must be captured first.
