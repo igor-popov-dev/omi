@@ -129,6 +129,15 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
                       child: Icon(Icons.mic_none, color: Colors.white, size: 20),
                     ),
                   ),
+                  // Same exit as the error bar below: not wanting to speak again
+                  // must not leave the composer occupied.
+                  GestureDetector(
+                    onTap: provider.close,
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 4, right: 8),
+                      child: Icon(Icons.close, color: Color(0xFF8E8E93), size: 20),
+                    ),
+                  ),
                 ],
               ),
             );
