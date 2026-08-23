@@ -34,6 +34,7 @@ import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
+import 'package:omi/services/voice_hub/voice_chat_log.dart';
 import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection, idleVoiceTurnProjection;
 import 'package:omi/services/voice_playback/omi_voice_playback_service.dart';
 import 'package:omi/services/sockets/transcription_service.dart';
@@ -114,6 +115,10 @@ class CaptureController extends ChangeNotifier
   /// source of truth (`FreeFormVoiceMode.isRunning` itself isn't listenable).
   final ValueNotifier<bool> freeFormModeActive = ValueNotifier(false);
 
+  /// Self-host patch: records the spoken exchange into chat history, so voice
+  /// and chat share one conversation (see `voice_chat_log.dart`).
+  final VoiceChatLog voiceChatLog = VoiceChatLog();
+
   /// Starts [freeFormVoiceMode] (a real network call: mints a token, opens a
   /// socket, starts continuous mic capture) and flips [freeFormModeActive].
   /// No-op if [freeFormVoiceMode] is unset or already running. On a start
@@ -135,6 +140,9 @@ class CaptureController extends ChangeNotifier
   /// and resets the UI state.
   void stopFreeFormVoiceMode() {
     freeFormVoiceMode?.stop();
+    // The tail of the conversation is still buffered — post it before the mode
+    // goes away, otherwise the last few turns never reach chat history.
+    unawaited(voiceChatLog.flush());
     resetFreeFormVoiceModeUi();
   }
 

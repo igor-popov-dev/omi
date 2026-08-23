@@ -52,9 +52,26 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
           case VoiceRecorderState.recording:
             return SizedBox(
               height: 44,
-              child: CustomPaint(
-                painter: AudioWavePainter(levels: provider.audioLevels),
-                child: const SizedBox.expand(),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: CustomPaint(
+                      painter: AudioWavePainter(levels: provider.audioLevels),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                  // Self-host patch, not for upstream: recording had NO way out —
+                  // the only control was "send", so a user who changed their mind
+                  // (or whose transcription would fail anyway) was stuck listening
+                  // to themselves with the composer locked. Reported live 23.08.
+                  GestureDetector(
+                    onTap: provider.close,
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 8, right: 4),
+                      child: Icon(Icons.close, color: Color(0xFF8E8E93), size: 20),
+                    ),
+                  ),
+                ],
               ),
             );
 

@@ -171,6 +171,12 @@ app.include_router(integrations.router)
 app.include_router(x_connector.router)
 app.include_router(memories.router)
 app.include_router(chat.router)
+# Self-host patch (routers/selfhost_voice_log.py, docs/selfhost-patches.md):
+# records the free-form voice dialogue into chat so the two assistants share
+# one history instead of pretending the other does not exist.
+from routers import selfhost_voice_log  # noqa: E402
+
+app.include_router(selfhost_voice_log.router)
 app.include_router(speech_profile.router)
 # app.include_router(screenpipe.router)
 app.include_router(notifications.router)

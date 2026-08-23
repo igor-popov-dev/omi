@@ -11,6 +11,7 @@
 // to track), so this is a direct, stateless event->projection mapping, not a
 // state-machine port.
 import 'hub_controller.dart';
+import 'voice_chat_log.dart';
 import 'voice_turn_coordinator.dart' show VoiceTurnPresenter;
 import 'voice_turn_machine.dart' show VoiceTurnUiProjection;
 
@@ -45,17 +46,59 @@ const VoiceTurnUiProjection _speakingProjection = VoiceTurnUiProjection(
 /// `CaptureController.recoverFreeFormVoiceMode`). Self-host patch: the error
 /// used to be dropped here, which is why a drop ended the conversation with
 /// nothing said and nothing logged.
+/// [chatLog], when given, records the spoken exchange into chat history (see
+/// `voice_chat_log.dart`). Transcripts arrive in fragments with `isFinal` false
+/// and are closed by an empty final event, so both sides are accumulated here
+/// and committed once — a per-fragment write would store a bubble per syllable.
 HubControllerEvents freeFormModeProjectionEvents({
   required VoiceTurnPresenter applyProjection,
   required void Function(Object error) onDisconnected,
+  VoiceChatLog? chatLog,
 }) {
+  final userSaid = StringBuffer();
+  final assistantSaid = StringBuffer();
+
+  void commitUser() {
+    if (chatLog == null || userSaid.isEmpty) return;
+    chatLog.addUserTurn(userSaid.toString());
+    userSaid.clear();
+  }
+
+  void commitAssistant() {
+    if (chatLog == null || assistantSaid.isEmpty) return;
+    chatLog.addAssistantTurn(assistantSaid.toString());
+    assistantSaid.clear();
+  }
+
   return HubControllerEvents(
     onConnected: (_) => applyProjection(_listeningProjection),
-    onError: (error) => onDisconnected(error),
-    onSpeakingStart: () => applyProjection(_speakingProjection),
+    onError: (error) {
+      // Flush what was already spoken before the drop: it happened, so it
+      // belongs in history even though the session did not survive.
+      commitUser();
+      commitAssistant();
+      onDisconnected(error);
+    },
+    onSpeakingStart: () {
+      // The user's utterance is over the moment the model starts answering.
+      commitUser();
+      applyProjection(_speakingProjection);
+    },
     onSpeakingEnd: () => applyProjection(_listeningProjection),
+    onAssistantText: (text, isFinal, identity) {
+      if (text.isNotEmpty) assistantSaid.write(text);
+      if (isFinal) commitAssistant();
+    },
+    onTurnDone: (_) {
+      commitUser();
+      commitAssistant();
+    },
     onInputTranscript: (text, isFinal, identity) {
-      if (text.isEmpty) return;
+      if (text.isEmpty) {
+        if (isFinal) commitUser();
+        return;
+      }
+      userSaid.write(text);
       // Still listening/capturing while the user talks — no separate
       // "thinking" phase to project: unlike PTT, there's no explicit
       // end-of-utterance commit here (server VAD owns that), so the first

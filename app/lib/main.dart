@@ -359,6 +359,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               events: freeFormModeProjectionEvents(
                 applyProjection: (projection) => capture.hubProjection.value = projection,
                 onDisconnected: capture.recoverFreeFormVoiceMode,
+                // Self-host patch: the spoken exchange lands in chat history, so
+                // the voice and chat assistants share one conversation instead of
+                // each pretending the other never happened.
+                chatLog: capture.voiceChatLog,
               ),
               onIdleTimeout: capture.resetFreeFormVoiceModeUi,
             );
