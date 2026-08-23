@@ -313,6 +313,13 @@ class SharedPreferencesUtil {
 
   bool get freeFormMode => getBool('freeFormMode');
 
+  // Ползунок «как часто голосовой хаб ходит к Claude» (0..4, см.
+  // services/voice_hub/escalation_level.dart). Дефолт 2 (balanced) — ровно
+  // поведение до появления ползунка.
+  set claudeEscalationLevel(int value) => saveInt('claudeEscalationLevel', value);
+
+  int get claudeEscalationLevel => getInt('claudeEscalationLevel', defaultValue: 2);
+
   // Notification frequency (0-5): 0 = off, 5 = most frequent. Default is 0 (disabled)
   set notificationFrequency(int value) => saveInt('notificationFrequency', value);
 

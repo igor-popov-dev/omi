@@ -63,6 +63,7 @@ import 'package:omi/services/mic/native_mic_recorder_service.dart';
 
 import 'ask_claude_tool.dart';
 import 'cf_access_http_client.dart';
+import 'escalation_level.dart';
 import 'free_form_voice_mode.dart';
 import 'gemini_hub_session.dart';
 import 'hub_controller.dart';
@@ -111,19 +112,16 @@ Future<String> mintGeminiHubToken() async {
 /// per-user/context templating yet (a future tick that wants that plugs it
 /// in here; the seam is a `String Function()`, not a constant, precisely so
 /// this can grow that later without touching `hub_controller.dart`).
-String buildProductionHubInstructions() => _kHubInstructions;
+/// Инструкции сессии — теперь функция от ползунка эскалации (просьба Игоря
+/// 24.08, см. `escalation_level.dart`). Читается `HubController`-ом при каждом
+/// открытии сессии, поэтому смена уровня применяется со следующего запуска
+/// голосового режима.
+String buildProductionHubInstructions() => hubInstructionsForLevel(currentClaudeEscalationLevel());
 
-const String _kHubInstructions = 'You are Omi, a warm and concise voice assistant running on the '
-    "user's phone. Speak naturally and briefly, like a helpful friend, not a chatbot reading a "
-    'list. For anything that needs real reasoning, remembered context, or looking something up — '
-    "rather than a quick reply you're confident in — use the ask_claude tool instead of guessing. "
-    'ORDER MATTERS: FIRST say a short filler out loud — in Russian say exactly '
-    '"секунду, уточню" — and only THEN call the tool. The call itself is seconds of silence, '
-    'so a filler spoken after the result lands is useless — the user has already sat through '
-    'the wait wondering whether you heard them at all.';
-
-/// Production [HubFetchTools]: the one tool this app declares today.
-Future<List<VoiceToolDeclaration>> fetchHubTools() async => const [askClaudeToolDeclaration];
+/// Production [HubFetchTools]: каталог зависит от того же ползунка — на
+/// крайнем левом уровне (чистый Gemini Live) инструмента ask_claude в сессии
+/// нет вовсе, это структурная гарантия, а не промпт.
+Future<List<VoiceToolDeclaration>> fetchHubTools() async => hubToolsForLevel(currentClaudeEscalationLevel());
 
 /// Assembles a real, network-backed [VoiceHubTurnDriver] — see file header
 /// for exactly what's wired and what's deliberately still not (bootstrap

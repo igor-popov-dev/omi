@@ -45,6 +45,10 @@ class DeveloperModeProvider extends BaseProvider {
   // Free-form Voice Mode — hands-free voice-mode button in chat (experimental)
   bool freeFormMode = false;
 
+  // Ползунок «как часто голосовой хаб ходит к Claude» (0..4, дефолт 2 —
+  // balanced). Семантика уровней — services/voice_hub/escalation_level.dart.
+  int claudeEscalationLevel = 2;
+
   void onConversationEventsToggled(bool value) {
     conversationEventsToggled = value;
     if (!value) {
@@ -121,6 +125,7 @@ class DeveloperModeProvider extends BaseProvider {
     vadGateEnabled = SharedPreferencesUtil().vadGateEnabled;
     pttHubEnabled = SharedPreferencesUtil().pttHubEnabled;
     freeFormMode = SharedPreferencesUtil().freeFormMode;
+    claudeEscalationLevel = SharedPreferencesUtil().claudeEscalationLevel;
     conversationEventsToggled = SharedPreferencesUtil().conversationEventsToggled;
     transcriptsToggled = SharedPreferencesUtil().transcriptsToggled;
     audioBytesToggled = SharedPreferencesUtil().audioBytesToggled;
@@ -297,6 +302,12 @@ class DeveloperModeProvider extends BaseProvider {
   void onFreeFormModeChanged(bool value) {
     freeFormMode = value;
     SharedPreferencesUtil().freeFormMode = value;
+    notifyListeners();
+  }
+
+  void onClaudeEscalationLevelChanged(int value) {
+    claudeEscalationLevel = value;
+    SharedPreferencesUtil().claudeEscalationLevel = value;
     notifyListeners();
   }
 }
