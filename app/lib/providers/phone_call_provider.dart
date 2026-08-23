@@ -20,6 +20,7 @@ import 'package:omi/models/audio_route.dart';
 import 'package:omi/services/auth/auth_token_result.dart';
 import 'package:omi/services/phone_call_service.dart';
 import 'package:omi/services/voximplant_call_service.dart';
+import 'package:omi/services/vox_transcript_poller.dart';
 import 'package:omi/utils/logger.dart';
 
 /// State of the transcription link for the CURRENT call.
@@ -74,6 +75,9 @@ class PhoneCallProvider extends ChangeNotifier {
   AudioRoute? get selectedRoute => _selectedRoute;
 
   // Transcription status
+  // Живой транскрипт облачного пути читается опросом адаптера, а не сокетом: свой сокет
+  // под тем же call_id завёл бы ВТОРОЙ разговор (см. VoxTranscriptPoller).
+  VoxTranscriptPoller? _transcriptPoller;
   TranscriptionStatus _transcriptionStatus = TranscriptionStatus.idle;
   TranscriptionStatus get transcriptionStatus => _transcriptionStatus;
 
@@ -406,6 +410,9 @@ class PhoneCallProvider extends ChangeNotifier {
         // A socket from the app would not fail loudly — it would quietly create a SECOND
         // conversation for the same call (lane 6 tick 22, vox-dual-session-probe.py).
         _transcriptionStatus = TranscriptionStatus.cloud;
+        // The text of that conversation still belongs on this screen, so read it back
+        // from the adapter instead of opening a socket of our own.
+        _startCloudTranscriptPolling();
       } else {
         _connectTranscriptionSocket();
       }
@@ -453,7 +460,13 @@ class PhoneCallProvider extends ChangeNotifier {
     PlatformManager.instance.analytics.phoneCallEnded(durationSeconds: _callDuration.inSeconds);
     _callState = PhoneCallState.ended;
     _stopDurationTimer();
+    // Take the poller out before the teardown stops it: the backend's last window lands
+    // after the hang-up, and one final read is the only chance to catch the tail. The
+    // adapter keeps a finished call's text precisely so this read has something to find.
+    final poller = _transcriptPoller;
+    _transcriptPoller = null;
     _disconnectTranscriptionSocket();
+    if (poller != null) unawaited(poller.drain());
     _tokenRefreshTimer?.cancel();
     _tokenRefreshTimer = null;
     _transcriptionStatus = TranscriptionStatus.idle;
@@ -634,6 +647,53 @@ class PhoneCallProvider extends ChangeNotifier {
     _wsReconnectAttempts = 0;
     _transcriptionSocket?.sink.close();
     _transcriptionSocket = null;
+    unawaited(_transcriptPoller?.stop() ?? Future.value());
+    _transcriptPoller = null;
+  }
+
+  /// Both paths land here: the Twilio socket pushes segments, the Voximplant poller pulls
+  /// them. Merging by `id` rather than appending is not a nicety — the backend re-sends a
+  /// segment it has merged with its neighbour, under the same id and with longer text.
+  void _mergeSegments(List<TranscriptSegment> segments) {
+    if (segments.isEmpty) return;
+    for (final segment in segments) {
+      final existingIndex = _transcriptSegments.indexWhere((s) => s.id == segment.id);
+      if (existingIndex >= 0) {
+        _transcriptSegments[existingIndex] = segment;
+      } else {
+        _transcriptSegments.add(segment);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// The backend re-cut the conversation and these segments are gone. Without this the
+  /// screen would keep showing a phrase that no longer exists in the recording.
+  void _removeSegments(List<String> ids) {
+    final before = _transcriptSegments.length;
+    _transcriptSegments.removeWhere((s) => ids.contains(s.id));
+    if (_transcriptSegments.length != before) notifyListeners();
+  }
+
+  void _startCloudTranscriptPolling() {
+    final callId = _currentCallId;
+    if (callId == null) return;
+    final generation = _sessionGeneration;
+    final poller = VoxTranscriptPoller()
+      ..onSegments = (segments) {
+        if (generation != _sessionGeneration || !_sessionEnabled) return;
+        _mergeSegments(segments);
+      }
+      ..onDeleted = (ids) {
+        if (generation != _sessionGeneration || !_sessionEnabled) return;
+        _removeSegments(ids);
+      }
+      ..onGap = (dropped) => Logger.error(
+            'PhoneCallProvider: adapter evicted $dropped segment(s) before we read them — '
+            'the live transcript has a hole in the middle of this call',
+          );
+    _transcriptPoller = poller;
+    poller.start(callId);
   }
 
   void _handleTranscriptionMessage(String message) {
@@ -644,16 +704,7 @@ class PhoneCallProvider extends ChangeNotifier {
 
       // Standard segment array format: [{id, text, is_user, speaker, start, end, ...}, ...]
       if (data is List) {
-        for (var segmentJson in data) {
-          var segment = TranscriptSegment.fromJson(segmentJson as Map<String, dynamic>);
-          var existingIndex = _transcriptSegments.indexWhere((s) => s.id == segment.id);
-          if (existingIndex >= 0) {
-            _transcriptSegments[existingIndex] = segment;
-          } else {
-            _transcriptSegments.add(segment);
-          }
-        }
-        if (data.isNotEmpty) notifyListeners();
+        _mergeSegments(data.map((json) => TranscriptSegment.fromJson(json as Map<String, dynamic>)).toList());
         return;
       }
 
