@@ -283,6 +283,15 @@ void main() {
       mainSource.indexOf('validateApplicationStartupRouting();'),
       lessThan(mainSource.indexOf('ServiceManager.init()')),
     );
-    expect(mainSource, contains('Env.validateFirebaseProject(projectId: Firebase.app().options.projectId);'));
+    // Проверка проекта должна идти против ТОГО приложения Firebase, которое реально
+    // поднято, а не против константы. Единая точка инициализации (_ensureFirebaseApp)
+    // делает это в трёх ветках — своей, чужой нативной и после `duplicate-app`, — поэтому
+    // растяжку держим на форме выражения, а не на одном литерале.
+    final projectValidations =
+        RegExp(r'Env\.validateFirebaseProject\(projectId: [\w.]*options\.projectId\)').allMatches(mainSource);
+    expect(projectValidations, isNotEmpty);
+    for (final validation in projectValidations) {
+      expect(validation.start, lessThan(mainSource.indexOf('ServiceManager.init()')));
+    }
   });
 }
