@@ -104,6 +104,18 @@ class HubControllerEvents {
   final void Function(HubEventIdentity? identity)? onTurnDone;
   final void Function(HubCascadeHandoff handoff)? onCascadeHandoff;
 
+  /// The provider warned that the socket is about to close (see
+  /// [HubSessionEvents.onGoAway]), delivered at a moment when rebuilding is
+  /// safe — never mid-reply.
+  ///
+  /// A host with no long-lived turn need not do anything: the controller
+  /// rebuilds the socket itself in that case. It is load-bearing for a host
+  /// that holds ONE turn open for a whole session (free-form voice mode,
+  /// whose "turn" is the entire mode), because there the controller must not
+  /// tear down alone — the host owns mic capture and the begin frame, so only
+  /// it can rebuild without leaving a socket that ignores everything.
+  final void Function(Duration? timeLeft)? onGoAway;
+
   const HubControllerEvents({
     this.onConnected,
     this.onError,
@@ -115,6 +127,7 @@ class HubControllerEvents {
     this.onToolRequest,
     this.onTurnDone,
     this.onCascadeHandoff,
+    this.onGoAway,
   });
 
   /// Same handlers with individual ones swapped out. Exists so callers that
@@ -138,6 +151,7 @@ class HubControllerEvents {
       onToolRequest: onToolRequest ?? this.onToolRequest,
       onTurnDone: onTurnDone,
       onCascadeHandoff: onCascadeHandoff,
+      onGoAway: onGoAway,
     );
   }
 }
@@ -275,6 +289,20 @@ class HubController {
 
   /// When [_resumptionHandle] was captured (via [now]), for the staleness cut.
   int? _resumptionHandleAt;
+
+  /// Set while the provider is producing a reply, i.e. exactly while the
+  /// session says resuming would be unsafe. Derived from the handle
+  /// WITHDRAWAL (`onResumptionHandle(null)`), which a session emits only when
+  /// a generation starts — see [HubSessionEvents.onResumptionHandle]. Used to
+  /// keep a `goAway` rebuild out of the middle of a reply.
+  bool _replyGenerating = false;
+
+  /// A `goAway` warning that is still waiting for a safe moment to act on.
+  bool _goAwayPending = false;
+
+  /// How much time the `goAway` said was left, carried to the host with the
+  /// deferred warning (null when the server named no deadline).
+  Duration? _goAwayTimeLeft;
 
   /// The handle handed to the session currently being built. Lets a session
   /// that dies BEFORE ever connecting blame — and discard — the handle it was
@@ -487,6 +515,10 @@ class HubController {
     // An explicit drop also cancels any wake refresh deferred behind a
     // turn — re-warming a hub that was just told to close is wrong.
     _pendingRefreshReason = null;
+    // The goAway belonged to the socket being dropped; a new one starts with
+    // a clean lifetime.
+    _clearGoAway();
+    _replyGenerating = false;
     final s = session;
     session = null;
     sessionId = null;
@@ -521,6 +553,56 @@ class HubController {
     // Idle + warm: drop the (possibly dead) socket and rebuild.
     teardownSession();
     _fireAndForgetWarm();
+  }
+
+  // MARK: goAway (provider-announced socket close)
+
+  /// The provider says it is about to hang up. Unlike a drop, this arrives
+  /// while the socket still works, so it can be spent on rebuilding at a
+  /// quiet moment — with the resumption handle the conversation carries over
+  /// and the user never hears the seam.
+  ///
+  /// Two things it deliberately does NOT do. It does not rebuild mid-reply:
+  /// that would both cut the reply off and land on a withdrawn handle, i.e.
+  /// lose the conversation to save the socket. And it does not rebuild under
+  /// a host-owned long turn (free-form mode) — see [HubControllerEvents.onGoAway].
+  void _handleGoAway(Duration? timeLeft) {
+    _goAwayPending = true;
+    _goAwayTimeLeft = timeLeft;
+    _actOnGoAwayIfSafe();
+  }
+
+  /// Spends a pending `goAway` if this is a safe moment; otherwise leaves it
+  /// armed for the next one (a handle offer or a finished turn).
+  void _actOnGoAwayIfSafe() {
+    if (!_goAwayPending) return;
+    // The socket already went away, or was replaced. Nothing to pre-empt:
+    // whatever comes next is a fresh socket with its own lifetime.
+    if (session == null) {
+      _clearGoAway();
+      return;
+    }
+    if (_replyGenerating) return;
+    final timeLeft = _goAwayTimeLeft;
+    _clearGoAway();
+    events.onGoAway?.call(timeLeft);
+    // Mid-turn the rebuild waits for the turn to end, through the same
+    // deferral a wake refresh uses. Two different hosts land here:
+    //   * PTT — the turn is one press, so the rebuild happens moments later,
+    //     on its own, and the warning is not wasted;
+    //   * free-form — the turn is the WHOLE mode, so the deferral would wait
+    //     for a stop that may never come. That host acts on the event above
+    //     instead (restarting the mode, which cancels and re-begins the turn
+    //     around a fresh socket); the deferral is then just a no-op left
+    //     behind. Tearing the socket down from HERE would be the wrong fix:
+    //     the replacement would never get its begin frame and would ignore
+    //     everything the user said into it.
+    requestSessionRefresh('goAway');
+  }
+
+  void _clearGoAway() {
+    _goAwayPending = false;
+    _goAwayTimeLeft = null;
   }
 
   // MARK: The four per-turn primitives (turn-ID fenced)
@@ -648,6 +730,9 @@ class HubController {
       _pendingRefreshReason = null;
       requestSessionRefresh(reason);
     }
+    // A host-owned long turn just ended — that is the safe moment a deferred
+    // goAway was waiting for.
+    _actOnGoAwayIfSafe();
   }
 
   // MARK: Session event wiring (pass-through + connect/error enrichment)
@@ -662,15 +747,26 @@ class HubController {
       onSpeakingStart: () => events.onSpeakingStart?.call(),
       onSpeakingEnd: () => events.onSpeakingEnd?.call(),
       onToolRequest: (call, identity) => events.onToolRequest?.call(call, identity),
+      onGoAway: (timeLeft) => _handleGoAway(timeLeft),
       onResumptionHandle: (handle) {
         _resumptionHandle = handle;
         _resumptionHandleAt = handle == null ? null : now();
+        // A withdrawal means "a reply generation just started"; an offer
+        // means it closed. A pending goAway waits for exactly that.
+        _replyGenerating = handle == null;
+        if (handle != null) _actOnGoAwayIfSafe();
       },
       onTurnDone: (identity) {
         // A completed turn proves the hub works — reset the strike budget
         // and close any open circuit.
         _reconnectStrikes = 0;
         _circuitOpenUntil = null;
+        // Also the safe moment a deferred goAway is waiting for. Checked
+        // here as well as on the handle offer, because a conversation the
+        // server never handed a handle for (a first turn that produced none)
+        // would otherwise never see one.
+        _replyGenerating = false;
+        _actOnGoAwayIfSafe();
         events.onTurnDone?.call(identity);
       },
     );
@@ -719,6 +815,9 @@ class HubController {
       _resumptionHandleAt = null;
     }
     _handleInFlight = null;
+    // The warning has been overtaken by the drop it warned about.
+    _clearGoAway();
+    _replyGenerating = false;
     // Classify BEFORE forwarding: the forward drives the reducer's
     // terminal, which clears `_activeTurnId`, so the turn-at-close-time
     // must be captured first.

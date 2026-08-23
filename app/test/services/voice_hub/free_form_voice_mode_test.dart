@@ -319,7 +319,7 @@ void main() {
       );
       await mode.start();
 
-      expect(clock.lastDuration, Duration(minutes: kDefaultFreeFormVoiceIdleTimeoutMinutes));
+      expect(clock.lastDuration, const Duration(minutes: kDefaultFreeFormVoiceIdleTimeoutMinutes));
     });
 
     test('an explicit stop() cancels a pending idle timer without firing onIdleTimeout', () async {

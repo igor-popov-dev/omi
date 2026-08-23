@@ -142,6 +142,9 @@ class _EventLog {
   int turnDoneCalls = 0;
   final List<HubCascadeHandoff> cascadeHandoffs = [];
 
+  /// Every goAway warning handed up, with the deadline the server named.
+  final List<Duration?> goAways = [];
+
   HubControllerEvents get events => HubControllerEvents(
         onConnected: (id) {
           connectedId = id;
@@ -158,6 +161,7 @@ class _EventLog {
         onSpeakingEnd: () => speakingEnd += 1,
         onTurnDone: (identity) => turnDoneCalls += 1,
         onCascadeHandoff: (h) => cascadeHandoffs.add(h),
+        onGoAway: (timeLeft) => goAways.add(timeLeft),
       );
 }
 
@@ -1068,6 +1072,125 @@ void main() {
       h.controller.teardownSession();
       await _warmed(h);
       expect(h.specHandles, [null, null]);
+    });
+  });
+
+  // goAway (design doc §11). The controller's job is narrow: spend the
+  // warning on a rebuild, but only at a moment when the rebuild is free —
+  // never mid-reply (the handle is withdrawn there, so the rebuild would
+  // trade the conversation for the socket) and never by tearing down under a
+  // host that owns a long turn.
+  group('HubController — goAway', () {
+    /// Completes the re-warm a goAway kicked off.
+    Future<void> settleRewarm(_Harness h) async {
+      await _tick();
+      h.session.connect();
+      await _tick();
+    }
+
+    test('while idle: rebuilds the socket and carries the conversation over', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      final old = h.session;
+
+      h.session.events.onGoAway?.call(const Duration(seconds: 10));
+      await settleRewarm(h);
+
+      expect(old.toreDown, 1);
+      expect(h.createCalls, 2);
+      expect(h.specHandles, [null, 'H1']);
+      expect(h.log.goAways, [const Duration(seconds: 10)]);
+    });
+
+    test('mid-reply: waits for the reply to close, then rebuilds with the handle it re-offers', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      // The model started speaking — the session withdraws the handle.
+      h.session.events.onResumptionHandle?.call(null);
+
+      h.session.events.onGoAway?.call(const Duration(seconds: 30));
+      await _tick();
+      // Nothing rebuilt: a rebuild here would cut the reply off AND resume
+      // from nothing.
+      expect(h.createCalls, 1);
+      expect(h.log.goAways, isEmpty);
+
+      // The reply closed and the handle came back.
+      h.session.events.onResumptionHandle?.call('H2');
+      await settleRewarm(h);
+      expect(h.createCalls, 2);
+      expect(h.specHandles, [null, 'H2']);
+      expect(h.log.goAways, [const Duration(seconds: 30)]);
+    });
+
+    test('a conversation the server never handed a handle for still rebuilds, on turn completion', () async {
+      // The handle offer is one safe moment; a finished turn is the other,
+      // and it is the only one when the server offered no handle at all.
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call(null);
+      h.session.events.onGoAway?.call(null);
+      await _tick();
+      expect(h.createCalls, 1);
+
+      h.session.events.onTurnDone?.call(null);
+      await settleRewarm(h);
+      expect(h.createCalls, 2);
+      expect(h.specHandles, [null, null]);
+      expect(h.log.goAways, [null]);
+    });
+
+    test('under a host-owned turn: the host is told and the socket is NOT torn down', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      h.controller.beginTurn(t1);
+
+      h.session.events.onGoAway?.call(const Duration(seconds: 8));
+      await _tick();
+      // The host owns mic capture and the begin frame; a socket rebuilt from
+      // here would never get one and would ignore everything said into it.
+      expect(h.session.toreDown, 0);
+      expect(h.createCalls, 1);
+      expect(h.log.goAways, [const Duration(seconds: 8)]);
+    });
+
+    test('a PTT press that straddles the warning rebuilds as soon as the press ends', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      h.controller.beginTurn(t1);
+      h.session.events.onGoAway?.call(const Duration(seconds: 8));
+      await _tick();
+      expect(h.createCalls, 1);
+
+      h.controller.voiceTurnDidTerminate(t1);
+      await settleRewarm(h);
+      expect(h.createCalls, 2);
+      expect(h.specHandles, [null, 'H1']);
+    });
+
+    test('a warning overtaken by the drop it warned about does not touch the next socket', () async {
+      final h = _Harness();
+      await _warmed(h);
+      // Mid-reply, so the warning is parked rather than acted on.
+      h.session.events.onResumptionHandle?.call(null);
+      h.session.events.onGoAway?.call(const Duration(seconds: 5));
+      h.session.fail('websocket closed (1008)', true, 1008);
+      await _tick();
+      h.clock.fire(); // the reconnect backoff
+      await settleRewarm(h);
+      expect(h.createCalls, 2);
+
+      // The fresh socket has its own lifetime: a handle offer on it must not
+      // be read as "now is the safe moment for that old warning".
+      h.session.events.onResumptionHandle?.call('H9');
+      await _tick();
+      expect(h.createCalls, 2);
+      expect(h.session.toreDown, 0);
+      expect(h.log.goAways, isEmpty);
     });
   });
 }
