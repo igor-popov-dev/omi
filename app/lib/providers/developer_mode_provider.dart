@@ -39,6 +39,12 @@ class DeveloperModeProvider extends BaseProvider {
   // VAD Gate (experimental)
   bool vadGateEnabled = false;
 
+  // PTT Hub — routes pendant taps through the realtime voice hub (experimental)
+  bool pttHubEnabled = false;
+
+  // Free-form Voice Mode — hands-free voice-mode button in chat (experimental)
+  bool freeFormMode = false;
+
   void onConversationEventsToggled(bool value) {
     conversationEventsToggled = value;
     if (!value) {
@@ -113,6 +119,8 @@ class DeveloperModeProvider extends BaseProvider {
     showTasksEnabled = SharedPreferencesUtil().showTasksEnabled;
     showPhoneCallButton = SharedPreferencesUtil().showPhoneCallButton;
     vadGateEnabled = SharedPreferencesUtil().vadGateEnabled;
+    pttHubEnabled = SharedPreferencesUtil().pttHubEnabled;
+    freeFormMode = SharedPreferencesUtil().freeFormMode;
     conversationEventsToggled = SharedPreferencesUtil().conversationEventsToggled;
     transcriptsToggled = SharedPreferencesUtil().transcriptsToggled;
     audioBytesToggled = SharedPreferencesUtil().audioBytesToggled;
@@ -277,6 +285,18 @@ class DeveloperModeProvider extends BaseProvider {
   void onVadGateChanged(bool value) {
     vadGateEnabled = value;
     SharedPreferencesUtil().vadGateEnabled = value;
+    notifyListeners();
+  }
+
+  void onPttHubEnabledChanged(bool value) {
+    pttHubEnabled = value;
+    SharedPreferencesUtil().pttHubEnabled = value;
+    notifyListeners();
+  }
+
+  void onFreeFormModeChanged(bool value) {
+    freeFormMode = value;
+    SharedPreferencesUtil().freeFormMode = value;
     notifyListeners();
   }
 }

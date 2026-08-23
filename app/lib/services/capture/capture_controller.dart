@@ -32,6 +32,9 @@ import 'package:omi/services/capture/conversation_location_capture.dart';
 import 'package:omi/services/capture/freemium_threshold_tracker.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
+import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
+import 'package:omi/services/voice_hub/voice_turn_driver.dart';
+import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection, idleVoiceTurnProjection;
 import 'package:omi/services/voice_playback/omi_voice_playback_service.dart';
 import 'package:omi/services/sockets/transcription_service.dart';
 import 'package:omi/services/audio_sources/audio_source.dart';
@@ -81,6 +84,69 @@ class CaptureController extends ChangeNotifier
 
   CaptureExternalActions externalActions;
   DeviceOnboardingProvider? deviceOnboardingProvider;
+
+  // Optional, settable dependency wiring pendant single-tap gestures to the
+  // new realtime voice hub. Nullable and unset by production wiring unless
+  // the `pttHubEnabled` flag is on, so existing call sites that never set
+  // this are 100% unaffected. Additive/parallel to the legacy STT pipeline
+  // for now — see `voice_turn_driver.dart`'s file header (~line 73) for the
+  // intended contract this will eventually replace.
+  VoiceHubTurnDriver? hubTurnDriver;
+
+  /// Live listening/thinking/speaking projection from `hubTurnDriver`, fed
+  /// by whatever `applyProjection` callback production wiring gave the
+  /// driver (see `voice_hub_production.dart`). Stays at
+  /// [idleVoiceTurnProjection] whenever `hubTurnDriver` is unset or no hub
+  /// turn is active — a UI consumer can watch this unconditionally without
+  /// checking `hubTurnDriver`/`pttHubEnabled` itself.
+  final ValueNotifier<VoiceTurnUiProjection> hubProjection = ValueNotifier(idleVoiceTurnProjection);
+
+  // Optional, settable dependency for the hands-free (server-VAD) voice
+  // mode toggle (ДОПОЛНЕНИЕ 22.08 п.1). Nullable and unset by production
+  // wiring unless the `freeFormMode` dev flag's button is even reachable —
+  // see `voice_hub_production.dart`'s `createProductionFreeFormVoiceMode`
+  // for why this is a SEPARATE `HubController` from [hubTurnDriver]'s, not
+  // shared. Safe to construct always (no I/O until [startFreeFormVoiceMode]
+  // actually calls `start()`), same discipline as `hubTurnDriver`.
+  FreeFormVoiceMode? freeFormVoiceMode;
+
+  /// Whether [freeFormVoiceMode] is currently running — the toggle button's
+  /// source of truth (`FreeFormVoiceMode.isRunning` itself isn't listenable).
+  final ValueNotifier<bool> freeFormModeActive = ValueNotifier(false);
+
+  /// Starts [freeFormVoiceMode] (a real network call: mints a token, opens a
+  /// socket, starts continuous mic capture) and flips [freeFormModeActive].
+  /// No-op if [freeFormVoiceMode] is unset or already running. On a start
+  /// failure, resets both [freeFormModeActive] and [hubProjection] back to
+  /// idle and rethrows so a caller (the toggle button) can surface the error.
+  Future<void> startFreeFormVoiceMode() async {
+    final mode = freeFormVoiceMode;
+    if (mode == null || freeFormModeActive.value) return;
+    freeFormModeActive.value = true;
+    try {
+      await mode.start();
+    } catch (_) {
+      resetFreeFormVoiceModeUi();
+      rethrow;
+    }
+  }
+
+  /// Stops [freeFormVoiceMode] (idempotent, matches `FreeFormVoiceMode.stop`)
+  /// and resets the UI state.
+  void stopFreeFormVoiceMode() {
+    freeFormVoiceMode?.stop();
+    resetFreeFormVoiceModeUi();
+  }
+
+  /// Resets [freeFormModeActive]/[hubProjection] to idle WITHOUT calling
+  /// `FreeFormVoiceMode.stop()` — for callers where the mode has already
+  /// stopped itself (the hub-level `onError` handler wired in production,
+  /// and `createProductionFreeFormVoiceMode`'s `onIdleTimeout`, which calls
+  /// `stop()` internally right after firing that callback).
+  void resetFreeFormVoiceModeUi() {
+    freeFormModeActive.value = false;
+    hubProjection.value = idleVoiceTurnProjection;
+  }
 
   // Cache refresh for backend-created persons
   Future<void>? _peopleRefreshFuture;
@@ -930,6 +996,39 @@ class CaptureController extends ChangeNotifier
     var data = List<List<int>>.from(_commandBytes);
     _commandBytes = [];
     _processVoiceCommandBytes(deviceId, data);
+    if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null) {
+      hubTurnDriver!.end();
+    }
+  }
+
+  // Single tap (buttonState == 1) - toggle voice question mode.
+  // Tap once to start, tap again to end. Extracted from the BLE button
+  // listener closure so it's directly unit-testable without a real BLE
+  // stream (see `capture_controller_hub_test.dart`).
+  @visibleForTesting
+  void handleSingleTapButtonEvent(String deviceId) {
+    debugPrint("Single tap detected");
+    if (_voiceCommandSession == null) {
+      // Start voice question session (new toggle mode)
+      debugPrint("Starting voice question session (toggle mode)");
+      // Cut off any in-flight voice playback from a prior reply so the
+      // new recording starts clean.
+      if (OmiVoicePlaybackService.instance.isSpeaking) {
+        OmiVoicePlaybackService.instance.interrupt();
+      }
+      _voiceCommandSession = DateTime.now();
+      _commandBytes = [];
+      _voiceSessionStartedByLegacyLongPress = false; // New toggle mode
+      _startVoiceCommandTimeout(deviceId);
+      _playSpeakerHaptic(deviceId, 1);
+      if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null) {
+        hubTurnDriver!.begin();
+      }
+    } else if (!_voiceSessionStartedByLegacyLongPress) {
+      // Only end on second tap if session was started by toggle mode (not legacy)
+      debugPrint("Ending voice question session (toggle mode)");
+      _endVoiceCommandSession(deviceId);
+    }
   }
 
   Future streamButton(String deviceId) async {
@@ -1014,25 +1113,7 @@ class CaptureController extends ChangeNotifier
         // Single tap (buttonState == 1) - toggle voice question mode
         // Tap once to start, tap again to end
         if (buttonState == 1) {
-          debugPrint("Single tap detected");
-          if (_voiceCommandSession == null) {
-            // Start voice question session (new toggle mode)
-            debugPrint("Starting voice question session (toggle mode)");
-            // Cut off any in-flight voice playback from a prior reply so the
-            // new recording starts clean.
-            if (OmiVoicePlaybackService.instance.isSpeaking) {
-              OmiVoicePlaybackService.instance.interrupt();
-            }
-            _voiceCommandSession = DateTime.now();
-            _commandBytes = [];
-            _voiceSessionStartedByLegacyLongPress = false; // New toggle mode
-            _startVoiceCommandTimeout(deviceId);
-            _playSpeakerHaptic(deviceId, 1);
-          } else if (!_voiceSessionStartedByLegacyLongPress) {
-            // Only end on second tap if session was started by toggle mode (not legacy)
-            debugPrint("Ending voice question session (toggle mode)");
-            _endVoiceCommandSession(deviceId);
-          }
+          handleSingleTapButtonEvent(deviceId);
           return;
         }
 
@@ -1520,6 +1601,9 @@ class CaptureController extends ChangeNotifier
     _autoSyncFallbackTimer?.cancel();
     _peopleRefreshFuture = null; // Clear in-flight tracker
     BleBridge.instance.removeBatchRecordingFinalizedListener(_onOfflineRecordingFinalized);
+    hubProjection.dispose();
+    freeFormVoiceMode?.stop();
+    freeFormModeActive.dispose();
 
     super.dispose();
   }

@@ -21,6 +21,8 @@ import 'package:omi/backend/schema/message.dart';
 import 'package:omi/gen/assets.gen.dart';
 import 'package:omi/pages/apps/widgets/capability_apps_page.dart';
 import 'package:omi/pages/chat/widgets/ai_message.dart';
+import 'package:omi/pages/chat/widgets/free_form_voice_mode_button.dart';
+import 'package:omi/pages/chat/widgets/hub_voice_status_indicator.dart';
 import 'package:omi/pages/settings/widgets/plans_sheet.dart';
 import 'package:omi/pages/chat/widgets/user_message.dart';
 import 'package:omi/pages/chat/widgets/voice_recorder_widget.dart';
@@ -373,6 +375,10 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
 
                       return Column(
                         children: [
+                          // Realtime voice hub status (listening/thinking/speaking) —
+                          // hidden unless a hub turn is actually active (pttHubEnabled
+                          // dev flag + pendant gesture). See widget header.
+                          const HubVoiceStatusIndicator(),
                           // Selected images display above the send bar
                           Consumer<MessageProvider>(
                             builder: (context, provider, child) {
@@ -741,6 +747,13 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                     );
                                                   },
                                                 ),
+                                              // Hands-free voice-mode toggle (ДОПОЛНЕНИЕ 22.08 п.1) —
+                                              // always rightmost, independent of the text/mic/send
+                                              // state above; hidden while the other voice-to-text
+                                              // flow (VoiceRecorderWidget) is active to avoid two
+                                              // competing voice UIs, and internally hidden unless the
+                                              // `freeFormMode` dev flag is on.
+                                              if (!voiceRecorderProvider.isActive) const FreeFormVoiceModeButton(),
                                             ],
                                           ),
                                         ),
