@@ -172,6 +172,15 @@ class HubSessionEvents {
   /// Spoken audio drained / was interrupted (echo gate: start release).
   final void Function()? onSpeakingEnd;
 
+  /// Self-host patch, not for upstream: the user talked over the reply.
+  ///
+  /// Everything generated after this point was never heard, and even the
+  /// current sentence was cut mid-air. A listener that records history must
+  /// treat the accumulated reply as *partially spoken* — otherwise the model's
+  /// own transcript claims it said things the user never heard, and the next
+  /// turn is built on that fiction.
+  final void Function()? onInterrupted;
+
   /// The model requested a tool call.
   final void Function(HubToolCallRequest call, HubEventIdentity? identity)? onToolRequest;
 
@@ -190,6 +199,7 @@ class HubSessionEvents {
     this.onAssistantText,
     this.onSpeakingStart,
     this.onSpeakingEnd,
+    this.onInterrupted,
     this.onToolRequest,
     this.onTurnDone,
     this.onError,

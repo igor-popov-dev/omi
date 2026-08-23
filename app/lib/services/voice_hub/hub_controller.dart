@@ -96,6 +96,9 @@ class HubControllerEvents {
   final void Function(String text, bool isFinal, HubEventIdentity? identity)? onAssistantText;
   final void Function()? onSpeakingStart;
   final void Function()? onSpeakingEnd;
+
+  /// Self-host patch: barge-in — см. [HubSessionEvents.onInterrupted].
+  final void Function()? onInterrupted;
   final void Function(HubToolCallRequest call, HubEventIdentity? identity)? onToolRequest;
   final void Function(HubEventIdentity? identity)? onTurnDone;
   final void Function(HubCascadeHandoff handoff)? onCascadeHandoff;
@@ -107,6 +110,7 @@ class HubControllerEvents {
     this.onAssistantText,
     this.onSpeakingStart,
     this.onSpeakingEnd,
+    this.onInterrupted,
     this.onToolRequest,
     this.onTurnDone,
     this.onCascadeHandoff,
@@ -567,6 +571,7 @@ class HubController {
       onAssistantText: (text, isFinal, identity) => events.onAssistantText?.call(text, isFinal, identity),
       onSpeakingStart: () => events.onSpeakingStart?.call(),
       onSpeakingEnd: () => events.onSpeakingEnd?.call(),
+      onInterrupted: () => events.onInterrupted?.call(),
       onToolRequest: (call, identity) => events.onToolRequest?.call(call, identity),
       onTurnDone: (identity) {
         // A completed turn proves the hub works — reset the strike budget

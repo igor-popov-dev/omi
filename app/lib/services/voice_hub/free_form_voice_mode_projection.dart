@@ -64,9 +64,19 @@ HubControllerEvents freeFormModeProjectionEvents({
     userSaid.clear();
   }
 
-  void commitAssistant() {
+  void commitAssistant({bool interrupted = false}) {
     if (chatLog == null || assistantSaid.isEmpty) return;
-    chatLog.addAssistantTurn(assistantSaid.toString());
+    // Self-host patch: history must record what the user HEARD, not what the
+    // model generated. On barge-in the tail was cut mid-air, so the line is
+    // marked as such — otherwise the next turn is built on the fiction that
+    // the whole reply landed, and the model refers back to things nobody heard.
+    //
+    // The cut is marked, not measured: the transcript arrives as the model
+    // speaks, and without word-level timings from the player there is no honest
+    // way to say WHERE it stopped. A marker the model can reason about beats a
+    // guessed offset that looks precise and is wrong.
+    final spoken = assistantSaid.toString().trimRight();
+    chatLog.addAssistantTurn(interrupted ? '$spoken… [прервано]' : spoken);
     assistantSaid.clear();
   }
 
@@ -85,6 +95,13 @@ HubControllerEvents freeFormModeProjectionEvents({
       applyProjection(_speakingProjection);
     },
     onSpeakingEnd: () => applyProjection(_listeningProjection),
+    onInterrupted: () {
+      // The user talked over the reply: close the line as partially spoken and
+      // drop nothing else — whatever the model generates after this belongs to
+      // the next turn, not to the one that was cut.
+      commitAssistant(interrupted: true);
+      applyProjection(_listeningProjection);
+    },
     onAssistantText: (text, isFinal, identity) {
       if (text.isNotEmpty) assistantSaid.write(text);
       if (isFinal) commitAssistant();

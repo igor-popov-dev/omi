@@ -5,6 +5,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart';
+import 'package:omi/services/voice_hub/voice_chat_log.dart';
 import 'package:omi/services/voice_hub/hub_controller.dart';
 import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection, idleVoiceTurnProjection;
 
@@ -73,6 +74,73 @@ void main() {
       for (final p in applied) {
         expect(p, isNot(equals(idleVoiceTurnProjection)));
       }
+    });
+  });
+
+  // Self-host patch: история должна отражать УСЛЫШАННОЕ, а не сгенерированное.
+  group('запись разговора в историю', () {
+    late List<VoiceChatTurn> posted;
+    late VoiceChatLog log;
+    late HubControllerEvents events;
+
+    setUp(() {
+      posted = [];
+      log = VoiceChatLog(post: (turns) async {
+        posted.addAll(turns);
+        return true;
+      });
+      events = freeFormModeProjectionEvents(
+        applyProjection: (_) {},
+        onDisconnected: (_) {},
+        chatLog: log,
+      );
+    });
+
+    tearDown(() => log.dispose());
+
+    test('реплики копятся по кускам и пишутся одной строкой', () async {
+      events.onInputTranscript!('что я ', false, null);
+      events.onInputTranscript!('ел вчера', false, null);
+      events.onSpeakingStart!();
+      events.onAssistantText!('вчера была ', false, null);
+      events.onAssistantText!('паста', false, null);
+      events.onTurnDone!(null);
+      await log.flush();
+
+      expect(posted.map((t) => t.text), ['что я ел вчера', 'вчера была паста']);
+      expect(posted.map((t) => t.sender), ['human', 'ai']);
+    });
+
+    test('перебивание помечает реплику как недоговорённую', () async {
+      events.onSpeakingStart!();
+      events.onAssistantText!('вчера была паста и ещё', false, null);
+      events.onInterrupted!();
+      await log.flush();
+
+      // Хвост после перебивания пользователь не слышал — строка помечена,
+      // чтобы следующий ход не строился на том, чего не было в эфире.
+      expect(posted.single.text, 'вчера была паста и ещё… [прервано]');
+      expect(posted.single.sender, 'ai');
+    });
+
+    test('после перебивания следующая реплика не тянет за собой старый хвост', () async {
+      events.onSpeakingStart!();
+      events.onAssistantText!('первая', false, null);
+      events.onInterrupted!();
+      events.onSpeakingStart!();
+      events.onAssistantText!('вторая', false, null);
+      events.onTurnDone!(null);
+      await log.flush();
+
+      expect(posted.map((t) => t.text), ['первая… [прервано]', 'вторая']);
+    });
+
+    test('обрыв сессии тоже сохраняет прозвучавшее', () async {
+      events.onAssistantText!('успел сказать', false, null);
+      events.onError!(const HubControllerError(reason: 'socket closed', retryable: true, aliveForMs: 10));
+      await log.flush();
+
+      expect(posted.single.text, 'успел сказать');
     });
   });
 }

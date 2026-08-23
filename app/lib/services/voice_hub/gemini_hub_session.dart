@@ -356,6 +356,9 @@ class GeminiHubSession extends BaseHubSession {
       if (!freeFormMode) _responsePending = false;
       _pendingToolCallIds.clear();
       clearPlayback();
+      // Self-host patch: tell the host the reply was cut mid-air, so history
+      // records what was actually heard instead of what was generated.
+      events.onInterrupted?.call();
     }
     final it = sc['inputTranscription'] as Map<String, dynamic>?;
     if (it != null && it['text'] is String) emitInputTranscript(it['text'] as String, false);
