@@ -167,6 +167,10 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     // line. Without this the whole round trip is dead air — 44s of it, measured
     // 23.08, which the user read as the assistant having died mid-sentence.
     announce: (text) => hub.sendUserText(text),
+    // …кроме высоких уровней ползунка эскалации: там доставка блокирующая —
+    // модель молчит до ответа (идея 1, WORKLOG 24.08). Уровень читается на
+    // каждом вызове, поэтому ползунок действует без пересоздания драйвера.
+    blockingDelivery: () => currentClaudeEscalationLevel().blockingDelivery,
   );
 
   return VoiceHubTurnDriver(VoiceHubTurnDriverDeps(
@@ -257,6 +261,10 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     // line. Without this the whole round trip is dead air — 44s of it, measured
     // 23.08, which the user read as the assistant having died mid-sentence.
     announce: (text) => hub.sendUserText(text),
+    // …кроме высоких уровней ползунка эскалации: там доставка блокирующая —
+    // модель молчит до ответа (идея 1, WORKLOG 24.08). Уровень читается на
+    // каждом вызове, поэтому ползунок действует без пересоздания драйвера.
+    blockingDelivery: () => currentClaudeEscalationLevel().blockingDelivery,
   );
 
   hub = HubController(

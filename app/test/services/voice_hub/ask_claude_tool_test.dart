@@ -404,6 +404,39 @@ void main() {
       expect(announced.single, isNot(contains('старый ответ')));
     });
 
+    test('blockingDelivery=true silences the announce path: the answer IS the tool result', () async {
+      // Идея 1 (WORKLOG 24.08): на высоких уровнях эскалации модель обязана
+      // молчать до ответа. Никакого pending-плейсхолдера, никакой озвучки
+      // отдельной репликой — ответ приходит самим tool-result'ом.
+      final client = AskClaudeBridgeClient(
+          httpClient: MockClient((r) async => http.Response(
+                _sse([
+                  {'type': 'done', 'text': 'сорок два'}
+                ]),
+                200,
+                headers: _utf8EventStreamHeaders,
+              )));
+      final recorder = _toolResultRecorder();
+      final announced = <String>[];
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: recorder.callback,
+        announce: announced.add,
+        blockingDelivery: () => true,
+      );
+
+      executor.handle(HubToolCallRequest(
+        name: askClaudeToolName,
+        callId: 'c1',
+        argumentsJson: jsonEncode({'question': 'q'}),
+      ));
+      final result = await recorder.result;
+
+      expect(result.output, 'сорок два');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(announced, isEmpty);
+    });
+
     test('with announce: a failure is spoken in too, not swallowed', () async {
       final client = AskClaudeBridgeClient(httpClient: MockClient((r) async => http.Response('boom', 500)));
       final recorder = _toolResultRecorder();

@@ -22,11 +22,24 @@ void main() {
     });
   });
 
-  test('with the slider hidden, the level is pinned to balanced regardless of stored prefs', () {
-    // Решение Игоря 24.08 ~02:10: ползунок скрыт после «раздвоения» на правом
-    // крае, но в prefs могло остаться 4 — пин гарантирует стандартный режим.
-    expect(claudeEscalationSliderEnabled, isFalse);
+  test('slider is back on and uninitialized prefs (this test env) resolve to balanced', () {
+    // Возврат ползунка 24.08 ~03:30 — после single-flight, тёплого моста и
+    // блокирующей доставки. Хранение — под НОВЫМ ключом (V2): под старым у
+    // Игоря осталась «4» с неудачного теста, возврат не должен молча включить
+    // правый край.
+    expect(claudeEscalationSliderEnabled, isTrue);
     expect(currentClaudeEscalationLevel(), ClaudeEscalationLevel.balanced);
+  });
+
+  test('delivery blocks on high escalation levels only (идея 1)', () {
+    // На высоких уровнях модель говорит «секунду» и молчит до ответа —
+    // самодеятельность исключена механикой; на низких неблокирующий путь
+    // (с single-flight) удобнее честной паузы.
+    expect(ClaudeEscalationLevel.geminiOnly.blockingDelivery, isFalse);
+    expect(ClaudeEscalationLevel.onRequest.blockingDelivery, isFalse);
+    expect(ClaudeEscalationLevel.balanced.blockingDelivery, isFalse);
+    expect(ClaudeEscalationLevel.aggressive.blockingDelivery, isTrue);
+    expect(ClaudeEscalationLevel.fullProxy.blockingDelivery, isTrue);
   });
 
   group('geminiOnly (крайний левый)', () {

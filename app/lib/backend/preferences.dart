@@ -315,10 +315,13 @@ class SharedPreferencesUtil {
 
   // Ползунок «как часто голосовой хаб ходит к Claude» (0..4, см.
   // services/voice_hub/escalation_level.dart). Дефолт 2 (balanced) — ровно
-  // поведение до появления ползунка.
-  set claudeEscalationLevel(int value) => saveInt('claudeEscalationLevel', value);
+  // поведение до появления ползунка. Ключ v2: под старым ключом
+  // 'claudeEscalationLevel' у Игоря осталась «4» с неудачного теста 24.08
+  // (ползунок тогда скрыли) — возврат ползунка не должен молча включить
+  // правый край, поэтому старое значение сознательно брошено.
+  set claudeEscalationLevel(int value) => saveInt('claudeEscalationLevelV2', value);
 
-  int get claudeEscalationLevel => getInt('claudeEscalationLevel', defaultValue: 2);
+  int get claudeEscalationLevel => getInt('claudeEscalationLevelV2', defaultValue: 2);
 
   // Notification frequency (0-5): 0 = off, 5 = most frequent. Default is 0 (disabled)
   set notificationFrequency(int value) => saveInt('notificationFrequency', value);

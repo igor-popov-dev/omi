@@ -208,10 +208,20 @@ class AskClaudeToolExecutor {
   /// assistant.
   final void Function(String text)? announce;
 
+  /// Per-call switch back to BLOCKING delivery even when [announce] is wired
+  /// (идея 1 из WORKLOG 24.08 ~02:50): на высоких уровнях эскалации модель
+  /// должна сказать «секунду» и молчать до ответа — неблокирующий путь там
+  /// давал «раздвоение личности». Функция, а не флаг: уровень ползунка
+  /// читается на КАЖДОМ вызове, а executor живёт столько же, сколько драйвер.
+  /// Честная пауза с тёплым мостом — ~4–8 с (замер 24.08), а не прежние 44 с,
+  /// ради которых announce и появился.
+  final bool Function()? blockingDelivery;
+
   AskClaudeToolExecutor({
     required this.client,
     required this.sendToolResult,
     this.announce,
+    this.blockingDelivery,
     this.timeout = const Duration(seconds: 60),
   });
 
@@ -262,7 +272,9 @@ class AskClaudeToolExecutor {
   }
 
   Future<void> _run(HubToolCallRequest call) async {
-    final deliverOutOfBand = announce;
+    // Блокирующая доставка по требованию уровня: ответ придёт самим
+    // tool-result'ом, модель ждёт его молча (см. blockingDelivery).
+    final deliverOutOfBand = (blockingDelivery?.call() ?? false) ? null : announce;
     var generation = 0;
     if (deliverOutOfBand != null) {
       // Release the turn first: everything after this happens while the model
