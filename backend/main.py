@@ -369,7 +369,7 @@ def _drain_abandoned_in_progress_conversations():
     """Best-effort re-admission of finished conversations no producer retried."""
     try:
         result = reconcile_abandoned_in_progress_conversations()
-        if result.get('requested'):
+        if result.get('requested') or result.get('deleted'):
             logger.info(f"Startup abandoned in_progress reconciliation: {result}")
     except Exception as e:
         logger.error(f"Startup abandoned in_progress reconciliation failed: {e}")
@@ -420,7 +420,7 @@ async def _periodic_listen_finalization_reconcile(interval_seconds: int | None =
             logger.error(f"Periodic stale-processing reconciliation failed: {e}")
         try:
             abandoned_result = await run_blocking(db_executor, reconcile_abandoned_in_progress_conversations)
-            if abandoned_result.get('requested'):
+            if abandoned_result.get('requested') or abandoned_result.get('deleted'):
                 logger.info(f"Periodic abandoned in_progress reconciliation: {abandoned_result}")
         except Exception as e:
             logger.error(f"Periodic abandoned in_progress reconciliation failed: {e}")

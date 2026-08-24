@@ -124,7 +124,7 @@ LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL = Counter(
 
 # Zero-initialize the closed outcome set so an idle process exports every
 # series, distinguishing no abandoned rows from a missing scrape target.
-for _outcome in ('requested', 'skipped', 'byok', 'error'):
+for _outcome in ('requested', 'deleted', 'skipped', 'byok', 'error'):
     LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome=_outcome)
 
 LLM_GATEWAY_CHAT_EXTRACTION_REQUESTS = Counter(

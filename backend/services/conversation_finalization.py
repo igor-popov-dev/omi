@@ -276,8 +276,14 @@ def reconcile_abandoned_in_progress_conversations(limit: int = 100, *, firestore
     mutation may touch it) and a BYOK user, whose keys exist only inside a live
     request -- admitting one here would silently finalize their recording on
     platform credentials.
+
+    An abandoned row that turns out to be *empty* cannot be re-admitted at all
+    (admission answers ``no_content``), so it is finished the way the live path
+    finishes it -- deleted through ``delete_empty_recording_conversation``.
+    Without that it would stay a permanent candidate: re-scanned and refused on
+    every sweep, and shown to the user as a conversation nothing can complete.
     """
-    result: dict[str, int] = {'requested': 0, 'skipped': 0, 'error': 0}
+    result: dict[str, int] = {'requested': 0, 'deleted': 0, 'skipped': 0, 'error': 0}
     stale_after = jobs_db.get_abandoned_in_progress_finalize_after()
     try:
         cursor = jobs_db.get_abandoned_in_progress_sweep_cursor(firestore_client=firestore_client)
@@ -340,14 +346,54 @@ def reconcile_abandoned_in_progress_conversations(limit: int = 100, *, firestore
         # 'noop' means the transaction refused admission (the row moved on, was
         # discarded, or has nothing to finalize) -- an expected fencing, not work.
         if finalization.get('route') == 'noop':
+            if finalization.get('status') == 'no_content':
+                try:
+                    deleted = _delete_abandoned_empty_recording(uid, conversation_id)
+                except Exception:
+                    logger.exception('abandoned in_progress empty-recording cleanup failed for one row')
+                    result['error'] += 1
+                    LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='error').inc()
+                    continue
+                if deleted:
+                    result['deleted'] += 1
+                    LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='deleted').inc()
+                    continue
+                # The transaction refused: the row gained content or moved on
+                # between admission and cleanup. Leaving it is correct.
             result['skipped'] += 1
             LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='skipped').inc()
             continue
         result['requested'] += 1
         LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='requested').inc()
-    if result['requested']:
+    if result['requested'] or result['deleted']:
         logger.info('abandoned in_progress conversation reconciliation: %s', result)
     return result
+
+
+def _delete_abandoned_empty_recording(uid: str, conversation_id: str) -> bool:
+    """Finish the empty-generation cleanup the vanished producer owed.
+
+    The live path deletes an empty generation itself: ``process_conversation``
+    sees neither segments nor photos and calls
+    ``delete_empty_recording_conversation``. A producer that disappeared before
+    reaching that branch leaves the empty row behind, and admission answers
+    ``no_content`` for it on every sweep -- so re-driving admission alone would
+    re-scan the same dead row forever while the user keeps an empty conversation
+    that nothing can ever finish.
+
+    Safety is the live path's own, not this sweep's: the deletion transaction
+    re-reads the row and refuses anything that is no longer ``in_progress``,
+    already discarded, or holding content, and undecodable segments count as
+    content there ("never delete data we cannot read"). Firestore retries the
+    transaction when a late segment write wins the race, so a recording that
+    turns out non-empty is never deleted.
+
+    The recording-session id is unknowable here (the conversation does not carry
+    it and sessions are keyed the other way), so the session tombstone is
+    skipped; ``open_live_recording_session`` already treats a binding whose
+    conversation is gone as a tombstone rather than an authority to recreate it.
+    """
+    return lifecycle_service.delete_empty_recording_conversation(uid, conversation_id, None)
 
 
 def reconcile_stale_processing_conversations(limit: int = 100, *, firestore_client: Any = None) -> dict[str, int]:

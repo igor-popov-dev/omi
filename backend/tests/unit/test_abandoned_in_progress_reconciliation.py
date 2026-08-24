@@ -47,6 +47,13 @@ def _install(monkeypatch, candidates, *, exhausted: bool = True, resume_after_pa
     monkeypatch.setattr(service.users_db, 'is_byok_active', lambda uid, **kwargs: False)
     request = MagicMock(return_value={'job_id': 'job-1', 'route': 'cloud_tasks'})
     monkeypatch.setattr(service.lifecycle_service, 'request_finalization', request)
+    # Default the empty-recording cleanup to unreachable: only the tests that
+    # exercise it install their own, so no other test can touch Firestore.
+    monkeypatch.setattr(
+        service.lifecycle_service,
+        'delete_empty_recording_conversation',
+        MagicMock(side_effect=AssertionError('empty-recording cleanup must not run here')),
+    )
     return request, advance_cursor
 
 
@@ -55,7 +62,7 @@ def test_an_abandoned_recording_is_re_admitted_through_the_durable_path(monkeypa
 
     result = service.reconcile_abandoned_in_progress_conversations()
 
-    assert result == {'requested': 1, 'skipped': 0, 'error': 0}
+    assert result == {'requested': 1, 'deleted': 0, 'skipped': 0, 'error': 0}
     request.assert_called_once()
     assert request.call_args.args == ('uid-1', 'conversation-1')
     # Platform credentials only: a background sweep holds no request-scoped keys.
@@ -68,7 +75,7 @@ def test_a_byok_user_is_never_finalized_on_platform_credentials(monkeypatch):
 
     result = service.reconcile_abandoned_in_progress_conversations()
 
-    assert result == {'requested': 0, 'skipped': 1, 'error': 0}
+    assert result == {'requested': 0, 'deleted': 0, 'skipped': 1, 'error': 0}
     request.assert_not_called()
 
 
@@ -78,7 +85,7 @@ def test_an_account_mid_cutover_is_left_alone(monkeypatch):
 
     result = service.reconcile_abandoned_in_progress_conversations()
 
-    assert result == {'requested': 0, 'skipped': 1, 'error': 0}
+    assert result == {'requested': 0, 'deleted': 0, 'skipped': 1, 'error': 0}
     request.assert_not_called()
 
 
@@ -90,7 +97,7 @@ def test_a_refused_admission_is_a_skip_not_work_done(monkeypatch):
 
     result = service.reconcile_abandoned_in_progress_conversations()
 
-    assert result == {'requested': 0, 'skipped': 1, 'error': 0}
+    assert result == {'requested': 0, 'deleted': 0, 'skipped': 1, 'error': 0}
 
 
 def test_an_unavailable_handoff_is_a_skip_not_an_error(monkeypatch):
@@ -100,7 +107,7 @@ def test_an_unavailable_handoff_is_a_skip_not_an_error(monkeypatch):
 
     result = service.reconcile_abandoned_in_progress_conversations()
 
-    assert result == {'requested': 0, 'skipped': 1, 'error': 0}
+    assert result == {'requested': 0, 'deleted': 0, 'skipped': 1, 'error': 0}
 
 
 def test_one_failing_row_does_not_stop_the_sweep(monkeypatch):
@@ -109,7 +116,7 @@ def test_one_failing_row_does_not_stop_the_sweep(monkeypatch):
 
     result = service.reconcile_abandoned_in_progress_conversations()
 
-    assert result == {'requested': 1, 'skipped': 0, 'error': 1}
+    assert result == {'requested': 1, 'deleted': 0, 'skipped': 0, 'error': 1}
     assert request.call_count == 2
 
 
@@ -123,7 +130,7 @@ def test_a_failed_query_admits_nothing(monkeypatch):
 
     result = service.reconcile_abandoned_in_progress_conversations()
 
-    assert result == {'requested': 0, 'skipped': 0, 'error': 1}
+    assert result == {'requested': 0, 'deleted': 0, 'skipped': 0, 'error': 1}
     request.assert_not_called()
 
 
@@ -156,5 +163,67 @@ def test_a_cursor_that_cannot_advance_still_lets_the_sweep_run(monkeypatch):
 
     result = service.reconcile_abandoned_in_progress_conversations()
 
-    assert result == {'requested': 1, 'skipped': 0, 'error': 0}
+    assert result == {'requested': 1, 'deleted': 0, 'skipped': 0, 'error': 0}
     request.assert_called_once()
+
+
+def _empty_cleanup(monkeypatch, *, deleted: bool = True):
+    """Install the empty-recording cleanup the live path uses for empty generations."""
+    delete_empty = MagicMock(return_value=deleted)
+    monkeypatch.setattr(service.lifecycle_service, 'delete_empty_recording_conversation', delete_empty)
+    return delete_empty
+
+
+def test_an_abandoned_empty_recording_is_deleted_the_way_the_live_path_deletes_it(monkeypatch):
+    """An empty generation can never be admitted (`no_content`), so re-driving
+    admission alone would re-scan the same dead row on every sweep and leave the
+    user a conversation nothing can finish. The live path deletes it; a producer
+    that vanished before that branch never did, so the sweep finishes the job."""
+    request, _ = _install(monkeypatch, [_candidate('uid-1', 'conversation-1')])
+    request.return_value = {'job_id': None, 'route': 'noop', 'status': 'no_content'}
+    delete_empty = _empty_cleanup(monkeypatch)
+
+    result = service.reconcile_abandoned_in_progress_conversations()
+
+    assert result == {'requested': 0, 'deleted': 1, 'skipped': 0, 'error': 0}
+    # No recording-session id is knowable here, so the session tombstone is skipped.
+    assert delete_empty.call_args.args == ('uid-1', 'conversation-1', None)
+
+
+def test_a_refusal_for_any_other_reason_never_deletes(monkeypatch):
+    """Only `no_content` means "empty". A row fenced out because it completed,
+    was discarded or moved to a newer generation still holds user data."""
+    request, _ = _install(monkeypatch, [_candidate('uid-1', 'conversation-1')])
+    delete_empty = _empty_cleanup(monkeypatch)
+
+    for status in ('completed', 'discarded', 'missing', 'deferred', 'dead_letter'):
+        request.return_value = {'job_id': None, 'route': 'noop', 'status': status}
+
+        result = service.reconcile_abandoned_in_progress_conversations()
+
+        assert result == {'requested': 0, 'deleted': 0, 'skipped': 1, 'error': 0}, status
+    delete_empty.assert_not_called()
+
+
+def test_a_cleanup_the_transaction_refuses_is_a_skip_not_a_deletion(monkeypatch):
+    """The deletion transaction re-reads the row and refuses one that gained
+    content or moved on since admission. That race is expected, not work done."""
+    request, _ = _install(monkeypatch, [_candidate('uid-1', 'conversation-1')])
+    request.return_value = {'job_id': None, 'route': 'noop', 'status': 'no_content'}
+    _empty_cleanup(monkeypatch, deleted=False)
+
+    result = service.reconcile_abandoned_in_progress_conversations()
+
+    assert result == {'requested': 0, 'deleted': 0, 'skipped': 1, 'error': 0}
+
+
+def test_a_failing_cleanup_is_an_error_and_does_not_stop_the_sweep(monkeypatch):
+    request, _ = _install(monkeypatch, [_candidate('uid-1', 'first'), _candidate('uid-1', 'second')])
+    request.return_value = {'job_id': None, 'route': 'noop', 'status': 'no_content'}
+    delete_empty = _empty_cleanup(monkeypatch)
+    delete_empty.side_effect = [RuntimeError('firestore unavailable'), True]
+
+    result = service.reconcile_abandoned_in_progress_conversations()
+
+    assert result == {'requested': 0, 'deleted': 1, 'skipped': 0, 'error': 1}
+    assert delete_empty.call_count == 2
