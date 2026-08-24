@@ -573,11 +573,91 @@ class CaptureController extends ChangeNotifier
     notifyListeners();
   }
 
+  // True while THIS app's own call owns the microphone. Deliberately separate from
+  // [_micInterrupted]: that one mirrors an interruption the OS reported and the OS will
+  // end, while this one is ours to end. Keeping them apart matters on the resume side —
+  // a real interruption can begin and end inside our call, and its `end` must not be
+  // mistaken for permission to put ambient capture back while the call is still running.
+  bool _inAppCallHoldsMic = false;
+
+  bool get inAppCallHoldsMic => _inAppCallHoldsMic;
+
+  /// Hush ambient phone-mic capture for the duration of an in-app call.
+  ///
+  /// Without this the phone keeps streaming the same conversation into `v4/listen`
+  /// while the cloud streams both legs of the call under its own call_id, and the
+  /// backend de-duplicates nothing: one call becomes TWO conversations, one holding
+  /// our side and one the other party's (measured, lane 6 tick 22,
+  /// marathon/tools/vox-dual-session-probe.py, case `ambient`). On Android the two
+  /// captures also fight over the microphone, and the loser records silence.
+  ///
+  /// The mic arbiter cannot do this part. It can refuse a NEW claim (a call takes its
+  /// veto — MicArbiter.holdForCall), but it cannot stop a capture already running, and
+  /// the call SDK takes the microphone natively without asking it either.
+  Future<void> pauseForInAppCall() async {
+    if (_inAppCallHoldsMic) return;
+    // Nothing is capturing — take the flag anyway. The call may outlive this check
+    // (the user can start recording mid-call), and the flag is what refuses that.
+    _inAppCallHoldsMic = true;
+    if (_activeSource is! PhoneMicSource && !_phoneMicBatchActive) return;
+    _onMicInterruption(true);
+    ServiceManager.instance().phoneMic.stop();
+  }
+
+  /// Give the microphone back after the call. Idempotent: several exits report the end
+  /// of one call, and a second resume must not start a session the user never asked for.
+  Future<void> resumeAfterInAppCall() async {
+    if (!_inAppCallHoldsMic) return;
+    // Cleared first: the restart paths below refuse to run while it is set.
+    _inAppCallHoldsMic = false;
+    try {
+      if (_activeSource is PhoneMicSource) {
+        // Preserves the socket and the segments captured before the call.
+        await _resumeMicRecording();
+      } else if (_phoneMicBatchActive) {
+        await _restartPhoneMicBatchAfterCall();
+      }
+    } catch (e, st) {
+      // The restart can be refused outright: a chat voice memo that was already recording
+      // when the call began still holds the mic arbiter, and its stack is not ours to
+      // stop. Without this the throw escapes past _onMicInterruption(false) and the
+      // capture card stays on `interrupted` with nothing running — the same deaf phone
+      // the hold exists to prevent, only quieter. Fail visibly instead.
+      Logger.error('[CaptureProvider] resume after in-app call failed: $e\n$st');
+      _activeSource = null;
+      _phoneMicWalActive = false;
+      _micInterrupted = false;
+      updateRecordingState(RecordingState.stop);
+      await _socket?.stop(reason: 'resume after in-app call failed');
+      notifyListeners();
+      return;
+    }
+    _onMicInterruption(false);
+  }
+
+  /// Batch has no resume — a session is a run of files, and the watchdog restarts it the
+  /// same way. Kept separate from [_onBatchStalled] only because that one refuses to run
+  /// while a restart is in flight, which is exactly the state a call leaves behind.
+  Future<void> _restartPhoneMicBatchAfterCall() async {
+    if (_phoneMicBatchRestartInFlight) return;
+    _phoneMicBatchRestartInFlight = true;
+    try {
+      await _startPhoneMicBatch(auto: SharedPreferencesUtil().phoneBatchAuto);
+    } catch (e, st) {
+      Logger.error('[CaptureProvider] batch restart after in-app call failed: $e\n$st');
+    } finally {
+      _phoneMicBatchRestartInFlight = false;
+    }
+  }
+
   bool _phoneMicRestartInFlight = false;
   bool _phoneMicBatchRestartInFlight = false;
 
   Future<void> _restartPhoneMicRecording() async {
     if (_phoneMicRestartInFlight) return;
+    // A restart already in flight when the call started would otherwise hand the mic
+    // straight back — the pause would hold for exactly as long as this await.
+    if (_inAppCallHoldsMic) return;
     _phoneMicRestartInFlight = true;
     try {
       ServiceManager.instance().phoneMic.stop();
@@ -803,25 +883,6 @@ class CaptureController extends ChangeNotifier
   bool _isPaused = false;
   bool get isPaused => _isPaused;
   bool get isCallActive => _micInterrupted;
-
-  /// Our own outgoing/incoming call — the one case where the phone's mic hears
-  /// the same conversation the cloud call leg already captures. Without this
-  /// pause the backend gets two audio streams for the same uid and opens TWO
-  /// conversations for one call (proven with marathon/tools/vox-dual-session-probe.py,
-  /// the `ambient` case).
-  Future<void> pauseForInAppCall() async {
-    if (_activeSource is! PhoneMicSource && !_phoneMicBatchActive) return;
-    _onMicInterruption(true);
-    ServiceManager.instance().phoneMic.stop();
-  }
-
-  Future<void> resumeAfterInAppCall() async {
-    if (!_micInterrupted) return;
-    if (_activeSource is PhoneMicSource) {
-      await _resumeMicRecording(); // preserves the existing socket/segments
-    }
-    _onMicInterruption(false);
-  }
 
   // Flag to star the conversation when it ends
   bool _starOngoingConversation = false;
@@ -2100,6 +2161,8 @@ class CaptureController extends ChangeNotifier
   /// restart path (_restartPhoneMicRecording), which assumes a socket/WAL.
   Future<void> _onBatchStalled() async {
     if (!_phoneMicBatchActive || _phoneMicBatchRestartInFlight) return;
+    // Silence during our own call is not a stall — it is the pause working.
+    if (_inAppCallHoldsMic) return;
     _phoneMicBatchRestartInFlight = true;
     try {
       ServiceManager.instance().phoneMic.stop();

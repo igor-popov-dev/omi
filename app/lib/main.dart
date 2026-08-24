@@ -500,11 +500,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (context) => VoiceRecorderProvider()..checkPendingRecording()),
         ChangeNotifierProvider(create: (context) => LocaleProvider()),
         ChangeNotifierProvider(create: (context) => AnnouncementProvider()),
+        // A call must hush the phone's own always-on recording, or one call becomes two
+        // conversations and the two captures fight over the microphone (lane 6 tick 22).
+        // Wired here rather than inside the provider so calls keep knowing nothing about
+        // the capture stack.
         ChangeNotifierProxyProvider<CaptureProvider, PhoneCallProvider>(
           lazy: true,
           create: (context) => PhoneCallProvider(),
-          update: (BuildContext context, capture, PhoneCallProvider? previous) =>
-              (previous ?? PhoneCallProvider())..setCaptureController(capture),
+          update: (BuildContext context, capture, PhoneCallProvider? previous) {
+            final phoneCalls = previous ?? PhoneCallProvider();
+            phoneCalls.ambientCapture.gate =
+                (paused) => paused ? capture.pauseForInAppCall() : capture.resumeAfterInAppCall();
+            // The gate above hushes the always-on capture only. The arbiter is the other
+            // half: it is what refuses a chat voice memo or a speech profile started
+            // mid-call, which would otherwise record silence beside the live call and
+            // report success.
+            phoneCalls.ambientCapture.arbiter = ServiceManager.instance().micArbiter;
+            return phoneCalls;
+          },
         ),
       ],
       builder: (context, child) {

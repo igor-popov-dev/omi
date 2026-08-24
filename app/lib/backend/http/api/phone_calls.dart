@@ -109,20 +109,40 @@ Future<bool> deleteVerifiedPhoneNumber(String phoneNumberId) async {
 // ************** TOKEN MANAGEMENT ****************
 // ************************************************
 
-/// A call token, or the reason the backend refused to mint one.
+/// What the calling SDK needs to sign in, or the reason the backend refused to say.
+///
+/// Exactly one of [token] (Twilio) and [voximplant] is filled on success — which one is
+/// decided by the deployment, not by the app, so a provider switch needs no new build.
 class PhoneCallTokenResult {
   final PhoneCallToken? token;
+  final VoximplantLogin? voximplant;
   final String? error;
 
-  const PhoneCallTokenResult({this.token, this.error});
+  const PhoneCallTokenResult({this.token, this.voximplant, this.error});
 }
 
-Future<PhoneCallTokenResult> getPhoneCallToken() async {
-  var response = await makeApiCall(url: '${Env.apiBaseUrl}v1/phone/token', headers: {}, method: 'POST', body: '');
+/// Asks the backend for call credentials.
+///
+/// `oneTimeKey` is the second half of the Voximplant handshake: the app calls this once
+/// without a key to learn the node and the user name, connects its SDK there, asks the cloud
+/// for a one-time key and calls again with it to get the login hash. Twilio deployments
+/// ignore the key and answer with an access token either way.
+Future<PhoneCallTokenResult> getPhoneCallToken({String? oneTimeKey}) async {
+  var response = await makeApiCall(
+    url: '${Env.apiBaseUrl}v1/phone/token',
+    headers: oneTimeKey == null ? {} : {'Content-Type': 'application/json'},
+    method: 'POST',
+    body: oneTimeKey == null ? '' : jsonEncode({'key': oneTimeKey}),
+  );
   if (response == null) return const PhoneCallTokenResult();
   Logger.debug('getPhoneCallToken: ${response.body}');
   if (response.statusCode == 200) {
-    final generated = wire.GeneratedTokenResponse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final voximplant = VoximplantLogin.fromJson(decoded);
+    if (voximplant != null) {
+      return PhoneCallTokenResult(voximplant: voximplant);
+    }
+    final generated = wire.GeneratedTokenResponse.fromJson(decoded);
     return PhoneCallTokenResult(token: PhoneCallToken.fromGenerated(generated));
   }
   return PhoneCallTokenResult(error: errorDetailMessage(response.body));

@@ -30,6 +30,14 @@ abstract class Env {
   // install (or reinstall after a signing-key change) points at our STT
   // router without the user configuring it by hand. Empty by default.
   static const defaultSttUrl = String.fromEnvironment('OMI_DEFAULT_STT_URL');
+  // Self-host patch, not for upstream: base URL of our call adapter
+  // (https://vox.peshkomdomoy.online), which holds the live transcript of a
+  // Voximplant call. The app cannot open its own transcript socket on that path —
+  // a second socket under the same call_id quietly creates a SECOND conversation
+  // (lane 6 tick 22) — so it reads the text back over HTTP instead. Empty by
+  // default: builds without it simply show no live text, and the call itself is
+  // unaffected (the cloud scenario records either way).
+  static const voxTranscriptBaseUrl = String.fromEnvironment('OMI_VOX_TRANSCRIPT_URL');
   static late final EnvFields _instance;
   static String? _apiBaseUrlOverride;
   static bool isTestFlight = false;
