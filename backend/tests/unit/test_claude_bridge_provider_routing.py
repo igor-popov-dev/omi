@@ -17,7 +17,7 @@ from utils.llm.providers import get_default_client, get_or_create_claude_bridge_
 
 def test_claude_bridge_profile_routes_chat_responses_only():
     profile = CLAUDE_BRIDGE_PROFILE
-    assert profile['chat_responses'] == ('sonnet', 'claude-bridge')
+    assert profile['chat_responses'] == ('opus', 'claude-bridge')
     # Agentic tool-calling chat must stay on real Anthropic — the bridge has no
     # tool-use support, only plain question+context.
     assert profile['chat_agent'] == ('claude-sonnet-4-6', 'anthropic')
@@ -30,7 +30,7 @@ def test_claude_bridge_profile_routes_conversation_finalize_features():
     # leave in_progress (OpenAI 401 under PROVIDER_MODE=offline).
     profile = CLAUDE_BRIDGE_PROFILE
     for feature in ('conv_discard', 'conv_structure', 'conv_action_items', 'conv_app_result'):
-        assert profile[feature] == ('sonnet', 'claude-bridge')
+        assert profile[feature] == ('opus', 'claude-bridge')
     # conv_app_select calls .with_structured_output() — the bridge can't serve that,
     # so it must stay on its two-tier default.
     assert profile['conv_app_select'] == ('gpt-5-nano', 'openai')
@@ -51,7 +51,7 @@ def test_claude_bridge_profile_routes_memory_pipeline_features():
         'memory_l1',
         'memory_l2',
     ):
-        assert profile[feature] == ('sonnet', 'claude-bridge')
+        assert profile[feature] == ('opus', 'claude-bridge')
     # The '_flex' siblings inherit the untouched two-tier default (still 'openai'): they
     # bypass get_llm()/this profile entirely at the call site (utils/memory/promotion_flex.py
     # calls get_or_create_omi_gateway_llm() directly), so rerouting the map entry here
@@ -64,7 +64,7 @@ def test_claude_bridge_profile_routes_conv_folder():
     # conv_folder (assign_conversation_to_folder) is a single
     # `prompt | get_llm('conv_folder') | folder_parser` chain, same PydanticOutputParser
     # shape as the conversation-finalize features above — works over the bridge unchanged.
-    assert CLAUDE_BRIDGE_PROFILE['conv_folder'] == ('sonnet', 'claude-bridge')
+    assert CLAUDE_BRIDGE_PROFILE['conv_folder'] == ('opus', 'claude-bridge')
 
 
 def test_only_chat_responses_gets_bridge_tool_access():

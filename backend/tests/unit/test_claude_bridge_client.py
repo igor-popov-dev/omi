@@ -7,12 +7,16 @@ import pytest
 
 from utils.llm.claude_bridge_client import (
     ClaudeBridgeChatModel,
+    ClaudeBridgeUpstreamError,
+    _extract_json_blob,
     _messages_to_question_and_context,
     get_claude_bridge_timeout_seconds,
     get_claude_bridge_url,
 )
 from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import HumanMessage, SystemMessage
+from pydantic import BaseModel, Field
 
 
 def _sse_body(*events: dict) -> bytes:
@@ -69,7 +73,33 @@ def test_invoke_sends_question_context_and_model_in_payload():
     request = seen_requests[0]
     assert request.url.path == '/ask'
     body = json.loads(request.content)
-    assert body == {'question': 'what time is it', 'context': 'some context', 'model': 'sonnet'}
+    assert body == {
+        'question': 'what time is it',
+        'context': 'some context',
+        'model': 'sonnet',
+        'tools_enabled': False,
+    }
+
+
+def test_invoke_sends_tools_enabled_true_when_constructed_with_it():
+    seen_requests: list[httpx.Request] = []
+    events = [{'type': 'done', 'text': 'ok'}]
+    model = ClaudeBridgeChatModel(
+        base_url='http://bridge.test',
+        model_name='sonnet',
+        tools_enabled=True,
+        transport=_fake_bridge(events, seen_requests),
+    )
+
+    model.invoke([HumanMessage(content='what time is it')])
+
+    body = json.loads(seen_requests[0].content)
+    assert body['tools_enabled'] is True
+
+
+def test_tools_enabled_defaults_to_false():
+    model = ClaudeBridgeChatModel(base_url='http://bridge.test', model_name='sonnet')
+    assert model.tools_enabled is False
 
 
 def test_invoke_reports_deltas_to_run_manager_callback():
@@ -120,3 +150,165 @@ def test_get_claude_bridge_timeout_seconds_default(monkeypatch):
 def test_get_claude_bridge_timeout_seconds_invalid_falls_back(monkeypatch):
     monkeypatch.setenv('CLAUDE_BRIDGE_TIMEOUT_SECONDS', 'not-a-number')
     assert get_claude_bridge_timeout_seconds() == 120.0
+
+
+# ---------------------------------------------------------------------------
+# Structured output (lane7) — the bridge has no tool-calling, so
+# .with_structured_output() is prompt-and-parse. See claude_bridge_client.py.
+# ---------------------------------------------------------------------------
+
+
+class _Verdict(BaseModel):
+    is_relevant: bool = Field(description='whether the conversation warrants a notification')
+    score: float = Field(description='0..1')
+
+
+def _scripted_bridge(replies: list[str], seen_requests: list[httpx.Request] | None = None):
+    """A bridge that answers each successive call with the next entry in `replies`."""
+    remaining = list(replies)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if seen_requests is not None:
+            seen_requests.append(request)
+        text = remaining.pop(0) if remaining else replies[-1]
+        return httpx.Response(
+            200,
+            content=_sse_body({'type': 'done', 'text': text}),
+            headers={'content-type': 'text/event-stream'},
+        )
+
+    return httpx.MockTransport(handler)
+
+
+@pytest.mark.parametrize(
+    'reply',
+    [
+        '{"is_relevant": true, "score": 0.87}',
+        '```json\n{"is_relevant": true, "score": 0.87}\n```',
+        'Sure — here you go:\n\n{"is_relevant": true, "score": 0.87}\n\nHope that helps!',
+    ],
+    ids=['bare', 'fenced', 'prose_around'],
+)
+def test_structured_output_parses_however_claude_wraps_the_json(reply):
+    model = ClaudeBridgeChatModel(
+        base_url='http://bridge.test', model_name='sonnet', transport=_scripted_bridge([reply])
+    )
+
+    result = model.with_structured_output(_Verdict).invoke('is this worth a notification?')
+
+    assert isinstance(result, _Verdict)
+    assert result.is_relevant is True
+    assert result.score == 0.87
+
+
+def test_structured_output_puts_schema_in_the_question_not_the_context():
+    """The bridge treats only the last message as the question — instructions must land there."""
+    seen: list[httpx.Request] = []
+    model = ClaudeBridgeChatModel(
+        base_url='http://bridge.test',
+        model_name='sonnet',
+        transport=_scripted_bridge(['{"is_relevant": false, "score": 0.1}'], seen),
+    )
+
+    model.with_structured_output(_Verdict).invoke([SystemMessage(content='ctx'), HumanMessage(content='ask')])
+
+    body = json.loads(seen[0].content)
+    assert body['context'] == 'ctx'
+    assert body['question'].startswith('ask')
+    assert 'is_relevant' in body['question']
+
+
+def test_structured_output_retries_once_with_a_json_only_reminder():
+    seen: list[httpx.Request] = []
+    model = ClaudeBridgeChatModel(
+        base_url='http://bridge.test',
+        model_name='sonnet',
+        transport=_scripted_bridge(['I do not think so.', '{"is_relevant": true, "score": 0.9}'], seen),
+    )
+
+    result = model.with_structured_output(_Verdict).invoke('q')
+
+    assert result.score == 0.9
+    assert len(seen) == 2
+    assert 'could not be parsed as JSON' in json.loads(seen[1].content)['question']
+
+
+def test_structured_output_raises_rather_than_returning_junk():
+    """A never-JSON bridge must fail loudly: the mentor chain logs and skips, it never invents a draft."""
+    seen: list[httpx.Request] = []
+    model = ClaudeBridgeChatModel(
+        base_url='http://bridge.test', model_name='sonnet', transport=_scripted_bridge(['nope'], seen)
+    )
+
+    with pytest.raises(OutputParserException):
+        model.with_structured_output(_Verdict).invoke('q')
+
+    assert len(seen) == 2
+
+
+def test_structured_output_rejects_include_raw():
+    model = ClaudeBridgeChatModel(base_url='http://bridge.test', model_name='sonnet')
+    with pytest.raises(NotImplementedError):
+        model.with_structured_output(_Verdict, include_raw=True)
+
+
+@pytest.mark.parametrize(
+    'text,expected',
+    [
+        ('{"a": 1}', '{"a": 1}'),
+        ('```json\n{"a": 1}\n```', '{"a": 1}'),
+        ('```\n{"a": 1}\n```', '{"a": 1}'),
+        ('prefix {"a": 1} suffix', '{"a": 1}'),
+        ('no json here', 'no json here'),
+    ],
+)
+def test_extract_json_blob(text, expected):
+    assert _extract_json_blob(text) == expected
+
+
+def test_invoke_raises_when_the_bridge_reports_a_usage_limit():
+    """A spent subscription window must not come back as the model's answer.
+
+    Live incident 2026-08-24: the notice text reached conversation structuring,
+    failed to parse as JSON, and left the conversation stuck in `in_progress`.
+    """
+    events = [
+        {'type': 'error', 'code': 'usage_limit', 'message': "You've hit your session limit", 'resets_at': 1787541000}
+    ]
+    model = ClaudeBridgeChatModel(base_url='http://bridge.test', model_name='sonnet', transport=_fake_bridge(events))
+
+    with pytest.raises(ClaudeBridgeUpstreamError) as excinfo:
+        model.invoke([HumanMessage(content='hi')])
+
+    assert excinfo.value.code == 'usage_limit'
+    assert excinfo.value.resets_at == 1787541000
+
+
+def test_invoke_drops_partial_deltas_that_precede_an_error():
+    """Half an answer is not an answer — the caller gets the error, not the fragment."""
+    events = [
+        {'type': 'delta', 'text': 'Title: '},
+        {'type': 'error', 'code': 'upstream_error', 'message': 'claude CLI failed'},
+    ]
+    model = ClaudeBridgeChatModel(base_url='http://bridge.test', model_name='sonnet', transport=_fake_bridge(events))
+
+    with pytest.raises(ClaudeBridgeUpstreamError):
+        model.invoke([HumanMessage(content='hi')])
+
+
+def test_structured_output_does_not_burn_a_retry_on_an_upstream_error():
+    """The JSON-only retry is for unparseable answers, not for an exhausted window."""
+
+    class _Shape(BaseModel):
+        title: str = Field(description='title')
+
+    calls: list[httpx.Request] = []
+    events = [{'type': 'error', 'code': 'usage_limit', 'message': 'limit'}]
+    model = ClaudeBridgeChatModel(
+        base_url='http://bridge.test', model_name='sonnet', transport=_fake_bridge(events, calls)
+    )
+
+    with pytest.raises(ClaudeBridgeUpstreamError):
+        model.with_structured_output(_Shape).invoke('give me a title')
+
+    assert len(calls) == 1

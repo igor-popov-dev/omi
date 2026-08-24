@@ -9893,4 +9893,54 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'A diagnosztika megosztása nem sikerült. Próbáld újra.';
+
+  @override
+  String get appDisabledTitle => 'Ez az alkalmazás le van tiltva, és nem telepíthető.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'A végpontja 72 órán át folyamatosan hibázott, ezért a kézbesítések leálltak.';
+
+  @override
+  String get appDisabledGeneric => 'Az Omi tiltotta le.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Először javítsd ki a végpontot — az újraengedélyezés minden beállított URL-t újra ellenőriz.';
+
+  @override
+  String get appReEnable => 'Újraengedélyezés';
+
+  @override
+  String get appReEnableFailedTitle => 'Az újraengedélyezés nem sikerült';
+
+  @override
+  String get appReEnableFailedBody => 'Ezt az alkalmazást nem sikerült újraengedélyezni. Próbáld újra.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Letiltva ekkor: $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Utolsó hiba: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

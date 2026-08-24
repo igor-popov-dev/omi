@@ -9853,4 +9853,53 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'اشتراک‌گذاری اطلاعات تشخیصی ممکن نشد. لطفاً دوباره تلاش کنید.';
+
+  @override
+  String get appDisabledTitle => 'این برنامه غیرفعال است و نمی‌توان آن را نصب کرد.';
+
+  @override
+  String get appDisabledWebhookFailures => 'نقطه پایانی آن ۷۲ ساعت پیاپی ناموفق بود، بنابراین ارسال‌ها متوقف شد.';
+
+  @override
+  String get appDisabledGeneric => 'توسط Omi غیرفعال شد.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'ابتدا نقطه پایانی را درست کنید — فعال‌سازی مجدد هر نشانی اینترنتی پیکربندی‌شده را دوباره بررسی می‌کند.';
+
+  @override
+  String get appReEnable => 'فعال‌سازی مجدد';
+
+  @override
+  String get appReEnableFailedTitle => 'فعال‌سازی مجدد ممکن نشد';
+
+  @override
+  String get appReEnableFailedBody => 'این برنامه دوباره فعال نشد. لطفاً دوباره تلاش کنید.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'در $date غیرفعال شد.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'آخرین خطا: $error';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

@@ -9882,4 +9882,54 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Nie udało się udostępnić diagnostyki. Spróbuj ponownie.';
+
+  @override
+  String get appDisabledTitle => 'Ta aplikacja jest wyłączona i nie można jej zainstalować.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'Jej endpoint zawodził przez 72 godziny z rzędu, więc dostarczanie zostało zatrzymane.';
+
+  @override
+  String get appDisabledGeneric => 'Została wyłączona przez Omi.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Najpierw napraw endpoint — ponowne włączenie sprawdza każdy skonfigurowany adres URL.';
+
+  @override
+  String get appReEnable => 'Włącz ponownie';
+
+  @override
+  String get appReEnableFailedTitle => 'Nie udało się włączyć ponownie';
+
+  @override
+  String get appReEnableFailedBody => 'Nie udało się ponownie włączyć tej aplikacji. Spróbuj ponownie.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Wyłączona $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Ostatni błąd: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

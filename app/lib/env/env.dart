@@ -7,14 +7,37 @@ import 'environment_profile.dart';
 abstract class Env {
   static const productionApiBaseUrl = 'https://api.omi.me/';
   static const _apiBaseUrlFromDefine = String.fromEnvironment('OMI_API_BASE_URL');
-  static const firebaseAuthEmulatorHost = String.fromEnvironment(
-    'OMI_FIREBASE_AUTH_EMULATOR_HOST',
-    defaultValue: '127.0.0.1',
-  );
+  // Empty by default: a local_dev build only talks to the Auth emulator when
+  // this is explicitly set (dev-harness workflow), so a tunnel-pointed build
+  // with no dart-define falls through to real Firebase Auth. See main.dart's
+  // `Env.profile.usesFirebaseAuthEmulator && Env.firebaseAuthEmulatorHost.isNotEmpty` gate.
+  static const firebaseAuthEmulatorHost = String.fromEnvironment('OMI_FIREBASE_AUTH_EMULATOR_HOST');
   static const _firebaseAuthEmulatorPort = String.fromEnvironment(
     'OMI_FIREBASE_AUTH_EMULATOR_PORT',
     defaultValue: '9099',
   );
+  // Cloudflare Access service-token credentials for the self-host tunnel
+  // (omi-{api,stt}.peshkomdomoy.online) — see docs/point-app-to-mini.md. Empty
+  // by default so builds that never set them (LAN-only, mobile_beta, prod)
+  // send no extra headers.
+  static const cfAccessClientId = String.fromEnvironment('OMI_CF_ACCESS_CLIENT_ID');
+  static const cfAccessClientSecret = String.fromEnvironment('OMI_CF_ACCESS_CLIENT_SECRET');
+  // Self-host patch, not for upstream: a fresh install has no saved
+  // customSttConfig, so it falls through to the app's own cloud STT path
+  // (Deepgram, no key on our backend) and transcription looks "unavailable".
+  // When set, preferences.dart's `customSttConfig` getter uses this as the
+  // custom-provider URL instead of the upstream `omi` default, so a clean
+  // install (or reinstall after a signing-key change) points at our STT
+  // router without the user configuring it by hand. Empty by default.
+  static const defaultSttUrl = String.fromEnvironment('OMI_DEFAULT_STT_URL');
+  // Self-host patch, not for upstream: base URL of our call adapter
+  // (https://vox.peshkomdomoy.online), which holds the live transcript of a
+  // Voximplant call. The app cannot open its own transcript socket on that path —
+  // a second socket under the same call_id quietly creates a SECOND conversation
+  // (lane 6 tick 22) — so it reads the text back over HTTP instead. Empty by
+  // default: builds without it simply show no live text, and the call itself is
+  // unaffected (the cloud scenario records either way).
+  static const voxTranscriptBaseUrl = String.fromEnvironment('OMI_VOX_TRANSCRIPT_URL');
   static late final EnvFields _instance;
   static String? _apiBaseUrlOverride;
   static bool isTestFlight = false;
@@ -133,6 +156,14 @@ abstract class Env {
     if (host == 'localhost' || host == 'host.docker.internal' || host == '::1') {
       return true;
     }
+    // Cloudflare Tunnel ingress for the self-host mini, gated by Access
+    // service-token headers (added in shared.dart's buildHeaders) — an
+    // explicit allowlist entry, not a blanket public-host exemption, so this
+    // stays a private-network guard for every other host. See
+    // docs/point-app-to-mini.md.
+    if (host == 'peshkomdomoy.online' || host.endsWith('.peshkomdomoy.online')) {
+      return true;
+    }
     final octets = host.split('.').map(int.tryParse).toList();
     if (octets.length != 4 || octets.any((octet) => octet == null || octet < 0 || octet > 255)) {
       return false;
@@ -152,6 +183,9 @@ abstract class Env {
   }
 
   static String? get googleMapsApiKey => _instance.googleMapsApiKey;
+
+  /// Ключ Яндекс.Карт (Static API). Нужен, только если выбран этот картограф.
+  static String? get yandexMapsApiKey => const String.fromEnvironment('OMI_YANDEX_MAPS_API_KEY');
 
   static String? get intercomAppId => _instance.intercomAppId;
 

@@ -124,6 +124,12 @@ Future<Map<String, String>> buildHeaders({
     'X-Device-Id-Hash': PlatformManager.instance.deviceIdHash,
     'X-App-Version': PlatformManager.instance.appVersion,
     'X-App-Build': PlatformManager.instance.appBuild,
+    // Cloudflare Access service-token auth for the self-host tunnel
+    // (omi-{api,stt}.peshkomdomoy.online) — no-op (empty strings send nothing
+    // extra) for builds that never set OMI_CF_ACCESS_CLIENT_ID/SECRET, i.e.
+    // every profile except a tunnel-pointed local_dev build.
+    if (Env.cfAccessClientId.isNotEmpty) 'CF-Access-Client-Id': Env.cfAccessClientId,
+    if (Env.cfAccessClientSecret.isNotEmpty) 'CF-Access-Client-Secret': Env.cfAccessClientSecret,
     ...fromHeaders,
   };
 
@@ -411,6 +417,20 @@ http.Request _buildRequest(String url, Map<String, String> headers, String body,
     request.body = body;
   }
   return request;
+}
+
+/// Reads the Omi list-truncation header from a backend response.
+///
+/// The header name is case-insensitive because `package:http` may preserve
+/// the server's casing, and the value is the literal string `"true"`.
+bool isOmiListTruncated(http.Response? response) {
+  if (response == null) return false;
+  for (final entry in response.headers.entries) {
+    if (entry.key.toLowerCase() == 'x-omi-list-truncated' && entry.value == 'true') {
+      return true;
+    }
+  }
+  return false;
 }
 
 Future<http.StreamedResponse> _sendMultipartWithProgress(

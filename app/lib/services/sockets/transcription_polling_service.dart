@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:omi/models/stt_response_schema.dart';
@@ -93,6 +94,24 @@ class SchemaBasedSttProvider implements ISttProvider {
   final SttFileUploadConfig? fileUploadConfig;
   final http.Client _client;
 
+  // Self-host patch: a single custom-STT request used to hang for a full 60s
+  // before failing, which made every buffered chunk feel like a freeze
+  // during an outage. Fail fast and retry a couple of times with backoff
+  // instead — most transient blips (a dropped LAN packet, a slow cold
+  // start) resolve within a retry or two, and a real outage now surfaces
+  // quickly for a normal ~5s chunk. The deadline scales with the payload
+  // (~+1s per 100KB, i.e. ~+10s per minute of 16kHz PCM) because draining a
+  // backlog after an outage sends bigger chunks (capped by
+  // AudioPollingConfig.maxFlushBytes) whose upload and STT compute both grow
+  // with size; 60s cap so a hung endpoint still fails in bounded time.
+  static const _maxAttempts = 3;
+  static const _retryBackoff = [Duration(seconds: 1), Duration(seconds: 2)];
+
+  Duration _timeoutFor(int payloadBytes) {
+    final seconds = 10 + payloadBytes ~/ 100000;
+    return Duration(seconds: seconds > 60 ? 60 : seconds);
+  }
+
   SchemaBasedSttProvider({
     required this.apiUrl,
     required this.schema,
@@ -103,8 +122,9 @@ class SchemaBasedSttProvider implements ISttProvider {
     String? requestType, // String version for unified config
     this.jsonBodyBuilder,
     this.fileUploadConfig,
+    @visibleForTesting http.Client? client,
   })  : requestBodyType = requestBodyType ?? SttRequestBodyType.fromString(requestType),
-        _client = http.Client();
+        _client = client ?? http.Client();
 
   factory SchemaBasedSttProvider.openAI({required String apiKey, String model = 'whisper-1', String language = 'en'}) {
     return SchemaBasedSttProvider(
@@ -277,9 +297,52 @@ class SchemaBasedSttProvider implements ISttProvider {
     }
   }
 
+  /// Retries [attempt] on network exceptions (including the 10s timeout
+  /// above) and 5xx responses, with a short backoff between tries. 4xx
+  /// responses are returned immediately — retrying a bad request/auth error
+  /// would not help. Rethrows/returns the last outcome once attempts run out.
+  Future<http.Response> _sendWithRetry(Future<http.Response> Function() attempt) async {
+    for (var i = 0; i < _maxAttempts; i++) {
+      final isLastAttempt = i == _maxAttempts - 1;
+      try {
+        final response = await attempt();
+        if (response.statusCode < 500 || isLastAttempt) {
+          return response;
+        }
+        CustomSttLogService.instance.warning(
+          'SchemaSTT',
+          'HTTP ${response.statusCode}, retrying (${i + 1}/$_maxAttempts)',
+        );
+      } catch (e) {
+        // A timeout is deliberately NOT retried here: with a fat payload it
+        // means the chunk does not fit the link budget, and re-sending the
+        // IDENTICAL bytes just burns another full timeout (observed live: a
+        // ~30s backlog chunk on a slow phone uplink timed out, retried at the
+        // same size twice more, and the drain wedged forever). Fail fast —
+        // PurePollingSocket reacts by halving its flush window and retrying a
+        // smaller chunk on the next tick.
+        if (e is TimeoutException) rethrow;
+        if (isLastAttempt) rethrow;
+        CustomSttLogService.instance.warning('SchemaSTT', 'Request failed ($e), retrying (${i + 1}/$_maxAttempts)');
+      }
+      await Future.delayed(_retryBackoff[i]);
+    }
+    throw StateError('unreachable');
+  }
+
+  // Self-host fix: force a fresh connection per transcribe() request.
+  // Keep-alive reuse wedged real uploads through the Cloudflare tunnel: the
+  // FIRST request of a process completed (fresh TCP+TLS), every LATER one
+  // stalled mid-body until the client-side deadline (CF edge logged 25x 499
+  // "client closed" vs 2x 200 in one 40-minute window) — the pooled socket
+  // goes stale between flushes but is never detected as dead. One extra TLS
+  // handshake per flush (~100ms every ~5s) is noise next to a wedged drain.
+  static const _connectionClose = {'connection': 'close'};
+
   @override
   Future<SttTranscriptionResult?> transcribe(dynamic audioData, {double audioOffsetSeconds = 0}) async {
     final Uint8List audioBytes = audioData is Uint8List ? audioData : Uint8List.fromList(audioData);
+    final requestTimeout = _timeoutFor(audioBytes.length);
     try {
       final uri = Uri.parse(apiUrl);
       http.Response response;
@@ -292,8 +355,11 @@ class SchemaBasedSttProvider implements ISttProvider {
 
       switch (requestBodyType) {
         case SttRequestBodyType.rawBinary:
-          response =
-              await _client.post(uri, headers: defaultHeaders, body: audioBytes).timeout(const Duration(seconds: 60));
+          response = await _sendWithRetry(
+            () => _client
+                .post(uri, headers: {...defaultHeaders, ..._connectionClose}, body: audioBytes)
+                .timeout(requestTimeout),
+          );
           break;
 
         case SttRequestBodyType.jsonBase64:
@@ -301,19 +367,30 @@ class SchemaBasedSttProvider implements ISttProvider {
             throw Exception('jsonBodyBuilder required for jsonBase64 request type');
           }
           final audioInput = audioUrlFromUpload ?? base64Encode(audioBytes);
-          response = await _client
-              .post(uri, headers: defaultHeaders, body: jsonEncode(jsonBodyBuilder!(audioInput)))
-              .timeout(const Duration(seconds: 60));
+          response = await _sendWithRetry(
+            () => _client
+                .post(uri,
+                    headers: {...defaultHeaders, ..._connectionClose}, body: jsonEncode(jsonBodyBuilder!(audioInput)))
+                .timeout(requestTimeout),
+          );
           break;
 
         case SttRequestBodyType.multipartForm:
-          final request = http.MultipartRequest('POST', uri)
-            ..headers.addAll(defaultHeaders)
-            ..fields.addAll(defaultFields)
-            ..files.add(http.MultipartFile.fromBytes(audioFieldName, audioBytes, filename: 'audio.wav'));
+          response = await _sendWithRetry(() async {
+            final request = http.MultipartRequest('POST', uri)
+              ..headers.addAll(defaultHeaders)
+              ..headers.addAll(_connectionClose)
+              ..fields.addAll(defaultFields)
+              ..files.add(http.MultipartFile.fromBytes(audioFieldName, audioBytes, filename: 'audio.wav'));
 
-          final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
-          response = await http.Response.fromStream(streamedResponse);
+            // Self-host fix: BaseRequest.send() (no receiver) spins up its own
+            // throwaway http.Client() instead of using this provider's
+            // _client, bypassing both the injected test client and (in
+            // practice) any client-level config. Route it through _client
+            // like every other request path here.
+            final streamedResponse = await _client.send(request).timeout(requestTimeout);
+            return http.Response.fromStream(streamedResponse);
+          });
           break;
       }
 

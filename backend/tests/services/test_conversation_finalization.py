@@ -1,8 +1,10 @@
 import pytest
+from types import SimpleNamespace
 from unittest import mock
 from services import conversation_finalization
 from services.conversation_finalization import reconcile_listen_finalization_jobs
 from services.conversation_finalization import reconcile_meeting_receipts
+from services.conversation_finalization import recover_stale_finalization_jobs
 
 
 @pytest.fixture
@@ -173,3 +175,113 @@ def test_meeting_receipt_backfill_repairs_two_2026_08_19_shaped_rows(monkeypatch
 
     assert result == {'repaired': 0, 'backfilled': 2, 'skipped': 0, 'error': 0}
     assert record.call_count == 2
+
+
+# --- Deployments without durable dispatch: in-process stale-lease recovery ---
+
+
+@pytest.fixture
+def inline_recovery(monkeypatch):
+    """Wire the credential-free in-process replay path with no durable queue."""
+    mocks = {
+        "is_enabled": mock.Mock(return_value=False),
+        "publish_metrics": mock.Mock(),
+        "get_stale_after": mock.Mock(return_value="stale_after"),
+        "get_candidates": mock.Mock(return_value=[]),
+        "claim_replay": mock.Mock(return_value={"status": "queued", "dispatch_generation": 2}),
+        "enqueue_job": mock.Mock(),
+        "record_reconciliation": mock.Mock(),
+        "execute": mock.AsyncMock(return_value=SimpleNamespace(status="done")),
+    }
+    monkeypatch.setattr(conversation_finalization, "is_listen_finalization_dispatch_enabled", mocks["is_enabled"])
+    monkeypatch.setattr(conversation_finalization, "_publish_job_metrics", mocks["publish_metrics"])
+    monkeypatch.setattr(
+        conversation_finalization.jobs_db, "get_finalization_reconcile_stale_after", mocks["get_stale_after"]
+    )
+    monkeypatch.setattr(
+        conversation_finalization.jobs_db, "get_finalization_replay_candidates", mocks["get_candidates"]
+    )
+    monkeypatch.setattr(conversation_finalization.jobs_db, "claim_finalization_replay", mocks["claim_replay"])
+    monkeypatch.setattr(conversation_finalization, "enqueue_listen_finalization_job", mocks["enqueue_job"])
+    monkeypatch.setattr(
+        conversation_finalization, "record_capture_finalization_reconciliation", mocks["record_reconciliation"]
+    )
+    monkeypatch.setattr(conversation_finalization, "_run_finalization_job", mocks["execute"])
+    return mocks
+
+
+@pytest.mark.asyncio
+async def test_inline_deployment_runs_a_stale_lease_instead_of_stranding_it(inline_recovery):
+    """A crashed finalization is recovered where there is no durable queue to replay into."""
+    inline_recovery["get_candidates"].return_value = [{"job_id": "job1", "status": "leased"}]
+
+    result = await recover_stale_finalization_jobs()
+
+    assert result == {'recovered': 1, 'skipped': 0, 'failed': 0}
+    inline_recovery["claim_replay"].assert_called_once_with("job1", stale_after="stale_after", firestore_client=None)
+    inline_recovery["execute"].assert_awaited_once_with("job1", 2)
+    # There is no Cloud Tasks queue in this deployment; enqueueing would raise.
+    inline_recovery["enqueue_job"].assert_not_called()
+    inline_recovery["record_reconciliation"].assert_called_once_with('requeued')
+    inline_recovery["publish_metrics"].assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_inline_recovery_stands_down_where_the_durable_queue_owns_replay(inline_recovery):
+    """Cloud deployments replay through Cloud Tasks; running here too would double-process."""
+    inline_recovery["is_enabled"].return_value = True
+    inline_recovery["get_candidates"].return_value = [{"job_id": "job1"}]
+
+    result = await recover_stale_finalization_jobs()
+
+    assert result == {'recovered': 0, 'skipped': 0, 'failed': 0}
+    inline_recovery["get_candidates"].assert_not_called()
+    inline_recovery["execute"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_inline_recovery_skips_a_job_another_owner_took_first(inline_recovery):
+    """The replay CAS is the ownership boundary: losing it means someone else is running it."""
+    inline_recovery["get_candidates"].return_value = [{"job_id": "job1"}, {"job_id": "job2"}]
+    inline_recovery["claim_replay"].side_effect = [
+        {"status": "leased", "dispatch_generation": 3},
+        {"status": "queued", "dispatch_generation": None},
+    ]
+
+    result = await recover_stale_finalization_jobs()
+
+    assert result == {'recovered': 0, 'skipped': 2, 'failed': 0}
+    inline_recovery["execute"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_inline_recovery_survives_one_job_failing(inline_recovery):
+    """One unrecoverable job must not stop the sweep from freeing the rest."""
+    inline_recovery["get_candidates"].return_value = [{"job_id": "job1"}, {"job_id": "job2"}]
+    inline_recovery["execute"].side_effect = [Exception("boom"), SimpleNamespace(status="done")]
+
+    result = await recover_stale_finalization_jobs()
+
+    assert result == {'recovered': 1, 'skipped': 0, 'failed': 1}
+    assert inline_recovery["execute"].await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_inline_recovery_reports_a_job_the_worker_could_not_finish(inline_recovery):
+    """A `retry` outcome left the job actionable; counting it recovered would hide the backlog."""
+    inline_recovery["get_candidates"].return_value = [{"job_id": "job1"}]
+    inline_recovery["execute"].return_value = SimpleNamespace(status="retry")
+
+    result = await recover_stale_finalization_jobs()
+
+    assert result == {'recovered': 0, 'skipped': 0, 'failed': 1}
+
+
+@pytest.mark.asyncio
+async def test_inline_recovery_query_failure_is_not_fatal(inline_recovery):
+    inline_recovery["get_candidates"].side_effect = Exception("DB error")
+
+    result = await recover_stale_finalization_jobs()
+
+    assert result == {'recovered': 0, 'skipped': 0, 'failed': 0, 'error': 1}
+    inline_recovery["publish_metrics"].assert_called_once()

@@ -112,7 +112,17 @@ class PhoneTokenRequest(BaseModel):
 
 
 class VoximplantTokenResponse(BaseModel):
-    hash: str
+    """Answer of the login handshake.
+
+    The client cannot ask Voximplant for a one-time key before it knows which node to connect
+    to, and the node is ours to tell — so this endpoint answers twice per call: without a key
+    it reports ``provider``/``user``/``node`` and leaves ``hash`` empty, and with the key it
+    repeats them alongside the hash. ``provider`` is what lets the app tell a Voximplant
+    deployment from a Twilio one without being rebuilt.
+    """
+
+    provider: str = 'voximplant'
+    hash: Optional[str] = None
     user: str
     node: str
     ttl: int
@@ -297,18 +307,15 @@ def _voximplant_login_hash(request: Optional[PhoneTokenRequest]) -> VoximplantTo
         raise HTTPException(status_code=503, detail=f"Voximplant is not configured: {', '.join(missing)} missing")
 
     key = (request.key or '').strip() if request else ''
-    if not key:
-        raise HTTPException(
-            status_code=400,
-            detail="Voximplant calling needs a one-time login key: "
-            "POST {\"key\": \"<VIClient.requestOneTimeLoginKey>\"}",
-        )
-    if not voximplant_service.ONE_TIME_KEY_PATTERN.match(key):
+    if key and not voximplant_service.ONE_TIME_KEY_PATTERN.match(key):
         raise HTTPException(status_code=400, detail="Malformed one-time login key")
 
     try:
         return VoximplantTokenResponse(
-            hash=voximplant_service.build_login_hash(key),
+            # No key yet: this is the first half of the handshake, the client is asking where
+            # to connect. Refusing here would be a dead end — the key can only be requested
+            # from the cloud once the SDK is connected to the node named below.
+            hash=voximplant_service.build_login_hash(key) if key else None,
             user=voximplant_service.full_user_name(),
             node=voximplant_service.node(),
             ttl=voximplant_service.ONE_TIME_KEY_TTL_SECONDS,

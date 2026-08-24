@@ -115,6 +115,26 @@ class _PydanticOutputParser:
         self.pydantic_object = kwargs.get('pydantic_object')
 
 
+class _BaseOutputParser:
+    pass
+
+
+class _JsonOutputParser:
+    pass
+
+
+class _OutputParserException(Exception):
+    pass
+
+
+class _PromptValue:
+    pass
+
+
+class _Runnable:
+    pass
+
+
 class _Encoding:
     def encode(self, text):
         return list(text)
@@ -129,10 +149,13 @@ _FAKED_MODULE_NAMES = [
     'anthropic',
     'langchain_core',
     'langchain_core.callbacks',
+    'langchain_core.exceptions',
     'langchain_core.outputs',
     'langchain_core.language_models',
     'langchain_core.messages',
     'langchain_core.output_parsers',
+    'langchain_core.prompt_values',
+    'langchain_core.runnables',
     'langchain_openai',
     'langchain_google_genai',
     'tiktoken',
@@ -157,7 +180,15 @@ _install_module(
 _install_module('langchain_core.outputs', LLMResult=_LLMResult, ChatResult=_ChatResult, ChatGeneration=_ChatGeneration)
 _install_module('langchain_core.language_models', BaseChatModel=_BaseChatModel)
 _install_module('langchain_core.messages', BaseMessage=_BaseMessage, AIMessage=_AIMessage)
-_install_module('langchain_core.output_parsers', PydanticOutputParser=_PydanticOutputParser)
+_install_module('langchain_core.exceptions', OutputParserException=_OutputParserException)
+_install_module(
+    'langchain_core.output_parsers',
+    BaseOutputParser=_BaseOutputParser,
+    JsonOutputParser=_JsonOutputParser,
+    PydanticOutputParser=_PydanticOutputParser,
+)
+_install_module('langchain_core.prompt_values', PromptValue=_PromptValue)
+_install_module('langchain_core.runnables', Runnable=_Runnable)
 _install_module('langchain_openai', ChatOpenAI=_ChatOpenAI, OpenAIEmbeddings=_OpenAIEmbeddings)
 _install_module('langchain_google_genai', ChatGoogleGenerativeAI=_ChatGoogleGenerativeAI)
 _install_module('tiktoken', encoding_for_model=MagicMock(return_value=_Encoding()))
@@ -218,10 +249,13 @@ def _clients_subprocess_script(assertion: str) -> str:
         "    'google.cloud.firestore_v1.base_query',",
         "    'langchain_core',",
         "    'langchain_core.callbacks',",
+        "    'langchain_core.exceptions',",
         "    'langchain_core.language_models',",
         "    'langchain_core.messages',",
         "    'langchain_core.output_parsers',",
         "    'langchain_core.outputs',",
+        "    'langchain_core.prompt_values',",
+        "    'langchain_core.runnables',",
         "    'langchain_google_genai',",
         "    'langchain_openai',",
         "    'tiktoken',",
@@ -313,6 +347,7 @@ class TestModelQosProfiles:
     def test_all_profiles_use_the_authorized_two_tier_openai_map(self):
         luna_features = {
             'conv_action_items',
+            'wake_word_adjudication',
             'conv_structure',
             'conv_app_result',
             'daily_summary',
@@ -392,6 +427,7 @@ class TestModelQosProfiles:
             'learnings',
             'chat_graph',
             'proactive_notification',
+            'wake_word_adjudication',
         ]
         for feature in new_features:
             for profile_name, profile in MODEL_QOS_PROFILES.items():

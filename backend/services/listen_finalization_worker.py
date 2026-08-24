@@ -34,7 +34,10 @@ from utils.conversations.finalizer import (
 from utils.executors import db_executor, run_blocking
 from utils.llm.gateway_error_contract import PROVIDER_UNAVAILABLE_FAILURE_CODE
 from utils.metrics import LISTEN_FINALIZATION_RETRIES_TOTAL
-from utils.observability.journeys import record_capture_finalization_terminal
+from utils.observability.journeys import (
+    record_capture_finalization_terminal,
+    record_conversation_finalization_client_terminal,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +160,7 @@ async def execute_finalization_job(
             if not completed:
                 return FinalizationRunResult('completion_conflict')
             record_capture_finalization_terminal('stale', job.get('created_at'))
+            record_conversation_finalization_client_terminal('cancelled', job)
             return FinalizationRunResult('skipped', reason='account_cutover')
 
         try:
@@ -203,8 +207,10 @@ async def execute_finalization_job(
         accepted_at = job.get('created_at') if job else None
         if disposition == ConversationFinalizationDisposition.fenced:
             record_capture_finalization_terminal('stale', accepted_at)
+            record_conversation_finalization_client_terminal('cancelled', job)
         else:
             record_capture_finalization_terminal('success', accepted_at)
+            record_conversation_finalization_client_terminal('success', job)
         return FinalizationRunResult('done')
     except asyncio.CancelledError:
         release_lock = False

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:omi/backend/http/api/messages.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/providers/voice_recorder_provider.dart';
 import 'package:omi/utils/audio/wav_bytes.dart';
@@ -488,7 +489,33 @@ void main() {
       expect(provider.hasPendingRecording, isFalse);
     });
 
-    test('retry preserves pending WAV when transcription returns empty text', () async {
+    // Self-host patch, not for upstream: backs the dismiss (×) control added to
+    // the error bar in voice_recorder_widget.dart. Reported live 23.08 — retry
+    // was the only exit, so a non-transient failure held the composer forever.
+    test('dismissing a stuck recording frees the composer and does not resurrect it', () async {
+      final wavFile = File(path.join(tempDir.path, 'stuck.wav'));
+      final sink = wavFile.openWrite();
+      sink.add(WavBytesUtil.getWavHeader(32000, 16000));
+      sink.add(Uint8List(32000));
+      await sink.flush();
+      await sink.close();
+      await SharedPreferencesUtil().saveString('voice_recorder_pending_wav_path', wavFile.path);
+
+      final provider = VoiceRecorderProvider();
+      await provider.checkPendingRecording();
+      expect(provider.state, equals(VoiceRecorderState.pendingRecovery));
+
+      provider.close();
+      // close() deletes the temp file asynchronously; the state flip is synchronous.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(provider.state, equals(VoiceRecorderState.idle));
+      expect(provider.isActive, isFalse);
+      expect(SharedPreferencesUtil().getString('voice_recorder_pending_wav_path'), isEmpty);
+      expect(wavFile.existsSync(), isFalse);
+    });
+
+    test('retry reports no speech (not an error) when the transcript comes back empty', () async {
       final wavFile = await createPendingWav('empty_retry.wav');
       var transcriptCallbackCalled = false;
 
@@ -498,11 +525,28 @@ void main() {
 
       await provider.retry();
 
-      expect(provider.state, equals(VoiceRecorderState.transcribeFailed));
+      expect(provider.state, equals(VoiceRecorderState.noSpeechDetected));
+      expect(provider.hasNoSpeechDetected, isTrue);
       expect(provider.isActive, isTrue);
       expect(transcriptCallbackCalled, isFalse);
+      // The recording survives until the user asks for a new one — a wordless
+      // result is not a reason to delete audio behind their back.
       expect(wavFile.existsSync(), isTrue);
       expect(SharedPreferencesUtil().getString('voice_recorder_pending_wav_path'), equals(wavFile.path));
+    });
+
+    test('a wordless recording is reported as no speech, not as a failure', () async {
+      final wavFile = await createPendingWav('no_speech.wav');
+
+      final provider = VoiceRecorderProvider(
+        transcriber: (_) async => throw const VoiceMessageNoSpeechException('stt_empty_unexpected'),
+      );
+      await provider.checkPendingRecording();
+
+      await provider.retry();
+
+      expect(provider.state, equals(VoiceRecorderState.noSpeechDetected));
+      expect(wavFile.existsSync(), isTrue);
     });
 
     test('retry preserves pending WAV when transcription throws', () async {

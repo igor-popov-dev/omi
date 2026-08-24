@@ -9857,4 +9857,53 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Diagnostiken kunde inte delas. Försök igen.';
+
+  @override
+  String get appDisabledTitle => 'Den här appen är inaktiverad och kan inte installeras.';
+
+  @override
+  String get appDisabledWebhookFailures => 'Dess endpoint misslyckades 72 timmar i rad, så leveranserna stoppades.';
+
+  @override
+  String get appDisabledGeneric => 'Den inaktiverades av Omi.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Åtgärda endpointen först — vid återaktivering kontrolleras varje konfigurerad URL på nytt.';
+
+  @override
+  String get appReEnable => 'Återaktivera';
+
+  @override
+  String get appReEnableFailedTitle => 'Kunde inte återaktivera';
+
+  @override
+  String get appReEnableFailedBody => 'Den här appen kunde inte återaktiveras. Försök igen.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Inaktiverad den $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Senaste fel: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

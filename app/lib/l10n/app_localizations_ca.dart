@@ -9909,4 +9909,54 @@ class AppLocalizationsCa extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'No s\'ha pogut compartir el diagnòstic. Torna-ho a provar.';
+
+  @override
+  String get appDisabledTitle => 'Aquesta app està desactivada i no es pot instal·lar.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'El seu endpoint va fallar durant 72 hores seguides, així que es van aturar els enviaments.';
+
+  @override
+  String get appDisabledGeneric => 'La va desactivar Omi.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Corregeix primer l\'endpoint: en reactivar-la es torna a comprovar cada URL configurat.';
+
+  @override
+  String get appReEnable => 'Reactiva';
+
+  @override
+  String get appReEnableFailedTitle => 'No s\'ha pogut reactivar';
+
+  @override
+  String get appReEnableFailedBody => 'No s\'ha pogut reactivar aquesta app. Torna-ho a provar.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Desactivada el $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Últim error: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

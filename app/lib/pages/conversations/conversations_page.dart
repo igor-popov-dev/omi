@@ -28,6 +28,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/ui_guidelines.dart';
 import 'widgets/conversations_group_widget.dart';
+import 'widgets/upstream_sync_card.dart';
 import 'widgets/conversation_list_item.dart';
 import 'widgets/date_list_item.dart';
 import 'widgets/empty_conversations.dart';
@@ -553,6 +554,14 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
               const SliverToBoxAdapter(child: SpeechProfileCardWidget()),
               const SliverToBoxAdapter(child: UpdateFirmwareCardWidget()),
               const SliverToBoxAdapter(child: ActiveCallBanner()),
+              // Self-host patch (widgets/upstream_sync_card.dart, docs/selfhost-patches.md):
+              // отставание от upstream на глазах — оно дорожает нелинейно и
+              // замечается иначе только когда полоса уже упёрлась в конфликты.
+              const SliverToBoxAdapter(
+                  child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: UpstreamSyncCard(),
+              )),
 
               // Search bar
               Selector<HomeProvider, bool>(

@@ -9853,4 +9853,54 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Diagnostiikan jakaminen epäonnistui. Yritä uudelleen.';
+
+  @override
+  String get appDisabledTitle => 'Tämä sovellus on poistettu käytöstä eikä sitä voi asentaa.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'Sen päätepiste epäonnistui 72 tuntia peräkkäin, joten toimitukset pysäytettiin.';
+
+  @override
+  String get appDisabledGeneric => 'Omi poisti sen käytöstä.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Korjaa ensin päätepiste — käyttöönotto tarkistaa jokaisen määritetyn URL-osoitteen uudelleen.';
+
+  @override
+  String get appReEnable => 'Ota uudelleen käyttöön';
+
+  @override
+  String get appReEnableFailedTitle => 'Käyttöönotto epäonnistui';
+
+  @override
+  String get appReEnableFailedBody => 'Tätä sovellusta ei voitu ottaa uudelleen käyttöön. Yritä uudelleen.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Poistettu käytöstä $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Viimeisin virhe: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

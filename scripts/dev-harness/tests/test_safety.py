@@ -64,6 +64,20 @@ def test_project_database_and_loopback_validation() -> None:
         safety.validate_loopback_emulator_host("firestore.googleapis.com:443")
 
 
+@pytest.mark.parametrize(
+    "host",
+    (
+        "127.attacker.example:8085",
+        "127.0.0.1.example:8085",
+        "127.0.0.256:8085",
+    ),
+)
+def test_loopback_validation_rejects_ipv4_hostname_lookalikes(host: str) -> None:
+    assert safety.is_loopback_host(host) is False
+    with pytest.raises(safety.SafetyError, match="loopback"):
+        safety.validate_loopback_emulator_host(host)
+
+
 def test_private_dev_host_accepts_loopback_lan_and_tailnet_rejects_public() -> None:
     # #11774: a physical device reaches the harness over a LAN or Tailscale
     # (CGNAT, 100.64.0.0/10) address. This guard is deliberately separate from
@@ -127,6 +141,13 @@ def test_child_environment_strips_cloud_defaults_and_offline_provider_secrets() 
 
     with pytest.raises(safety.SafetyError, match="provider credential"):
         safety.build_child_env(parent, provider_mode="offline", extra={"DEEPGRAM_API_KEY": "x"})
+
+    # Self-host patch: GEMINI_API_KEY alone is exempt so /v2/realtime/session can mint real
+    # Gemini Live tokens in offline mode (see dev_harness.config.child_env_for).
+    env_with_gemini = safety.build_child_env(
+        parent, provider_mode="offline", extra={"GEMINI_API_KEY": "real-gemini-key"}
+    )
+    assert env_with_gemini["GEMINI_API_KEY"] == "real-gemini-key"
 
 
 def test_destructive_path_guard_rejects_dangerous_paths(tmp_path: Path) -> None:
@@ -194,9 +215,7 @@ def test_windows_process_probe_reports_close_failure(monkeypatch: pytest.MonkeyP
         safety.process_exists(456)
 
 
-def test_windows_command_line_probe_ignores_path_shadowing(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_windows_command_line_probe_ignores_path_shadowing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     if os.name != "nt":
         pytest.skip("Windows PowerShell lookup is not used on this platform")
 

@@ -25,6 +25,17 @@ TYPESENSE_PINNED_VERSION = "27.1"
 LOCAL_TYPESENSE_API_KEY = "local-typesense-api-key-not-real"
 LOCAL_FIREBASE_API_KEY = "local-firebase-auth-emulator-api-key"
 LOCAL_LLM_GATEWAY_SERVICE_TOKEN = "local-dev-llm-gateway-service-token-not-real"
+LOCAL_STORAGE_BUCKET_ENV = {
+    "BUCKET_SPEECH_PROFILES": "speech-profiles",
+    "BUCKET_POSTPROCESSING": "postprocessing",
+    "BUCKET_PRIVATE_CLOUD_SYNC": "omi-private-cloud-sync",
+    "BUCKET_TEMPORAL_SYNC_LOCAL": "sync-temporal",
+    "BUCKET_MEMORIES_RECORDINGS": "memories-recordings",
+    "BUCKET_PLUGINS_LOGOS": "plugins-logos",
+    "BUCKET_APP_THUMBNAILS": "app-thumbnails",
+    "BUCKET_CHAT_FILES": "chat-files",
+    "BUCKET_DESKTOP_UPDATES": "desktop-updates",
+}
 PORT_OFFSET_ENV = "OMI_HARNESS_PORT_OFFSET"
 PORT_OVERRIDE_ENVS = {
     "firestore": "OMI_HARNESS_FIRESTORE_PORT",
@@ -318,6 +329,8 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
     extra = {
         "OMI_HARNESS_INSTANCE": cfg.instance,
         "OMI_HARNESS_STATE_ROOT": str(cfg.layout.state_root),
+        "OMI_LOCAL_STORAGE_ROOT": str(cfg.layout.services_dir / "storage"),
+        "OMI_LOCAL_STORAGE_BASE_URL": f"{cfg.backend_url}/_local/storage",
         "FIRESTORE_EMULATOR_HOST": cfg.firestore_host,
         "FIREBASE_AUTH_EMULATOR_HOST": cfg.auth_host,
         "FIREBASE_AUTH_PROJECT_ID": cfg.project_id,
@@ -341,6 +354,11 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
         "OMI_LLM_GATEWAY_URL": cfg.llm_gateway_url,
         "OMI_LLM_GATEWAY_SERVICE_TOKEN": cfg.llm_gateway_service_token,
         "OMI_LLM_GATEWAY_FEATURE_MODE": gateway_feature_mode,
+        # Upstream вынес список бакетов в LOCAL_STORAGE_BUCKET_ENV — берём его целиком,
+        # он шире нашего. Наши записи идут ПОСЛЕ спреда и потому побеждают: имена бакетов
+        # у нас другие (их держит наш fake-gcs), и все они переопределяемы из окружения,
+        # чтобы харнесс не на mini мог смотреть в другое место.
+        **LOCAL_STORAGE_BUCKET_ENV,
         # WeSpeaker embedding HTTP service (marathon/wespeaker_server.py, lane1) deployed
         # on mini at :8767; overridable so a non-mini harness instance can point elsewhere
         # or unset it to fall back to the backend's built-in (unhosted) embedding path.
@@ -352,6 +370,10 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
         # screen 500s (backend/utils/other/storage.py raises when the bucket is missing).
         "STORAGE_EMULATOR_HOST": os.environ.get("STORAGE_EMULATOR_HOST", "http://127.0.0.1:4443"),
         "BUCKET_SPEECH_PROFILES": os.environ.get("BUCKET_SPEECH_PROFILES", "speech-profiles"),
+        # Voice messages in chat take a different route than the listen socket: the wav is
+        # uploaded to GCS first (backend/utils/chat.py, get_syncing_file_temporal_signed_url).
+        # Without a bucket name that upload raises ValueError, which maps to invalid_input —
+        # a 400 before VAD and before the provider are ever reached (lane1, 23.08).
         "BUCKET_TEMPORAL_SYNC_LOCAL": os.environ.get("BUCKET_TEMPORAL_SYNC_LOCAL", "syncing-temporal-local"),
     }
     # claude-bridge chat provider (backend/utils/llm/claude_bridge_client.py, PLAN.md §Этап 1):

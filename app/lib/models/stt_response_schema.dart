@@ -31,6 +31,16 @@ class SttResponseSchema {
     segmentsTextField: 'text',
     segmentsStartField: 'start',
     segmentsEndField: 'end',
+    // Self-host: our STT server splits a chunk by voice and labels every span,
+    // so read the speaker fields when they are present. They stay null for
+    // endpoints that don't emit them, which is the pre-existing behavior.
+    segmentsSpeakerField: 'speaker',
+    segmentsSpeakerIdField: 'speaker_id',
+    segmentsIsUserField: 'is_user',
+    // Without this the live transcript falls back to "Speaker N" even when the
+    // server already knows whose voice it is: the label comes from the person
+    // looked up by this id, not from the speaker name.
+    segmentsPersonIdField: 'person_id',
     textPath: 'text',
   );
 

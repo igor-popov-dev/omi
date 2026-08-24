@@ -9890,4 +9890,53 @@ class AppLocalizationsBg extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Диагностиката не можа да бъде споделена. Опитайте отново.';
+
+  @override
+  String get appDisabledTitle => 'Това приложение е деактивирано и не може да бъде инсталирано.';
+
+  @override
+  String get appDisabledWebhookFailures => 'Крайната му точка се проваля 72 часа поред, затова доставките бяха спрени.';
+
+  @override
+  String get appDisabledGeneric => 'Деактивирано е от Omi.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Първо поправете крайната точка — повторното активиране проверява отново всеки конфигуриран URL.';
+
+  @override
+  String get appReEnable => 'Активирай отново';
+
+  @override
+  String get appReEnableFailedTitle => 'Повторното активиране не бе успешно';
+
+  @override
+  String get appReEnableFailedBody => 'Това приложение не можа да бъде активирано отново. Опитайте пак.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Деактивирано на $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Последна грешка: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

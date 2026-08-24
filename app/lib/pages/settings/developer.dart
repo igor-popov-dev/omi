@@ -20,6 +20,8 @@ import 'package:omi/env/env.dart';
 import 'package:omi/models/stt_provider.dart';
 import 'package:omi/pages/settings/conversation_display_settings.dart';
 import 'package:omi/pages/settings/conversation_timeout_dialog.dart';
+import 'package:omi/pages/settings/free_form_voice_timeout_dialog.dart';
+import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/pages/settings/data_privacy_page.dart';
 import 'package:omi/pages/settings/import_history_page.dart';
 import 'package:omi/pages/payments/payments_page.dart';
@@ -28,8 +30,10 @@ import 'package:omi/pages/settings/widgets/create_mcp_api_key_dialog.dart';
 import 'package:omi/pages/settings/widgets/developer_api_keys_section.dart';
 import 'package:omi/pages/settings/widgets/mcp_api_key_list_item.dart';
 import 'package:omi/providers/device_provider.dart';
+import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/providers/developer_mode_provider.dart';
 import 'package:omi/providers/mcp_provider.dart';
+import 'package:omi/services/voice_hub/escalation_level.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/debug_log_manager.dart';
 import 'package:omi/utils/firmware_update_build_policy.dart';
@@ -179,6 +183,105 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
           ),
         ),
         Switch(value: value, onChanged: onChanged, activeThumbColor: const Color(0xFF22C55E)),
+      ],
+    );
+  }
+
+  /// The free-form voice mode auto-off row: same shape as
+  /// [_buildExperimentalItem], but a value picker instead of a switch (the
+  /// setting is minutes, not on/off). Disabled while the mode's own flag is
+  /// off — the value still applies once the flag is turned on, so it is shown
+  /// rather than hidden, just visibly inert.
+  Widget _buildFreeFormVoiceTimeoutItem(DeveloperModeProvider provider) {
+    final enabled = provider.freeFormMode;
+    final labelColor = enabled ? Colors.white : Colors.grey.shade600;
+    return GestureDetector(
+      onTap: enabled
+          ? () async {
+              final chosen = await FreeFormVoiceTimeoutDialog.show(
+                context,
+                currentMinutes: provider.freeFormVoiceIdleTimeoutMinutes,
+              );
+              if (chosen == null) return;
+              provider.onFreeFormVoiceIdleTimeoutChanged(chosen);
+            }
+          : null,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
+            child: Center(child: FaIcon(FontAwesomeIcons.hourglassHalf, color: Colors.grey.shade400, size: 16)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Voice mode auto-off',
+                  style: TextStyle(color: labelColor, fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Silence after which free-form voice mode stops itself',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            freeFormVoiceIdleTimeoutLabel(provider.freeFormVoiceIdleTimeoutMinutes),
+            style: TextStyle(color: enabled ? Colors.grey.shade300 : Colors.grey.shade700, fontSize: 14),
+          ),
+          const SizedBox(width: 8),
+          FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade600, size: 14),
+        ],
+      ),
+    );
+  }
+
+  // Ползунок «мозг голосового режима» (см. services/voice_hub/escalation_level.dart):
+  // применяется со следующего запуска голосового режима, пересборка не нужна.
+  Widget _buildClaudeEscalationItem(DeveloperModeProvider provider) {
+    final level = ClaudeEscalationLevel.fromIndex(provider.claudeEscalationLevel);
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
+          child: Center(child: FaIcon(FontAwesomeIcons.brain, color: Colors.grey.shade400, size: 16)),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Voice brain: Gemini ↔ Claude',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 2),
+              Text('${level.label} — ${level.hint}', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+              Slider(
+                value: level.index.toDouble(),
+                min: 0,
+                max: (ClaudeEscalationLevel.values.length - 1).toDouble(),
+                divisions: ClaudeEscalationLevel.values.length - 1,
+                activeColor: const Color(0xFF22C55E),
+                onChanged: (value) {
+                  provider.onClaudeEscalationLevelChanged(value.round());
+                  // Тёплый сокет хаба переживает остановку разговора со старыми
+                  // инструкциями — рвём его, чтобы уровень применился сразу.
+                  context.read<CaptureProvider>().invalidateWarmVoiceSessions();
+                },
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -1596,6 +1699,39 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                           value: provider.vadGateEnabled,
                           onChanged: provider.onVadGateChanged,
                         ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Divider(color: Colors.grey.shade800, height: 1),
+                        ),
+                        // PTT Hub — тумблер СКРЫТ (решение Игоря 24.08): удержание
+                        // кнопки кулона занято питанием самого кулона, push-to-talk
+                        // конфликтовал с одиночным нажатием и не нужен. Геттер
+                        // pttHubEnabled прибит к false (preferences.dart); разговор
+                        // запускается одиночным/двойным нажатием (настройки кулона).
+                        // Free-form Voice Mode
+                        _buildExperimentalItem(
+                          title: 'Free-form Voice Mode (chat button)',
+                          description: 'Shows a hands-free voice-mode button in chat',
+                          icon: FontAwesomeIcons.waveSquare,
+                          value: provider.freeFormMode,
+                          onChanged: provider.onFreeFormModeChanged,
+                        ),
+                        // Auto-off for the mode above. Shown even while the
+                        // flag is off (it is what the mode WILL use), but
+                        // greyed out so it does not read as live.
+                        const SizedBox(height: 16),
+                        _buildFreeFormVoiceTimeoutItem(provider),
+                        // Ползунок «мозг голосового режима» (0 = чистый Gemini
+                        // Live, 4 = каждый ответ через Claude) СКРЫТ вместе с
+                        // шторкой в чате: на правом крае модель «двоилась»
+                        // (см. claudeEscalationSliderEnabled). Код сохранён.
+                        if (claudeEscalationSliderEnabled) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Divider(color: Colors.grey.shade800, height: 1),
+                          ),
+                          _buildClaudeEscalationItem(provider),
+                        ],
                       ],
                     ),
                   ),

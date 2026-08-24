@@ -33,6 +33,35 @@ class PhoneCallToken {
   }
 }
 
+/// Answer of `POST v1/phone/token` on a Voximplant deployment.
+///
+/// The endpoint answers twice per call: without a key it reports where to connect
+/// ([hash] is null), with the key it repeats that and adds the login hash. Twilio
+/// deployments answer with [PhoneCallToken] instead — the shape is how the app tells them
+/// apart, so that switching providers is a server-side change.
+class VoximplantLogin {
+  final String user;
+  final String node;
+  final int ttl;
+  final String? hash;
+
+  const VoximplantLogin({required this.user, required this.node, required this.ttl, this.hash});
+
+  static VoximplantLogin? fromJson(Map<String, dynamic> json) {
+    if (json['provider'] != 'voximplant') return null;
+    final user = json['user'];
+    final node = json['node'];
+    if (user is! String || node is! String || user.isEmpty || node.isEmpty) return null;
+    final hash = json['hash'];
+    return VoximplantLogin(
+      user: user,
+      node: node,
+      ttl: json['ttl'] is int ? json['ttl'] as int : 0,
+      hash: hash is String && hash.isNotEmpty ? hash : null,
+    );
+  }
+}
+
 class PhoneCallError {
   final String code;
   final String message;

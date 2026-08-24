@@ -226,12 +226,52 @@ Future reportMessageServer(String messageId) async {
   wire.GeneratedMessageReportResponse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
 }
 
+/// The recording reached the transcriber, which recognized no words in it.
+///
+/// Deliberately distinct from a transport or provider failure: the upload
+/// succeeded and the same bytes will produce the same empty result, so the
+/// caller must record again instead of re-sending what it already has.
+class VoiceMessageNoSpeechException implements Exception {
+  /// Backend outcome that produced it, for logs only (never shown as-is).
+  final String outcome;
+
+  const VoiceMessageNoSpeechException(this.outcome);
+
+  @override
+  String toString() => 'VoiceMessageNoSpeechException(outcome: $outcome)';
+}
+
+/// Error code the backend uses when speech was detected but the provider
+/// returned nothing. Retrying the identical bytes cannot change it, so it is
+/// read as "no speech recognized" rather than as a retryable upstream fault.
+const _sttEmptyUnexpected = 'stt_empty_unexpected';
+
+/// Read the typed error code out of a transcription error body without
+/// assuming the body is well-formed JSON (proxies can replace it).
+String? transcriptionErrorCode(String body) {
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) return null;
+    final detail = decoded['detail'];
+    final payload = detail is Map<String, dynamic> ? detail : decoded;
+    final error = payload['error'];
+    return error is String ? error : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Transcribe audio files sequentially (one request per file) to stay under
 /// Cloud Run's 32 MB request-body limit.  Transcripts are concatenated
 /// client-side with a space separator — same behaviour as the backend's
 /// multi-file mode but without a single oversized upload.
+///
+/// Throws [VoiceMessageNoSpeechException] when nothing was recognized in any
+/// chunk, and a plain [Exception] for real failures (transport, provider,
+/// timeout) where retrying the same upload can still succeed.
 Future<String> transcribeVoiceMessage(List<File> audioFiles, {String? language}) async {
   final transcripts = <String>[];
+  var lastEmptyOutcome = 'expected_silence';
 
   for (final file in audioFiles) {
     try {
@@ -248,11 +288,20 @@ Future<String> transcribeVoiceMessage(List<File> audioFiles, {String? language})
         final transcript = data.transcript;
         if (transcript.isNotEmpty) {
           transcripts.add(transcript);
+        } else {
+          lastEmptyOutcome = data.outcome ?? lastEmptyOutcome;
         }
+      } else if (transcriptionErrorCode(response.body) == _sttEmptyUnexpected) {
+        // The chunk was transcribed and came back wordless. Treat it like the
+        // silence outcome: skip it, and let the joined transcript decide.
+        Logger.debug('Voice message chunk transcribed with no words: ${response.statusCode}');
+        lastEmptyOutcome = _sttEmptyUnexpected;
       } else {
         Logger.debug('Failed to transcribe voice message chunk: ${response.statusCode} ${response.body}');
         throw Exception('Failed to transcribe voice message');
       }
+    } on VoiceMessageNoSpeechException {
+      rethrow;
     } catch (e) {
       Logger.debug('Error transcribing voice message chunk: $e');
       throw Exception('Error transcribing voice message: $e');
@@ -261,7 +310,7 @@ Future<String> transcribeVoiceMessage(List<File> audioFiles, {String? language})
 
   final transcript = transcripts.join(' ').trim();
   if (transcript.isEmpty) {
-    throw Exception('Voice message transcription returned empty transcript');
+    throw VoiceMessageNoSpeechException(lastEmptyOutcome);
   }
   return transcript;
 }

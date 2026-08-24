@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/providers/voice_recorder_provider.dart';
+import 'package:omi/services/mic/mic_arbiter.dart';
 import 'package:omi/services/services.dart';
 
 /// Mic double that reproduces [ArbitratedMic]'s contention contract: starting a
@@ -142,6 +143,82 @@ void main() {
       provider.close();
       expect(mic.stopCalls, 1);
       expect(provider.state, VoiceRecorderState.idle);
+    });
+  });
+
+  // A memo running when an in-app call begins is stopped by the arbiter (ArbitratedMic
+  // evicts it — the call SDK cannot share the microphone with it). What is left is the
+  // memo's own bookkeeping: left alone, the sheet stays in `recording` with a waveform
+  // flowing over a dead microphone, and pressing send transcribes only the seconds
+  // captured BEFORE the call — a plausible answer to a question nobody asked.
+  // Found by the eviction tests below, and not caused by them: close() runs its file
+  // cleanups fire-and-forget, and `_pcmFile = null` landed inside the NEXT startRecording,
+  // between creating the file and opening its sink. Crash in a fire-and-forget tap
+  // handler — an unhandled async error, with the sheet left wedged in `recording`.
+  group('VoiceRecorderProvider — a second memo right after the first', () {
+    test('records instead of crashing on the cleanup of the previous one', () async {
+      final mic = _ContendedMic()..failStart = false;
+      final provider = VoiceRecorderProvider(mic: mic);
+
+      await provider.startRecording();
+      provider.close();
+      await provider.startRecording();
+
+      expect(provider.state, VoiceRecorderState.recording);
+      expect(mic.startCalls, 2);
+      expect(recordingsDir().listSync().length, 1, reason: 'the first PCM is gone, the second is live');
+    });
+  });
+
+  group('VoiceRecorderProvider — an in-app call takes the microphone', () {
+    test('the sheet returns to idle instead of recording into nothing', () async {
+      final arbiter = MicArbiter();
+      final mic = _ContendedMic()..failStart = false;
+      final provider = VoiceRecorderProvider(mic: mic, arbiter: arbiter);
+
+      await provider.startRecording();
+      expect(provider.state, VoiceRecorderState.recording);
+
+      arbiter.holdForCall();
+      await pumpEventQueue();
+
+      expect(provider.state, VoiceRecorderState.idle);
+      expect(provider.isRecording, isFalse);
+      expect(recordingsDir().listSync(), isEmpty, reason: 'the half-written PCM is cleaned up');
+    });
+
+    test('a memo that ended before the call is not unwound by it', () async {
+      final arbiter = MicArbiter();
+      final mic = _ContendedMic()..failStart = false;
+      final provider = VoiceRecorderProvider(mic: mic, arbiter: arbiter);
+
+      await provider.startRecording();
+      provider.close();
+      expect(provider.state, VoiceRecorderState.idle);
+
+      // Second memo, after the first one is done and gone.
+      await provider.startRecording();
+      expect(provider.state, VoiceRecorderState.recording);
+      provider.close();
+
+      arbiter.holdForCall();
+      await pumpEventQueue();
+      expect(provider.state, VoiceRecorderState.idle);
+    });
+
+    // The arbiter outlives every screen: a hook left behind would keep a dead provider
+    // alive and unwind a memo that ended long ago.
+    test('a disposed provider leaves no eviction hook behind', () async {
+      final arbiter = MicArbiter();
+      final mic = _ContendedMic()..failStart = false;
+      final provider = VoiceRecorderProvider(mic: mic, arbiter: arbiter);
+
+      await provider.startRecording();
+      provider.dispose();
+
+      // Must not throw: notifyListeners() on a disposed ChangeNotifier does.
+      arbiter.holdForCall();
+      await pumpEventQueue();
     });
   });
 }

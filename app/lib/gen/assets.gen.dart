@@ -485,6 +485,19 @@ class $AssetsIntegrationAppLogosGen {
       ];
 }
 
+class $AssetsSoundsGen {
+  const $AssetsSoundsGen();
+
+  /// File path: assets/sounds/thinking.mp3
+  String get thinking => 'assets/sounds/thinking.mp3';
+
+  /// File path: assets/sounds/voice_start.mp3
+  String get voiceStart => 'assets/sounds/voice_start.mp3';
+
+  /// List of all assets
+  List<String> get values => [thinking, voiceStart];
+}
+
 abstract final class Assets {
   static const $AssetsCompetitorLogosGen competitorLogos =
       $AssetsCompetitorLogosGen();
@@ -492,6 +505,7 @@ abstract final class Assets {
   static const $AssetsImagesGen images = $AssetsImagesGen();
   static const $AssetsIntegrationAppLogosGen integrationAppLogos =
       $AssetsIntegrationAppLogosGen();
+  static const $AssetsSoundsGen sounds = $AssetsSoundsGen();
   static const String shorebird = 'shorebird.yaml';
 
   /// List of all assets

@@ -9943,4 +9943,54 @@ class AppLocalizationsTl extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Hindi maibahagi ang diagnostics. Pakisubukan ulit.';
+
+  @override
+  String get appDisabledTitle => 'Naka-disable ang app na ito at hindi ito mai-install.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'Nabigo ang endpoint nito nang 72 oras na sunod-sunod, kaya itinigil ang mga paghahatid.';
+
+  @override
+  String get appDisabledGeneric => 'I-nadisable ito ng Omi.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Ayusin muna ang endpoint — sinusuri muli ng pag-enable ang bawat naka-configure na URL.';
+
+  @override
+  String get appReEnable => 'I-enable muli';
+
+  @override
+  String get appReEnableFailedTitle => 'Hindi ma-enable muli';
+
+  @override
+  String get appReEnableFailedBody => 'Hindi ma-enable muli ang app na ito. Pakisubukan ulit.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Na-disable noong $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Huling error: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

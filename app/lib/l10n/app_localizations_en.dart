@@ -9845,4 +9845,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Couldn\'t share diagnostics. Please try again.';
+
+  @override
+  String get appDisabledTitle => 'This app is disabled and cannot be installed.';
+
+  @override
+  String get appDisabledWebhookFailures => 'Its endpoint failed for 72 hours in a row, so deliveries were stopped.';
+
+  @override
+  String get appDisabledGeneric => 'It was disabled by Omi.';
+
+  @override
+  String get appDisabledOwnerHint => 'Fix the endpoint first — re-enabling re-checks every configured URL.';
+
+  @override
+  String get appReEnable => 'Re-enable';
+
+  @override
+  String get appReEnableFailedTitle => 'Could not re-enable';
+
+  @override
+  String get appReEnableFailedBody => 'This app could not be re-enabled. Please try again.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Disabled on $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Last error: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

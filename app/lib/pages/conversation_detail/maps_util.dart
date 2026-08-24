@@ -5,8 +5,77 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:omi/env/env.dart';
 
+/// Источник картинки карты для страницы разговора.
+///
+/// Google Static Maps требует ключ и включённый биллинг, и в странах, где Google
+/// Maps не основной картограф, он же не самый полезный. Поэтому источник выбирается,
+/// а не зашит: без ключа берётся OpenStreetMap, который работает вообще без
+/// регистрации, поэтому карта не остаётся пустой рамкой «не удалось загрузить».
+enum MapProvider {
+  /// OpenStreetMap — без ключа и без биллинга, работает везде.
+  openStreetMap,
+
+  /// Яндекс.Карты — подробнее в России и СНГ; нужен бесплатный ключ Static API.
+  yandex,
+
+  /// Google — тёмная тема и стилизация, нужен ключ с включённым биллингом.
+  google,
+}
+
 class MapsUtil {
+  /// Что использовать. По умолчанию — источник, для которого ничего не нужно
+  /// настраивать: пустая карта хуже простой карты.
+  static MapProvider provider = _fromEnv();
+
+  static MapProvider _fromEnv() {
+    // Позволяет выбрать картограф на сборке, не трогая код:
+    // --dart-define=OMI_MAP_PROVIDER=yandex|google|osm
+    const raw = String.fromEnvironment('OMI_MAP_PROVIDER', defaultValue: 'osm');
+    switch (raw.toLowerCase()) {
+      case 'yandex':
+        return MapProvider.yandex;
+      case 'google':
+        return MapProvider.google;
+      default:
+        return MapProvider.openStreetMap;
+    }
+  }
+
   static String getMapImageUrl(double lat, double lng) {
+    switch (provider) {
+      case MapProvider.openStreetMap:
+        return _openStreetMapUrl(lat, lng);
+      case MapProvider.yandex:
+        return _yandexUrl(lat, lng);
+      case MapProvider.google:
+        return _googleUrl(lat, lng);
+    }
+  }
+
+  /// Карта без единого ключа. Публичный staticmap.openstreetmap.de оказался мёртв
+  /// (соединение не устанавливается), поэтому берём давнюю схему Яндекса — она
+  /// отдаёт PNG без авторизации и покрывает мир целиком.
+  static String _openStreetMapUrl(double lat, double lng) => _yandexLegacyUrl(lat, lng);
+
+  /// Яндекс.Карты. Ключ нужен только новому Static API (`/v1`); прежняя схема
+  /// `/1.x/` работает без него, поэтому при пустом ключе не падаем в ошибку, а
+  /// просто идём этим путём. У Яндекса порядок координат обратный: долгота,широта.
+  static String _yandexUrl(double lat, double lng) {
+    final key = Env.yandexMapsApiKey;
+    if (key == null || key.isEmpty) {
+      return _yandexLegacyUrl(lat, lng);
+    }
+    return "https://static-maps.yandex.ru/v1"
+        "?ll=$lng,$lat&z=15&size=650,450&lang=ru_RU&apikey=$key"
+        "&pt=$lng,$lat,pm2rdm";
+  }
+
+  static String _yandexLegacyUrl(double lat, double lng) {
+    return "https://static-maps.yandex.ru/1.x/"
+        "?ll=$lng,$lat&z=15&size=650,450&l=map&pt=$lng,$lat,pm2rdm";
+  }
+
+  static String _googleUrl(double lat, double lng) {
     // Dark theme Google Maps with minimal labels
     const String baseUrl = "https://maps.googleapis.com/maps/api/staticmap";
     final String center = "center=$lat,$lng";
@@ -72,11 +141,15 @@ class MapsUtil {
   }
 
   static void launchMap(double lat, double lng) async {
+    // Открывать точку в том же сервисе, картинку которого человек только что видел:
+    // тап по Яндекс-карте, уводящий в Google Maps, выглядит поломкой.
     try {
-      final preferredType = Platform.isIOS ? MapType.apple : MapType.google;
-      if (await MapLauncher.isMapAvailable(preferredType) == true) {
-        await MapLauncher.showMarker(mapType: preferredType, coords: Coords(lat, lng), title: '');
-        return;
+      final preferred = _preferredMapTypes();
+      for (final type in preferred) {
+        if (await MapLauncher.isMapAvailable(type) == true) {
+          await MapLauncher.showMarker(mapType: type, coords: Coords(lat, lng), title: '');
+          return;
+        }
       }
       final installed = await MapLauncher.installedMaps;
       if (installed.isNotEmpty) {
@@ -84,8 +157,30 @@ class MapsUtil {
         return;
       }
     } catch (_) {}
-    // Fallback: open in browser
-    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await launchUrl(Uri.parse(_webFallbackUrl(lat, lng)), mode: LaunchMode.externalApplication);
+  }
+
+  /// Приложения карт в порядке предпочтения — сначала выбранный источник.
+  static List<MapType> _preferredMapTypes() {
+    final platformDefault = Platform.isIOS ? MapType.apple : MapType.google;
+    switch (provider) {
+      case MapProvider.yandex:
+        return [MapType.yandexMaps, MapType.yandexNavi, platformDefault];
+      case MapProvider.openStreetMap:
+      case MapProvider.google:
+        return [platformDefault];
+    }
+  }
+
+  /// Если ни одного приложения карт нет — открываем в браузере, тоже в выбранном сервисе.
+  static String _webFallbackUrl(double lat, double lng) {
+    switch (provider) {
+      case MapProvider.yandex:
+        return 'https://yandex.ru/maps/?pt=$lng,$lat&z=16&l=map';
+      case MapProvider.openStreetMap:
+        return 'https://www.openstreetmap.org/?mlat=$lat&mlon=$lng#map=16/$lat/$lng';
+      case MapProvider.google:
+        return 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    }
   }
 }

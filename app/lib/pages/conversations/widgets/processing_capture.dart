@@ -44,7 +44,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
     _offlineTicker = Timer.periodic(const Duration(seconds: 1), (_) async {
       if (!mounted) return;
       final provider = context.read<CaptureProvider>();
-      if (provider.offlineRecordingStartedAt != null) {
+      if (provider.offlineRecordingStartedAt != null || provider.customSttBufferingDuration != null) {
         setState(() {});
       }
       _offlineTick++;
@@ -280,10 +280,17 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
     } else if (!isHavingRecordingDevice && !isUsingPhoneMic) {
       stateText = "";
     } else if (isUsingPhoneMic || isHavingRecordingDevice) {
+      final bufferingFor = captureProvider.customSttBufferingDuration;
       if (captureProvider.terminalTranscriptionFailure != null) {
         // Audio remains in the WAL while reconnecting, but the server has
         // explicitly said live STT is unavailable. Do not claim "Listening".
         stateText = context.l10n.transcriptionUnavailable;
+        statusIndicator = const PausedStatusIndicator();
+      } else if (bufferingFor != null) {
+        // Custom STT endpoint unreachable. Audio keeps recording
+        // and buffering locally (see PurePollingSocket) — say so instead of
+        // silently claiming "Listening" while nothing is being transcribed.
+        stateText = _customSttBufferingText(bufferingFor);
         statusIndicator = const PausedStatusIndicator();
       } else {
         // Show "Listening" for all active recording states — WAL ensures audio is
@@ -327,10 +334,20 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
       child: Row(
         children: [
           Expanded(child: left),
-          if (right is! SizedBox) right,
+          // Flexible so a long status ("Распознавание офлайн — аудио копится
+          // (3:12)") ellipsizes instead of overflowing the row.
+          if (right is! SizedBox) Flexible(child: right),
         ],
       ),
     );
+  }
+
+  // Self-host: short status text for how long the custom STT endpoint has
+  // been unreachable while audio keeps recording and buffering locally.
+  // m:ss digits are locale-neutral, unlike latin "3m"/"45s" unit suffixes.
+  String _customSttBufferingText(Duration bufferingFor) {
+    final seconds = (bufferingFor.inSeconds % 60).toString().padLeft(2, '0');
+    return context.l10n.sttOfflineBuffering('${bufferingFor.inMinutes}:$seconds');
   }
 
   Widget _buildUnifiedRecordingUI(CaptureProvider provider, Widget? header) {
@@ -364,6 +381,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
       isPaused = _isPhoneMicPaused || provider.isPaused || isAudioInterrupted;
     }
     final hasTerminalTranscriptionFailure = provider.terminalTranscriptionFailure != null;
+    final bufferingFor = provider.customSttBufferingDuration;
 
     // Determine if this is an OmiGlass-type device (captures photos)
     bool hasPhotos = provider.photos.isNotEmpty;
@@ -375,35 +393,47 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
             ? (isDeviceRecording ? context.l10n.muted : context.l10n.paused)
             : hasTerminalTranscriptionFailure
                 ? context.l10n.transcriptionUnavailable
-                : hasPhotos
-                    ? 'Capturing'
-                    : context.l10n.listening;
+                // Custom STT endpoint unreachable, audio still buffering
+                // locally (see customSttBufferingDuration / PurePollingSocket).
+                : bufferingFor != null
+                    ? _customSttBufferingText(bufferingFor)
+                    : hasPhotos
+                        ? 'Capturing'
+                        : context.l10n.listening;
 
     // When recording is active, show the unified UI design
     if (isDeviceRecording || isPhoneRecording) {
       Widget statusRow = Row(
         children: [
-          // Left: Status tag
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(20)),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  statusText,
-                  style: const TextStyle(color: Color(0xFFC9CBCF), fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: isPaused ? const Color(0xFFFF9500) : const Color(0xFFFE5D50),
-                    shape: BoxShape.circle,
+          // Left: Status tag. Flexible + ellipsis so a long localized status
+          // ("Распознавание офлайн — аудио копится (3:12)") shrinks instead of
+          // overflowing the row.
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(20)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      statusText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xFFC9CBCF), fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isPaused ? const Color(0xFFFF9500) : const Color(0xFFFE5D50),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           // Star indicator when conversation is marked for starring

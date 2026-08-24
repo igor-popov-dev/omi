@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:collection/collection.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:omi/backend/schema/app.dart';
@@ -9,13 +12,29 @@ import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/backend/schema/memory.dart';
 import 'package:omi/backend/schema/message.dart';
 import 'package:omi/backend/schema/person.dart';
+import 'package:omi/env/env.dart';
 import 'package:omi/models/custom_stt_config.dart';
 import 'package:omi/models/stt_provider.dart';
+import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/utils/logger.dart';
 
 class SharedPreferencesUtil {
   static final SharedPreferencesUtil _instance = SharedPreferencesUtil._internal();
   static SharedPreferences? _preferences;
+  static FlutterSecureStorage? _secureStorage;
+
+  /// In-memory cache so [authToken] stays a sync getter (call sites are sync).
+  static String _authTokenCache = '';
+
+  /// Used under `flutter test` when no [FlutterSecureStorage] is injected, so
+  /// production code never calls `@visibleForTesting` mock APIs.
+  static Map<String, String>? _testSecureFallback;
+
+  static const String _authTokenSecureKey = 'authToken';
+  static const String _authTokenMigratedPrefsKey = 'authTokenSecureMigrated';
+
+  /// Plain prefs mirror for in-tree native readers (Android background socket).
+  static const String _nativeAuthTokenPrefsKey = 'nativeAuthToken';
 
   factory SharedPreferencesUtil() {
     return _instance;
@@ -26,8 +45,99 @@ class SharedPreferencesUtil {
   String get deviceIdHash => _preferences?.getString('deviceIdHash') ?? '';
   set deviceIdHash(String value) => _preferences?.setString('deviceIdHash', value);
 
-  static Future<void> init() async {
+  static Future<void> init({FlutterSecureStorage? secureStorage}) async {
     _preferences = await SharedPreferences.getInstance();
+    if (secureStorage != null) {
+      _secureStorage = secureStorage;
+      _testSecureFallback = null;
+    } else if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      // Hermetic unit tests have no secure-storage plugin channel.
+      _secureStorage = null;
+      _testSecureFallback = <String, String>{};
+    } else {
+      _secureStorage = const FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+        iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+      );
+      _testSecureFallback = null;
+    }
+    await migrateAuthTokenFromPrefs();
+    _authTokenCache = await _readSecureAuthToken() ?? '';
+    // Codex P2: a failed secure write leaves the legacy prefs token; still use it.
+    if (_authTokenCache.isEmpty) {
+      _authTokenCache = _preferences?.getString('authToken') ?? '';
+    }
+    await _syncNativeAuthToken(_authTokenCache);
+  }
+
+  /// One-time move of `authToken` from SharedPreferences into secure storage.
+  ///
+  /// Called from [init] at startup. Idempotent: a prefs flag skips work after
+  /// the first successful pass. If secure storage already has a token, the
+  /// prefs copy is discarded so we never overwrite a newer secure value.
+  static Future<void> migrateAuthTokenFromPrefs() async {
+    final prefs = _preferences;
+    if (prefs == null || (_secureStorage == null && _testSecureFallback == null)) return;
+    if (prefs.getBool(_authTokenMigratedPrefsKey) == true) {
+      // Scrub any prefs residue written after migration (e.g. stale native/cache paths).
+      if (prefs.containsKey('authToken')) {
+        await prefs.remove('authToken');
+      }
+      return;
+    }
+
+    final legacyToken = prefs.getString('authToken');
+    try {
+      final existingSecure = await _readSecureAuthToken();
+      if ((existingSecure == null || existingSecure.isEmpty) && legacyToken != null && legacyToken.isNotEmpty) {
+        await _writeSecureAuthToken(legacyToken);
+      }
+      if (legacyToken != null) {
+        await prefs.remove('authToken');
+      }
+      await prefs.setBool(_authTokenMigratedPrefsKey, true);
+    } catch (e, stack) {
+      // Leave the prefs copy and migration flag unset so the next launch retries.
+      Logger.debug('authToken secure migration failed: $e');
+      Logger.debug('Stack: $stack');
+    }
+  }
+
+  static Future<String?> _readSecureAuthToken() async {
+    final fallback = _testSecureFallback;
+    if (fallback != null) return fallback[_authTokenSecureKey];
+    return _secureStorage?.read(key: _authTokenSecureKey);
+  }
+
+  static Future<void> _writeSecureAuthToken(String value) async {
+    final fallback = _testSecureFallback;
+    if (fallback != null) {
+      fallback[_authTokenSecureKey] = value;
+      return;
+    }
+    await _secureStorage?.write(key: _authTokenSecureKey, value: value);
+  }
+
+  static Future<void> _deleteSecureAuthToken() async {
+    final fallback = _testSecureFallback;
+    if (fallback != null) {
+      fallback.remove(_authTokenSecureKey);
+    } else {
+      await _secureStorage?.delete(key: _authTokenSecureKey);
+    }
+    await _syncNativeAuthToken('');
+  }
+
+  /// Native Android still reads SharedPreferences. Mirror the live token there
+  /// under a dedicated key so background streaming survives the secure migration.
+  static Future<void> _syncNativeAuthToken(String value) async {
+    final prefs = _preferences;
+    if (prefs == null) return;
+    if (value.isEmpty) {
+      await prefs.remove(_nativeAuthTokenPrefsKey);
+    } else {
+      await prefs.setString(_nativeAuthTokenPrefsKey, value);
+    }
   }
 
   /// Picks up values written natively (the Dart cache doesn't see those otherwise).
@@ -176,7 +286,16 @@ class SharedPreferencesUtil {
   // Custom STT configuration
   CustomSttConfig get customSttConfig {
     final configJson = getString('customSttConfig');
-    if (configJson.isEmpty) return CustomSttConfig.defaultConfig;
+    if (configJson.isEmpty) {
+      // Self-host patch, not for upstream: no saved config yet (fresh install,
+      // or a reinstall that wiped app data) — fall back to our STT router
+      // instead of the upstream `omi` cloud default, if one was baked into
+      // this build. See Env.defaultSttUrl.
+      if (Env.defaultSttUrl.isNotEmpty) {
+        return const CustomSttConfig(provider: SttProvider.custom, url: Env.defaultSttUrl);
+      }
+      return CustomSttConfig.defaultConfig;
+    }
     try {
       return CustomSttConfig.fromJson(jsonDecode(configJson));
     } catch (e, stack) {
@@ -292,6 +411,49 @@ class SharedPreferencesUtil {
   set vadGateEnabled(bool value) => saveBool('vadGateEnabled', value);
 
   bool get vadGateEnabled => getBool('vadGateEnabled');
+
+  // PTT Hub — hold-to-talk через realtime-хаб. УБРАН (решение Игоря 24.08):
+  // удержание кнопки кулона занято включением/выключением самого кулона (это
+  // единственный удобный способ, не трогать), а push-to-talk конфликтовал с
+  // одиночным нажатием и не нужен — разговор запускается одиночным нажатием
+  // (singleTapAction=1). Геттер прибит к false, хранение оставлено на случай
+  // возврата; тумблер в Developer-настройках скрыт.
+  set pttHubEnabled(bool value) => saveBool('pttHubEnabled', value);
+
+  bool get pttHubEnabled => false;
+
+  // Действие ОДИНОЧНОГО нажатия кнопки кулона (просьба Игоря 24.08 — селект
+  // по аналогии с doubleTapAction): 0 = прежнее поведение (голосовой вопрос
+  // Omi: записать реплику, ответ придёт нотификацией), 1 = свободный
+  // голосовой режим (разговор с ассистентом, повторное нажатие выключает).
+  set singleTapAction(int value) => saveInt('singleTapAction', value);
+
+  int get singleTapAction => getInt('singleTapAction', defaultValue: 0);
+
+  // Free-form Voice Mode — hands-free voice-mode button in chat (experimental)
+  set freeFormMode(bool value) => saveBool('freeFormMode', value);
+
+  bool get freeFormMode => getBool('freeFormMode');
+
+  // Free-form Voice Mode auto-off: minutes of silence before the mode stops
+  // itself. 0 means "never" — see `freeFormIdleTimeoutFromMinutes`. The mode
+  // bills per minute of streamed audio, so a session left running by accident
+  // costs real money; the default matches the value that was hard-coded before
+  // this setting existed.
+  set freeFormVoiceIdleTimeoutMinutes(int value) => saveInt('freeFormVoiceIdleTimeoutMinutes', value);
+
+  int get freeFormVoiceIdleTimeoutMinutes =>
+      getInt('freeFormVoiceIdleTimeoutMinutes', defaultValue: kDefaultFreeFormVoiceIdleTimeoutMinutes);
+
+  // Ползунок «как часто голосовой хаб ходит к Claude» (0..4, см.
+  // services/voice_hub/escalation_level.dart). Дефолт 2 (balanced) — ровно
+  // поведение до появления ползунка. Ключ v2: под старым ключом
+  // 'claudeEscalationLevel' у Игоря осталась «4» с неудачного теста 24.08
+  // (ползунок тогда скрыли) — возврат ползунка не должен молча включить
+  // правый край, поэтому старое значение сознательно брошено.
+  set claudeEscalationLevel(int value) => saveInt('claudeEscalationLevelV2', value);
+
+  int get claudeEscalationLevel => getInt('claudeEscalationLevelV2', defaultValue: 2);
 
   // Notification frequency (0-5): 0 = off, 5 = most frequent. Default is 0 (disabled)
   set notificationFrequency(int value) => saveInt('notificationFrequency', value);
@@ -677,9 +839,17 @@ class SharedPreferencesUtil {
 
   //--------------------------------- Auth ------------------------------------//
 
-  String get authToken => getString('authToken');
+  String get authToken => _authTokenCache;
 
-  set authToken(String value) => saveString('authToken', value);
+  set authToken(String value) {
+    _authTokenCache = value;
+    if (value.isEmpty) {
+      unawaited(_deleteSecureAuthToken());
+    } else {
+      unawaited(_writeSecureAuthToken(value));
+      unawaited(_syncNativeAuthToken(value));
+    }
+  }
 
   int get tokenExpirationTime => getInt('tokenExpirationTime');
 
@@ -835,5 +1005,9 @@ class SharedPreferencesUtil {
 
   Future<bool> remove(String key) async => await _preferences?.remove(key) ?? false;
 
-  Future<bool> clear() async => await _preferences?.clear() ?? false;
+  Future<bool> clear() async {
+    _authTokenCache = '';
+    await _deleteSecureAuthToken();
+    return await _preferences?.clear() ?? false;
+  }
 }

@@ -1480,4 +1480,83 @@ void main() {
       provider.dispose();
     });
   });
+
+  group('pauseForInAppCall / resumeAfterInAppCall (own Voximplant call)', () {
+    // Guards against a real regression this pair fixes: without a source check,
+    // pausing for an in-app call would stop() whatever mic session happens to be
+    // running (e.g. a BLE-device recording), not just the phone mic it owns.
+    test('pauseForInAppCall is a no-op when no phone-mic session is active', () async {
+      final provider = CaptureProvider();
+      expect(provider.isCallActive, false);
+
+      await provider.pauseForInAppCall();
+
+      expect(provider.isCallActive, false, reason: 'nothing to pause outside a phone-mic session');
+      provider.dispose();
+    });
+
+    test('resumeAfterInAppCall is a no-op when never paused', () async {
+      final provider = CaptureProvider();
+
+      await provider.resumeAfterInAppCall();
+
+      expect(provider.isCallActive, false);
+      provider.dispose();
+    });
+  });
+
+  group('in-progress conversation poll cycle', () {
+    // Regression for an incident where every socket reconnect restarted this
+    // cycle's attempt counter from zero, so a flaky connection (reconnecting
+    // more often than the cycle's own give-up window) kept it polling
+    // GET /v1/conversations?...&statuses=in_progress forever instead of ever
+    // letting the cap stop it. That single endpoint accounted for 68% of the
+    // self-hosted backend's traffic and exhausted the Firestore project's
+    // daily read quota.
+    test('a reconnect mid-cycle does not reset the attempt counter', () {
+      fakeAsync((async) {
+        final provider = CaptureProvider(inProgressConversationLoader: () async {});
+        provider.updateRecordingDevice(_device(id: 'AA:BB:CC:DD:EE:FF', type: DeviceType.omi));
+        provider.updateRecordingState(RecordingState.deviceRecord);
+
+        provider.startInProgressConversationRefreshForTesting();
+        async.elapse(const Duration(seconds: 11));
+        async.flushMicrotasks();
+
+        final attemptsBeforeReconnect = provider.inProgressConversationRefreshAttemptsForTesting;
+        expect(attemptsBeforeReconnect, greaterThan(0));
+
+        // Simulate a socket reconnect landing while the cycle is still running.
+        provider.startInProgressConversationRefreshForTesting();
+
+        expect(
+          provider.inProgressConversationRefreshAttemptsForTesting,
+          attemptsBeforeReconnect,
+          reason: 'a reconnect must not restart an already-running poll cycle',
+        );
+
+        provider.dispose();
+      });
+    });
+
+    test('the cycle self-terminates at its cap when nothing interrupts it', () {
+      fakeAsync((async) {
+        var loadCalls = 0;
+        final provider = CaptureProvider(
+          inProgressConversationLoader: () async => loadCalls++,
+        );
+        provider.updateRecordingDevice(_device(id: 'AA:BB:CC:DD:EE:FF', type: DeviceType.omi));
+        provider.updateRecordingState(RecordingState.deviceRecord);
+
+        provider.startInProgressConversationRefreshForTesting();
+        async.elapse(const Duration(seconds: 90));
+        async.flushMicrotasks();
+
+        expect(provider.inProgressConversationRefreshActiveForTesting, isFalse);
+        expect(loadCalls, 12);
+
+        provider.dispose();
+      });
+    });
+  });
 }

@@ -9847,4 +9847,53 @@ class AppLocalizationsEt extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Diagnostikat ei õnnestunud jagada. Proovi uuesti.';
+
+  @override
+  String get appDisabledTitle => 'See rakendus on välja lülitatud ja seda ei saa paigaldada.';
+
+  @override
+  String get appDisabledWebhookFailures => 'Selle lõpp-punkt ebaõnnestus 72 tundi järjest, seega saatmine peatati.';
+
+  @override
+  String get appDisabledGeneric => 'Omi lülitas selle välja.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Paranda kõigepealt lõpp-punkt — uuesti sisselülitamisel kontrollitakse iga seadistatud URL uuesti.';
+
+  @override
+  String get appReEnable => 'Lülita uuesti sisse';
+
+  @override
+  String get appReEnableFailedTitle => 'Uuesti sisselülitamine ebaõnnestus';
+
+  @override
+  String get appReEnableFailedBody => 'Seda rakendust ei õnnestunud uuesti sisse lülitada. Proovi uuesti.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Välja lülitatud $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Viimane viga: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

@@ -67,6 +67,17 @@ void main() {
       expect(headers['Authorization'], equals('Bearer fresh-token'));
     });
 
+    test('adds no CF-Access headers when OMI_CF_ACCESS_CLIENT_ID/_SECRET are unset', () async {
+      // Env.cfAccessClientId/cfAccessClientSecret are compile-time
+      // String.fromEnvironment consts, empty in this test binary (no
+      // --dart-define) — exercises the real buildHeaders(), not a mirror,
+      // to catch a regression that sends empty header values unconditionally.
+      final headers = await buildHeaders(requireAuthCheck: false);
+
+      expect(headers.containsKey('CF-Access-Client-Id'), isFalse);
+      expect(headers.containsKey('CF-Access-Client-Secret'), isFalse);
+    });
+
     test('_drainStreamedResponse suppresses exceptions from aborted streams before replaying', () async {
       var replayCount = 0;
       final service = AuthService.forTesting(tokenGateway: _TestAuthTokenGateway(), refreshDelay: (_) async {});

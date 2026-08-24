@@ -1,7 +1,10 @@
-// Local-only Firebase options for the emulator harness.
-// These values are intentionally non-secret placeholders. They keep the
-// client project identity aligned with demo-omi-local while Auth is routed to
-// the local emulator by main.dart.
+// Firebase options for the local_dev profile's Android build.
+// `android` holds the real client config for the `omi-jarvis-igor` GCP
+// project (Firebase console → Project settings → your Android app;
+// non-secret by Firebase's own model, meant to ship inside the app binary).
+// ios/macos/web are not registered in that project yet, so they keep the old
+// `demo-omi-local` placeholders — fine as long as only Android builds this
+// profile. See docs/point-app-to-mini.md.
 // ignore_for_file: type=lint
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
@@ -24,11 +27,11 @@ class DefaultFirebaseOptions {
   }
 
   static const android = FirebaseOptions(
-    apiKey: 'AIzaSyDEMOOMILOCALFAKEKEY00000000000000',
-    appId: '1:000000000000:android:0000000000000000',
-    messagingSenderId: '000000000000',
-    projectId: 'demo-omi-local',
-    storageBucket: 'demo-omi-local.localhost',
+    apiKey: 'AIzaSyB8SMhtdyZhee6sz2UJY2wI78bHPdzaglk',
+    appId: '1:1012069752426:android:b8f88f5d6c3b7ad463f413',
+    messagingSenderId: '1012069752426',
+    projectId: 'omi-jarvis-igor',
+    storageBucket: 'omi-jarvis-igor.firebasestorage.app',
   );
 
   static const ios = FirebaseOptions(

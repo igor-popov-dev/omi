@@ -1,0 +1,151 @@
+// Unit coverage for `voice_hub_production.dart`'s pure, network-free
+// pieces only. NOT covered here, and why:
+//   * `mintGeminiHubToken` — built on `makeApiCall`, which is not
+//     injectable (hardcoded to `HttpPoolManager.instance` + Firebase auth
+//     headers) — same reason this app's other `api/*.dart` wrappers
+//     (`action_items.dart`, `announcements.dart`, ...) have no direct unit
+//     test of their own HTTP call either. Contract verified instead the
+//     same way lane2 verified it server-side (lane2-log.md, 21.08 22:05):
+//     a live smoke test against a real Firebase ID token, not a unit test.
+//   * `createProductionVoiceHubTurnDriver` — its `startCapture`/player
+//     factories touch real Pigeon platform channels
+//     (`NativeMicRecorderService`, `StreamingPcmPlayerHostApi`), same as
+//     every other production factory in this series
+//     (`nativeMicHubCaptureFactory`, `nativeVoicePlayerFactory` themselves
+//     have no direct unit test either — only their *consumers*, exercised
+//     against fakes, do). The `toolExecutor` wiring this function adds is
+//     covered instead at the seam it plugs into: `voice_turn_driver_test.dart`
+//     "hub tool loop (real executor wired)".
+//   * `createProductionFreeFormVoiceMode` — same reasoning: its
+//     `startCapture` factory is the same real-platform-channel
+//     `nativeMicHubCaptureFactory` pair above,
+//     and its own start/stop/idle-timeout logic is already exercised
+//     hermetically against a plain `HubController` in
+//     `free_form_voice_mode_test.dart`. The `onToolRequest` wiring this
+//     function adds is the same `AskClaudeToolExecutor` seam as
+//     `createProductionVoiceHubTurnDriver`'s, so it needs no separate
+//     coverage here either.
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:omi/services/voice_hub/ask_claude_tool.dart';
+import 'package:omi/services/voice_hub/hub_ptt_capture.dart';
+import 'package:omi/services/voice_hub/voice_hub_production.dart';
+import 'package:omi/services/voice_hub/gemini_hub_session.dart';
+import 'package:omi/services/voice_hub/hub_controller.dart';
+import 'package:omi/services/voice_hub/hub_session.dart';
+
+void main() {
+  // The seam both production factories build their session through. It exists
+  // because they used to hand-list the constructor arguments separately and
+  // both lists were missing the same one — see the function's own doc comment.
+  group('buildProductionGeminiSession', () {
+    Map<String, dynamic> setupOf(GeminiHubSession session) =>
+        (session.sessionSetupFrame()['setup'] as Map<String, dynamic>);
+
+    test('carries the resumption handle the controller offers, so a rebuilt socket continues the conversation', () {
+      final session = buildProductionGeminiSession(
+        const HubSessionSpec(token: 't', instructions: 'i', events: HubSessionEvents(), resumptionHandle: 'H1'),
+        freeFormMode: true,
+      );
+
+      final resumption = setupOf(session)['sessionResumption'] as Map<String, dynamic>;
+      expect(resumption['handle'], 'H1');
+    });
+
+    test('a spec with no handle asks for a fresh conversation, not a broken resume', () {
+      final session = buildProductionGeminiSession(
+        const HubSessionSpec(token: 't', instructions: 'i', events: HubSessionEvents()),
+        freeFormMode: false,
+      );
+
+      final resumption = setupOf(session)['sessionResumption'] as Map<String, dynamic>;
+      expect(resumption, isEmpty);
+      // Sanity that the rest of the spec still reaches the session.
+      expect(setupOf(session)['systemInstruction'], isNotNull);
+    });
+
+    test('passes the free-form flag through (server VAD on/off is the whole mode)', () {
+      final free = buildProductionGeminiSession(
+        const HubSessionSpec(token: 't', instructions: 'i', events: HubSessionEvents()),
+        freeFormMode: true,
+      );
+      final manual = buildProductionGeminiSession(
+        const HubSessionSpec(token: 't', instructions: 'i', events: HubSessionEvents()),
+        freeFormMode: false,
+      );
+
+      final freeVad = ((setupOf(free)['realtimeInputConfig'] as Map<String, dynamic>)['automaticActivityDetection']
+          as Map<String, dynamic>);
+      final manualVad = ((setupOf(manual)['realtimeInputConfig'] as Map<String, dynamic>)['automaticActivityDetection']
+          as Map<String, dynamic>);
+      expect(freeVad['disabled'], isNot(true));
+      expect(manualVad['disabled'], isTrue);
+    });
+  });
+
+  group('buildProductionHubInstructions', () {
+    test('returns a non-empty, stable prompt', () {
+      final a = buildProductionHubInstructions();
+      final b = buildProductionHubInstructions();
+      expect(a, isNotEmpty);
+      expect(a, b);
+    });
+
+    test('mentions the ask_claude escape hatch, so the model knows to reach for it', () {
+      expect(buildProductionHubInstructions(), contains('ask_claude'));
+    });
+
+    test('demands the filler BEFORE the tool call, not merely in the same turn', () {
+      // Observed on the phone: an instruction that only asked for a filler "in
+      // the same turn" got one spoken *after* the result arrived, so the user
+      // heard a long silence and then "one sec, let me check" glued to the
+      // answer. The prompt has to state the order.
+      final instructions = buildProductionHubInstructions();
+      expect(instructions, contains('FIRST'));
+      expect(instructions, contains('THEN call the tool'));
+      expect(instructions.indexOf('FIRST'), lessThan(instructions.indexOf('THEN call the tool')));
+    });
+
+    test('asks for the filler ONCE per turn, so a batch of calls is not a stutter', () {
+      // Measured on live Gemini 24.08 (`marathon/probes/lane5-filler-once.py`,
+      // 5 turns per wording): with the order-only wording the model said
+      // "секунду, уточню секунду, уточню" back to back in 4 turns out of 5 —
+      // and not only when it batched calls, twice it doubled on a single call.
+      // The same wording plus this one sentence: 0 doubles in 5, and the
+      // filler still spoken in all 5 (dropping it is the worse failure —
+      // silence for 7-40s reads as "it did not hear me").
+      final instructions = buildProductionHubInstructions();
+      expect(instructions, contains('ONCE per turn'));
+    });
+  });
+
+  group('fetchHubTools', () {
+    test('returns ask_claude (and end_conversation) at the default escalation level', () async {
+      // С появлением ползунка (escalation_level.dart) description зависит от
+      // уровня, поэтому сверяем имя и схему, а не идентичность декларации.
+      // Дефолт (prefs не инициализированы) — balanced, инструмент есть.
+      final tools = await fetchHubTools();
+      final askClaude = tools.where((t) => t.name == askClaudeToolDeclaration.name);
+      expect(askClaude, hasLength(1));
+      expect(askClaude.single.parameters, same(askClaudeToolDeclaration.parameters));
+    });
+  });
+
+  // The one thing about the production capture factory that IS testable
+  // without a platform channel, and the one that went wrong: WHERE the
+  // recorder comes from. Building one here instead of taking the app's shared
+  // handle detaches conversation capture from the native event stream for the
+  // rest of the process (`test/unit/phone_mic_single_owner_test.dart`), so
+  // "it must come from ServiceManager" is the invariant worth pinning.
+  group('productionHubCaptureFactory', () {
+    test('takes the mic from ServiceManager instead of building its own', () async {
+      // ServiceManager is deliberately NOT initialized in this test: asking it
+      // for the mic is exactly what must happen, and its refusal is the proof.
+      // A factory that constructed its own recorder would quietly succeed.
+      await expectLater(
+        productionHubCaptureFactory()(const HubPttCaptureOptions()),
+        throwsA(predicate((e) => e.toString().contains('Service manager is not initiated'))),
+      );
+    });
+  });
+}

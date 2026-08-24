@@ -9910,4 +9910,53 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Impossibile condividere la diagnostica. Riprova.';
+
+  @override
+  String get appDisabledTitle => 'Questa app è disattivata e non può essere installata.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'Il suo endpoint ha continuato a fallire per 72 ore, quindi gli invii sono stati interrotti.';
+
+  @override
+  String get appDisabledGeneric => 'È stata disattivata da Omi.';
+
+  @override
+  String get appDisabledOwnerHint => 'Correggi prima l\'endpoint: la riattivazione ricontrolla ogni URL configurato.';
+
+  @override
+  String get appReEnable => 'Riattiva';
+
+  @override
+  String get appReEnableFailedTitle => 'Riattivazione non riuscita';
+
+  @override
+  String get appReEnableFailedBody => 'Non è stato possibile riattivare questa app. Riprova.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Disattivata il $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Ultimo errore: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }

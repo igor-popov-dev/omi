@@ -61,6 +61,11 @@
 
    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
+    <!-- Voice mode as a self-managed telecom call (CallStyle notification,
+         lock-screen hang-up, background-mic legality). -->
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+
    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.FOREGROUND_BLUETOOTH_SCAN" />
@@ -75,6 +80,7 @@
     <!-- Add android:stopWithTask option only when necessary. -->
     <application
         android:name=".MyApp"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:requestLegacyExternalStorage="true"
@@ -209,6 +215,23 @@
         <service
             android:name="com.friend.ios.phonemic.PhoneMicForegroundService"
             android:foregroundServiceType="microphone"
+            android:stopWithTask="false"
+            android:exported="false" />
+
+        <!-- Voice mode as a self-managed telecom call: the ConnectionService the
+             system binds for our PhoneAccount, and the phoneCall foreground
+             service carrying the CallStyle ongoing-call notification. -->
+        <service
+            android:name="com.friend.ios.voicecall.OmiVoiceConnectionService"
+            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.ConnectionService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name="com.friend.ios.voicecall.VoiceCallForegroundService"
+            android:foregroundServiceType="phoneCall"
             android:stopWithTask="false"
             android:exported="false" />
 

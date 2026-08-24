@@ -48,6 +48,11 @@ import 'package:omi/providers/announcement_provider.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/providers/auth_provider.dart';
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/services/voice_call/voice_call_session.dart';
+import 'package:omi/services/voice_hub/earcon.dart';
+import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart';
+import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
+import 'package:omi/services/voice_hub/voice_hub_production.dart';
 import 'package:omi/providers/connectivity_provider.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/providers/device_provider.dart';
@@ -66,6 +71,7 @@ import 'package:omi/providers/speech_profile_provider.dart';
 import 'package:omi/providers/sync_provider.dart';
 import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/providers/usage_provider.dart';
+import 'package:omi/providers/upstream_sync_provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/providers/voice_recorder_provider.dart';
 import 'package:omi/providers/phone_call_provider.dart';
@@ -87,10 +93,60 @@ import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:omi/utils/notification_channel_strings.dart';
 
+/// Параметры Firebase для текущего флейвора — считаются одинаково во ВСЕХ движках.
+FirebaseOptions _firebaseOptionsForFlavor() => Env.profile == AppEnvironmentProfile.localDev
+    ? local.DefaultFirebaseOptions.currentPlatform
+    : prod.DefaultFirebaseOptions.currentPlatform;
+
+/// Инициализация Firebase, которая не убивает запуск.
+///
+/// `Firebase.apps` пуст до первого `initializeApp` даже когда нативный `[DEFAULT]`
+/// уже поднят (на Android его заводит FirebaseInitProvider из google-services.json,
+/// на macOS — нативный SDK). Поэтому старая проверка `if (Firebase.apps.isEmpty)`
+/// ничего не гарантировала: внутри `initializeApp` firebase_core подтягивает
+/// нативные приложения и, если наши apiKey/databaseURL/storageBucket не совпали
+/// с нативными, бросает `[core/duplicate-app]`
+/// (firebase_core_platform_interface/method_channel_firebase.dart).
+///
+/// Ловится это только на устройстве и выглядит катастрофой: исключение летит из
+/// `_init` до первого кадра, `runApp` не вызывается, и пользователь видит
+/// StartupFailureApp с «Omi could not start» — приложение мертво, хотя рядом
+/// живёт совершенно рабочее нативное приложение Firebase. Именно так и случилось
+/// 23.08 на self-host сборке.
+///
+/// Правильное поведение: несовпадение конфигурации — повод громко пожаловаться,
+/// но НЕ повод не запуститься. Берём то приложение, которое уже есть, и проверяем
+/// его проект нашей же проверкой — если проект действительно чужой,
+/// `validateFirebaseProject` сам всё скажет.
+Future<FirebaseApp> _ensureFirebaseApp() async {
+  if (Firebase.apps.isNotEmpty) {
+    final existing = Firebase.app();
+    Env.validateFirebaseProject(projectId: existing.options.projectId);
+    return existing;
+  }
+
+  final options = _firebaseOptionsForFlavor();
+  Env.validateFirebaseProject(projectId: options.projectId);
+  try {
+    return await Firebase.initializeApp(options: options);
+  } on FirebaseException catch (error) {
+    if (error.code != 'duplicate-app') rethrow;
+    final existing = Firebase.app();
+    debugPrint(
+      'Firebase уже поднят нативно (проект ${existing.options.projectId}), '
+      'наши параметры (${options.projectId}) с ним разошлись — работаем с существующим.',
+    );
+    Env.validateFirebaseProject(projectId: existing.options.projectId);
+    return existing;
+  }
+}
+
 /// Background message handler for FCM data messages
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  // Тот же путь, что и в _init: отдельный движок не должен поднимать [DEFAULT]
+  // с параметрами из ресурсов, расходящимися с теми, что использует UI-движок.
+  await _ensureFirebaseApp();
   await NotificationChannelStrings.loadAppLocale();
 
   await AwesomeNotifications().initialize(null, [
@@ -142,20 +198,9 @@ Future _init() async {
   LimitlessDeviceConnection.realtimeSuppressionPolicy = () => SharedPreferencesUtil().batchModeEnabled;
 
   // Firebase
-  if (Firebase.apps.isEmpty) {
-    final profile = Env.profile;
-    final options = profile == AppEnvironmentProfile.localDev
-        ? local.DefaultFirebaseOptions.currentPlatform
-        : prod.DefaultFirebaseOptions.currentPlatform;
-    Env.validateFirebaseProject(projectId: options.projectId);
-    await Firebase.initializeApp(options: options);
-  } else {
-    // Firebase may already be initialized by native SDK (macOS)
-    debugPrint('Firebase already initialized.');
-    Env.validateFirebaseProject(projectId: Firebase.app().options.projectId);
-  }
+  await _ensureFirebaseApp();
 
-  if (Env.profile.usesFirebaseAuthEmulator) {
+  if (Env.profile.usesFirebaseAuthEmulator && Env.firebaseAuthEmulatorHost.isNotEmpty) {
     await FirebaseAuth.instance.useAuthEmulator(Env.firebaseAuthEmulatorHost, Env.firebaseAuthEmulatorPort);
   }
 
@@ -338,7 +383,65 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
         ChangeNotifierProxyProvider4<ConversationProvider, MessageProvider, PeopleProvider, UsageProvider,
             CaptureProvider>(
-          create: (context) => CaptureProvider(),
+          create: (context) {
+            final capture = CaptureProvider();
+            // Gated by `pttHubEnabled` (dev flag, default off — see
+            // `voice_turn_host.dart`'s `selectPttRoute` kill-switch) at every
+            // real call site; constructing/assigning the driver here is
+            // itself side-effect-free (no I/O until a turn actually starts).
+            capture.hubTurnDriver = createProductionVoiceHubTurnDriver(
+              applyProjection: (projection) => capture.hubProjection.value = projection,
+              pttHubEnabled: () => SharedPreferencesUtil().pttHubEnabled,
+            );
+            // Gated by the `freeFormMode` dev flag at the one real call
+            // site (the chat toggle button, `FreeFormVoiceModeButton`) —
+            // constructing it here is side-effect-free, same as
+            // `hubTurnDriver` above (no I/O until `startFreeFormVoiceMode`
+            // actually calls `FreeFormVoiceMode.start()`).
+            capture.onVoiceModeStartSound = () => voiceStartEarcon.play();
+            // Telecom call shell: the running voice session is a self-managed
+            // Android call (CallStyle notification, hang-up on the lock
+            // screen, background-mic legality) — voice-call-mode-design.md.
+            // Fail-open everywhere: on iOS or any telecom refusal the mode
+            // just runs without the shell.
+            final voiceCallSession = VoiceCallSession();
+            voiceCallSession.onEndedBySystem = capture.stopFreeFormVoiceMode;
+            capture.onVoiceModeCallStart = voiceCallSession.start;
+            capture.onVoiceModeCallEnd = voiceCallSession.end;
+            capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
+              events: freeFormModeProjectionEvents(
+                // Гейт по активности: поздние события уже остановленной сессии
+                // (хвост speaking-end и т.п.) перещёлкивали индикатор обратно в
+                // «слушаю» при выключенном режиме (баг Игоря 24.08).
+                applyProjection: (projection) {
+                  if (capture.freeFormModeActive.value) capture.hubProjection.value = projection;
+                },
+                onDisconnected: capture.recoverFreeFormVoiceMode,
+                // Self-host patch: the spoken exchange lands in chat history, so
+                // the voice and chat assistants share one conversation instead of
+                // each pretending the other never happened.
+                chatLog: capture.voiceChatLog,
+                onSocketExpiring: capture.rebuildFreeFormVoiceModeSocket,
+              ),
+              // Read per arm, not captured once: the user can change the
+              // auto-off in Developer -> Experimental while the app is
+              // running, and this object is built once here and never rebuilt.
+              resolveIdleTimeout: () =>
+                  freeFormIdleTimeoutFromMinutes(SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes),
+              // Полный stop (не только сброс UI): выключение по тишине тоже
+              // обязано рвать тёплую сессию — иначе она держит аудиорежим.
+              onIdleTimeout: capture.stopFreeFormVoiceMode,
+              // Модель сама закончила разговор (end_conversation): гасим режим
+              // штатно — стоп, сброс UI, досылка диалога в чат, перечитка.
+              onConversationEnd: capture.stopFreeFormVoiceMode,
+              // The mic can be taken away mid-session (a call, another app).
+              // Nothing else in the wiring notices: the hub only sees frames
+              // stop arriving, which is indistinguishable from a person who
+              // has stopped talking.
+              onMicInterruption: capture.applyFreeFormMicInterruption,
+            );
+            return capture;
+          },
           update: (BuildContext context, conversation, message, people, usage, CaptureProvider? previous) {
             final externalActions = ProviderCaptureExternalActions(
               conversationProvider: conversation,
@@ -396,9 +499,31 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(lazy: true, create: (context) => McpProvider()),
         ChangeNotifierProvider(lazy: true, create: (context) => PaymentMethodProvider()),
         ChangeNotifierProvider(create: (context) => VoiceRecorderProvider()..checkPendingRecording()),
+        // Self-host patch (providers/upstream_sync_provider.dart, docs/selfhost-patches.md):
+        // пульт апстрим-синка. lazy — на чужом сервере роутов нет, и запрос
+        // не должен уходить, пока плашку никто не смотрит.
+        ChangeNotifierProvider(lazy: true, create: (context) => UpstreamSyncProvider()..refresh()),
         ChangeNotifierProvider(create: (context) => LocaleProvider()),
         ChangeNotifierProvider(create: (context) => AnnouncementProvider()),
-        ChangeNotifierProvider(lazy: true, create: (context) => PhoneCallProvider()),
+        // A call must hush the phone's own always-on recording, or one call becomes two
+        // conversations and the two captures fight over the microphone (lane 6 tick 22).
+        // Wired here rather than inside the provider so calls keep knowing nothing about
+        // the capture stack.
+        ChangeNotifierProxyProvider<CaptureProvider, PhoneCallProvider>(
+          lazy: true,
+          create: (context) => PhoneCallProvider(),
+          update: (BuildContext context, capture, PhoneCallProvider? previous) {
+            final phoneCalls = previous ?? PhoneCallProvider();
+            phoneCalls.ambientCapture.gate =
+                (paused) => paused ? capture.pauseForInAppCall() : capture.resumeAfterInAppCall();
+            // The gate above hushes the always-on capture only. The arbiter is the other
+            // half: it is what refuses a chat voice memo or a speech profile started
+            // mid-call, which would otherwise record silence beside the live call and
+            // report success.
+            phoneCalls.ambientCapture.arbiter = ServiceManager.instance().micArbiter;
+            return phoneCalls;
+          },
+        ),
       ],
       builder: (context, child) {
         return WithForegroundTask(

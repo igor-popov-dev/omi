@@ -3236,5 +3236,26 @@
     "sendRawAudioToOmi": "Send rå lyd til Omi",
     "sendRawAudioToOmiDescription": "Slå fra for at forhindre, at rå lyd sendes til Omi. Transskriptioner og data, som cloudfunktioner kræver, kan stadig blive sendt til Omi.",
     "findDevice": "Find",
-    "diagnosticsShareFailed": "Diagnostikken kunne ikke deles. Prøv igen."
+    "diagnosticsShareFailed": "Diagnostikken kunne ikke deles. Prøv igen.",
+    "appDisabledTitle": "Denne app er deaktiveret og kan ikke installeres.",
+    "appDisabledWebhookFailures": "Dens endpoint fejlede 72 timer i træk, så leveringerne blev stoppet.",
+    "appDisabledGeneric": "Den blev deaktiveret af Omi.",
+    "appDisabledOwnerHint": "Ret endpointet først — genaktivering tjekker hver konfigureret URL igen.",
+    "appReEnable": "Genaktivér",
+    "appReEnableFailedTitle": "Kunne ikke genaktivere",
+    "appReEnableFailedBody": "Denne app kunne ikke genaktiveres. Prøv igen.",
+    "appDisabledOn": "Deaktiveret den {date}.",
+    "appDisabledLastError": "Seneste fejl: {error}.",
+    "voiceNoSpeechDetected": "No speech detected — record again",
+    "sttOfflineBuffering": "Offline — buffering audio ({duration})",
+    "@sttOfflineBuffering": {
+        "placeholders": {
+            "duration": {
+                "type": "String"
+            }
+        }
+    },
+    "sttLiveTranscribing": "Transcribing speech…",
+    "sttWaitingForSpeech": "Listening — waiting for speech",
+    "sttReconnecting": "Transcription connection lost — reconnecting…"
 }

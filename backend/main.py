@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 import firebase_admin
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 
 from database.google_credentials import prepare_google_credentials
 
@@ -94,6 +95,7 @@ from utils.other.timeout import TimeoutMiddleware
 from utils.observability import log_langsmith_status
 from utils.subscription import validate_stripe_price_ids
 from utils.http_client import close_all_clients
+from utils.metrics import start_metrics_sidecar_server, stop_metrics_sidecar_server
 from utils.executors import (
     drain_background_tasks,
     log_executor_health,
@@ -108,6 +110,7 @@ from services.conversation_finalization import reconcile_abandoned_in_progress_c
 from services.conversation_finalization import reconcile_meeting_receipts
 from services.conversation_finalization import reconcile_stale_processing_conversations
 from services.users.account_deletion import reconcile_pending_deletion_wipes
+from utils.other.local_storage import local_storage_root_from_env
 
 # Log LangSmith tracing status at startup
 log_langsmith_status()
@@ -137,6 +140,11 @@ else:
     firebase_admin.initialize_app(options=_firebase_admin_options)  # type: ignore[reportUnknownMemberType]  # firebase_admin untyped
 
 app = FastAPI()
+
+_local_storage_root = local_storage_root_from_env()
+if _local_storage_root is not None:
+    _local_storage_root.mkdir(parents=True, exist_ok=True)
+    app.mount('/_local/storage', StaticFiles(directory=_local_storage_root), name='local-storage')
 
 # Explicit, default-deny CORS: this API is Bearer-token authenticated (mobile/
 # desktop apps, not ambient browser cookies), so no cross-origin browser
@@ -179,6 +187,12 @@ app.include_router(chat.router)
 from routers import selfhost_voice_log  # noqa: E402
 
 app.include_router(selfhost_voice_log.router)
+# Self-host patch (routers/selfhost_upstream_sync.py, docs/selfhost-patches.md):
+# пульт апстрим-синка. Форк отстаёт от upstream на десятки коммитов в день, и
+# напоминание об этом должно быть там, где человек бывает ежедневно.
+from routers import selfhost_upstream_sync  # noqa: E402
+
+app.include_router(selfhost_upstream_sync.router)
 app.include_router(speech_profile.router)
 # app.include_router(screenpipe.router)
 app.include_router(notifications.router)
@@ -272,6 +286,7 @@ app.add_middleware(BYOKMiddleware)
 
 @app.on_event("startup")  # type: ignore[reportDeprecated]  # FastAPI on_event still functional; lifespan migration would change app wiring
 async def startup_event():
+    start_metrics_sidecar_server()
     validate_account_deletion_dispatch_configuration()
     asyncio.create_task(log_executor_health())
     # Drain account-deletion wipes orphaned by a previous deploy/restart. Offloaded
@@ -436,6 +451,7 @@ async def _periodic_listen_finalization_reconcile(interval_seconds: int | None =
 async def shutdown_event():
     await drain_background_tasks(timeout=10.0)
     await close_all_clients()
+    stop_metrics_sidecar_server()
 
 
 paths = ['_temp', '_samples', '_segments', '_speech_profiles']

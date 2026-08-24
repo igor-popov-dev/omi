@@ -28,6 +28,11 @@ abstract interface class CaptureExternalActions {
 
   Future<void> refreshPeople();
 
+  /// Self-host: перечитать сообщения чата с сервера. Нужно голосовому режиму —
+  /// его диалог пишется в чат серверным роутом (voice-log), и без перечитки
+  /// разговор появляется только после переоткрытия экрана.
+  Future<void> refreshChatMessages();
+
   Future<void> markAsOutOfCreditsAndRefresh();
 
   Future<void> refreshSubscription();
@@ -69,6 +74,9 @@ class NoopCaptureExternalActions implements CaptureExternalActions {
 
   @override
   Future<void> refreshPeople() async {}
+
+  @override
+  Future<void> refreshChatMessages() async {}
 
   @override
   Future<void> markAsOutOfCreditsAndRefresh() async {}

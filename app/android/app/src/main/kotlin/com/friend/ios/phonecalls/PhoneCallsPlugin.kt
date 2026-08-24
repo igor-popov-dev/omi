@@ -6,6 +6,7 @@ import android.content.Context
 import android.media.AudioManager
 import android.util.Log
 import androidx.annotation.NonNull
+import com.friend.ios.phonemic.PhoneMicForegroundService
 import com.twilio.voice.Call
 import com.twilio.voice.CallException
 import com.twilio.voice.ConnectOptions
@@ -73,6 +74,7 @@ class PhoneCallsPlugin private constructor(
 
         override fun onConnectFailure(call: Call, callException: CallException) {
             Log.e(TAG, "Call failed to connect: ${callException.message}")
+            stopCallForegroundService()
             resetAudioMode()
             sendCallStateEvent("failed")
             activeCall = null
@@ -97,6 +99,7 @@ class PhoneCallsPlugin private constructor(
         }
 
         override fun onDisconnected(call: Call, callException: CallException?) {
+            stopCallForegroundService()
             resetAudioMode()
             if (callException != null) {
                 Log.e(TAG, "Call disconnected with error: ${callException.message}")
@@ -135,6 +138,19 @@ class PhoneCallsPlugin private constructor(
                     audioManager.isSpeakerphoneOn = false
                 }
                 result.success(true)
+            }
+            // The microphone foreground service on its own, with no Twilio call behind it.
+            // On the Voximplant path the call is carried by another SDK, but Android's rule
+            // does not care whose call it is: without a microphone foreground service the
+            // system suspends capture the moment the app leaves the foreground, and the
+            // user's own side of the conversation goes silent (see handleMakeCall).
+            // Audio mode and routing are deliberately NOT touched here — the Voximplant SDK
+            // owns them through its own audio device manager, and forcing
+            // MODE_IN_COMMUNICATION behind its back would fight its speaker/earpiece switch.
+            "startMicForegroundService" -> result.success(PhoneMicForegroundService.start(context.applicationContext))
+            "stopMicForegroundService" -> {
+                PhoneMicForegroundService.stop(context.applicationContext)
+                result.success(null)
             }
             "isCallKitAvailable" -> result.success(false) // CallKit is iOS-only
             else -> result.notImplemented()
@@ -181,12 +197,20 @@ class PhoneCallsPlugin private constructor(
             .params(params)
             .build()
 
+        // Promote to a microphone foreground service for the whole call. Without it Android
+        // suspends mic capture as soon as the app leaves the foreground, so backgrounding the
+        // app mid-call silently drops the user's side of the audio (and its transcript).
+        // Started here, while the app is still foregrounded by the tap that placed the call,
+        // so the Android 12+ background-start restriction cannot apply.
+        startCallForegroundService()
+
         activeCall = Voice.connect(context, connectOptions, callListener)
         result.success(true)
     }
 
     private fun handleEndCall(result: MethodChannel.Result) {
         if (activeCall == null) {
+            stopCallForegroundService()
             resetAudioMode()
             sendCallStateEvent("ended")
         } else {
@@ -240,6 +264,21 @@ class PhoneCallsPlugin private constructor(
     }
 
     // MARK: - Audio Mode
+
+    /**
+     * The service is shared with phone-mic recording ([PhoneMicController]), which has no
+     * reference count of its own. That is safe here because both use the microphone
+     * exclusively and so cannot be active at the same time.
+     */
+    private fun startCallForegroundService() {
+        if (!PhoneMicForegroundService.start(context.applicationContext)) {
+            Log.w(TAG, "Foreground service refused; the call will drop audio if backgrounded")
+        }
+    }
+
+    private fun stopCallForegroundService() {
+        PhoneMicForegroundService.stop(context.applicationContext)
+    }
 
     private fun setAudioModeInCommunication() {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager

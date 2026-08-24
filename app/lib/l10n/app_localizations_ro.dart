@@ -9900,4 +9900,53 @@ class AppLocalizationsRo extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Diagnosticul nu a putut fi partajat. Încearcă din nou.';
+
+  @override
+  String get appDisabledTitle => 'Această aplicație este dezactivată și nu poate fi instalată.';
+
+  @override
+  String get appDisabledWebhookFailures => 'Endpointul ei a eșuat 72 de ore la rând, așa că livrările au fost oprite.';
+
+  @override
+  String get appDisabledGeneric => 'A fost dezactivată de Omi.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Repară mai întâi endpointul — reactivarea verifică din nou fiecare URL configurat.';
+
+  @override
+  String get appReEnable => 'Reactivează';
+
+  @override
+  String get appReEnableFailedTitle => 'Reactivarea a eșuat';
+
+  @override
+  String get appReEnableFailedBody => 'Această aplicație nu a putut fi reactivată. Încearcă din nou.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Dezactivată pe $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Ultima eroare: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }
