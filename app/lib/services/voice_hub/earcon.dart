@@ -61,8 +61,12 @@ class Earcon {
 }
 
 /// «Голосовой режим включён» — играет на старте разговора.
-final Earcon voiceStartEarcon = Earcon('assets/sounds/voice_start.mp3');
+///
+/// Обе громкости подняты до 1.0 (просьба Игоря 24.08 вечером): прежние
+/// 0.5/0.25 подбирались в «тихую эпоху», когда сам голос играл придушенным
+/// не-звонковым usage; после перевода голоса в звонковый тракт (846287ef56)
+/// сигналы на его фоне стали едва слышны.
+final Earcon voiceStartEarcon = Earcon('assets/sounds/voice_start.mp3', volume: 1.0);
 
-/// «Услышал, думаю» — момент блокирующего вызова ask_claude. Вдвое тише
-/// стартового (просьба Игоря 24.08: не перекрикивать голос ассистента).
-final Earcon thinkingEarcon = Earcon('assets/sounds/thinking.mp3', volume: 0.25);
+/// «Услышал, думаю» — момент блокирующего вызова ask_claude.
+final Earcon thinkingEarcon = Earcon('assets/sounds/thinking.mp3', volume: 1.0);
