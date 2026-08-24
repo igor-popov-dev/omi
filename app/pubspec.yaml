@@ -191,6 +191,7 @@ flutter:
   generate: true
   uses-material-design: true
   assets:
+    - assets/sounds/
     - assets/images/stars.png
     - assets/images/herologo.png
     - assets/fonts/

@@ -102,12 +102,22 @@ ClaudeEscalationLevel currentClaudeEscalationLevel() => claudeEscalationSliderEn
 const String _kPersona = 'You are Omi, a warm and concise voice assistant running on the '
     "user's phone. Speak naturally and briefly, like a helpful friend, not a chatbot reading a list. ";
 
-// Правило порядка «филлер вслух → вызов» — на всех уровнях, где инструмент
-// вообще есть. Причина в тексте: вызов — это секунды тишины.
+// Правило порядка «филлер вслух → вызов» — для НЕблокирующих уровней (там
+// модель продолжает говорить, и фраза уместна). Причина в тексте: вызов —
+// это секунды тишины.
 const String _kFillerRule = 'ORDER MATTERS: FIRST say a short filler out loud — in Russian say exactly '
     '"секунду, уточню" — and only THEN call the tool. The call itself is seconds of silence, '
     'so a filler spoken after the result lands is useless — the user has already sat through '
     'the wait wondering whether you heard them at all.';
+
+// Блокирующие уровни: филлер ЗАПРЕЩЁН — слышать «секунду, уточню» перед каждым
+// ответом невыносимо (жалоба Игоря 24.08). Подтверждение «услышал» даёт сам
+// телефон коротким звуковым сигналом в момент вызова (earcon.dart), модели
+// говорить ничего не нужно.
+const String _kChimeRule = 'Do NOT announce the call and do NOT say filler phrases like "секунду" or '
+    '"сейчас уточню" — the phone automatically plays a short chime the moment you call the tool, '
+    'so the user already knows they were heard. Call the tool silently; when the result arrives, '
+    'just speak the answer itself.';
 
 /// Инструкции сессии для уровня. Чистая функция — тестируется без prefs.
 String hubInstructionsForLevel(ClaudeEscalationLevel level) => switch (level) {
@@ -128,12 +138,12 @@ String hubInstructionsForLevel(ClaudeEscalationLevel level) => switch (level) {
           'You personally answer ONLY small talk and instant conversational replies. For anything '
           "factual, personal (the user's memory, health, food, calendar, mail), computational, or "
           'multi-step — call the ask_claude tool instead of answering yourself. When in doubt, '
-          'call it. $_kFillerRule',
+          'call it. $_kChimeRule',
       ClaudeEscalationLevel.fullProxy => '$_kPersona'
           'You are the voice and ears of this conversation, NOT its brain. For EVERY substantive '
           'user message call the ask_claude tool and then speak its answer in your own natural '
           'voice. Do not compose substantive answers yourself — only greetings, acknowledgements '
-          'and clarifying questions may be answered directly. $_kFillerRule',
+          'and clarifying questions may be answered directly. $_kChimeRule',
     };
 
 // Описание инструмента тоже меняется по уровню: Gemini решает, звать ли тул,
@@ -146,6 +156,11 @@ const String _kToolDescriptionHead = 'Задай вопрос "умной мод
 const String _kToolDescriptionTail = ' СНАЧАЛА вслух скажи ровно "секунду, уточню" и ТОЛЬКО ПОТОМ вызывай '
     'инструмент — вызов занимает несколько секунд, и фраза, сказанная после результата, '
     'бесполезна: пользователь уже отсидел паузу в тишине.';
+// Хвост для блокирующих уровней — согласован с _kChimeRule: фраз не говорить,
+// сигнал играет телефон.
+const String _kToolDescriptionTailChime = ' НЕ объявляй вызов вслух и не говори "секунду" — телефон сам '
+    'проигрывает короткий звуковой сигнал в момент вызова. Вызови инструмент молча и озвучь '
+    'пришедший ответ.';
 
 String _toolPolicyForLevel(ClaudeEscalationLevel level) => switch (level) {
       // geminiOnly до описания не доходит — инструмента нет в каталоге.
@@ -167,10 +182,11 @@ String _toolPolicyForLevel(ClaudeEscalationLevel level) => switch (level) {
 /// вызова, согласованной с инструкциями сессии того же уровня.
 List<VoiceToolDeclaration> hubToolsForLevel(ClaudeEscalationLevel level) {
   if (level == ClaudeEscalationLevel.geminiOnly) return const [];
+  final tail = level.blockingDelivery ? _kToolDescriptionTailChime : _kToolDescriptionTail;
   return [
     VoiceToolDeclaration(
       name: askClaudeToolDeclaration.name,
-      description: '$_kToolDescriptionHead${_toolPolicyForLevel(level)}$_kToolDescriptionTail',
+      description: '$_kToolDescriptionHead${_toolPolicyForLevel(level)}$tail',
       parameters: askClaudeToolDeclaration.parameters,
     ),
   ];

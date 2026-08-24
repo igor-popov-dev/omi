@@ -437,6 +437,89 @@ void main() {
       expect(announced, isEmpty);
     });
 
+    test('blocking: the earcon fires at call start; announce path never plays it', () async {
+      // Сигнал «услышал» — замена фразы «секунду, уточню» на блокирующих
+      // уровнях (жалоба Игоря 24.08): без него пользователь повторял вопрос
+      // в тишину. На неблокирующем пути фразу говорит сама модель — сигнал
+      // там был бы дублём.
+      final client = AskClaudeBridgeClient(
+          httpClient: MockClient((r) async => http.Response(
+                _sse([
+                  {'type': 'done', 'text': 'ок'}
+                ]),
+                200,
+                headers: _utf8EventStreamHeaders,
+              )));
+      var earcons = 0;
+      var blocking = true;
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: (_, __, ___) {},
+        announce: (_) {},
+        blockingDelivery: () => blocking,
+        onBlockingCallStart: () => earcons++,
+      );
+
+      executor.handle(
+          HubToolCallRequest(name: askClaudeToolName, callId: 'b1', argumentsJson: jsonEncode({'question': 'q'})));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(earcons, 1);
+
+      blocking = false;
+      executor.handle(
+          HubToolCallRequest(name: askClaudeToolName, callId: 'a1', argumentsJson: jsonEncode({'question': 'q2'})));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(earcons, 1);
+    });
+
+    test('blocking: a superseded call gets a stale stub, only the newest gets the real answer', () async {
+      // «Странное при перебивании»: пользователь перебивал тишину новым
+      // вопросом → второй вызов → два полных ответа подряд. Протоколу нужен
+      // tool-result на КАЖДЫЙ вызов, поэтому устаревший получает заглушку
+      // «не озвучивай», а не полный текст.
+      final slowFirst = Completer<http.Response>();
+      var calls = 0;
+      final client = AskClaudeBridgeClient(httpClient: MockClient((r) {
+        calls++;
+        if (calls == 1) return slowFirst.future;
+        return Future.value(http.Response(
+          _sse([
+            {'type': 'done', 'text': 'новый ответ'}
+          ]),
+          200,
+          headers: _utf8EventStreamHeaders,
+        ));
+      }));
+      final results = <({String callId, String output})>[];
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: (callId, _, output) => results.add((callId: callId, output: output)),
+        announce: (_) {},
+        blockingDelivery: () => true,
+      );
+
+      executor.handle(HubToolCallRequest(
+          name: askClaudeToolName, callId: 'old', argumentsJson: jsonEncode({'question': 'старый'})));
+      executor.handle(
+          HubToolCallRequest(name: askClaudeToolName, callId: 'new', argumentsJson: jsonEncode({'question': 'новый'})));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      slowFirst.complete(http.Response(
+        _sse([
+          {'type': 'done', 'text': 'старый ответ'}
+        ]),
+        200,
+        headers: _utf8EventStreamHeaders,
+      ));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(results, hasLength(2));
+      final oldResult = results.firstWhere((r) => r.callId == 'old');
+      final newResult = results.firstWhere((r) => r.callId == 'new');
+      expect(newResult.output, 'новый ответ');
+      expect(oldResult.output, isNot(contains('старый ответ')));
+      expect(oldResult.output, contains('устарел'));
+    });
+
     test('with announce: a failure is spoken in too, not swallowed', () async {
       final client = AskClaudeBridgeClient(httpClient: MockClient((r) async => http.Response('boom', 500)));
       final recorder = _toolResultRecorder();

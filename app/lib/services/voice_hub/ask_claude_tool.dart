@@ -217,11 +217,18 @@ class AskClaudeToolExecutor {
   /// ради которых announce и появился.
   final bool Function()? blockingDelivery;
 
+  /// Fires the moment a BLOCKING call starts — production plays the «услышал»
+  /// earcon here (см. earcon.dart): модель в блокирующем режиме молчит до
+  /// ответа, и без сигнала пользователь повторял вопрос в тишину, плодя
+  /// второй вызов и два ответа подряд (жалоба Игоря 24.08 про перебивание).
+  final void Function()? onBlockingCallStart;
+
   AskClaudeToolExecutor({
     required this.client,
     required this.sendToolResult,
     this.announce,
     this.blockingDelivery,
+    this.onBlockingCallStart,
     this.timeout = const Duration(seconds: 60),
   });
 
@@ -271,17 +278,29 @@ class AskClaudeToolExecutor {
     unawaited(_run(call));
   }
 
+  /// Blocking result for a call that got superseded mid-flight: пользователь
+  /// перебил тишину новым вопросом → модель сделала НОВЫЙ вызов, а этот ответ
+  /// уже не к месту. Полный текст ему отдавать нельзя — модель озвучит два
+  /// ответа подряд («странное при перебивании», жалоба Игоря 24.08); протоколу
+  /// же нужен ХОТЬ КАКОЙ-ТО tool-result на каждый вызов.
+  static const String _staleBlockingResult =
+      'Этот ответ устарел: пользователь уже задал новый вопрос, и на него идёт отдельный '
+      'запрос. НЕ озвучивай этот ответ — просто дождись свежего.';
+
   Future<void> _run(HubToolCallRequest call) async {
     // Блокирующая доставка по требованию уровня: ответ придёт самим
     // tool-result'ом, модель ждёт его молча (см. blockingDelivery).
-    final deliverOutOfBand = (blockingDelivery?.call() ?? false) ? null : announce;
-    var generation = 0;
+    final blocking = blockingDelivery?.call() ?? false;
+    final deliverOutOfBand = blocking ? null : announce;
+    // Every call bumps the generation: the NEWEST call stales all older
+    // in-flight answers, независимо от режима доставки.
+    final generation = ++_announceGeneration;
     if (deliverOutOfBand != null) {
       // Release the turn first: everything after this happens while the model
-      // is free to keep talking. The generation snapshot makes this call the
-      // newest one — and instantly stales every older in-flight answer.
-      generation = ++_announceGeneration;
+      // is free to keep talking.
       sendToolResult(call.callId, call.name, _pendingResult);
+    } else if (blocking) {
+      onBlockingCallStart?.call();
     }
     // Self-host patch: this round trip used to be invisible. When it failed the
     // model simply went quiet and the mode died, and logcat showed nothing at
@@ -304,6 +323,13 @@ class AskClaudeToolExecutor {
         return;
       }
       deliverOutOfBand(failed ? output : _answerFor(_questionOf(call), output));
+      return;
+    }
+    if (generation != _announceGeneration && !failed) {
+      // Блокирующий аналог supersede: tool-result отдать обязаны (протокол),
+      // но вместо устаревшего ответа — инструкция его не озвучивать.
+      Logger.debug('[ask_claude] ${call.callId} блокирующий ответ устарел — отдаём заглушку');
+      sendToolResult(call.callId, call.name, _staleBlockingResult);
       return;
     }
     sendToolResult(call.callId, call.name, output);

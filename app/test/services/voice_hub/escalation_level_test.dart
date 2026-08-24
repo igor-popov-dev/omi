@@ -73,13 +73,27 @@ void main() {
       }
     });
 
-    test('instructions mention ask_claude and demand the filler BEFORE the call', () {
-      // Порядок «филлер вслух → вызов» проверяется на каждом уровне: наблюдение
-      // с телефона — филлер после результата бесполезен (см. voice_hub_production_test).
-      for (final level in withTool) {
+    test('non-blocking levels demand the spoken filler BEFORE the call', () {
+      // Порядок «филлер вслух → вызов»: наблюдение с телефона — филлер после
+      // результата бесполезен (см. voice_hub_production_test).
+      for (final level in [ClaudeEscalationLevel.onRequest, ClaudeEscalationLevel.balanced]) {
         final instructions = hubInstructionsForLevel(level);
         expect(instructions, contains('ask_claude'), reason: '$level');
         expect(instructions.indexOf('FIRST'), lessThan(instructions.indexOf('THEN call the tool')), reason: '$level');
+      }
+    });
+
+    test('blocking levels forbid the spoken filler — the chime replaces it', () {
+      // Жалоба Игоря 24.08: «секунду, уточню» перед КАЖДЫМ ответом на правом
+      // крае невыносима. Там подтверждение — звуковой сигнал телефона, и
+      // инструкции с description инструмента обязаны это говорить согласованно.
+      for (final level in [ClaudeEscalationLevel.aggressive, ClaudeEscalationLevel.fullProxy]) {
+        final instructions = hubInstructionsForLevel(level);
+        expect(instructions, isNot(contains('FIRST say a short filler')), reason: '$level');
+        expect(instructions, contains('chime'), reason: '$level');
+        final description = hubToolsForLevel(level).single.description;
+        expect(description, contains('звуковой сигнал'), reason: '$level');
+        expect(description, isNot(contains('СНАЧАЛА вслух')), reason: '$level');
       }
     });
 

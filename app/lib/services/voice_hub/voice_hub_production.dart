@@ -52,6 +52,7 @@
 // `bridgeHttpClient` is therefore optional now, defaulting to
 // `CfAccessHttpClient()`; a caller can still inject a bare `http.Client()`
 // (or a fake) for tests or a non-tunnel deployment.
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -63,6 +64,7 @@ import 'package:omi/services/mic/native_mic_recorder_service.dart';
 
 import 'ask_claude_tool.dart';
 import 'cf_access_http_client.dart';
+import 'earcon.dart';
 import 'escalation_level.dart';
 import 'free_form_voice_mode.dart';
 import 'gemini_hub_session.dart';
@@ -72,6 +74,9 @@ import 'hub_session.dart' show VoiceToolDeclaration;
 import 'native_voice_player.dart';
 import 'voice_turn_coordinator.dart' show VoiceTurnPresenter;
 import 'voice_turn_driver.dart';
+
+// Один плеер сигнала «услышал» на оба входа хаба (см. earcon.dart).
+final AckEarcon _ackEarcon = AckEarcon();
 
 /// Thrown by [mintGeminiHubToken] on a transport failure, a non-200, or a
 /// 200 body missing the `token` field.
@@ -171,6 +176,9 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     // модель молчит до ответа (идея 1, WORKLOG 24.08). Уровень читается на
     // каждом вызове, поэтому ползунок действует без пересоздания драйвера.
     blockingDelivery: () => currentClaudeEscalationLevel().blockingDelivery,
+    // Подтверждение «услышал» в блокирующем режиме — звук (файл Игоря из
+    // pixel-jarvis), а не фраза «секунду, уточню» (см. earcon.dart).
+    onBlockingCallStart: () => unawaited(_ackEarcon.play()),
   );
 
   return VoiceHubTurnDriver(VoiceHubTurnDriverDeps(
@@ -265,6 +273,9 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     // модель молчит до ответа (идея 1, WORKLOG 24.08). Уровень читается на
     // каждом вызове, поэтому ползунок действует без пересоздания драйвера.
     blockingDelivery: () => currentClaudeEscalationLevel().blockingDelivery,
+    // Подтверждение «услышал» в блокирующем режиме — звук (файл Игоря из
+    // pixel-jarvis), а не фраза «секунду, уточню» (см. earcon.dart).
+    onBlockingCallStart: () => unawaited(_ackEarcon.play()),
   );
 
   hub = HubController(
