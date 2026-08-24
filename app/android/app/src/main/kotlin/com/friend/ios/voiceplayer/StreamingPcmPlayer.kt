@@ -98,7 +98,13 @@ class StreamingPcmPlayer(
         val built = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                    // VOICE_COMMUNICATION, not ASSISTANT (step 2 of
+                    // voice-call-mode-design.md): the session runs inside a
+                    // self-managed telecom call, and in-call playback with a
+                    // non-call usage is attenuated by the audio policy — the
+                    // exact "assistant quieter than a real phone call" Igor
+                    // measured on 24.08 against a live cellular call.
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
             )

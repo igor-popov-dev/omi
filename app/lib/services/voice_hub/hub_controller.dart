@@ -83,6 +83,12 @@ class HubControllerError {
   final bool retryable;
   final int aliveForMs;
   const HubControllerError({required this.reason, required this.retryable, required this.aliveForMs});
+
+  // Без toString() каждый лог обрыва печатал бесполезное
+  // «Instance of 'HubControllerError'» — причину первого обрыва 24.08 так и
+  // не узнали (логкат 03:31:28). Причина обязана быть видна в логе.
+  @override
+  String toString() => 'HubControllerError(reason: $reason, retryable: $retryable, aliveForMs: $aliveForMs)';
 }
 
 /// Everything the controller surfaces to its host (the per-turn driver,
@@ -94,23 +100,70 @@ class HubControllerEvents {
   final void Function(HubControllerError error)? onError;
   final void Function(String text, bool isFinal, HubEventIdentity? identity)? onInputTranscript;
   final void Function(String text, bool isFinal, HubEventIdentity? identity)? onAssistantText;
+
+  /// Server-VAD's "user is / is not speaking" verdict — see
+  /// [HubSessionEvents.onUserSpeechState] for what it does and does not mean.
+  final void Function(bool isSpeaking)? onUserSpeechState;
   final void Function()? onSpeakingStart;
   final void Function()? onSpeakingEnd;
+
+  /// Self-host patch: barge-in — см. [HubSessionEvents.onInterrupted].
+  final void Function()? onInterrupted;
   final void Function(HubToolCallRequest call, HubEventIdentity? identity)? onToolRequest;
   final void Function(HubEventIdentity? identity)? onTurnDone;
   final void Function(HubCascadeHandoff handoff)? onCascadeHandoff;
+
+  /// The provider warned that the socket is about to close (see
+  /// [HubSessionEvents.onGoAway]), delivered at a moment when rebuilding is
+  /// safe — never mid-reply.
+  ///
+  /// A host with no long-lived turn need not do anything: the controller
+  /// rebuilds the socket itself in that case. It is load-bearing for a host
+  /// that holds ONE turn open for a whole session (free-form voice mode,
+  /// whose "turn" is the entire mode), because there the controller must not
+  /// tear down alone — the host owns mic capture and the begin frame, so only
+  /// it can rebuild without leaving a socket that ignores everything.
+  final void Function(Duration? timeLeft)? onGoAway;
 
   const HubControllerEvents({
     this.onConnected,
     this.onError,
     this.onInputTranscript,
     this.onAssistantText,
+    this.onUserSpeechState,
     this.onSpeakingStart,
     this.onSpeakingEnd,
+    this.onInterrupted,
     this.onToolRequest,
     this.onTurnDone,
     this.onCascadeHandoff,
+    this.onGoAway,
   });
+
+  /// Same handlers with individual ones swapped out. Exists so callers that
+  /// only want to intercept ONE event (production wiring routes
+  /// [onToolRequest] to the `ask_claude` executor) don't hand-copy the other
+  /// eight — a copy that silently drops whatever the copy was written before.
+  /// That is not hypothetical: [onUserSpeechState] was added 23.08 and every
+  /// unit test passed while the production path quietly discarded it, because
+  /// the wiring listed fields by name.
+  HubControllerEvents copyWith({
+    void Function(HubToolCallRequest call, HubEventIdentity? identity)? onToolRequest,
+  }) {
+    return HubControllerEvents(
+      onConnected: onConnected,
+      onError: onError,
+      onInputTranscript: onInputTranscript,
+      onAssistantText: onAssistantText,
+      onUserSpeechState: onUserSpeechState,
+      onSpeakingStart: onSpeakingStart,
+      onSpeakingEnd: onSpeakingEnd,
+      onToolRequest: onToolRequest ?? this.onToolRequest,
+      onTurnDone: onTurnDone,
+      onCascadeHandoff: onCascadeHandoff,
+      onGoAway: onGoAway,
+    );
+  }
 }
 
 /// How the controller builds the (Gemini-only) provider session — injected
@@ -124,11 +177,17 @@ class HubSessionSpec {
   /// Empty when no `fetchTools` seam is wired or its fetch failed.
   final List<VoiceToolDeclaration> tools;
 
+  /// Resume the conversation the previous socket was having instead of
+  /// starting blank (design doc §10). Null == a fresh conversation, which is
+  /// every session before this seam existed.
+  final String? resumptionHandle;
+
   const HubSessionSpec({
     required this.token,
     required this.instructions,
     required this.events,
     this.tools = const [],
+    this.resumptionHandle,
   });
 }
 
@@ -184,6 +243,20 @@ class HubController {
   final int Function() now;
   final HubFetchTools? fetchTools;
 
+  /// Gate on the SELF-driven re-warm after a socket close. When set and
+  /// returning `false`, the controller stays cold instead of rebuilding the
+  /// session on its own — an explicit `ensureWarm` still works. Null keeps
+  /// the historical always-re-warm behavior (the PTT driver's contract).
+  ///
+  /// Exists because of the 24.08 zombie: the free-form mode's hub kept
+  /// resurrecting itself through the Gemini idle-close (1008) -> re-warm ->
+  /// idle-close loop every ~2.5 min for half an hour after the user thought
+  /// the mode was off — burning per-minute input billing and replacing the
+  /// native player under any NEWER session the user started (which is why
+  /// repeat launches played silence). The mode's liveness is the only
+  /// authority on whether staying warm is worth money.
+  final bool Function()? shouldStayWarm;
+
   HubController({
     this.events = const HubControllerEvents(),
     required this.buildInstructions,
@@ -192,6 +265,7 @@ class HubController {
     HubClock? clock,
     int Function()? now,
     this.fetchTools,
+    this.shouldStayWarm,
   })  : clock = clock ?? const DefaultHubClock(),
         now = now ?? _defaultNow;
 
@@ -204,6 +278,13 @@ class HubController {
 
   /// Backoff before a scheduled re-warm.
   static const Duration reconnectBackoff = Duration(milliseconds: 1500);
+
+  /// How long a resumption handle is considered to belong to "the current
+  /// conversation". A product cut, not an API limit: coming back after a long
+  /// gap should feel like a new conversation, not a silent continuation of
+  /// one the user has forgotten. The server may well expire handles sooner —
+  /// that path is handled too (see [_handleInFlight]).
+  static const int resumptionHandleTtlMs = 15 * 60 * 1000;
 
   /// After the strike budget is spent the re-warm circuit OPENS for this
   /// cooldown instead of hammering a dead endpoint forever. See
@@ -222,6 +303,90 @@ class HubController {
   /// in-flight warm captures it at the start and, at each commit point,
   /// discards its result if the generation moved.
   int _warmGeneration = 0;
+
+  // Conversation resumption (design doc §10) ------------------------------
+  /// The handle the NEXT session should resume from, or null when the last
+  /// thing the dying session said was "not safe to resume right now" (it was
+  /// mid-reply — see [HubSessionEvents.onResumptionHandle]). Deliberately
+  /// survives [teardownSession]: the 120s idle release is the case this
+  /// exists for — the socket goes away, the conversation should not.
+  String? _resumptionHandle;
+
+  /// When [_resumptionHandle] was captured (via [now]), for the staleness cut.
+  int? _resumptionHandleAt;
+
+  /// Set while the provider is producing a reply, i.e. exactly while the
+  /// session says resuming would be unsafe. Derived from the handle
+  /// WITHDRAWAL (`onResumptionHandle(null)`), which a session emits only when
+  /// a generation starts — see [HubSessionEvents.onResumptionHandle]. Used to
+  /// keep a `goAway` rebuild out of the middle of a reply.
+  bool _replyGenerating = false;
+
+  /// A `goAway` warning that is still waiting for a safe moment to act on.
+  bool _goAwayPending = false;
+
+  /// How much time the `goAway` said was left, carried to the host with the
+  /// deferred warning (null when the server named no deadline).
+  Duration? _goAwayTimeLeft;
+
+  /// The user is speaking RIGHT NOW, per the provider's own VAD
+  /// ([HubSessionEvents.onUserSpeechState]). A `goAway` rebuild waits this
+  /// out: the rebuild takes the microphone down with the socket, so firing it
+  /// mid-sentence drops whatever the user was saying — silently, since they
+  /// have no way to know they were not being heard.
+  bool _userSpeaking = false;
+
+  /// Deadline timer that spends a `goAway` even if no safe moment ever
+  /// arrives. Without it a user who keeps talking through the whole warning
+  /// window gets the very drop the warning existed to avoid.
+  Object? _goAwayDeadlineHandle;
+
+  /// The `goAway` runway ran out. Only [_toolCallInFlight] yields to it: the
+  /// socket is about to be closed by the server either way, and a rebuild we
+  /// chose (handle in hand, conversation carried over, the late answer
+  /// relayed by [_deliverOrphanedToolResult]) beats the drop we did not.
+  /// A withdrawn handle — [_replyGenerating] — is NOT overridden here: there
+  /// the rebuild would resume from nothing, so it stays the worse trade.
+  bool _goAwayDeadlineExpired = false;
+
+  /// Tool calls the model has asked for and nobody has answered yet, mapped
+  /// to the socket that asked (`callId` -> [sessionId] at request time).
+  ///
+  /// Measured against live Gemini 24.08 (`marathon/probes/lane5-toolcall-seam.py`),
+  /// and the reason this map exists at all: the server hands out a resumption
+  /// handle 0.3s AFTER the `toolCall` frame, while the call is still
+  /// unanswered. [_replyGenerating] is derived from exactly that handle, so
+  /// without this the whole `ask_claude` round trip — 7-40s of it, measured —
+  /// looks to [_actOnGoAwayIfSafe] like a quiet moment, and the rebuild lands
+  /// in the middle of it. See [_toolCallInFlight].
+  final Map<String, VoiceSessionId?> _toolCallOrigin = {};
+
+  /// Watchdog for a turn that went silent after the tool answered. Armed the
+  /// moment the LAST outstanding call of a batch is answered, disarmed by any
+  /// sign of life. See [_armToolStallWatchdog].
+  Object? _toolStallHandle;
+
+  /// What the watchdog would re-deliver if it fires — the answer the model
+  /// already has and is not speaking.
+  String? _stalledToolName;
+  String? _stalledToolOutput;
+
+  /// A tool result that came back for a socket that no longer exists, waiting
+  /// for the next one to speak it. See [_deliverOrphanedToolResult].
+  final List<String> _orphanedToolResults = [];
+
+  /// Cap on both of the above. A tool result always arrives (the executor
+  /// turns a timeout into an error string), so these drain on their own; the
+  /// cap is only so a pathological host cannot grow them without bound.
+  static const int _toolBookkeepingCap = 8;
+
+  /// The handle handed to the session currently being built. Lets a session
+  /// that dies BEFORE ever connecting blame — and discard — the handle it was
+  /// built with. Measured 24.08: a handle the server no longer knows does not
+  /// degrade gracefully, it closes the socket with 1008 "BidiGenerateContent
+  /// session not found" before setupComplete. Without this, one stale handle
+  /// would keep failing every warm until the strike budget opened the circuit.
+  String? _handleInFlight;
 
   // A7c reconnect budget ------------------------------------------------
   int _reconnectStrikes = 0;
@@ -305,6 +470,20 @@ class HubController {
         stale.teardown();
       }
 
+      // Mint LATE and open SOON. An ephemeral Gemini token carries a
+      // `newSessionExpireTime`: past it the token can no longer OPEN a
+      // session, and the server does not refuse the handshake — it accepts
+      // the socket and closes it a beat later with `1011
+      // new_session_expire_time deadline exceeded`. Measured 24.08 on mini
+      // (`marathon/probes/lane5-concurrent-sockets.py`): a token used 62s
+      // after minting still opened, one used 122s later did not.
+      //
+      // Everything between this line and `ensureWarm()` below therefore eats
+      // into that window. Today it is safe — `fetchTools` is a constant list,
+      // not a request (`voice_hub_production.dart:126`). The day the catalog
+      // becomes a real fetch, move the mint below it (or bound the fetch well
+      // under a minute), or a slow backend will turn into a voice mode that
+      // connects and dies with no obvious cause.
       final token = await mintToken();
 
       // A teardownSession() straddled the mint. Bail BEFORE building a
@@ -331,11 +510,14 @@ class HubController {
       if (_warmGeneration != gen) throw HubWarmAbortedError();
 
       final instructions = buildInstructions();
+      final resume = _usableResumptionHandle();
+      _handleInFlight = resume;
       final newSession = createSession(HubSessionSpec(
         token: token,
         instructions: instructions,
         events: _sessionEvents(),
         tools: tools,
+        resumptionHandle: resume,
       ));
       session = newSession;
 
@@ -367,8 +549,47 @@ class HubController {
       if (sid == null) throw StateError('hub session connected without a session id');
       return sid;
     } finally {
-      _warming = null;
+      // Only the warm that still owns the slot may clear it: a
+      // `teardownSession()` condemned this one and a newer warm may already
+      // have taken its place.
+      if (_warmGeneration == gen) _warming = null;
     }
+  }
+
+  /// The handle to build the next session with: the last one offered, unless
+  /// it has aged past [resumptionHandleTtlMs] (in which case it is forgotten
+  /// here rather than lingering).
+  String? _usableResumptionHandle() {
+    final handle = _resumptionHandle;
+    final at = _resumptionHandleAt;
+    if (handle == null || at == null) return null;
+    if (now() - at > resumptionHandleTtlMs) {
+      _resumptionHandle = null;
+      _resumptionHandleAt = null;
+      return null;
+    }
+    return handle;
+  }
+
+  /// Whether the next warm would continue the current conversation. Exposed
+  /// for tests and for hosts that want to show "continuing" vs "new".
+  bool get canResumeConversation => _usableResumptionHandle() != null;
+
+  /// End the conversation, not just the socket: the next session starts
+  /// blank. For the host to call when the USER closed the conversation
+  /// (leaving voice mode), as opposed to the socket merely dropping —
+  /// [teardownSession] deliberately keeps the handle.
+  void forgetConversation() {
+    _resumptionHandle = null;
+    _resumptionHandleAt = null;
+    _handleInFlight = null;
+    // The conversation these belonged to is over — an answer to a question
+    // nobody remembers asking would arrive as a non sequitur.
+    _toolCallOrigin.clear();
+    _orphanedToolResults.clear();
+    // Including the answer the stall watchdog is holding: firing it after the
+    // mode ended would speak into the next conversation instead.
+    _cancelToolStallWatchdog();
   }
 
   bool isWarm() => session?.isWarm() ?? false;
@@ -388,12 +609,27 @@ class HubController {
     // connecting when this explicit drop happened must discard its result
     // at its next commit point rather than install an orphaned socket.
     _warmGeneration += 1;
+    // Release the coalescing slot as well as bumping the generation. The warm
+    // in flight is now condemned — it will throw `HubWarmAbortedError` at its
+    // next generation check — and `ensureWarm()` hands the in-flight future
+    // straight back to its next caller. Leaving it in place made the very
+    // next `ensureWarm()` (the goAway rebuild is exactly this: teardown, then
+    // warm) inherit that guaranteed failure instead of opening a fresh
+    // socket. The condemned warm's `finally` no longer clears this slot, so
+    // it cannot take the replacement down with it.
+    _warming = null;
     _cancelReconnect();
     _reconnectStrikes = 0;
     _circuitOpenUntil = null;
     // An explicit drop also cancels any wake refresh deferred behind a
     // turn — re-warming a hub that was just told to close is wrong.
     _pendingRefreshReason = null;
+    // The goAway belonged to the socket being dropped; a new one starts with
+    // a clean lifetime.
+    _clearGoAway();
+    _cancelToolStallWatchdog();
+    _replyGenerating = false;
+    _userSpeaking = false;
     final s = session;
     session = null;
     sessionId = null;
@@ -428,6 +664,113 @@ class HubController {
     // Idle + warm: drop the (possibly dead) socket and rebuild.
     teardownSession();
     _fireAndForgetWarm();
+  }
+
+  // MARK: goAway (provider-announced socket close)
+
+  /// The provider says it is about to hang up. Unlike a drop, this arrives
+  /// while the socket still works, so it can be spent on rebuilding at a
+  /// quiet moment — with the resumption handle the conversation carries over
+  /// and the user never hears the seam.
+  ///
+  /// Two things it deliberately does NOT do. It does not rebuild mid-reply:
+  /// that would both cut the reply off and land on a withdrawn handle, i.e.
+  /// lose the conversation to save the socket. And it does not rebuild under
+  /// a host-owned long turn (free-form mode) — see [HubControllerEvents.onGoAway].
+  void _handleGoAway(Duration? timeLeft) {
+    final firstWarning = !_goAwayPending;
+    _goAwayPending = true;
+    _goAwayTimeLeft = timeLeft;
+    // Arm the deadline off the FIRST warning only: the server sends the frame
+    // twice, 0.4s apart (measured 24.08), and re-arming on the duplicate
+    // would quietly push the deadline out by that much.
+    if (firstWarning) _armGoAwayDeadline(timeLeft);
+    _actOnGoAwayIfSafe();
+  }
+
+  /// Spends the warning at the last safe instant even if the conversation
+  /// never goes quiet. [timeLeft] is what the server named; when it named
+  /// nothing we assume the measured 50s (design doc §11) rather than wait
+  /// forever, and keep [goAwayRebuildReserve] back to actually do the rebuild.
+  void _armGoAwayDeadline(Duration? timeLeft) {
+    _cancelGoAwayDeadline();
+    final runway = timeLeft ?? goAwayAssumedRunway;
+    final wait = runway - goAwayRebuildReserve;
+    _goAwayDeadlineHandle = clock.setTimer(wait.isNegative ? Duration.zero : wait, () {
+      _goAwayDeadlineHandle = null;
+      _goAwayDeadlineExpired = true;
+      // Past the point of politeness: cutting a sentence short beats the
+      // provider hanging up on it, which costs the same words PLUS the
+      // spoken apology the drop recovery makes.
+      _userSpeaking = false;
+      _actOnGoAwayIfSafe();
+    });
+  }
+
+  void _cancelGoAwayDeadline() {
+    final handle = _goAwayDeadlineHandle;
+    if (handle != null) {
+      clock.clearTimer(handle);
+      _goAwayDeadlineHandle = null;
+    }
+  }
+
+  /// Spends a pending `goAway` if this is a safe moment; otherwise leaves it
+  /// armed for the next one (a handle offer or a finished turn).
+  void _actOnGoAwayIfSafe() {
+    if (!_goAwayPending) return;
+    // The socket already went away, or was replaced. Nothing to pre-empt:
+    // whatever comes next is a fresh socket with its own lifetime.
+    if (session == null) {
+      _clearGoAway();
+      return;
+    }
+    // A rebuild is already under way, so this warning belongs to the socket
+    // being replaced. Measured 24.08: the server sends goAway TWICE, 0.4s
+    // apart — without this the duplicate would tear down the socket built in
+    // response to the first one.
+    if (_warming != null) {
+      _clearGoAway();
+      return;
+    }
+    if (_replyGenerating) return;
+    // A tool call is out. Rebuilding here silently eats its answer: the
+    // replacement socket accepts the `toolResponse` for a call it never made
+    // WITHOUT an error and then says nothing at all (measured 24.08 — the
+    // user hears "секунду, уточню" and then silence until the idle timeout).
+    // The deadline armed in [_handleGoAway] still forces the rebuild if the
+    // call never comes back, and [_deliverOrphanedToolResult] catches the
+    // answer that lands after it.
+    if (_toolCallInFlight && !_goAwayDeadlineExpired) return;
+    // The user is mid-sentence. The rebuild disposes mic capture along with
+    // the socket (`FreeFormVoiceMode.restart`), so acting here would swallow
+    // the rest of what they are saying. Handles arrive about once a second
+    // while audio streams (measured 24.08, design doc §11.3), so the retry
+    // this defers to is moments away — and the deadline armed in
+    // [_handleGoAway] covers the case where it never comes.
+    if (_userSpeaking) return;
+    final timeLeft = _goAwayTimeLeft;
+    _clearGoAway();
+    events.onGoAway?.call(timeLeft);
+    // Mid-turn the rebuild waits for the turn to end, through the same
+    // deferral a wake refresh uses. Two different hosts land here:
+    //   * PTT — the turn is one press, so the rebuild happens moments later,
+    //     on its own, and the warning is not wasted;
+    //   * free-form — the turn is the WHOLE mode, so the deferral would wait
+    //     for a stop that may never come. That host acts on the event above
+    //     instead (restarting the mode, which cancels and re-begins the turn
+    //     around a fresh socket); the deferral is then just a no-op left
+    //     behind. Tearing the socket down from HERE would be the wrong fix:
+    //     the replacement would never get its begin frame and would ignore
+    //     everything the user said into it.
+    requestSessionRefresh('goAway');
+  }
+
+  void _clearGoAway() {
+    _goAwayPending = false;
+    _goAwayTimeLeft = null;
+    _goAwayDeadlineExpired = false;
+    _cancelGoAwayDeadline();
   }
 
   // MARK: The four per-turn primitives (turn-ID fenced)
@@ -506,7 +849,113 @@ class HubController {
   void sendUserText(String text) => session?.sendUserText(text);
 
   void sendToolResult(String callId, String name, String output) {
-    session?.sendToolResult(callId, name, output);
+    final origin = _toolCallOrigin.remove(callId);
+    final s = session;
+    // The socket that asked is still the one listening — the ordinary path.
+    if (s != null && origin == sessionId) {
+      s.sendToolResult(callId, name, output);
+      // The call was the last thing holding a `goAway` back; this is a safe
+      // moment now.
+      _actOnGoAwayIfSafe();
+      _armToolStallWatchdog(name, output);
+      return;
+    }
+    // It is not. A `toolResponse` carrying a callId this socket never issued
+    // is accepted and then ignored (measured 24.08), so the answer has to
+    // reach the model as something it will actually read.
+    _deliverOrphanedToolResult(name, output);
+    _actOnGoAwayIfSafe();
+  }
+
+  /// Whether any tool call is still waiting on an answer FROM THIS SOCKET.
+  /// Calls left over from an earlier socket do not hold a rebuild back —
+  /// their answers take the orphan path either way.
+  bool get _toolCallInFlight => _toolCallOrigin.values.any((origin) => origin == sessionId);
+
+  void _noteToolCallOut(String callId) {
+    // The model asked for something else — it is alive, and the answer it is
+    // waiting on now is not the one the watchdog is holding.
+    _cancelToolStallWatchdog();
+    if (_toolCallOrigin.length >= _toolBookkeepingCap) {
+      _toolCallOrigin.remove(_toolCallOrigin.keys.first);
+    }
+    _toolCallOrigin[callId] = sessionId;
+  }
+
+  /// Speaks a tool result whose socket is gone, as user text — the same seam
+  /// the drop recovery uses ([sendUserText]). Phrased as an instruction
+  /// because that is what the model reads before it opens its mouth; the
+  /// error strings in `ask_claude_tool.dart` are written the same way and
+  /// were measured 24.08 not to leak into speech.
+  ///
+  /// The "do NOT call it again" is not decoration — it is the whole
+  /// difference between speaking and re-asking. The wording was picked by
+  /// measurement (`marathon/probes/lane5-orphan-wording.py`, live Gemini
+  /// 24.08): handed the answer WITHOUT that clause, the model said
+  /// "секунду, уточню" and called `ask_claude` a second time — another 7-40s
+  /// of waiting and another charge against the subscription for an answer
+  /// already in hand. With it, both a Russian and an English phrasing had it
+  /// relay the answer, no second call.
+  ///
+  /// With no socket at all (the gap between teardown and the replacement),
+  /// the result waits for the next connect rather than being dropped.
+  void _deliverOrphanedToolResult(String name, String output) {
+    final failed = output.startsWith('Error:');
+    final text = failed
+        ? '(system) The $name lookup for the user\'s last question failed and no answer is '
+            'coming. Do NOT call $name again for it. Tell the user briefly that the lookup '
+            'failed, then answer from what you already know if you can. Details: $output'
+        : '(system) $name has ALREADY answered the user\'s last question and the answer is '
+            'below. Do NOT call $name again for it. Say this answer out loud to the user now, '
+            'briefly, in the language they were speaking: $output';
+    final s = session;
+    if (s != null) {
+      s.sendUserText(text);
+      return;
+    }
+    if (_orphanedToolResults.length >= _toolBookkeepingCap) {
+      _orphanedToolResults.removeAt(0);
+    }
+    _orphanedToolResults.add(text);
+  }
+
+  /// Arms the stall watchdog once the answer the model was waiting on is on
+  /// the wire. Only when the batch is COMPLETE: Gemini sends several calls in
+  /// one frame and says nothing until every one of them is answered (measured
+  /// 24.08, `marathon/probes/lane5-parallel-toolcalls.py`), so arming on the
+  /// first answer of a pair would fire the watchdog at a server that is
+  /// behaving perfectly.
+  void _armToolStallWatchdog(String name, String output) {
+    if (_toolCallInFlight) return;
+    _cancelToolStallWatchdog();
+    _stalledToolName = name;
+    _stalledToolOutput = output;
+    _toolStallHandle = clock.setTimer(toolResultStallGrace, () {
+      _toolStallHandle = null;
+      final stalledName = _stalledToolName;
+      final stalledOutput = _stalledToolOutput;
+      _stalledToolName = null;
+      _stalledToolOutput = null;
+      if (stalledName == null || stalledOutput == null) return;
+      // Another call went out in the meantime is already covered by the
+      // disarm on [_noteToolCallOut]; getting here means the turn produced
+      // nothing at all.
+      _deliverOrphanedToolResult(stalledName, stalledOutput);
+    });
+  }
+
+  /// Any sign the turn is alive disarms the watchdog: speech, a text chunk,
+  /// another tool call, a finished turn, the user talking over it, or the
+  /// socket going away. The cost of a false fire is a repeated answer in the
+  /// user's ear, so the disarms are deliberately generous.
+  void _cancelToolStallWatchdog() {
+    final handle = _toolStallHandle;
+    if (handle != null) {
+      clock.clearTimer(handle);
+      _toolStallHandle = null;
+    }
+    _stalledToolName = null;
+    _stalledToolOutput = null;
   }
 
   /// Barge-in seam (design doc §6 step 1, `voice_turn_driver.dart`):
@@ -539,7 +988,7 @@ class HubController {
 
   /// The turn terminated (any reason). Releases per-turn state so the next
   /// turn starts clean, but KEEPS the warm socket — that is the whole point
-  /// of a warm hub; only the 180s idle timer or an explicit
+  /// of a warm hub; only the 120s idle timer or an explicit
   /// [teardownSession] closes it.
   void voiceTurnDidTerminate(VoiceTurnId turnId) {
     if (turnId != _activeTurnId) return;
@@ -555,6 +1004,9 @@ class HubController {
       _pendingRefreshReason = null;
       requestSessionRefresh(reason);
     }
+    // A host-owned long turn just ended — that is the safe moment a deferred
+    // goAway was waiting for.
+    _actOnGoAwayIfSafe();
   }
 
   // MARK: Session event wiring (pass-through + connect/error enrichment)
@@ -564,15 +1016,52 @@ class HubController {
       onConnected: (sid) => _handleConnected(sid),
       onError: (message, retryable, closeCode) => _handleError(message, retryable, closeCode),
       onInputTranscript: (text, isFinal, identity) => events.onInputTranscript?.call(text, isFinal, identity),
-      onAssistantText: (text, isFinal, identity) => events.onAssistantText?.call(text, isFinal, identity),
-      onSpeakingStart: () => events.onSpeakingStart?.call(),
+      onAssistantText: (text, isFinal, identity) {
+        _cancelToolStallWatchdog();
+        events.onAssistantText?.call(text, isFinal, identity);
+      },
+      onUserSpeechState: (isSpeaking) {
+        // Only recorded, never used as a trigger: a rebuild fired the instant
+        // speech ends would land BEFORE the reply to it starts generating,
+        // i.e. lose the very sentence it just waited out. The safe moments
+        // stay what they were — a handle offer or a finished turn.
+        _userSpeaking = isSpeaking;
+        // The user talking over the gap owns the turn now; a nudge here would
+        // land on top of them.
+        if (isSpeaking) _cancelToolStallWatchdog();
+        events.onUserSpeechState?.call(isSpeaking);
+      },
+      onSpeakingStart: () {
+        _cancelToolStallWatchdog();
+        events.onSpeakingStart?.call();
+      },
       onSpeakingEnd: () => events.onSpeakingEnd?.call(),
-      onToolRequest: (call, identity) => events.onToolRequest?.call(call, identity),
+      onInterrupted: () => events.onInterrupted?.call(),
+      onToolRequest: (call, identity) {
+        _noteToolCallOut(call.callId);
+        events.onToolRequest?.call(call, identity);
+      },
+      onGoAway: (timeLeft) => _handleGoAway(timeLeft),
+      onResumptionHandle: (handle) {
+        _resumptionHandle = handle;
+        _resumptionHandleAt = handle == null ? null : now();
+        // A withdrawal means "a reply generation just started"; an offer
+        // means it closed. A pending goAway waits for exactly that.
+        _replyGenerating = handle == null;
+        if (handle != null) _actOnGoAwayIfSafe();
+      },
       onTurnDone: (identity) {
         // A completed turn proves the hub works — reset the strike budget
         // and close any open circuit.
         _reconnectStrikes = 0;
         _circuitOpenUntil = null;
+        // Also the safe moment a deferred goAway is waiting for. Checked
+        // here as well as on the handle offer, because a conversation the
+        // server never handed a handle for (a first turn that produced none)
+        // would otherwise never see one.
+        _replyGenerating = false;
+        _cancelToolStallWatchdog();
+        _actOnGoAwayIfSafe();
         events.onTurnDone?.call(identity);
       },
     );
@@ -581,6 +1070,8 @@ class HubController {
   void _handleConnected(VoiceSessionId sid) {
     sessionId = sid;
     connectedAt = now();
+    // The handle (if any) was accepted — it is no longer on trial.
+    _handleInFlight = null;
     // A live socket supersedes any pending reconnect backoff. NB:
     // connecting alone does NOT reset the strike budget — only a
     // proven-good signal does (a completed turn, or a socket that survives
@@ -602,12 +1093,37 @@ class HubController {
         s.commitTurn();
       }
     }
+    // A tool answer that came back while there was no socket to say it on
+    // (the gap a rebuild opens). Speaking it late beats swallowing it.
+    if (_orphanedToolResults.isNotEmpty) {
+      final pending = List<String>.from(_orphanedToolResults);
+      _orphanedToolResults.clear();
+      for (final text in pending) {
+        session?.sendUserText(text);
+      }
+    }
     events.onConnected?.call(sid);
   }
 
   void _handleError(String message, bool retryable, int? closeCode) {
     final connected = connectedAt;
     final aliveForMs = connected != null ? math.max(0, now() - connected) : 0;
+    // Died before ever connecting while carrying a resumption handle: the
+    // handle is the prime suspect (an expired one is rejected at handshake —
+    // 1008 "session not found"), and keeping it would fail every retry the
+    // same way. Drop it so the re-warm starts a blank conversation instead of
+    // burning the strike budget on a corpse. A session that DID connect is
+    // not evidence against its handle, so this only fires pre-connect.
+    if (connected == null && _handleInFlight != null) {
+      _resumptionHandle = null;
+      _resumptionHandleAt = null;
+    }
+    _handleInFlight = null;
+    // The warning has been overtaken by the drop it warned about.
+    _clearGoAway();
+    _cancelToolStallWatchdog();
+    _replyGenerating = false;
+    _userSpeaking = false;
     // Classify BEFORE forwarding: the forward drives the reducer's
     // terminal, which clears `_activeTurnId`, so the turn-at-close-time
     // must be captured first.
@@ -653,6 +1169,10 @@ class HubController {
   /// Arms the one-shot backoff. Coalesced: a second close while one is
   /// pending is a no-op. Rebuilds only if nothing else re-warmed first.
   void _scheduleReWarm() {
+    // Checked BOTH here and at fire time: the mode can be switched off
+    // during the backoff window, and a warm socket for a mode nobody is
+    // running is billed dead air (see [shouldStayWarm]).
+    if (!(shouldStayWarm?.call() ?? true)) return;
     if (_reconnectPending) return;
     _reconnectPending = true;
     _reconnectHandle = clock.setTimer(reconnectBackoff, () {
@@ -662,7 +1182,7 @@ class HubController {
       // path — swallow the rejection so it never surfaces as an unhandled
       // error; the next press (or a socket close from a partial connect)
       // drives the next attempt.
-      if (session == null) _fireAndForgetWarm();
+      if (session == null && (shouldStayWarm?.call() ?? true)) _fireAndForgetWarm();
     });
   }
 

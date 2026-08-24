@@ -18,14 +18,39 @@ import 'package:omi/backend/schema/phone_call.dart';
 import 'package:omi/backend/schema/transcript_segment.dart';
 import 'package:omi/models/audio_route.dart';
 import 'package:omi/services/auth/auth_token_result.dart';
-import 'package:omi/services/capture/capture_controller.dart';
+import 'package:omi/services/capture/ambient_capture_hold.dart';
 import 'package:omi/services/phone_call_service.dart';
+import 'package:omi/services/voximplant_call_service.dart';
+import 'package:omi/services/vox_transcript_poller.dart';
 import 'package:omi/utils/logger.dart';
 
-enum TranscriptionStatus { idle, connecting, active, reconnecting, failed }
+/// State of the transcription link for the CURRENT call.
+///
+/// [cloud] is not a degraded [active]: on a Voximplant call the audio is streamed to our
+/// backend by the cloud scenario, so this app has no socket to watch at all. Reporting
+/// [active] there would claim knowledge the app does not have.
+enum TranscriptionStatus { idle, connecting, active, reconnecting, failed, cloud }
 
 class PhoneCallProvider extends ChangeNotifier {
   final PhoneCallService _nativeService = PhoneCallService();
+  final VoximplantCallService _voxService = VoximplantCallService();
+
+  /// A call must hush the phone's own always-on recording while it runs; the app wires
+  /// [AmbientCaptureHold.gate] to the capture stack. Calls stay unaware of capture.
+  final AmbientCaptureHold ambientCapture = AmbientCaptureHold();
+
+  /// Every transition of the call state goes through here. Writing the field directly is
+  /// what makes a missed resume possible, so the field has no other writer.
+  void _setCallState(PhoneCallState state) {
+    if (_callState == state) return;
+    _callState = state;
+    ambientCapture.onCallState(state);
+  }
+
+  /// True while the current call runs through Voximplant, where the cloud — not this app —
+  /// captures both legs and feeds them to our backend.
+  bool _cloudAudio = false;
+  bool get cloudAudio => _cloudAudio;
 
   // Call state
   PhoneCallState _callState = PhoneCallState.idle;
@@ -63,6 +88,9 @@ class PhoneCallProvider extends ChangeNotifier {
   AudioRoute? get selectedRoute => _selectedRoute;
 
   // Transcription status
+  // Живой транскрипт облачного пути читается опросом адаптера, а не сокетом: свой сокет
+  // под тем же call_id завёл бы ВТОРОЙ разговор (см. VoxTranscriptPoller).
+  VoxTranscriptPoller? _transcriptPoller;
   TranscriptionStatus _transcriptionStatus = TranscriptionStatus.idle;
   TranscriptionStatus get transcriptionStatus => _transcriptionStatus;
 
@@ -101,6 +129,20 @@ class PhoneCallProvider extends ChangeNotifier {
   int _sessionGeneration = 0;
   bool _sessionEnabled = true;
 
+  /// Bumped by every dial, so the teardown of one call cannot write into the next.
+  ///
+  /// A call reports its end more than once — we hang up locally and the SDK confirms a
+  /// signalling round-trip later — and the teardown ends in a DELAYED write of the
+  /// screen's state. Two teardowns meant two of those writes, scheduled a round trip
+  /// apart: the first gives the screen back, and the second lands two seconds after that,
+  /// on whatever is on screen by then. See [_onCallEnded].
+  int _callGeneration = 0;
+
+  /// The generation whose teardown has already run. Not a bool: a bool would have to be
+  /// cleared somewhere, and the path that forgets to clear it is the path that loses the
+  /// teardown of a real call.
+  int? _endedGeneration;
+
   PhoneCallProvider() {
     _nativeService.onCallStateChanged = _onCallStateChanged;
     _nativeService.onAudioData = _onAudioData;
@@ -108,15 +150,11 @@ class PhoneCallProvider extends ChangeNotifier {
     _nativeService.onMuteConfirmed = _onMuteConfirmed;
     _nativeService.onSpeakerConfirmed = _onSpeakerConfirmed;
     _nativeService.startListening();
+    _voxService.onCallStateChanged = _onCallStateChanged;
+    _voxService.onError = _onNativeError;
+    _voxService.onMuteConfirmed = _onMuteConfirmed;
+    _voxService.onSpeakerConfirmed = _onSpeakerConfirmed;
     _initialLoad = loadVerifiedNumbers();
-  }
-
-  // Set from main.dart via a ChangeNotifierProxyProvider (same wiring DeviceProvider/
-  // SpeechProfileProvider use to reach a sibling provider) so this file doesn't have to
-  // walk the widget tree via context to pause the phone's own ambient recording.
-  CaptureController? _captureController;
-  void setCaptureController(CaptureController controller) {
-    _captureController = controller;
   }
 
   // ************************************************
@@ -220,7 +258,8 @@ class PhoneCallProvider extends ChangeNotifier {
 
     _error = null;
     _lastError = null;
-    _callState = PhoneCallState.connecting;
+    _callGeneration++;
+    _setCallState(PhoneCallState.connecting);
     _remoteNumber = phoneNumber;
     final callId = DateTime.now().millisecondsSinceEpoch.toString();
     _currentCallId = callId;
@@ -233,7 +272,7 @@ class PhoneCallProvider extends ChangeNotifier {
     var micStatus = await Permission.microphone.request();
     if (generation != _sessionGeneration) return false;
     if (!micStatus.isGranted) {
-      _callState = PhoneCallState.idle;
+      _setCallState(PhoneCallState.idle);
       _error = 'Microphone permission is required to make calls';
       notifyListeners();
       return false;
@@ -243,12 +282,15 @@ class PhoneCallProvider extends ChangeNotifier {
     _contactName = await _resolveContactName(phoneNumber);
     if (generation != _sessionGeneration) return false;
 
-    // Get Twilio token
+    // Ask the backend for call credentials. Which provider answers is the deployment's
+    // choice, not a build-time constant: Twilio hands back an access token, Voximplant
+    // hands back the node to connect to and expects a one-time key in return.
     var tokenResult = await api.getPhoneCallToken();
     if (generation != _sessionGeneration) return false;
     var token = tokenResult.token;
-    if (token == null) {
-      _callState = PhoneCallState.idle;
+    var handshake = tokenResult.voximplant;
+    if (token == null && handshake == null) {
+      _setCallState(PhoneCallState.idle);
       // The backend refuses for several different reasons (no verified number, quota
       // exhausted, plan without calling). Reporting its own reason beats guessing one.
       _error = tokenResult.error ?? 'Failed to get call token. Please try again.';
@@ -256,33 +298,61 @@ class PhoneCallProvider extends ChangeNotifier {
       return false;
     }
 
-    // Initialize native Twilio SDK
-    var initialized = await _nativeService.initialize(token.accessToken);
-    if (generation != _sessionGeneration) return false;
-    if (!initialized) {
-      _callState = PhoneCallState.idle;
-      _error = 'Failed to initialize call service';
-      notifyListeners();
-      return false;
+    _cloudAudio = handshake != null;
+
+    if (handshake != null) {
+      var loginError = await _voxService.login(
+        handshake,
+        (key) async => (await api.getPhoneCallToken(oneTimeKey: key)).voximplant,
+      );
+      if (generation != _sessionGeneration) return false;
+      if (loginError != null) {
+        _setCallState(PhoneCallState.idle);
+        _error = loginError;
+        notifyListeners();
+        return false;
+      }
+    } else {
+      // Initialize native Twilio SDK
+      final twilioToken = token!;
+      var initialized = await _nativeService.initialize(twilioToken.accessToken);
+      if (generation != _sessionGeneration) return false;
+      if (!initialized) {
+        _setCallState(PhoneCallState.idle);
+        _error = 'Failed to initialize call service';
+        notifyListeners();
+        return false;
+      }
+
+      // Schedule token refresh before expiry (3-minute buffer)
+
+      _scheduleTokenRefresh(twilioToken.ttl);
     }
 
-    // Schedule token refresh before expiry (3-minute buffer)
+    // The phone's own recording must be off the microphone BEFORE the SDK reaches for
+    // it — not merely on its way off. Everything above this line is setup that does not
+    // touch the mic, so the wait costs nothing on the normal path.
+    await ambientCapture.settled();
 
-    _scheduleTokenRefresh(token.ttl);
-
-    // Make the call via native layer
-    var callStarted = await _nativeService.makeCall(
-      phoneNumber: phoneNumber,
-      callId: callId,
-      contactName: _contactName,
-    );
+    // Make the call through whichever SDK just logged in
+    var callStarted = _cloudAudio
+        ? await _voxService.makeCall(
+            phoneNumber: phoneNumber,
+            callId: callId,
+            uid: SharedPreferencesUtil().uid,
+          )
+        : await _nativeService.makeCall(
+            phoneNumber: phoneNumber,
+            callId: callId,
+            contactName: _contactName,
+          );
     if (generation != _sessionGeneration) {
-      if (callStarted) unawaited(_nativeService.endCall());
+      if (callStarted) unawaited(_endCallOnTransport());
       return false;
     }
 
     if (!callStarted) {
-      _callState = PhoneCallState.idle;
+      _setCallState(PhoneCallState.idle);
       _error = 'Failed to start call';
       PlatformManager.instance.analytics.phoneCallFailed(error: 'Failed to start call');
       _disconnectTranscriptionSocket();
@@ -294,24 +364,35 @@ class PhoneCallProvider extends ChangeNotifier {
     return true;
   }
 
+  /// Hangs up on whichever SDK is carrying the current call.
+  Future<void> _endCallOnTransport() => _cloudAudio ? _voxService.endCall() : _nativeService.endCall();
+
   Future<void> endCall() async {
-    await _nativeService.endCall();
+    await _endCallOnTransport();
     _onCallEnded();
   }
 
   void toggleMute() {
-    // Don't update state here — wait for native confirmation via _onMuteConfirmed
-    _nativeService.toggleMute(!_isMuted);
+    // Don't update state here — wait for confirmation via _onMuteConfirmed
+    if (_cloudAudio) {
+      _voxService.toggleMute(!_isMuted);
+    } else {
+      _nativeService.toggleMute(!_isMuted);
+    }
   }
 
   void toggleSpeaker() {
-    // Don't update state here — wait for native confirmation via _onSpeakerConfirmed
-    _nativeService.toggleSpeaker(!_isSpeakerOn);
+    // Don't update state here — wait for confirmation via _onSpeakerConfirmed
+    if (_cloudAudio) {
+      _voxService.toggleSpeaker(!_isSpeakerOn);
+    } else {
+      _nativeService.toggleSpeaker(!_isSpeakerOn);
+    }
   }
 
   Future<void> loadAudioRoutes() async {
     final generation = _sessionGeneration;
-    final routes = await _nativeService.getAudioRoutes();
+    final routes = _cloudAudio ? await _voxService.getAudioRoutes() : await _nativeService.getAudioRoutes();
     if (generation != _sessionGeneration) return;
     _availableRoutes = routes;
     notifyListeners();
@@ -319,7 +400,8 @@ class PhoneCallProvider extends ChangeNotifier {
 
   Future<void> selectAudioRoute(AudioRoute route) async {
     final generation = _sessionGeneration;
-    var success = await _nativeService.selectAudioRoute(route.id);
+    var success =
+        _cloudAudio ? await _voxService.selectAudioRoute(route.id) : await _nativeService.selectAudioRoute(route.id);
     if (generation != _sessionGeneration) return;
     if (success) {
       _selectedRoute = route;
@@ -329,7 +411,10 @@ class PhoneCallProvider extends ChangeNotifier {
   }
 
   void sendDtmf(String digit) {
-    if (_callState == PhoneCallState.active) {
+    if (_callState != PhoneCallState.active) return;
+    if (_cloudAudio) {
+      _voxService.sendDtmf(digit);
+    } else {
       _nativeService.sendDtmf(digit);
     }
   }
@@ -347,16 +432,29 @@ class PhoneCallProvider extends ChangeNotifier {
   // *********** PRIVATE HELPERS ********************
   // ************************************************
 
+  /// The single door both call SDKs report state through. Not private only so a test can
+  /// drive the state machine without an SDK — the same seam, and for the same reason, as
+  /// [VoximplantCallService.emitState].
+  @visibleForTesting
+  void reportCallState(PhoneCallState state) => _onCallStateChanged(state);
+
   void _onCallStateChanged(PhoneCallState state) {
     if (!_sessionEnabled) return;
-    _callState = state;
+    _setCallState(state);
     if (state == PhoneCallState.active && _callStartTime == null) {
       _callStartTime = DateTime.now();
       _startDurationTimer();
-      _connectTranscriptionSocket();
-      // Voximplant audio comes from the cloud leg, but the phone's ambient mic
-      // keeps recording the same call unless paused — see setCaptureController above.
-      unawaited(_captureController?.pauseForInAppCall());
+      if (_cloudAudio) {
+        // The cloud scenario already streams both legs into `v4/listen` under this call_id.
+        // A socket from the app would not fail loudly — it would quietly create a SECOND
+        // conversation for the same call (lane 6 tick 22, vox-dual-session-probe.py).
+        _transcriptionStatus = TranscriptionStatus.cloud;
+        // The text of that conversation still belongs on this screen, so read it back
+        // from the adapter instead of opening a socket of our own.
+        _startCloudTranscriptPolling();
+      } else {
+        _connectTranscriptionSocket();
+      }
       PlatformManager.instance.analytics.phoneCallConnected();
     } else if (state == PhoneCallState.ended || state == PhoneCallState.failed) {
       _onCallEnded();
@@ -398,28 +496,55 @@ class PhoneCallProvider extends ChangeNotifier {
   }
 
   void _onCallEnded() {
+    // Once per call, whoever reports the end first. Both reporters are legitimate — the
+    // user's hang-up runs this directly, and the SDK's confirmation arrives through
+    // [_onCallStateChanged] — and neither can be dropped, because either can be the only
+    // one (a call that drops on its own is never reported by us). So the guard is on the
+    // call, not on the caller. Without it the second reporter also charges the analytics
+    // a second 'Phone Call Ended' and, worse, schedules a second delayed reset.
+    if (_endedGeneration == _callGeneration) return;
+    _endedGeneration = _callGeneration;
+    final generation = _callGeneration;
     PlatformManager.instance.analytics.phoneCallEnded(durationSeconds: _callDuration.inSeconds);
-    _callState = PhoneCallState.ended;
+    _setCallState(PhoneCallState.ended);
     _stopDurationTimer();
+    // Take the poller out before the teardown stops it. The closing words of the call
+    // arrive about a second AFTER the hang-up — the adapter feeds the backend a second
+    // of silence at that point so the STT shim cuts the last, unfinished phrase while
+    // the socket is still open (lane 6 tick 38, measured on the live path). Draining
+    // reads until the adapter reports the call finished; the adapter keeps a finished
+    // call's text for exactly that.
+    final poller = _transcriptPoller;
+    _transcriptPoller = null;
     _disconnectTranscriptionSocket();
-    // Covers every exit that reaches a state change (normal hangup, remote hangup,
-    // connection failure) — a no-op if the call never made it to `active`/wasn't paused.
-    unawaited(_captureController?.resumeAfterInAppCall());
+    if (poller != null) unawaited(poller.drain());
     _tokenRefreshTimer?.cancel();
     _tokenRefreshTimer = null;
     _transcriptionStatus = TranscriptionStatus.idle;
     _audioBuffer.clear();
     notifyListeners();
 
-    // Reset state after a short delay so UI can show "Call Ended"
+    // Reset state after a short delay so UI can show "Call Ended".
+    //
+    // The transcript is deliberately NOT cleared here. Draining outlives this delay:
+    // the closing words land ~1.3s after the hang-up and the adapter only confirms the
+    // text is complete when it closes the upstream socket, a few seconds later. Wiping
+    // the list on a two-second timer threw exactly that tail away — the part of the
+    // call that took the longest to get onto the screen. Nothing leaks: a new call
+    // clears the list before it dials, and so does `clearUserData`.
     Future.delayed(const Duration(seconds: 2), () {
-      _callState = PhoneCallState.idle;
+      // Belongs to the call that scheduled it. `clearUserData` can also give the screen
+      // back before this lands, and a dial right after that would meet this write
+      // otherwise — a reset landing mid-call takes the state to `idle`, and `idle` is
+      // what un-pauses the phone's own always-on recording on top of a live call.
+      if (generation != _callGeneration) return;
+      _setCallState(PhoneCallState.idle);
       _currentCallId = null;
       _remoteNumber = null;
       _contactName = null;
       _callStartTime = null;
       _callDuration = Duration.zero;
-      _transcriptSegments.clear();
+      _cloudAudio = false;
       _availableRoutes = [];
       _selectedRoute = null;
       notifyListeners();
@@ -584,6 +709,53 @@ class PhoneCallProvider extends ChangeNotifier {
     _wsReconnectAttempts = 0;
     _transcriptionSocket?.sink.close();
     _transcriptionSocket = null;
+    unawaited(_transcriptPoller?.stop() ?? Future.value());
+    _transcriptPoller = null;
+  }
+
+  /// Both paths land here: the Twilio socket pushes segments, the Voximplant poller pulls
+  /// them. Merging by `id` rather than appending is not a nicety — the backend re-sends a
+  /// segment it has merged with its neighbour, under the same id and with longer text.
+  void _mergeSegments(List<TranscriptSegment> segments) {
+    if (segments.isEmpty) return;
+    for (final segment in segments) {
+      final existingIndex = _transcriptSegments.indexWhere((s) => s.id == segment.id);
+      if (existingIndex >= 0) {
+        _transcriptSegments[existingIndex] = segment;
+      } else {
+        _transcriptSegments.add(segment);
+      }
+    }
+    notifyListeners();
+  }
+
+  /// The backend re-cut the conversation and these segments are gone. Without this the
+  /// screen would keep showing a phrase that no longer exists in the recording.
+  void _removeSegments(List<String> ids) {
+    final before = _transcriptSegments.length;
+    _transcriptSegments.removeWhere((s) => ids.contains(s.id));
+    if (_transcriptSegments.length != before) notifyListeners();
+  }
+
+  void _startCloudTranscriptPolling() {
+    final callId = _currentCallId;
+    if (callId == null) return;
+    final generation = _sessionGeneration;
+    final poller = VoxTranscriptPoller()
+      ..onSegments = (segments) {
+        if (generation != _sessionGeneration || !_sessionEnabled) return;
+        _mergeSegments(segments);
+      }
+      ..onDeleted = (ids) {
+        if (generation != _sessionGeneration || !_sessionEnabled) return;
+        _removeSegments(ids);
+      }
+      ..onGap = (dropped) => Logger.error(
+            'PhoneCallProvider: adapter evicted $dropped segment(s) before we read them — '
+            'the live transcript has a hole in the middle of this call',
+          );
+    _transcriptPoller = poller;
+    poller.start(callId);
   }
 
   void _handleTranscriptionMessage(String message) {
@@ -594,16 +766,7 @@ class PhoneCallProvider extends ChangeNotifier {
 
       // Standard segment array format: [{id, text, is_user, speaker, start, end, ...}, ...]
       if (data is List) {
-        for (var segmentJson in data) {
-          var segment = TranscriptSegment.fromJson(segmentJson as Map<String, dynamic>);
-          var existingIndex = _transcriptSegments.indexWhere((s) => s.id == segment.id);
-          if (existingIndex >= 0) {
-            _transcriptSegments[existingIndex] = segment;
-          } else {
-            _transcriptSegments.add(segment);
-          }
-        }
-        if (data.isNotEmpty) notifyListeners();
+        _mergeSegments(data.map((json) => TranscriptSegment.fromJson(json as Map<String, dynamic>)).toList());
         return;
       }
 
@@ -659,22 +822,28 @@ class PhoneCallProvider extends ChangeNotifier {
     _stopDurationTimer();
     _disconnectTranscriptionSocket();
     _tokenRefreshTimer?.cancel();
+    // The state machine never reaches `idle` when the provider is torn down mid-call,
+    // so the state-derived resume above cannot fire here. Left out, the phone would
+    // come back from a torn-down call deaf.
+    _setCallState(PhoneCallState.idle);
     _nativeService.dispose();
+    _voxService.dispose();
     super.dispose();
   }
 
   void clearUserData() {
     _sessionGeneration++;
+    // Signing out gives the screen back too, and it does it without waiting the two
+    // seconds a teardown waits — so a reset still in flight belongs to nobody from here
+    // on, exactly as it does after a dial.
+    _callGeneration++;
     _sessionEnabled = false;
-    if (_callState != PhoneCallState.idle) unawaited(_nativeService.endCall());
-    // _nativeService.endCall() is fire-and-forget and _sessionEnabled is already false,
-    // so the state-change path above (_onCallEnded) won't run — resume explicitly.
-    unawaited(_captureController?.resumeAfterInAppCall());
+    if (_callState != PhoneCallState.idle) unawaited(_endCallOnTransport());
     _stopDurationTimer();
     _disconnectTranscriptionSocket();
     _tokenRefreshTimer?.cancel();
     _tokenRefreshTimer = null;
-    _callState = PhoneCallState.idle;
+    _setCallState(PhoneCallState.idle);
     _currentCallId = null;
     _remoteNumber = null;
     _contactName = null;

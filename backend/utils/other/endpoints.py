@@ -35,15 +35,21 @@ WS_AUTH_CODE_ACCOUNT_DELETION = 4005
 WS_AUTH_CODE_ACCOUNT_CUTOVER = 4006
 
 
-def get_user_deletion_wipe_status(uid: str) -> str | None:
+_DeletionStatusReader = Callable[..., "str | None"]
+
+
+def get_user_deletion_wipe_status(uid: str, *, read: Callable[[Any], Any] | None = None) -> str | None:
     """Read the durable deletion authority without a cache or fail-open shim."""
-    return cast(Callable[[str], str | None], users_db.get_user_deletion_wipe_status)(uid)
+    reader = cast(_DeletionStatusReader, users_db.get_user_deletion_wipe_status)
+    return reader(uid) if read is None else reader(uid, read=read)
 
 
-def _account_deletion_status(uid: str) -> str | None:
+def _account_deletion_status(uid: str, *, read: Callable[[Any], Any] | None = None) -> str | None:
     """Read the uncached deletion authority, failing closed if it is unavailable."""
     try:
-        return get_user_deletion_wipe_status(uid)
+        # Called without ``read=`` unless a bounded read was actually requested,
+        # so the default path keeps the plain single-argument call shape.
+        return get_user_deletion_wipe_status(uid) if read is None else get_user_deletion_wipe_status(uid, read=read)
     except Exception as error:
         logger.error(
             'Account-deletion auth fence unavailable for uid=%s error_type=%s',
@@ -56,8 +62,14 @@ def _account_deletion_status(uid: str) -> str | None:
         ) from error
 
 
-def enforce_account_deletion_http_access(uid: str) -> None:
-    status = _account_deletion_status(uid)
+def enforce_account_deletion_http_access(uid: str, *, read: Callable[[Any], Any] | None = None) -> None:
+    """Fence HTTP access for a deleting account.
+
+    ``read`` is for callers that gate every request on this gate and cannot
+    afford the Firestore client's default 300-second retry deadline: they pass a
+    bounded read so an outage fails fast instead of parking a pool worker.
+    """
+    status = _account_deletion_status(uid, read=read)
     if account_deletion_blocks_access(status):
         raise HTTPException(
             status_code=403,
@@ -86,6 +98,20 @@ def enforce_account_deletion_ws_access(uid: str) -> None:
 
 def get_user(uid: str) -> Any:
     return auth.get_user(uid)  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]  # firebase_admin auth untyped
+
+
+# Tolerance for the client's clock running ahead of this server's when an ID
+# token is verified. `verify_id_token` defaults to 0, which rejects a token
+# whose `iat` is even ONE second in the future — and that happens in normal
+# operation: the token is minted by Google, travels, and is checked here
+# against a different clock. Observed live 24.08 on a healthy host whose own
+# drift was 0.11s against time.apple.com:
+#     ERROR utils.other.endpoints: Token used too early, 1787569083 < 1787569084
+#     POST /v2/realtime/session -> 401
+# For the user that is the voice mode simply refusing to start, with nothing
+# to retry against. Google's own guidance is to allow a small skew; the token
+# is still verified by signature and expiry, so this widens nothing else.
+ID_TOKEN_CLOCK_SKEW_SECONDS = 10
 
 
 def verify_token(token: str) -> str:
@@ -124,7 +150,7 @@ def verify_token(token: str) -> str:
 
     # Verify Firebase token
     try:
-        decoded_token = cast(Any, auth.verify_id_token(token))  # type: ignore[reportUnknownMemberType]  # firebase_admin auth untyped
+        decoded_token = cast(Any, auth.verify_id_token(token, clock_skew_seconds=ID_TOKEN_CLOCK_SKEW_SECONDS))  # type: ignore[reportUnknownMemberType]  # firebase_admin auth untyped
         return decoded_token['uid']
     except InvalidIdTokenError:
         # Only honored when no real Firebase credential is configured — every

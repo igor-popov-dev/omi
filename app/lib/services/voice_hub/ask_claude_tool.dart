@@ -7,10 +7,12 @@
 // Contract (see the doc section above for the full write-up):
 //   POST https://omi-bridge.peshkomdomoy.online/ask
 //   {"question": "...", "context": "" (opt.), "model": "sonnet" (opt.),
-//    "tools_enabled": true|false (opt., default false)}
+//    "tools_enabled": true|false (opt., default false),
+//    "voice": true|false (opt., default false)}
 //   -> text/event-stream, "data: {...}\n\n" per line:
 //        {"type": "delta", "text": "..."}  (repeated)
 //        {"type": "done", "text": "<full answer>"}
+//        {"type": "error", "code": "...", "message": "..."}  (instead of done)
 //
 // Auth: NOT handled here. Per lane2-log.md ("наружу через туннель", 21.08
 // вечер) the bridge sits behind the same Cloudflare Access application as
@@ -81,6 +83,63 @@ const VoiceToolDeclaration askClaudeToolDeclaration = VoiceToolDeclaration(
   },
 );
 
+const List<String> _ruWeekdays = [
+  'понедельник',
+  'вторник',
+  'среда',
+  'четверг',
+  'пятница',
+  'суббота',
+  'воскресенье',
+];
+
+const List<String> _ruMonthsGenitive = [
+  'января',
+  'февраля',
+  'марта',
+  'апреля',
+  'мая',
+  'июня',
+  'июля',
+  'августа',
+  'сентября',
+  'октября',
+  'ноября',
+  'декабря',
+];
+
+String _two(int value) => value.toString().padLeft(2, '0');
+
+/// The one fact the bridge cannot look up: what time it is for the user.
+///
+/// Measured live on 23.08 against the real bridge: asked «который час и что у
+/// меня в памяти про kadrio?» — the exact question Игорь named as the
+/// acceptance check for voice mode — the brain answered «точное время сказать
+/// не могу … известна только дата из контекста» and burned ~20s on memory
+/// tools. Handed the same question with this line in `context` it answered
+/// «19:37, воскресенье, 23 августа 2026 (UTC+03:00)» in 4s. The clock has to
+/// come from the client: the bridge process has no notion of where the user
+/// is, and `claude -p` has no shell in that sandbox to ask.
+///
+/// Deliberately self-describing («Время на устройстве пользователя: …»)
+/// because the bridge wraps whatever it gets under the header «Контекст из
+/// памяти omi:» (`ask_claude_bridge.py` `build_prompt`) — the sentence has to
+/// read correctly under a header that calls it memory.
+///
+/// Formatted by hand rather than through `intl`: this string is built on a
+/// voice turn, where a missing `initializeDateFormatting` locale would throw
+/// mid-call, and the vocabulary needed is two fixed lists.
+String deviceClockContext(DateTime local) {
+  final offset = local.timeZoneOffset;
+  final sign = offset.isNegative ? '-' : '+';
+  final absolute = offset.abs();
+  final utcOffset = 'UTC$sign${_two(absolute.inHours)}:${_two(absolute.inMinutes.remainder(60))}';
+  return 'Время на устройстве пользователя: '
+      '${_ruWeekdays[local.weekday - 1]}, '
+      '${local.day} ${_ruMonthsGenitive[local.month - 1]} ${local.year}, '
+      '${_two(local.hour)}:${_two(local.minute)} ($utcOffset).';
+}
+
 class AskClaudeBridgeException implements Exception {
   final String message;
   const AskClaudeBridgeException(this.message);
@@ -105,22 +164,59 @@ class AskClaudeBridgeClient {
   /// out an unbounded agent: measured 23.08, an unlimited memory question ran
   /// 12 turns / 90s on Opus, while the same question capped at 6 turns on
   /// Sonnet answered in 16s. Null keeps the bridge's own (unbounded) default.
+  ///
+  /// Note (measured 24.08): the bridge's WARM path — the one [voice] selects —
+  /// caps turns per long-lived client (`ASK_CLAUDE_WARM_MAX_TURNS`, default 10)
+  /// and ignores this per-request field. It still travels, because any warm
+  /// failure falls back to the cold `claude -p`, which does honour it.
   final int? maxTurns;
+
+  /// Declares this call as the VOICE channel, which the bridge treats as its
+  /// own path — not a cosmetic flag (`ask_claude_bridge.py`: `warm_eligible`,
+  /// `VOICE_STYLE`). Without it a spoken answer gets neither half of what the
+  /// bridge built for voice, and both halves are load-bearing here:
+  ///
+  ///  * Style. The answer is read out loud, so `VOICE_STYLE` caps it at two
+  ///    sentences / 50 words and bans markdown, lists and links. Without the
+  ///    flag the brain answers in chat shape — Charon reads bullet points and
+  ///    headings out loud, and the wait is measured in sentences the user did
+  ///    not ask for.
+  ///  * Latency. Only `tools_enabled && voice` reaches the warm
+  ///    `ClaudeSDKClient`, where the process and every MCP server are already
+  ///    up. Measured 24.08 against the live bridge with the same question and
+  ///    context: warm answered in 21.7s, the cold path burned 38.6s and
+  ///    returned an EMPTY answer.
+  ///
+  /// Default false so the class stays honest for any non-voice caller; the
+  /// hub's production wiring (`voice_hub_production.dart`) passes true.
+  final bool voice;
 
   AskClaudeBridgeClient({
     required this.httpClient,
     Uri? endpoint,
     this.model,
     this.maxTurns,
+    this.voice = false,
   }) : endpoint = endpoint ?? Uri.parse('https://omi-bridge.peshkomdomoy.online/ask');
 
   /// Sends one question, collects the streamed SSE reply, and returns the
   /// final `done` text (falling back to the concatenated `delta`s if a
   /// `done` event never arrives — defensive, the bridge always sends one).
-  /// Throws [AskClaudeBridgeException] on a non-200 response; a network/
-  /// decode failure propagates as-is (the caller — [AskClaudeToolExecutor] —
-  /// turns either into a tool-result error string, never lets it crash the
-  /// turn).
+  ///
+  /// Throws [AskClaudeBridgeException] on a non-200 response, on the bridge's
+  /// own `error` event, and on an empty answer; a network/decode failure
+  /// propagates as-is (the caller — [AskClaudeToolExecutor] — turns any of
+  /// them into a tool-result error string, never lets it crash the turn).
+  ///
+  /// The last two are not defensive padding — both were reproduced live on
+  /// 24.08. The bridge answers a failed run with a 200 and
+  /// `{"type": "error", "code": "cli_failed", "message": "claude -p завершился
+  /// с кодом 1"}` — which happens whenever the agent hits its turn cap mid-work
+  /// — and this loop used to skip that event for having no `text`, hand back an
+  /// empty string, and let the model speak on top of a tool result that said
+  /// nothing at all. An empty answer is treated the same way and for the same
+  /// reason: the point of this call is words to say out loud, and zero of them
+  /// is a failure the user must hear about, not silence to paper over.
   Future<String> ask({
     required String question,
     String context = '',
@@ -133,18 +229,34 @@ class AskClaudeBridgeClient {
         if (context.isNotEmpty) 'context': context,
         if (model != null) 'model': model,
         if (maxTurns != null) 'max_turns': maxTurns,
-        // Ответ пойдёт в озвучку: мост включает правила устного стиля (короче
-        // двух фраз, без списков) — в речи структура не читается, а секунды стоит.
-        'voice': true,
         'tools_enabled': toolsEnabled,
+        // Ответ пойдёт в озвучку: мост включает правила устного стиля (короче
+        // двух фраз, без списков) — в речи структура не читается, а секунды
+        // стоит. Флагом, а не безусловно: класс должен оставаться честным и
+        // для не-голосового вызывающего (см. [voice]).
+        if (voice) 'voice': true,
       });
     final streamed = await httpClient.send(request);
     if (streamed.statusCode != 200) {
+      // Truncated on purpose: this message ends up inside the tool result the
+      // model reads, and a rejection page is kilobytes of HTML — the whole of
+      // it would be spent on context describing one failed call.
       final body = await streamed.stream.bytesToString();
-      throw AskClaudeBridgeException('bridge HTTP ${streamed.statusCode}: $body');
+      final excerpt = body.length > 200 ? '${body.substring(0, 200)}…' : body;
+      // The likeliest failure on a fresh build, and the least legible one:
+      // measured 24.08, a call with no/incorrect CF-Access credentials does not
+      // come back 403 — Access answers 302 to its login page, `http.Client`
+      // follows the redirect by default, and the app sees a bare HTML 404 from
+      // a host it just talked to. Naming the suspect here saves the next reader
+      // from hunting a phantom routing bug.
+      final looksLikeAccess = (streamed.headers['content-type'] ?? '').contains('text/html');
+      throw AskClaudeBridgeException('bridge HTTP ${streamed.statusCode}: $excerpt'
+          '${looksLikeAccess ? ' (HTML, not SSE — likely Cloudflare Access rejecting the request:'
+              ' check the CF-Access dart-defines in this build)' : ''}');
     }
     final deltaBuffer = StringBuffer();
     String? doneText;
+    String? bridgeError;
     final lines = streamed.stream.transform(utf8.decoder).transform(const LineSplitter());
     await for (final line in lines) {
       if (!line.startsWith('data: ')) continue;
@@ -157,6 +269,18 @@ class AskClaudeBridgeClient {
         continue; // a malformed/partial line — same fail-open spirit as the bridge's own NDJSON parsing
       }
       if (event is! Map<String, dynamic>) continue;
+      if (event['type'] == 'error') {
+        // Kept, not thrown on the spot: the bridge may still have streamed
+        // partial deltas before failing, and those are worth speaking. Only
+        // an error with nothing to say becomes the throw below.
+        final code = event['code'];
+        final message = event['message'];
+        bridgeError = [
+          if (code is String && code.isNotEmpty) code,
+          if (message is String && message.isNotEmpty) message,
+        ].join(': ');
+        continue;
+      }
       final text = event['text'];
       if (text is! String) continue;
       switch (event['type']) {
@@ -166,7 +290,10 @@ class AskClaudeBridgeClient {
           doneText = text;
       }
     }
-    return doneText ?? deltaBuffer.toString();
+    final answer = doneText ?? deltaBuffer.toString();
+    if (answer.isNotEmpty) return answer;
+    throw AskClaudeBridgeException(
+        bridgeError == null ? 'bridge returned an empty answer' : 'bridge error: $bridgeError');
   }
 }
 
@@ -208,26 +335,70 @@ class AskClaudeToolExecutor {
   /// assistant.
   final void Function(String text)? announce;
 
+  /// Клок устройства — сюда, чтобы тесты не зависели от настоящего времени.
+  /// Production leaves the default: the phone's own clock is the user's real
+  /// time and timezone, which is exactly what [deviceClockContext] states.
+  final DateTime Function() now;
+
+  /// Per-call switch back to BLOCKING delivery even when [announce] is wired
+  /// (идея 1 из WORKLOG 24.08 ~02:50): на высоких уровнях эскалации модель
+  /// должна сказать «секунду» и молчать до ответа — неблокирующий путь там
+  /// давал «раздвоение личности». Функция, а не флаг: уровень ползунка
+  /// читается на КАЖДОМ вызове, а executor живёт столько же, сколько драйвер.
+  /// Честная пауза с тёплым мостом — ~4–8 с (замер 24.08), а не прежние 44 с,
+  /// ради которых announce и появился.
+  final bool Function()? blockingDelivery;
+
+  /// Fires the moment a BLOCKING call starts — production plays the «услышал»
+  /// earcon here (см. earcon.dart): модель в блокирующем режиме молчит до
+  /// ответа, и без сигнала пользователь повторял вопрос в тишину, плодя
+  /// второй вызов и два ответа подряд (жалоба Игоря 24.08 про перебивание).
+  final void Function()? onBlockingCallStart;
+
   AskClaudeToolExecutor({
     required this.client,
     required this.sendToolResult,
     this.announce,
+    this.blockingDelivery,
+    this.onBlockingCallStart,
     this.timeout = const Duration(seconds: 60),
+    this.now = DateTime.now,
   });
 
   /// Handed to the model the instant it asks, so it can carry the conversation
   /// instead of standing still. Deliberately an instruction, not data: a bare
   /// "pending" string got read out loud as if it were the answer.
+  ///
+  /// «НЕ отвечай сам» — урок живого теста 24.08: прежняя формулировка
+  /// «продолжай разговор обычным образом» читалась моделью как разрешение
+  /// ответить на вопрос самостоятельно, и ответ Opus затем звучал второй
+  /// репликой — то самое «раздвоение личности» (WORKLOG 24.08 ~02:50).
   static const String _pendingResult =
-      'Запрос отправлен умной модели. Ответа пока НЕТ — не выдумывай его и не пересказывай. '
-      'Продолжай разговор обычным образом; готовый ответ придёт отдельной репликой, '
-      'и тогда ты озвучишь его.';
+      'Запрос отправлен умной модели. Ответа пока НЕТ — не выдумывай его, не пересказывай '
+      'и НЕ отвечай на этот вопрос сам: ответ придёт отдельной репликой, и тогда ты его '
+      'озвучишь. До тех пор можешь коротко поддерживать разговор на другие темы.';
 
-  /// Prefix for the delivered answer. Tells the model this is material to voice,
-  /// not a new question from the user.
-  static const String _answerPrefix =
-      'Пришёл ответ от умной модели на твой запрос. Озвучь его своими словами, коротко, '
-      'вклинившись в разговор естественно (например «так, ответ есть»). Вот он: ';
+  /// Frame for the delivered answer. Tells the model this is material to
+  /// voice, not a new question from the user, and NAMES the question it
+  /// answers — к моменту доставки разговор мог уйти на реплику-две вперёд,
+  /// и безымянное «так, ответ есть» звучало невпопад (живой тест 24.08).
+  static String _answerFor(String? question, String output) {
+    final trimmed = question == null || question.isEmpty
+        ? null
+        : (question.length > 90 ? '${question.substring(0, 90)}…' : question);
+    final about = trimmed == null ? '' : ' на вопрос «$trimmed»';
+    return 'Пришёл ответ от умной модели$about. Озвучь его своими словами, коротко, '
+        'вклинившись в разговор естественно (например «так, ответ есть»); если разговор '
+        'уже ушёл с этой темы, сначала назови, к чему это ответ. Вот он: $output';
+  }
+
+  /// Monotonic counter of announce-path calls: the NEWEST call supersedes the
+  /// delivery of every older, still-in-flight answer (single-flight). Реальный
+  /// случай с живого теста 24.08: пока ехал ответ на старый вопрос, пользователь
+  /// спросил новое — старый ответ прилетал позже нового вопроса и звучал как
+  /// вторая личность. Устаревший ответ теперь просто не озвучивается (модель
+  /// свой ход уже получила через `_pendingResult`, ничего не зависает).
+  int _announceGeneration = 0;
 
   /// Feed this directly to `HubControllerEvents.onToolRequest` /
   /// `HubSessionEvents.onToolRequest`. Fire-and-forget by design — a hub
@@ -235,17 +406,48 @@ class AskClaudeToolExecutor {
   /// trip; the result reaches the model later via [sendToolResult], same as
   /// every other async tool-execution path in this app
   /// (`voiceToolExecute`'s TS analogue never throws either).
+  ///
+  /// A call this executor does not own is ANSWERED, not dropped. Measured on
+  /// live Gemini 24.08 (`marathon/probes/lane5-toolresult-stall.py`): the
+  /// server issues several `functionCalls` in ONE `toolCall` frame and then
+  /// waits for ALL of their responses — with one missing it says nothing at
+  /// all, forever, no error and no close, until the socket's own lifetime
+  /// runs out ~100s later. So a single unknown name in a batch would take
+  /// the whole turn down silently, which is the one failure mode the user
+  /// cannot tell apart from "still thinking". `voice_turn_driver.dart`
+  /// answers the same way when no executor is wired at all, and for the same
+  /// reason; this closes the gap for the wired case.
   void handle(HubToolCallRequest call) {
-    if (call.name != askClaudeToolName) return;
+    if (call.name != askClaudeToolName) {
+      sendToolResult(call.callId, call.name, 'Error: ${call.name} is not a tool this device can run.');
+      return;
+    }
     unawaited(_run(call));
   }
 
+  /// Blocking result for a call that got superseded mid-flight: пользователь
+  /// перебил тишину новым вопросом → модель сделала НОВЫЙ вызов, а этот ответ
+  /// уже не к месту. Полный текст ему отдавать нельзя — модель озвучит два
+  /// ответа подряд («странное при перебивании», жалоба Игоря 24.08); протоколу
+  /// же нужен ХОТЬ КАКОЙ-ТО tool-result на каждый вызов.
+  static const String _staleBlockingResult =
+      'Этот ответ устарел: пользователь уже задал новый вопрос, и на него идёт отдельный '
+      'запрос. НЕ озвучивай этот ответ — просто дождись свежего.';
+
   Future<void> _run(HubToolCallRequest call) async {
-    final deliverOutOfBand = announce;
+    // Блокирующая доставка по требованию уровня: ответ придёт самим
+    // tool-result'ом, модель ждёт его молча (см. blockingDelivery).
+    final blocking = blockingDelivery?.call() ?? false;
+    final deliverOutOfBand = blocking ? null : announce;
+    // Every call bumps the generation: the NEWEST call stales all older
+    // in-flight answers, независимо от режима доставки.
+    final generation = ++_announceGeneration;
     if (deliverOutOfBand != null) {
       // Release the turn first: everything after this happens while the model
       // is free to keep talking.
       sendToolResult(call.callId, call.name, _pendingResult);
+    } else if (blocking) {
+      onBlockingCallStart?.call();
     }
     // Self-host patch: this round trip used to be invisible. When it failed the
     // model simply went quiet and the mode died, and logcat showed nothing at
@@ -261,10 +463,36 @@ class AskClaudeToolExecutor {
         'за ${elapsed.inMilliseconds} мс, ${output.length} символов';
     failed ? Logger.error('$summary: $output') : Logger.debug(summary);
     if (deliverOutOfBand != null) {
-      deliverOutOfBand(failed ? output : '$_answerPrefix$output');
+      if (generation != _announceGeneration) {
+        // Superseded: пока этот ответ ехал, модель спросила что-то новее —
+        // разговор уже там, а запоздалый ответ прозвучал бы «второй личностью».
+        Logger.debug('[ask_claude] ${call.callId} ответ устарел (есть более новый запрос) — не озвучиваем');
+        return;
+      }
+      deliverOutOfBand(failed ? output : _answerFor(_questionOf(call), output));
+      return;
+    }
+    if (generation != _announceGeneration && !failed) {
+      // Блокирующий аналог supersede: tool-result отдать обязаны (протокол),
+      // но вместо устаревшего ответа — инструкция его не озвучивать.
+      Logger.debug('[ask_claude] ${call.callId} блокирующий ответ устарел — отдаём заглушку');
+      sendToolResult(call.callId, call.name, _staleBlockingResult);
       return;
     }
     sendToolResult(call.callId, call.name, output);
+  }
+
+  /// The question text of a call, for labeling its delivered answer.
+  /// Parse errors return null — доставка важнее подписи (у `_resolve` своя,
+  /// говорящая обработка кривых аргументов).
+  static String? _questionOf(HubToolCallRequest call) {
+    try {
+      final decoded = jsonDecode(call.argumentsJson);
+      final q = decoded is Map<String, dynamic> ? decoded['question'] : null;
+      return q is String ? q : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<String> _resolve(HubToolCallRequest call) async {
@@ -284,7 +512,9 @@ class AskClaudeToolExecutor {
     // exact failure this tool exists to avoid. Only an explicit false opts out.
     final useTools = args['use_tools'] != false;
     try {
-      return await client.ask(question: question, toolsEnabled: useTools).timeout(timeout);
+      return await client
+          .ask(question: question, context: deviceClockContext(now()), toolsEnabled: useTools)
+          .timeout(timeout);
     } on TimeoutException {
       // Phrased as an instruction, not a bare error: this string is what the
       // model reads before speaking, and silence is the failure we are fixing.
@@ -292,7 +522,12 @@ class AskClaudeToolExecutor {
           'Tell the user briefly that the lookup is taking too long, then answer from '
           'what you already know if you can.';
     } catch (e) {
-      return 'Error: ask_claude bridge call failed: $e';
+      // Same shape as the timeout above and for the same reason: the model
+      // reads this before speaking, so it has to say what to DO, not just
+      // what broke. The raw cause stays in it for the log — Logger.error in
+      // [_run] prints exactly this string.
+      return 'Error: ask_claude bridge call failed: $e. Tell the user briefly that '
+          'the lookup failed, then answer from what you already know if you can.';
     }
   }
 }

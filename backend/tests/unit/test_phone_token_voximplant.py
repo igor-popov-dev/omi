@@ -74,11 +74,33 @@ def test_hash_uses_the_short_user_name(vox_env):
     assert voximplant_service.short_user_name() == SAMPLE_USER
 
 
-def test_missing_key_is_a_clear_400(client, vox_env):
+def test_no_key_answers_the_handshake_instead_of_refusing(client, vox_env):
+    """First half of the login: the app asks WHERE to connect, it has no key to send yet.
+
+    Refusing here (as this endpoint did until the client was written) is a dead end: the
+    one-time key can only be requested from the cloud after the SDK is connected, and the
+    node to connect to is known only to the server.
+    """
     response = client.post('/v1/phone/token', content='')
 
-    assert response.status_code == 400
-    assert 'one-time login key' in response.json()['detail']
+    assert response.status_code == 200
+    body = response.json()
+    assert body['provider'] == 'voximplant'
+    assert body['hash'] is None
+    assert body['user'] == f'{SAMPLE_USER}@omijarvis.igor.voximplant.com'
+    assert body['node'] == 'Node4'
+    assert body['ttl'] == 300
+    assert SAMPLE_INNER_MD5 not in response.text
+
+
+def test_handshake_and_hash_agree_on_user_and_node(client, vox_env):
+    """The second half must log in exactly where the first half pointed."""
+    handshake = client.post('/v1/phone/token', content='').json()
+    with_hash = client.post('/v1/phone/token', json={'key': SAMPLE_KEY}).json()
+
+    assert (handshake['user'], handshake['node']) == (with_hash['user'], with_hash['node'])
+    assert with_hash['provider'] == 'voximplant'
+    assert with_hash['hash'] == SAMPLE_HASH
 
 
 def test_malformed_key_is_rejected(client, vox_env):

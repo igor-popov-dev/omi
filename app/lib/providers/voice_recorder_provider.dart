@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:omi/backend/http/api/messages.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/app_globals.dart';
+import 'package:omi/services/mic/mic_arbiter.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/audio/wav_bytes.dart';
@@ -74,12 +75,60 @@ class VoiceRecorderProvider extends ChangeNotifier {
   // Injected only by tests — ServiceManager is a singleton initialised from
   // native plumbing, so the mic is resolved lazily at call time otherwise.
   final IMicRecorderService? _micOverride;
+  final MicArbiter? _arbiterOverride;
 
-  VoiceRecorderProvider({VoiceMessageTranscriber? transcriber, IMicRecorderService? mic})
+  VoiceRecorderProvider({VoiceMessageTranscriber? transcriber, IMicRecorderService? mic, MicArbiter? arbiter})
       : _transcribeVoiceMessage = transcriber ?? transcribeVoiceMessage,
-        _micOverride = mic;
+        _micOverride = mic,
+        _arbiterOverride = arbiter;
 
   IMicRecorderService get _mic => _micOverride ?? ServiceManager.instance().mic;
+
+  /// The shared microphone token, or null where there is none.
+  ///
+  /// Resolved defensively rather than like [_mic]: an absent ServiceManager is normal in
+  /// tests and on builds without native plumbing, and on such a build there are no in-app
+  /// calls either — so there is nothing to be evicted by, and no reason to fail a memo
+  /// over it.
+  MicArbiter? get _arbiter {
+    if (_arbiterOverride != null) return _arbiterOverride;
+    try {
+      return ServiceManager.instance().micArbiter;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Unregisters [_onMicTakenByCall]. Non-null exactly while this provider is listening;
+  /// the arbiter outlives every screen, so a hook left behind would unwind a memo that
+  /// ended long ago.
+  void Function()? _dropEvictionHook;
+
+  /// An in-app call took the microphone away mid-recording.
+  ///
+  /// The recorder is already stopped by then (ArbitratedMic evicts it) — what is left is
+  /// the memo's own bookkeeping, and leaving it alone is the actual damage: the sheet
+  /// stays in `recording` with a waveform flowing over a dead microphone, and the user
+  /// keeps talking into it. Whatever they say next reaches nothing, and pressing send
+  /// transcribes only the seconds captured BEFORE the call — a plausible answer to a
+  /// question they did not ask.
+  ///
+  /// Unwound exactly like a refused start, which is what this is: the same silent return
+  /// to the text field the app already does when a conversation holds the mic.
+  void _onMicTakenByCall() {
+    if (_state != VoiceRecorderState.recording) return;
+    Logger.debug('VoiceRecorderProvider: microphone taken by an in-app call');
+    unawaited(_unwindFailedStart());
+  }
+
+  void _listenForCallEviction() {
+    _dropEvictionHook ??= _arbiter?.onEvictedByCall(_onMicTakenByCall);
+  }
+
+  void _stopListeningForCallEviction() {
+    _dropEvictionHook?.call();
+    _dropEvictionHook = null;
+  }
 
   VoiceRecorderState get state => _state;
   String get transcript => _transcript;
@@ -125,6 +174,10 @@ class VoiceRecorderProvider extends ChangeNotifier {
     _state = VoiceRecorderState.recording;
     _transcript = '';
     _pcmBytesWritten = 0;
+    // Registered before the first await, not after the recorder is up: everything below
+    // yields (a file, a permission prompt, the recorder itself), and a call started in any
+    // of those gaps would evict a recorder this provider does not yet know it has.
+    _listenForCallEviction();
 
     // Clean up any previous WAV file
     await _cleanupWavFile();
@@ -233,6 +286,7 @@ class VoiceRecorderProvider extends ChangeNotifier {
   /// waveform timer, the open PCM sink and its file — and return to idle so the
   /// chat bar drops back to the text field instead of wedging in `recording`.
   Future<void> _unwindFailedStart() async {
+    _stopListeningForCallEviction();
     _waveformTimer?.cancel();
     _waveformTimer = null;
     try {
@@ -252,6 +306,7 @@ class VoiceRecorderProvider extends ChangeNotifier {
   }
 
   void stopRecording() {
+    _stopListeningForCallEviction();
     _waveformTimer?.cancel();
     _mic.stop();
   }
@@ -386,26 +441,35 @@ class VoiceRecorderProvider extends ChangeNotifier {
     return wavFile;
   }
 
+  // Both cleanups take the file out of the field BEFORE their first await, and that
+  // ordering is the whole point. close() runs them fire-and-forget, so a cleanup is still
+  // in flight while the next recording starts; clearing the field after the delete meant
+  // that `_pcmFile = null` landed in the middle of startRecording — between creating the
+  // new file and opening its sink — and the next line dereferenced it. A second voice memo
+  // started right after closing the first one crashed there, inside a fire-and-forget tap
+  // handler, which makes it an unhandled async error and leaves the sheet wedged.
   Future<void> _cleanupPcmFile() async {
+    final file = _pcmFile;
+    _pcmFile = null;
     try {
-      if (_pcmFile != null && _pcmFile!.existsSync()) {
-        await _pcmFile!.delete();
+      if (file != null && file.existsSync()) {
+        await file.delete();
       }
     } catch (e) {
       Logger.debug('Error cleaning up PCM file: $e');
     }
-    _pcmFile = null;
   }
 
   Future<void> _cleanupWavFile() async {
+    final file = _wavFile;
+    _wavFile = null;
     try {
-      if (_wavFile != null && _wavFile!.existsSync()) {
-        await _wavFile!.delete();
+      if (file != null && file.existsSync()) {
+        await file.delete();
       }
     } catch (e) {
       Logger.debug('Error cleaning up WAV file: $e');
     }
-    _wavFile = null;
     await SharedPreferencesUtil().remove(_wavPathKey);
   }
 
@@ -533,6 +597,7 @@ class VoiceRecorderProvider extends ChangeNotifier {
   }
 
   void close() {
+    _stopListeningForCallEviction();
     if (_state == VoiceRecorderState.idle) {
       return;
     }
@@ -566,6 +631,7 @@ class VoiceRecorderProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _stopListeningForCallEviction();
     _waveformTimer?.cancel();
     _pcmSink?.close();
     if (_state == VoiceRecorderState.recording) {

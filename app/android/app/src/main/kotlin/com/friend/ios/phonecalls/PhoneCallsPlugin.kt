@@ -139,6 +139,19 @@ class PhoneCallsPlugin private constructor(
                 }
                 result.success(true)
             }
+            // The microphone foreground service on its own, with no Twilio call behind it.
+            // On the Voximplant path the call is carried by another SDK, but Android's rule
+            // does not care whose call it is: without a microphone foreground service the
+            // system suspends capture the moment the app leaves the foreground, and the
+            // user's own side of the conversation goes silent (see handleMakeCall).
+            // Audio mode and routing are deliberately NOT touched here — the Voximplant SDK
+            // owns them through its own audio device manager, and forcing
+            // MODE_IN_COMMUNICATION behind its back would fight its speaker/earpiece switch.
+            "startMicForegroundService" -> result.success(PhoneMicForegroundService.start(context.applicationContext))
+            "stopMicForegroundService" -> {
+                PhoneMicForegroundService.stop(context.applicationContext)
+                result.success(null)
+            }
             "isCallKitAvailable" -> result.success(false) // CallKit is iOS-only
             else -> result.notImplemented()
         }

@@ -333,6 +333,12 @@ class VoiceTurnUiProjection {
   final bool isResponseWaiting;
   final bool isResponseActive;
 
+  /// Free-form mode only: the provider's VAD hears the user talking right
+  /// now (`HubSessionEvents.onUserSpeechState`). Distinguishes "the mic is
+  /// open" from "it is picking you up" — the PTT path never sets it, hence
+  /// the default instead of a required parameter.
+  final bool isHearingUser;
+
   const VoiceTurnUiProjection({
     required this.isListening,
     required this.isLocked,
@@ -342,6 +348,7 @@ class VoiceTurnUiProjection {
     required this.isThinking,
     required this.isResponseWaiting,
     required this.isResponseActive,
+    this.isHearingUser = false,
   });
 
   @override
@@ -354,7 +361,8 @@ class VoiceTurnUiProjection {
       other.hint == hint &&
       other.isThinking == isThinking &&
       other.isResponseWaiting == isResponseWaiting &&
-      other.isResponseActive == isResponseActive;
+      other.isResponseActive == isResponseActive &&
+      other.isHearingUser == isHearingUser;
 
   @override
   int get hashCode => Object.hash(
@@ -366,13 +374,14 @@ class VoiceTurnUiProjection {
         isThinking,
         isResponseWaiting,
         isResponseActive,
+        isHearingUser,
       );
 
   @override
   String toString() => 'VoiceTurnUiProjection(isListening: $isListening, isLocked: $isLocked, '
       'isFollowUp: $isFollowUp, transcript: $transcript, hint: $hint, '
       'isThinking: $isThinking, isResponseWaiting: $isResponseWaiting, '
-      'isResponseActive: $isResponseActive)';
+      'isResponseActive: $isResponseActive, isHearingUser: $isHearingUser)';
 }
 
 const VoiceTurnUiProjection idleVoiceTurnProjection = VoiceTurnUiProjection(

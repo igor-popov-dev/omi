@@ -19,11 +19,22 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/backend/preferences.dart';
+import 'package:omi/pages/chat/widgets/claude_escalation_sheet.dart';
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/services/mic/mic_arbiter.dart' show MicBusyError, kConversationMicOwner;
+import 'package:omi/services/voice_hub/escalation_level.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 
 class FreeFormVoiceModeButton extends StatelessWidget {
-  const FreeFormVoiceModeButton({super.key});
+  /// True when the chat composer holds a draft. An idle button stands down in
+  /// that case: with dictation appending to the draft, mic + Send are the two
+  /// controls the draft needs, and a third circle only eats the width they are
+  /// fighting for. An ACTIVE session keeps its button no matter what is in the
+  /// field — it is the only way to stop a per-minute-billed socket, and text
+  /// can appear (typed, dictated) while the session runs.
+  final bool composerHasDraft;
+
+  const FreeFormVoiceModeButton({super.key, this.composerHasDraft = false});
 
   @override
   Widget build(BuildContext context) {
@@ -32,10 +43,21 @@ class FreeFormVoiceModeButton extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: captureProvider.freeFormModeActive,
       builder: (context, active, _) {
+        if (!active && composerHasDraft) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(left: 8),
           child: GestureDetector(
             onTap: () => _onTap(context, captureProvider, active),
+            // Долгое нажатие — ползунок «как часто голосовой режим ходит к
+            // Claude» (5 ячеек, escalation_level.dart). Скрыт вместе с самим
+            // ползунком (см. claudeEscalationSliderEnabled) — на правом крае
+            // модель «двоилась», Игорь убрал до переделки доставки.
+            onLongPress: !claudeEscalationSliderEnabled
+                ? null
+                : () {
+                    HapticFeedback.mediumImpact();
+                    showClaudeEscalationSheet(context);
+                  },
             child: Container(
               height: 38,
               width: 38,
@@ -64,7 +86,23 @@ class FreeFormVoiceModeButton extends StatelessWidget {
       return;
     }
     captureProvider.startFreeFormVoiceMode().catchError((Object error) {
-      AppSnackbar.showSnackbarError('Voice mode failed to start: $error');
+      AppSnackbar.showSnackbarError(freeFormVoiceModeStartErrorMessage(error));
     });
   }
+}
+
+/// What the toggle says when the mode refuses to start.
+///
+/// A busy microphone is the one failure here that is not a malfunction: the
+/// hub and conversation capture share one recorder through [MicArbiter], so
+/// asking for the mic while the phone is recording a conversation is an
+/// ordinary situation with an ordinary answer. Showing "Bad state:
+/// Microphone is busy (held by conversation)" for it reads as a crash.
+String freeFormVoiceModeStartErrorMessage(Object error) {
+  if (error is MicBusyError) {
+    return error.owner == kConversationMicOwner
+        ? 'Микрофон занят записью разговора — остановите запись и включите режим снова'
+        : 'Микрофон сейчас занят (${error.owner})';
+  }
+  return 'Не удалось включить голосовой режим: $error';
 }

@@ -19,6 +19,7 @@ from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
 from pydantic import BaseModel
 
 import firebase_admin.auth
+from google.api_core import exceptions as google_api_exceptions
 from google.api_core.exceptions import FailedPrecondition
 from fastapi import APIRouter, HTTPException, Header, Request, Response, Form
 from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
@@ -38,6 +39,7 @@ import database.chat as chat_db
 import database.screen_activity as screen_activity_db
 import database.daily_summaries as daily_summaries_db
 from database._client import db
+from database.mcp_auth_read import mcp_auth_read
 from models.memories import MemoryDB, Memory, MemoryCategory
 from utils.conversations.render import redact_conversation_for_list
 from utils.conversations.mcp_transcript_search import (
@@ -100,10 +102,27 @@ MCP_AUTHORIZATION_SERVER_URL = os.getenv("MCP_AUTHORIZATION_SERVER_URL", "https:
 MCP_AUTHORIZATION_ENDPOINT = f"{MCP_AUTHORIZATION_SERVER_URL}/authorize"
 MCP_TOKEN_ENDPOINT = f"{MCP_AUTHORIZATION_SERVER_URL}/token"
 MCP_PROTECTED_RESOURCE_METADATA_URL = f"{MCP_AUTHORIZATION_SERVER_URL}/.well-known/oauth-protected-resource/v1/mcp/sse"
+# How long a client should wait before retrying once the token store is down.
+# Kept short: the outages this covers (quota, transient Firestore unavailability)
+# clear on their own, and MCP clients hold no session state to rebuild.
+MCP_AUTH_UNAVAILABLE_RETRY_AFTER_SECONDS = int(os.getenv("MCP_AUTH_UNAVAILABLE_RETRY_AFTER_SECONDS", "30"))
 OPENAI_APPS_CHALLENGE_TOKEN = "ZsVB_wpc4R35_tHloCZCokY6H2fBkKyBJrz-4MtXjYE"
 
 MCP_SCOPES_SUPPORTED = list(MCP_FULL_ACCESS_SCOPES)
 MCP_LEGACY_API_KEY_SCOPES = list(MCP_FULL_ACCESS_SCOPES)
+
+
+def _enforce_mcp_account_deletion(uid: str) -> None:
+    """Run the account-deletion fence with the MCP path's bounded deadline.
+
+    The fence reads Firestore on every MCP request, so it needs the same
+    bounded deadline as the token lookup beside it (database/mcp_auth_read.py):
+    left on the client default it would park a shared pool worker for 300
+    seconds per in-flight request during a Firestore outage. The fence keeps
+    failing closed — an unreadable deletion marker is still a 503, just a prompt
+    one.
+    """
+    enforce_account_deletion_http_access(uid, read=mcp_auth_read)
 
 
 def _enforce_mcp_cutover_access(uid: str) -> None:
@@ -190,13 +209,18 @@ def authenticate_api_key_auth_context(authorization: Optional[str]) -> Optional[
     user_data = auth_result.context
     if not user_data or not user_data.get("user_id"):
         return None
-    enforce_account_deletion_http_access(user_data["user_id"])
+    _enforce_mcp_account_deletion(user_data["user_id"])
     _enforce_mcp_cutover_access(user_data["user_id"])
     return _mcp_memory_context_from_auth_data(user_data)
 
 
 def authenticate_mcp_request(authorization: Optional[str]) -> Optional[MCPAuthContext]:
-    """Validate Authorization and return an MCP auth context."""
+    """Validate Authorization and return an MCP auth context.
+
+    Raises 503 (never 401) when the token store itself is unreachable: a client
+    told "unauthorized" discards its token and restarts the whole OAuth dance,
+    which is the wrong answer to a transient backend outage.
+    """
     if not authorization:
         return None
 
@@ -204,13 +228,30 @@ def authenticate_mcp_request(authorization: Optional[str]) -> Optional[MCPAuthCo
     if authorization.startswith("Bearer "):
         token = authorization[7:]
 
+    try:
+        return _authenticate_mcp_token(token)
+    except google_api_exceptions.GoogleAPIError as exc:
+        logger.warning("MCP auth lookup failed against the token store: %s", exc)
+        raise mcp_auth_store_unavailable_exception() from exc
+
+
+def mcp_auth_store_unavailable_exception() -> HTTPException:
+    """Return a retryable failure for an unreachable MCP token store."""
+    return HTTPException(
+        status_code=503,
+        detail="MCP authentication is temporarily unavailable. Please retry shortly.",
+        headers={"Retry-After": str(MCP_AUTH_UNAVAILABLE_RETRY_AFTER_SECONDS)},
+    )
+
+
+def _authenticate_mcp_token(token: str) -> Optional[MCPAuthContext]:
     if token.startswith("omi_mcp_"):
         auth_result = mcp_api_key_db.get_api_key_auth_result(token)
         record_api_key_repairs(key_kind="mcp", operation="auth", repairs=auth_result.repairs, log=logger)
         user_data = auth_result.context
         if not user_data or not user_data.get("user_id"):
             return None
-        enforce_account_deletion_http_access(user_data["user_id"])
+        _enforce_mcp_account_deletion(user_data["user_id"])
         _enforce_mcp_cutover_access(user_data["user_id"])
         return MCPAuthContext(
             uid=user_data["user_id"],
@@ -224,7 +265,7 @@ def authenticate_mcp_request(authorization: Optional[str]) -> Optional[MCPAuthCo
     oauth_context = mcp_oauth_db.validate_access_token(token, MCP_RESOURCE_URL)
     if not oauth_context:
         return None
-    enforce_account_deletion_http_access(oauth_context["uid"])
+    _enforce_mcp_account_deletion(oauth_context["uid"])
     _enforce_mcp_cutover_access(oauth_context["uid"])
     return MCPAuthContext(
         uid=oauth_context["uid"],

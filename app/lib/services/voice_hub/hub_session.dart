@@ -1,7 +1,7 @@
 // Warm-hub provider session lane — a 1:1 port of the injectable-seam half of
 // `desktop/windows/src/renderer/src/lib/voice/hub/hubSession.ts`
 // (`BaseHubSession`). Owns ONE persistent WebSocket to a realtime provider
-// and drives the per-turn frame choreography (warm/teardown, 180s idle
+// and drives the per-turn frame choreography (warm/teardown, 120s idle
 // release, 10s warm timeout, pre-open PCM buffering, spoken-audio playback)
 // that is common to every provider. Provider wire frames themselves
 // (`connectSpec`/`sessionSetupFrame`/`handleProviderMessage`/...) are NOT
@@ -70,6 +70,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:omi/utils/logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -166,17 +167,64 @@ class HubSessionEvents {
   /// Assistant reply text (for the on-screen bubble / logging).
   final void Function(String text, bool isFinal, HubEventIdentity? identity)? onAssistantText;
 
+  /// The provider's own VAD's verdict on whether the user is speaking right
+  /// now: `true` on speech onset, `false` when it decides the utterance
+  /// ended. Only server-VAD sessions (free-form mode) emit this — in PTT mode
+  /// the gesture, not the provider, owns utterance boundaries.
+  ///
+  /// Measured on the live wire 23.08 (see design doc §9), because when this
+  /// fires decides what it may be used for: `true` lands 0.24s after speech
+  /// onset, `false` lands 1.2s after speech stops (VAD hangover), and — the
+  /// part that makes it usable as a UI state — `false` is NOT repeated during
+  /// idle silence: 3s of silence before the first word produced no event at
+  /// all. So "false" means "you just finished talking", not "it is quiet".
+  final void Function(bool isSpeaking)? onUserSpeechState;
+
   /// Spoken audio began audibly playing (echo gate: activate).
   final void Function()? onSpeakingStart;
 
   /// Spoken audio drained / was interrupted (echo gate: start release).
   final void Function()? onSpeakingEnd;
 
+  /// Self-host patch, not for upstream: the user talked over the reply.
+  ///
+  /// Everything generated after this point was never heard, and even the
+  /// current sentence was cut mid-air. A listener that records history must
+  /// treat the accumulated reply as *partially spoken* — otherwise the model's
+  /// own transcript claims it said things the user never heard, and the next
+  /// turn is built on that fiction.
+  final void Function()? onInterrupted;
+
   /// The model requested a tool call.
   final void Function(HubToolCallRequest call, HubEventIdentity? identity)? onToolRequest;
 
   /// The model finished this turn (spoken reply complete).
   final void Function(HubEventIdentity? identity)? onTurnDone;
+
+  /// The provider handed us a token that would let a LATER socket resume
+  /// THIS conversation instead of starting blank — or `null` when resuming
+  /// right now would be unsafe (see below). The host (`HubController`) keeps
+  /// the last non-null value and feeds it to the next session.
+  ///
+  /// The null is the load-bearing half. Measured on the live wire 24.08
+  /// (`marathon/probes/lane5-resumption-bargein.py`, design doc §10):
+  /// resuming a handle that was captured while the model was mid-reply makes
+  /// the server REPLAY that whole abandoned reply — and it arrives glued to
+  /// the answer to the user's next question, inside one `turnComplete`, so a
+  /// client cannot filter it out. A user who interrupts would hear the very
+  /// monologue they interrupted, from the top. So a session emits `null`
+  /// the moment a reply generation starts and re-offers its handle only once
+  /// that generation is closed.
+  final void Function(String? handle)? onResumptionHandle;
+
+  /// The provider announced that it is about to close this socket, with
+  /// however much time it says is left (null when it named no deadline).
+  ///
+  /// This is a WARNING, not a failure: the socket still works meanwhile.
+  /// With a resumption handle in hand the host can rebuild the socket while
+  /// the conversation is idle, so the drop never lands in the middle of an
+  /// exchange — see `HubController.requestSessionRefresh`.
+  final void Function(Duration? timeLeft)? onGoAway;
 
   /// The session cannot continue (handshake failed or a fatal mid-session
   /// drop). [closeCode] is the WS close code when the drop came from a
@@ -188,10 +236,14 @@ class HubSessionEvents {
     this.onConnected,
     this.onInputTranscript,
     this.onAssistantText,
+    this.onUserSpeechState,
     this.onSpeakingStart,
     this.onSpeakingEnd,
+    this.onInterrupted,
     this.onToolRequest,
     this.onTurnDone,
+    this.onResumptionHandle,
+    this.onGoAway,
     this.onError,
   });
 }
@@ -269,7 +321,7 @@ class HubSocketOpenSpec {
 
 typedef HubSocketFactory = HubSocket Function(HubSocketOpenSpec spec);
 
-/// Injectable timer so the 180s idle release and 10s warm timeout are
+/// Injectable timer so the 120s idle release and 10s warm timeout are
 /// testable with fake clocks, without depending on Flutter's `fake_async`
 /// harness at the type level.
 abstract class HubClock {
@@ -287,12 +339,69 @@ class DefaultHubClock implements HubClock {
   void clearTimer(Object handle) => (handle as Timer).cancel();
 }
 
+/// How long Gemini itself tolerates a socket with no traffic before closing
+/// it — measured 24.08, twice, on two sockets in the same run
+/// (`marathon/probes/lane5-goaway.py`): 151.0s and 152.0s, close code 1008,
+/// reason "The operation was aborted.", and NO `goAway` warning first (the
+/// warning is only for sessions in use, design doc §11).
+const int geminiIdleCloseMs = 151000;
+
+/// The same close, but on a socket that HAS been used — measured 24.08,
+/// five sockets across two runs (`marathon/probes/lane5-idle-window.py`).
+/// The window is counted from the last traffic, not from setup, so an idle
+/// socket does outlive [geminiIdleCloseMs] if something happened on it; what
+/// it does NOT get is the full 151s of grace a second time. Observed windows
+/// after a completed turn: 150.1s and 151.1s for a turn at 5s/30s, but 100.1s
+/// (three times, turns at 60s and 90s) for later ones. The rule behind the
+/// two clusters is not established; 100s is the shortest thing measured and
+/// is therefore what the release has to beat.
+const int geminiIdleCloseAfterUseMs = 100000;
+
 /// D4: release a warm socket after this much idle time.
-const Duration hubIdleReleaseDuration = Duration(milliseconds: 180000);
+///
+/// Must stay below [geminiIdleCloseAfterUseMs] — a hub that was used once and
+/// then left warm is exactly the case that matters, and both our timer and
+/// the server's run from the last traffic ([touchIdle] is called on every
+/// frame). The server's close is classified as an expected idle teardown and
+/// PROACTIVELY re-warmed (`hub_close.dart`, and the A7c policy in
+/// `hub_controller.dart`), so losing this race leaves an untouched warm hub
+/// in an endless cycle of mint, connect, get closed, re-warm — on a phone,
+/// and with a database row per mint. The release exists precisely to end that
+/// cycle by going cold; it only can if it fires first.
+///
+/// History: the ported 180s never fired (the server hung up at ~151s); 120s
+/// was set against [geminiIdleCloseMs] before the used-socket window was
+/// measured, and lost the same race by 20s. The cost of going lower is one
+/// cold start after a long pause, which the warm-wait buffer already covers.
+const Duration hubIdleReleaseDuration = Duration(milliseconds: 90000);
 
 /// Bound on a single warm attempt (see file header `markReady` port note for
 /// why this exists independently of the idle release).
 const Duration hubWarmTimeoutDuration = Duration(milliseconds: 10000);
+
+/// How much notice a `goAway` gives when the server names no deadline of its
+/// own. Every measured warning said exactly "50s"
+/// (`marathon/probes/lane5-goaway-audio.py`, three sockets in one run), so
+/// assuming it is far better than waiting indefinitely for a quiet moment.
+const Duration goAwayAssumedRunway = Duration(seconds: 50);
+
+/// How long the model may stay silent after EVERY tool call of a batch has
+/// been answered before the hub treats the turn as stuck and nudges it.
+///
+/// Measured 24.08 against live Gemini (`marathon/probes/lane5-toolresult-stall.py`):
+/// a turn that is going to speak starts speaking well inside this window,
+/// while a stuck one produces nothing at all — no speech, no second call, no
+/// error — and the socket only dies on its own about 100s later with 1008
+/// "The operation was aborted". Everything in between is indistinguishable
+/// from "still thinking" to the user, who already heard "секунду, уточню".
+const Duration toolResultStallGrace = Duration(seconds: 12);
+
+/// Held back from the `goAway` runway so the rebuild it pays for can actually
+/// finish. Covers a warm that runs the full [hubWarmTimeoutDuration] plus the
+/// socket handshake (measured 24.08: 0.76-0.83s to `setupComplete`, whole seam
+/// 3.4-6.6s) — the rebuild has to COMPLETE before the provider hangs up, not
+/// merely start.
+const Duration goAwayRebuildReserve = Duration(seconds: 15);
 
 // MARK: Default socket factory (real WebSocket, via web_socket_channel)
 
@@ -447,7 +556,7 @@ abstract class HubSession {
 // MARK: - Shared base (TS `BaseHubSession`)
 // ---------------------------------------------------------------------------
 
-/// Everything every provider lane shares: connect/teardown, the 180s idle
+/// Everything every provider lane shares: connect/teardown, the 120s idle
 /// timer, the pre-open PCM buffer, spoken-audio playback through the
 /// injected [VoicePlayer], and the emit helpers. Provider subclasses
 /// (`GeminiHubSession`, design doc §8 step 2) supply the wire frames and
@@ -468,6 +577,13 @@ abstract class BaseHubSession implements HubSession {
   /// and fetched fresh by `HubController` at each warm — empty when no tool
   /// is wired, same as before this seam existed.
   final List<VoiceToolDeclaration> tools;
+
+  /// Subclass-facing: resume the conversation a PREVIOUS session was having
+  /// instead of starting blank. Null (the default) == every session before
+  /// this seam existed: a fresh, empty conversation. Supplied by
+  /// `HubController` from the last handle a dying session offered; the
+  /// provider subclass decides how to put it on the wire.
+  final String? resumptionHandle;
 
   /// Subclass-facing (see file header): the live socket, or null when torn
   /// down / not yet connected.
@@ -496,6 +612,20 @@ abstract class BaseHubSession implements HubSession {
   Completer<void>? _warmCompleter;
   bool _errored = false;
 
+  /// Bumped by every socket this session opens and by every [teardown]. The
+  /// callbacks handed to [socketFactory] close over the value their own
+  /// socket was opened with, so anything arriving from a socket we already
+  /// dropped is ignored instead of landing on the session that replaced it.
+  ///
+  /// This is not a theoretical race: closing a WebSocket does not cancel the
+  /// incoming subscription, so EVERY deliberate close (the idle release, the
+  /// goAway rebuild, the stale-session drop inside a re-warm) is followed by
+  /// an `onDone` a round-trip later. Ungated, that reached the host as a
+  /// socket error — which the controller answers by dropping the live
+  /// session and scheduling a reconnect, i.e. the silent idle release woke
+  /// the hub straight back up.
+  int _socketGeneration = 0;
+
   BaseHubSession({
     required this.token,
     required this.instructions,
@@ -507,6 +637,7 @@ abstract class BaseHubSession implements HubSession {
     this.idleRelease = hubIdleReleaseDuration,
     this.warmTimeout = hubWarmTimeoutDuration,
     this.tools = const [],
+    this.resumptionHandle,
   })  : socketFactory = socketFactory ?? defaultHubSocketFactory,
         createPlayer = playerFactory,
         clock = clock ?? const DefaultHubClock(),
@@ -531,7 +662,7 @@ abstract class BaseHubSession implements HubSession {
 
   /// Bound the warm attempt: if the provider never signals readiness (the
   /// socket opens but no ready frame arrives, or it never opens at all),
-  /// fail fast instead of hanging until the 180s idle teardown.
+  /// fail fast instead of hanging until the 120s idle teardown.
   void _armWarmTimeout() {
     _clearWarmTimeout();
     _warmTimeoutHandle = clock.setTimer(warmTimeout, () {
@@ -573,17 +704,28 @@ abstract class BaseHubSession implements HubSession {
     }
     _player = player;
     final spec = connectSpec();
+    final gen = ++_socketGeneration;
+    bool mine() => gen == _socketGeneration;
     socket = socketFactory(HubSocketOpenSpec(
       url: spec.url,
       protocols: spec.protocols,
-      onOpen: _onSocketOpen,
-      onMessage: _onSocketMessage,
-      onClose: (code, reason) => _handleError(
-        'websocket closed ($code)${reason.isNotEmpty ? ' $reason' : ''}',
-        true,
-        code,
-      ),
-      onError: (message) => _handleError(message, true),
+      onOpen: () {
+        if (mine()) _onSocketOpen();
+      },
+      onMessage: (data) {
+        if (mine()) _onSocketMessage(data);
+      },
+      onClose: (code, reason) {
+        if (!mine()) return;
+        _handleError(
+          'websocket closed ($code)${reason.isNotEmpty ? ' $reason' : ''}',
+          true,
+          code,
+        );
+      },
+      onError: (message) {
+        if (mine()) _handleError(message, true);
+      },
     ));
   }
 
@@ -622,6 +764,9 @@ abstract class BaseHubSession implements HubSession {
 
   @override
   void teardown() {
+    // Disown the socket's callbacks first: the close below produces an
+    // `onDone` a round-trip later, and a deliberate teardown is not an error.
+    _socketGeneration += 1;
     _clearWarmTimeout();
     final idle = _idleHandle;
     if (idle != null) {
@@ -656,9 +801,41 @@ abstract class BaseHubSession implements HubSession {
     if (handle != null) clock.clearTimer(handle);
     _idleHandle = clock.setTimer(idleRelease, () {
       _idleHandle = null;
+      // A session with an OPEN turn is not idle, however quiet the wire has
+      // gone — see [canIdleRelease]. Re-arm rather than release, so the
+      // release still fires once the turn closes.
+      if (!canIdleRelease) {
+        touchIdle();
+        return;
+      }
       teardown(); // silent release — ensureWarm() re-establishes on the next press
     });
   }
+
+  /// Whether the idle release may fire right now (default: always).
+  ///
+  /// The release is about a WARM UNUSED hub — the PTT gap between presses.
+  /// "No frames for [idleRelease]" is a good proxy for that only while no
+  /// turn is open; under an open turn the same silence means the INPUT died,
+  /// not that nobody wants the hub. Free-form mode is where this bites: the
+  /// mic streams continuously, so the only way it goes quiet for 90s with the
+  /// mode still on is the mic being taken away — a phone call is the everyday
+  /// case, and the native controller deliberately does NOT rebuild through
+  /// one (`PhoneMicController.kt`, "Rule 2: a call mode is up and data
+  /// stalled -> interruption, not a rebuild"), it waits for the call to end.
+  ///
+  /// Releasing there was silent in the worst way: [teardown] emits no event,
+  /// so the host kept showing "voice mode on" while every mic frame after the
+  /// call fed a torn-down session ([BaseHubSession.appendAudio] buffers when
+  /// the socket cannot accept input, and nothing re-warms), i.e. the user
+  /// talked into a dead socket until the silence auto-off. Holding the socket
+  /// instead hands the case to machinery that already exists: the provider
+  /// closes it on its own (~100-151s, measured — see [geminiIdleCloseMs]),
+  /// that close IS reported, and the host's drop recovery rebuilds the socket
+  /// and resumes the conversation.
+  /// (Subclass-facing by convention, like the rest of this class — see file
+  /// header.)
+  bool get canIdleRelease => true;
 
   // MARK: Per-turn primitives (delegate to subclass frames)
 
@@ -738,8 +915,22 @@ abstract class BaseHubSession implements HubSession {
   /// Decode base64 spoken PCM and play through the injected [VoicePlayer].
   void playAudio(String b64) {
     if (b64.isEmpty) return;
-    _player?.enqueuePcm16(base64Decode(b64));
+    final player = _player;
+    // Диагностика «слышу текст, не слышу голос» (24.08): каждый потерянный
+    // чанк обязан оставлять след. Первый чанк и каждый 25-й — тоже, чтобы по
+    // логу было видно, что тракт жив.
+    if (player == null) {
+      Logger.debug('[hub-audio] аудио-чанк ПОТЕРЯН: плеер отсутствует (_player == null)');
+      return;
+    }
+    _audioChunksPlayed += 1;
+    if (_audioChunksPlayed == 1 || _audioChunksPlayed % 25 == 0) {
+      Logger.debug('[hub-audio] чанк №$_audioChunksPlayed -> нативный плеер');
+    }
+    player.enqueuePcm16(base64Decode(b64));
   }
+
+  int _audioChunksPlayed = 0;
 
   /// Barge-in: drop everything buffered in the player immediately.
   @override
@@ -750,6 +941,10 @@ abstract class BaseHubSession implements HubSession {
 
   void emitInputTranscript(String text, bool isFinal, [HubEventIdentity? identity]) {
     events.onInputTranscript?.call(text, isFinal, identity ?? activeIdentity);
+  }
+
+  void emitUserSpeechState(bool isSpeaking) {
+    events.onUserSpeechState?.call(isSpeaking);
   }
 
   void emitAssistantText(String text, bool isFinal, [HubEventIdentity? identity]) {
@@ -763,6 +958,19 @@ abstract class BaseHubSession implements HubSession {
 
   void emitTurnDone([HubEventIdentity? identity]) {
     events.onTurnDone?.call(identity ?? activeIdentity);
+  }
+
+  /// Subclass-facing: offer (or withdraw, with `null`) the handle a later
+  /// socket could resume this conversation with. See
+  /// [HubSessionEvents.onResumptionHandle] for why `null` matters.
+  void emitResumptionHandle(String? handle) {
+    events.onResumptionHandle?.call(handle);
+  }
+
+  /// Subclass-facing: the provider warned that this socket is about to be
+  /// closed. See [HubSessionEvents.onGoAway].
+  void emitGoAway(Duration? timeLeft) {
+    events.onGoAway?.call(timeLeft);
   }
 
   void _handleError(String message, bool retryable, [int? closeCode]) {

@@ -33,6 +33,8 @@ import 'package:omi/services/capture/freemium_threshold_tracker.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
+import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart'
+    show freeFormListeningProjection, freeFormMicBusyProjection;
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
 import 'package:omi/services/voice_hub/voice_chat_log.dart';
 import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection, idleVoiceTurnProjection;
@@ -115,6 +117,19 @@ class CaptureController extends ChangeNotifier
   /// source of truth (`FreeFormVoiceMode.isRunning` itself isn't listenable).
   final ValueNotifier<bool> freeFormModeActive = ValueNotifier(false);
 
+  /// Self-host: звук «голосовой режим включён» — подключается в main.dart
+  /// (thinkingEarcon), в тестах остаётся null.
+  void Function()? onVoiceModeStartSound;
+
+  /// Telecom call shell for the voice mode (self-managed call + CallStyle
+  /// notification, ~/omi-jarvis/docs/voice-call-mode-design.md). Wired in
+  /// main.dart to `VoiceCallSession.start`/`end`; null in tests and on
+  /// platforms without the native peer. Start is awaited BEFORE the mode's
+  /// own start so the call (and the mic legality it grants) exists before
+  /// capture opens; both are fail-open and never throw.
+  Future<void> Function()? onVoiceModeCallStart;
+  Future<void> Function()? onVoiceModeCallEnd;
+
   /// Self-host patch: records the spoken exchange into chat history, so voice
   /// and chat share one conversation (see `voice_chat_log.dart`).
   final VoiceChatLog voiceChatLog = VoiceChatLog();
@@ -127,9 +142,34 @@ class CaptureController extends ChangeNotifier
   Future<void> startFreeFormVoiceMode() async {
     final mode = freeFormVoiceMode;
     if (mode == null || freeFormModeActive.value) return;
+    // The mirror of the gate in `handleSingleTapButtonEvent`: the PTT hub
+    // keeps its socket WARM for 90s after a turn (`hubIdleReleaseDuration`),
+    // so a question asked with the pendant half a minute ago still holds one
+    // when the user opens this mode. Sockets on one key do coexist — measured
+    // 24.08, both idle and both mid-conversation — so this is not about a
+    // server-side ceiling. It is the same reasoning as the tap gate above:
+    // two live sockets are two microphones on one room, and the warm one the
+    // user is walking away from bills for nothing. Releasing it is also just correct: the user
+    // is switching voice paths, and a warm socket nobody will press costs
+    // money for nothing.
+    hubTurnDriver?.teardown();
     freeFormModeActive.value = true;
     try {
+      // Call shell first: the mic must already be inside an active telecom
+      // call before capture opens, or a background/lock-screen start records
+      // silence (Android 12+ background-mic restriction).
+      await onVoiceModeCallStart?.call();
+      // Stop-during-start guard (the same race FreeFormVoiceMode.start guards
+      // for its capture): stopFreeFormVoiceMode during the await above already
+      // reset the UI and ended the call shell — starting the mode now would
+      // leave it running headless with the toggle showing off.
+      if (!freeFormModeActive.value) return;
       await mode.start();
+      // Звук «голосовой режим включён» (просьба Игоря 24.08) — ПОСЛЕ удачного
+      // старта, чтобы сигнал не звучал перед ошибкой. Колбэк, а не плеер:
+      // контроллеру незачем знать про just_audio, а тестам — про платформенные
+      // каналы (main.dart подключает thinkingEarcon).
+      onVoiceModeStartSound?.call();
     } catch (_) {
       resetFreeFormVoiceModeUi();
       rethrow;
@@ -140,10 +180,55 @@ class CaptureController extends ChangeNotifier
   /// and resets the UI state.
   void stopFreeFormVoiceMode() {
     freeFormVoiceMode?.stop();
-    // The tail of the conversation is still buffered — post it before the mode
-    // goes away, otherwise the last few turns never reach chat history.
-    unawaited(voiceChatLog.flush());
+    // ПОЛНЫЙ teardown, а не только отмена хода: тёплый сокет после остановки
+    // продолжал жить вместе со своим плеером и коммуникационным аудиорежимом —
+    // другие приложения не могли играть звук, а поздние события сессии
+    // перещёлкивали индикатор обратно в «слушаю» при выключенном режиме
+    // (баг Игоря 24.08). Цена — следующий старт платит переподключение ~1–2 с.
+    freeFormVoiceMode?.hub.teardownSession();
     resetFreeFormVoiceModeUi();
+  }
+
+  /// The provider warned that the socket is about to close (`goAway` —
+  /// measured 24.08: ~9 minutes into a live session, 50 seconds of notice,
+  /// design doc §11). Rebuilds it NOW, while the old one still works, so the
+  /// drop never lands in the middle of the conversation. The conversation
+  /// itself carries over on the resumption handle, and nothing is said out
+  /// loud: unlike a recovered drop, there is nothing to apologise for.
+  ///
+  /// A rebuild that fails is handed to the ordinary drop recovery — that path
+  /// owns the retry budget and the "give up and stop" decision, so failing
+  /// here must not invent a second policy.
+  Future<void> rebuildFreeFormVoiceModeSocket() async {
+    final mode = freeFormVoiceMode;
+    if (mode == null || !freeFormModeActive.value || !mode.isRunning) return;
+    Logger.debug('[VoiceMode] сервер предупредил о закрытии сокета — пересобираю заранее');
+    try {
+      await mode.restart();
+    } catch (e) {
+      Logger.error('[VoiceMode] упреждающая пересборка не удалась: $e');
+      await recoverFreeFormVoiceMode(e);
+    }
+  }
+
+  /// The native capture reported the mic taken away (`interrupted: true`) or
+  /// given back (`false`) while the free-form mode runs —
+  /// `HubPttCaptureOptions.onInterruption`, driven by `PhoneMicController`'s
+  /// `INTERRUPTED`/`RUNNING` transitions (a phone call taking the audio mode,
+  /// or another app preempting the input).
+  ///
+  /// All this does is tell the truth on screen. The mode keeps running and the
+  /// socket is deliberately left open — the native side resumes the capture by
+  /// itself when the call ends, and for a short interruption that means the
+  /// conversation simply continues. What it replaces is an indicator that said
+  /// "Слушаю…" for the entire length of a call while nothing could possibly
+  /// reach the model.
+  void applyFreeFormMicInterruption(bool interrupted) {
+    if (!freeFormModeActive.value) return;
+    Logger.debug(interrupted
+        ? '[VoiceMode] микрофон отобрали (звонок или другое приложение) — режим ждёт'
+        : '[VoiceMode] микрофон вернулся — продолжаю слушать');
+    hubProjection.value = interrupted ? freeFormMicBusyProjection : freeFormListeningProjection;
   }
 
   /// Resets [freeFormModeActive]/[hubProjection] to idle WITHOUT calling
@@ -154,6 +239,29 @@ class CaptureController extends ChangeNotifier
   void resetFreeFormVoiceModeUi() {
     freeFormModeActive.value = false;
     hubProjection.value = idleVoiceTurnProjection;
+    // Единая точка (см. ниже): сюда сходятся все пути завершения — значит,
+    // и звонок-оболочка гасится ровно здесь. Идемпотентно и fail-open на
+    // стороне VoiceCallSession; при завершении, начатом самим звонком
+    // (красная кнопка / настоящий вызов), native уже всё снёс — end() no-op.
+    unawaited(onVoiceModeCallEnd?.call() ?? Future<void>.value());
+    // The tail of the conversation is still buffered — post it, THEN reload
+    // chat history so the spoken dialogue shows up right away. Записи и
+    // раньше долетали до сервера, но чат их не перечитывал — разговор
+    // «не появлялся», пока экран не переоткроют (жалоба Игоря 24.08 ~02:45).
+    // Единая точка: сюда приходят и ручная остановка, и idle-timeout, и обрыв.
+    unawaited(voiceChatLog.flush().then((_) => externalActions.refreshChatMessages()));
+  }
+
+  /// Self-host: смена уровня эскалации (ползунок Gemini ↔ Claude) должна
+  /// действовать со СЛЕДУЮЩЕГО разговора, даже если тёплый сокет ещё жив —
+  /// тёплая сессия несёт инструкции и каталог инструментов СТАРОГО уровня
+  /// (stop() сознательно оставляет сокет тёплым ради быстрого рестарта).
+  /// Живой разговор не рвём — уровень доедет при следующем старте после
+  /// остановки. PTT-хаб не трогаем: его тёплая сессия пересобирается своим
+  /// драйвером, а рвать её отсюда значило бы лезть в его внутренности.
+  void invalidateWarmVoiceSessions() {
+    if (freeFormModeActive.value) return;
+    freeFormVoiceMode?.hub.teardownSession();
   }
 
   // Self-host patch, not for upstream: a dropped socket used to end the
@@ -176,10 +284,54 @@ class CaptureController extends ChangeNotifier
   /// it dropped. Falls back to a clean stop when recovery itself fails or when
   /// drops keep coming — reconnecting forever would burn per-minute billing on a
   /// session that cannot hold.
+  ///
+  /// ПОЛНЫЙ цикл через единый путь, а не ре-коннект «на месте» (баг Игоря
+  /// 24.08 ~16:08): прежний `mode.stop(); mode.start()` восстанавливал сессию
+  /// В ОБХОД звонка-оболочки — звонок к тому моменту уже был снят, а
+  /// воскресшая сессия жила без него: держала микрофон бесконечно и отбирала
+  /// аудиофокус у любого другого приложения (Яндекс.Музыка играла полсекунды
+  /// и глохла). Теперь обрыв проходит те же двери, что и человек: полный
+  /// стоп (режим, хаб, звонок, микрофон) → полный старт (звонок → режим).
   Future<void> recoverFreeFormVoiceMode(Object error) async {
     final mode = freeFormVoiceMode;
     Logger.error('[VoiceMode] сессия оборвалась: $error');
     if (mode == null || !freeFormModeActive.value) {
+      resetFreeFormVoiceModeUi();
+      return;
+    }
+
+    // Two ways to know a rebuild is pointless, one conclusion. The direct one
+    // is the native capture saying the mic is not ours right now
+    // ([FreeFormVoiceMode.micInterrupted]); it catches the case the inference
+    // below cannot — a session that DID hear the user before the call started,
+    // whose socket then dies mid-call looking perfectly recoverable, so it
+    // gets rebuilt and announces itself out loud over the call.
+    //
+    // A socket that never heard the mic cannot be recovered by rebuilding it:
+    // the replacement gets the same silence and dies the same way. The
+    // everyday cause is a phone call — the native capture treats a stalled mic
+    // under a call mode as an interruption and waits it out, so the hub sits
+    // on a mute wire until the provider hangs up (see
+    // `BaseHubSession.canIdleRelease`).
+    //
+    // Left to the retry budget below this would never stop: the drops arrive
+    // ~2.5 minutes apart (the provider's own idle close), so they fall outside
+    // [_voiceRecoveryWindow] and never accumulate to [_maxVoiceRecoveries],
+    // while each recovery speaks its line out loud — which counts as activity
+    // and rearms the 3-minute silence auto-off that would otherwise end the
+    // mode. A long call would therefore hold the mode open indefinitely,
+    // rebuilding and talking over itself. Stop instead; the user turns the
+    // mode back on when they have the mic again.
+    if (mode.micInterrupted || !mode.hasHeardInput) {
+      Logger.error(mode.micInterrupted
+          ? '[VoiceMode] микрофон отобран прямо сейчас — выключаю режим, а не пересобираю'
+          : '[VoiceMode] микрофон молчал всю сессию (звонок?) — выключаю режим, а не пересобираю');
+      _voiceRecoveries.clear();
+      // suspend(), not stop(): a call is not the user saying "we're done".
+      // The conversation stays on the resumption handle, so switching the
+      // mode back on when the call ends carries on where it broke off
+      // instead of opening a blank session (design doc §10).
+      mode.suspend();
       resetFreeFormVoiceModeUi();
       return;
     }
@@ -189,12 +341,31 @@ class CaptureController extends ChangeNotifier
     if (_voiceRecoveries.length >= _maxVoiceRecoveries) {
       Logger.error('[VoiceMode] ${_voiceRecoveries.length} обрывов подряд — выключаю режим');
       _voiceRecoveries.clear();
-      mode.stop();
+      // Same rule: the mode gave up, the user did not. What could not hold
+      // here is the socket, and the handle is not tied to it.
+      mode.suspend();
+      // ...но тёплый сокет отпускаем, как это делает stopFreeFormVoiceMode:
+      // suspend() освобождает только микрофон, а живой сокет продолжал держать
+      // плеер и коммуникационный аудиорежим (другие приложения без звука —
+      // баг Игоря 24.08). teardownSession() рвёт сокет и НЕ трогает
+      // resumption handle, так что разговор всё равно помнится.
+      mode.hub.teardownSession();
       resetFreeFormVoiceModeUi();
       return;
     }
     _voiceRecoveries.add(now);
 
+    // Здесь НЕ stopFreeFormVoiceMode(): его публичный stop() означает «это
+    // пользователь закончил разговор» и заставляет хаб забыть сессию — восста-
+    // новление через него отдавало новому сокету пустой разговор, и фраза
+    // «продолжай с того места» становилась ложью. suspend() отпускает микрофон,
+    // не трогая resumption handle; teardownSession() рвёт сокет вместе с его
+    // плеером и аудиорежимом; resetFreeFormVoiceModeUi() снимает звонок-оболочку.
+    // Полный цикл звонка обязателен: восстановленная в обход него сессия жила
+    // без звонка, держала микрофон и отбирала аудиофокус (регресс 24.08 ~16:08).
+    mode.suspend();
+    mode.hub.teardownSession();
+    resetFreeFormVoiceModeUi();
     hubProjection.value = const VoiceTurnUiProjection(
       isListening: false,
       isLocked: false,
@@ -206,9 +377,16 @@ class CaptureController extends ChangeNotifier
       isResponseActive: false,
     );
 
-    mode.stop();
     try {
-      await mode.start();
+      // Через startFreeFormVoiceMode, а не mode.start(): режим обязан снова
+      // жить внутри звонка-оболочки. Разговор при этом цел — выше был
+      // suspend(), а не stop(), так что новый сокет поднимется на прежнем
+      // resumption handle и строка ниже действительно ему по силам.
+      await startFreeFormVoiceMode();
+      // Восстановление могло быть молча отменено (стоп во время await) —
+      // тогда пользователь выключил режим сам, и объявлять «связь
+      // восстановлена» некому.
+      if (!freeFormModeActive.value) return;
       Logger.debug('[VoiceMode] сессия восстановлена, попытка ${_voiceRecoveries.length}');
       mode.announce(_voiceRecoveryPrompt);
     } catch (e) {
@@ -395,11 +573,91 @@ class CaptureController extends ChangeNotifier
     notifyListeners();
   }
 
+  // True while THIS app's own call owns the microphone. Deliberately separate from
+  // [_micInterrupted]: that one mirrors an interruption the OS reported and the OS will
+  // end, while this one is ours to end. Keeping them apart matters on the resume side —
+  // a real interruption can begin and end inside our call, and its `end` must not be
+  // mistaken for permission to put ambient capture back while the call is still running.
+  bool _inAppCallHoldsMic = false;
+
+  bool get inAppCallHoldsMic => _inAppCallHoldsMic;
+
+  /// Hush ambient phone-mic capture for the duration of an in-app call.
+  ///
+  /// Without this the phone keeps streaming the same conversation into `v4/listen`
+  /// while the cloud streams both legs of the call under its own call_id, and the
+  /// backend de-duplicates nothing: one call becomes TWO conversations, one holding
+  /// our side and one the other party's (measured, lane 6 tick 22,
+  /// marathon/tools/vox-dual-session-probe.py, case `ambient`). On Android the two
+  /// captures also fight over the microphone, and the loser records silence.
+  ///
+  /// The mic arbiter cannot do this part. It can refuse a NEW claim (a call takes its
+  /// veto — MicArbiter.holdForCall), but it cannot stop a capture already running, and
+  /// the call SDK takes the microphone natively without asking it either.
+  Future<void> pauseForInAppCall() async {
+    if (_inAppCallHoldsMic) return;
+    // Nothing is capturing — take the flag anyway. The call may outlive this check
+    // (the user can start recording mid-call), and the flag is what refuses that.
+    _inAppCallHoldsMic = true;
+    if (_activeSource is! PhoneMicSource && !_phoneMicBatchActive) return;
+    _onMicInterruption(true);
+    ServiceManager.instance().phoneMic.stop();
+  }
+
+  /// Give the microphone back after the call. Idempotent: several exits report the end
+  /// of one call, and a second resume must not start a session the user never asked for.
+  Future<void> resumeAfterInAppCall() async {
+    if (!_inAppCallHoldsMic) return;
+    // Cleared first: the restart paths below refuse to run while it is set.
+    _inAppCallHoldsMic = false;
+    try {
+      if (_activeSource is PhoneMicSource) {
+        // Preserves the socket and the segments captured before the call.
+        await _resumeMicRecording();
+      } else if (_phoneMicBatchActive) {
+        await _restartPhoneMicBatchAfterCall();
+      }
+    } catch (e, st) {
+      // The restart can be refused outright: a chat voice memo that was already recording
+      // when the call began still holds the mic arbiter, and its stack is not ours to
+      // stop. Without this the throw escapes past _onMicInterruption(false) and the
+      // capture card stays on `interrupted` with nothing running — the same deaf phone
+      // the hold exists to prevent, only quieter. Fail visibly instead.
+      Logger.error('[CaptureProvider] resume after in-app call failed: $e\n$st');
+      _activeSource = null;
+      _phoneMicWalActive = false;
+      _micInterrupted = false;
+      updateRecordingState(RecordingState.stop);
+      await _socket?.stop(reason: 'resume after in-app call failed');
+      notifyListeners();
+      return;
+    }
+    _onMicInterruption(false);
+  }
+
+  /// Batch has no resume — a session is a run of files, and the watchdog restarts it the
+  /// same way. Kept separate from [_onBatchStalled] only because that one refuses to run
+  /// while a restart is in flight, which is exactly the state a call leaves behind.
+  Future<void> _restartPhoneMicBatchAfterCall() async {
+    if (_phoneMicBatchRestartInFlight) return;
+    _phoneMicBatchRestartInFlight = true;
+    try {
+      await _startPhoneMicBatch(auto: SharedPreferencesUtil().phoneBatchAuto);
+    } catch (e, st) {
+      Logger.error('[CaptureProvider] batch restart after in-app call failed: $e\n$st');
+    } finally {
+      _phoneMicBatchRestartInFlight = false;
+    }
+  }
+
   bool _phoneMicRestartInFlight = false;
   bool _phoneMicBatchRestartInFlight = false;
 
   Future<void> _restartPhoneMicRecording() async {
     if (_phoneMicRestartInFlight) return;
+    // A restart already in flight when the call started would otherwise hand the mic
+    // straight back — the pause would hold for exactly as long as this await.
+    if (_inAppCallHoldsMic) return;
     _phoneMicRestartInFlight = true;
     try {
       ServiceManager.instance().phoneMic.stop();
@@ -625,25 +883,6 @@ class CaptureController extends ChangeNotifier
   bool _isPaused = false;
   bool get isPaused => _isPaused;
   bool get isCallActive => _micInterrupted;
-
-  /// Our own outgoing/incoming call — the one case where the phone's mic hears
-  /// the same conversation the cloud call leg already captures. Without this
-  /// pause the backend gets two audio streams for the same uid and opens TWO
-  /// conversations for one call (proven with marathon/tools/vox-dual-session-probe.py,
-  /// the `ambient` case).
-  Future<void> pauseForInAppCall() async {
-    if (_activeSource is! PhoneMicSource && !_phoneMicBatchActive) return;
-    _onMicInterruption(true);
-    ServiceManager.instance().phoneMic.stop();
-  }
-
-  Future<void> resumeAfterInAppCall() async {
-    if (!_micInterrupted) return;
-    if (_activeSource is PhoneMicSource) {
-      await _resumeMicRecording(); // preserves the existing socket/segments
-    }
-    _onMicInterruption(false);
-  }
 
   // Flag to star the conversation when it ends
   bool _starOngoingConversation = false;
@@ -1077,6 +1316,24 @@ class CaptureController extends ChangeNotifier
   @visibleForTesting
   void handleSingleTapButtonEvent(String deviceId) {
     debugPrint("Single tap detected");
+    // Self-host (просьба Игоря 24.08): одиночное нажатие настраивается — как
+    // двойное. Вариант 1 = свободный голосовой режим (тот же тумблер, что у
+    // doubleTapAction=3): прежний «голосовой вопрос Omi» Игорь не использует,
+    // а конфликт «хотел двойной тап — сработал одиночный» при этом исчезает:
+    // оба жеста делают одно и то же.
+    if (SharedPreferencesUtil().singleTapAction == 1) {
+      HapticFeedback.mediumImpact();
+      if (freeFormModeActive.value) {
+        PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_stop_single_tap');
+        stopFreeFormVoiceMode();
+      } else {
+        PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_start_single_tap');
+        startFreeFormVoiceMode().catchError((Object e) {
+          Logger.error('[VoiceMode] запуск с кулона (одиночный тап) не удался: $e');
+        });
+      }
+      return;
+    }
     if (_voiceCommandSession == null) {
       // Start voice question session (new toggle mode)
       debugPrint("Starting voice question session (toggle mode)");
@@ -1090,7 +1347,32 @@ class CaptureController extends ChangeNotifier
       _voiceSessionStartedByLegacyLongPress = false; // New toggle mode
       _startVoiceCommandTimeout(deviceId);
       _playSpeakerHaptic(deviceId, 1);
-      if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null) {
+      // NOT while the free-form voice mode is running. The two paths own
+      // SEPARATE `HubController`s (see `hubTurnDriver`/`freeFormVoiceMode`
+      // above), so starting a hub turn here would open a SECOND Gemini Live
+      // socket on top of the conversation already in progress. Two sockets
+      // are two microphones and two brains hearing the same room, answering
+      // over each other, and billed twice — that alone is reason enough, and
+      // it is the whole reason. The gate does NOT rest on the server killing
+      // one of them.
+      //
+      // Worth stating because the first version of this comment said it did.
+      // On 24.08 a second socket twice appeared on this key by accident and
+      // the server closed the longer-lived one with 1011 "Resource has been
+      // exhausted", which read like a rule. It is not one: the probe written
+      // to check it (`marathon/probes/lane5-concurrent-sockets.py`) ran two
+      // sockets on one key both idle (540s) and both holding a real spoken
+      // conversation with server VAD (360s, the model answering 8 and 7 times
+      // respectively) — nothing was evicted either time. Whatever the two
+      // accidents were, they are not "a second socket hangs up the first". Even where both survive, it is two
+      // microphones and two brains hearing the same room, billed twice.
+      //
+      // The tap is not swallowed: the legacy voice-command session above
+      // still starts, exactly as it does when the hub route is off. Only the
+      // second socket is withheld. `end()` below stays unconditional — a turn
+      // begun BEFORE the mode was switched on must still be closed, and
+      // `VoiceHubTurnDriver.end()` is a no-op with no turn in flight.
+      if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null && !freeFormModeActive.value) {
         hubTurnDriver!.begin();
       }
     } else if (!_voiceSessionStartedByLegacyLongPress) {
@@ -1169,6 +1451,35 @@ class CaptureController extends ChangeNotifier
               unmarkConversationForStarring();
               PlatformManager.instance.analytics.omiDoubleTap(feature: 'unstar_conversation');
               HapticFeedback.lightImpact();
+            }
+          } else if (doubleTapAction == 3) {
+            // Self-host (просьба Игоря 24.08): двойной тап = голосовой режим —
+            // начать разговор с кулона, не доставая телефон. Работает и с
+            // заблокированным экраном: событие приходит по BLE в живой
+            // foreground-сервис, микрофонный FGS-тип в манифесте есть, звук
+            // идёт через гарнитуру (VoiceRouteCoordinator). Выключение — сам
+            // (end_conversation по «пока»), сторожем тишины или повторным
+            // двойным тапом.
+            Logger.debug("Double tap: toggling free-form voice mode");
+            HapticFeedback.mediumImpact();
+            if (freeFormModeActive.value) {
+              PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_stop');
+              stopFreeFormVoiceMode();
+            } else {
+              PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_start');
+              startFreeFormVoiceMode().catchError((Object e) {
+                Logger.error('[VoiceMode] запуск с кулона не удался: $e');
+              });
+            }
+          } else if (doubleTapAction == 4) {
+            // Self-host (просьба Игоря 24.08): аварийная кнопка «Завершить
+            // голосовой режим» — выключить разговор, НЕ прощаясь с нейронкой.
+            // Только стоп: если режим не активен, ничего не делает.
+            Logger.debug("Double tap: force-stopping free-form voice mode");
+            if (freeFormModeActive.value) {
+              HapticFeedback.mediumImpact();
+              PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_force_stop');
+              stopFreeFormVoiceMode();
             }
           } else {
             // End conversation and process (default)
@@ -1850,6 +2161,8 @@ class CaptureController extends ChangeNotifier
   /// restart path (_restartPhoneMicRecording), which assumes a socket/WAL.
   Future<void> _onBatchStalled() async {
     if (!_phoneMicBatchActive || _phoneMicBatchRestartInFlight) return;
+    // Silence during our own call is not a stall — it is the pause working.
+    if (_inAppCallHoldsMic) return;
     _phoneMicBatchRestartInFlight = true;
     try {
       ServiceManager.instance().phoneMic.stop();

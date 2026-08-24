@@ -62,6 +62,10 @@ dependencies:
   pdf: ^3.11.0
   intl: ^0.20.2
   permission_handler: ^12.0.0+1
+  # Private fork: calls go through Voximplant instead of Twilio (the Twilio account cannot be
+  # paid for from where this fork is used). Verified publisher, MIT; needs Flutter >= 3.24,
+  # Android API 21+, iOS 12+, Java 11+ — all already satisfied here.
+  flutter_voximplant: ^3.17.0
   # Must stay >=2.0.0 — 1.x's iOS registration force-unwraps
   # UIApplication.shared.delegate!.window!!.rootViewController!, which is nil under the
   # UIScene lifecycle and crashes on launch (EXC_BREAKPOINT), taking every alphabetically
@@ -191,6 +195,7 @@ flutter:
   generate: true
   uses-material-design: true
   assets:
+    - assets/sounds/
     - assets/images/stars.png
     - assets/images/herologo.png
     - assets/fonts/
