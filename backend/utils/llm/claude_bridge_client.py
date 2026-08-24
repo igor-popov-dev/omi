@@ -57,6 +57,14 @@ class ClaudeBridgeUpstreamError(RuntimeError):
     A provider outage has to surface as a provider outage.
     """
 
+    # Read by utils.llm.gateway_error_contract. Every refusal the bridge reports
+    # is the subscription window or the CLI being unable to answer right now, so
+    # the same conversation is still finalizable once the window resets. Without
+    # this marker the durable finalizer spends its whole attempt budget during an
+    # outage and discards the conversation (three of Igor's were hidden that way
+    # on 2026-08-24 between 14:05 and 15:27 MSK).
+    provider_unavailable = True
+
     def __init__(self, message: str, code: str = 'upstream_error', resets_at: Optional[int] = None):
         super().__init__(message)
         self.message = message

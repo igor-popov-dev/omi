@@ -16,6 +16,7 @@ from utils.conversations.finalizer import (
     finalize_persisted_conversation,
 )
 from utils.executors import db_executor, run_blocking
+from utils.llm.gateway_error_contract import PROVIDER_UNAVAILABLE_FAILURE_CODE
 from utils.observability.journeys import record_capture_finalization_terminal
 
 logger = logging.getLogger('routers.pusher')
@@ -71,10 +72,19 @@ async def process_conversation_task(
         so the claimed attempt count is the only bound on a deterministically
         failing job. Without a terminal state the conversation would stay
         `processing` forever and be re-finalized by every later session.
+
+        That bound only makes sense for a failure the payload itself causes. A
+        provider outage fails every conversation alike and burns the whole
+        budget in minutes, and dead-lettering marks the conversation
+        `failed`/`discarded` — hiding a capture the user never gets back. Those
+        attempts are released as retryable no matter how many have been spent.
         """
         if job_id is None or generation is None or lease_epoch is None:
             return False
-        terminal = attempt_count >= get_listen_finalization_tasks_max_attempts()
+        terminal = (
+            failure_code != PROVIDER_UNAVAILABLE_FAILURE_CODE
+            and attempt_count >= get_listen_finalization_tasks_max_attempts()
+        )
         try:
             if terminal:
                 marked_dead_letter = await run_blocking(
@@ -189,16 +199,21 @@ async def process_conversation_task(
             return
         record_capture_finalization_terminal('success', claim.get('created_at'))
         await send_result({'conversation_id': conversation_id, 'success': True})
-    except ConversationFinalizationError:
-        terminal = await record_failure('processing_failed')
+    except ConversationFinalizationError as error:
+        failure_code = error.failure_code
+        terminal = await record_failure(failure_code)
         logger.error(
-            'pusher finalization failed uid=%s conversation=%s failure=processing_failed terminal=%s',
+            'pusher finalization failed uid=%s conversation=%s failure=%s terminal=%s',
             uid,
             conversation_id,
+            failure_code,
             terminal,
         )
         try:
-            await send_result({'conversation_id': conversation_id, 'error': 'processing_failed', 'terminal': terminal})
+            # The live session reads the code to decide how hard to push back:
+            # an outage waits out the pending timeout instead of spending the
+            # session's retry burst on a provider that is answering nobody.
+            await send_result({'conversation_id': conversation_id, 'error': failure_code, 'terminal': terminal})
         except Exception:
             pass
     except Exception:
