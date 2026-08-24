@@ -9,6 +9,7 @@ import 'package:omi/pages/settings/widgets/create_dev_api_key_sheet.dart';
 import 'package:omi/pages/settings/widgets/dev_api_key_list_item.dart';
 import 'package:omi/providers/dev_api_key_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class DeveloperApiKeysSection extends StatelessWidget {
   const DeveloperApiKeysSection({super.key});
@@ -35,8 +36,10 @@ class DeveloperApiKeysSection extends StatelessWidget {
   }
 
   Widget _buildCreateKeyButton(BuildContext context) {
+    final t = context.omi;
+
     return Material(
-      color: Colors.white.withValues(alpha: 0.1),
+      color: t.rowFillHover,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: () {
@@ -49,11 +52,11 @@ class DeveloperApiKeysSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const FaIcon(FontAwesomeIcons.plus, color: Colors.white, size: 10),
+              FaIcon(FontAwesomeIcons.plus, color: t.textPrimary, size: 10),
               const SizedBox(width: 6),
               Text(
                 context.l10n.createKey,
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -64,6 +67,8 @@ class DeveloperApiKeysSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return ChangeNotifierProvider(
       create: (_) => DevApiKeyProvider()..fetchKeys(),
       child: Builder(
@@ -77,7 +82,7 @@ class DeveloperApiKeysSection extends StatelessWidget {
                 children: [
                   Text(
                     context.l10n.developerApi,
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
                   _buildDocsButton(context, 'https://docs.omi.me/doc/developer/api', 'Developer API'),
@@ -93,18 +98,18 @@ class DeveloperApiKeysSection extends StatelessWidget {
                 if (provider.isLoading && provider.keys.isEmpty) {
                   return Container(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
-                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary)),
                   );
                 }
                 if (provider.error != null) {
                   return Container(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
                     child: Center(
                       child: Text(
                         context.l10n.errorWithMessage(provider.error!),
-                        style: TextStyle(color: Colors.red.shade300),
+                        style: TextStyle(color: t.error),
                       ),
                     ),
                   );
@@ -112,23 +117,23 @@ class DeveloperApiKeysSection extends StatelessWidget {
                 if (provider.keys.isEmpty) {
                   return Container(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
                     child: Column(
                       children: [
-                        FaIcon(FontAwesomeIcons.key, color: Colors.grey.shade600, size: 28),
+                        FaIcon(FontAwesomeIcons.key, color: t.textSecondary, size: 28),
                         const SizedBox(height: 12),
-                        Text(context.l10n.noApiKeys, style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
+                        Text(context.l10n.noApiKeys, style: TextStyle(color: t.textSecondary, fontSize: 15)),
                         const SizedBox(height: 4),
                         Text(
                           context.l10n.createAKeyToGetStarted,
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                          style: TextStyle(color: t.textSecondary, fontSize: 13),
                         ),
                       ],
                     ),
                   );
                 }
                 return Container(
-                  decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
                   child: Column(
                     children: provider.keys.asMap().entries.map((entry) {
                       final index = entry.key;
@@ -136,7 +141,7 @@ class DeveloperApiKeysSection extends StatelessWidget {
                       return Column(
                         children: [
                           DevApiKeyListItem(apiKey: key),
-                          if (index < provider.keys.length - 1) const Divider(height: 1, color: Color(0xFF3C3C43)),
+                          if (index < provider.keys.length - 1) Divider(height: 1, color: t.divider),
                         ],
                       );
                     }).toList(),

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/backend/schema/mcp_api_key.dart';
 import 'package:omi/providers/mcp_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class McpApiKeyListItem extends StatelessWidget {
   final McpApiKey apiKey;
@@ -14,14 +15,16 @@ class McpApiKeyListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: const Color(0xFF2C2C2E), borderRadius: BorderRadius.circular(10)),
-            child: const FaIcon(FontAwesomeIcons.key, color: Color(0xFF8E8E93), size: 16),
+            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
+            child: FaIcon(FontAwesomeIcons.key, color: t.textSecondary, size: 16),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -30,13 +33,13 @@ class McpApiKeyListItem extends StatelessWidget {
               children: [
                 Text(
                   apiKey.name,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: t.textPrimary),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   apiKey.keyPrefix,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontFamily: 'monospace'),
+                  style: TextStyle(color: t.textSecondary, fontSize: 13, fontFamily: 'monospace'),
                 ),
               ],
             ),
@@ -47,12 +50,12 @@ class McpApiKeyListItem extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.15),
+                color: t.error.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 context.l10n.revoke,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.error, fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ),
           ),
@@ -65,23 +68,25 @@ class McpApiKeyListItem extends StatelessWidget {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
+        final t = context.omi;
+
         return AlertDialog(
-          backgroundColor: const Color(0xFF1C1C1E),
+          backgroundColor: t.bgSecondary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             context.l10n.revokeKeyQuestion,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
           ),
-          content: Text(context.l10n.revokeKeyConfirmation(apiKey.name), style: TextStyle(color: Colors.grey.shade400)),
+          content: Text(context.l10n.revokeKeyConfirmation(apiKey.name), style: TextStyle(color: t.textSecondary)),
           actions: <Widget>[
             TextButton(
-              child: Text(context.l10n.cancel, style: TextStyle(color: Colors.grey.shade400)),
+              child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
               onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             TextButton(
               child: Text(
                 context.l10n.revoke,
-                style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.error, fontWeight: FontWeight.w600),
               ),
               onPressed: () {
                 Provider.of<McpProvider>(context, listen: false).deleteKey(apiKey.id);
