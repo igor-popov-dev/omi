@@ -59,7 +59,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:omi/backend/http/shared.dart';
 import 'package:omi/env/env.dart';
-import 'package:omi/services/mic/native_mic_recorder_service.dart';
+import 'package:omi/services/services.dart' show ServiceManager;
 
 import 'ask_claude_tool.dart';
 import 'cf_access_http_client.dart';
@@ -183,7 +183,7 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
       );
       return hub;
     },
-    startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
+    startCapture: productionHubCaptureFactory(),
     applyProjection: applyProjection,
     pttHubEnabled: pttHubEnabled,
     toolExecutor: askClaudeExecutor.handle,
@@ -252,6 +252,17 @@ bool _defaultFreeFormModeOff() => false;
 /// exists only for the PTT driver's warm-wait race
 /// (`HubController.handoffWarmWaitToCascade`), which nothing here ever
 /// calls — free-form mode has no warm-wait/cascade concept.
+/// The mic both hub paths capture through: the app's SHARED recorder, taken
+/// from [ServiceManager] rather than constructed here.
+///
+/// Named (instead of inlined at the two call sites) so the rule is stated
+/// once and testable: a hub that builds a `NativeMicRecorderService` of its
+/// own detaches conversation capture from the native event stream for the
+/// rest of the process, and its arbiter handle is what makes the two
+/// consumers exclusive (`arbitratedPhoneMicHandles`).
+HubStartCapture productionHubCaptureFactory() =>
+    nativeMicHubCaptureFactory(() => ServiceManager.instance().voiceHubMic);
+
 FreeFormVoiceMode createProductionFreeFormVoiceMode({
   required HubControllerEvents events,
   http.Client? bridgeHttpClient,
@@ -308,7 +319,7 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
 
   mode = FreeFormVoiceMode(
     hub: hub,
-    startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
+    startCapture: productionHubCaptureFactory(),
     mintTurnId: () => const Uuid().v4(),
     resolveIdleTimeout: resolveIdleTimeout,
     onIdleTimeout: onIdleTimeout,

@@ -17,6 +17,7 @@ import 'package:omi/utils/logger.dart';
 class ServiceManager {
   late IMicRecorderService _mic;
   late IMicRecorderService _phoneMic;
+  late IMicRecorderService _voiceHubMic;
   late DeviceService _device;
   late ISocketService _socket;
   late IWalService _wal;
@@ -34,9 +35,17 @@ class ServiceManager {
     // Android (AudioRecord); chat voice memos and the speech profile stay on the
     // flutter_sound path via [mic]. The shared arbiter keeps the two stacks from
     // contending for the microphone.
-    sm._phoneMic = (Platform.isIOS || Platform.isAndroid)
-        ? ArbitratedMic(inner: NativeMicRecorderService(), arbiter: micArbiter, owner: 'conversation')
-        : sm._mic;
+    if (Platform.isIOS || Platform.isAndroid) {
+      // ONE NativeMicRecorderService for the whole app — see
+      // [arbitratedPhoneMicHandles] for why a second instance is not an
+      // option (it steals the global pigeon handler from the first).
+      final handles = arbitratedPhoneMicHandles(native: NativeMicRecorderService(), arbiter: micArbiter);
+      sm._phoneMic = handles.conversation;
+      sm._voiceHubMic = handles.voiceHub;
+    } else {
+      sm._phoneMic = sm._mic;
+      sm._voiceHubMic = sm._mic;
+    }
     sm._device = DeviceService();
     sm._socket = SocketServicePool();
     sm._wal = WalService();
@@ -57,6 +66,13 @@ class ServiceManager {
   /// The recorder for conversation capture: native on iOS and Android,
   /// flutter_sound elsewhere. Chat voice memos and speech profile keep using [mic].
   IMicRecorderService get phoneMic => _phoneMic;
+
+  /// The realtime voice hub's handle onto the SAME native recorder [phoneMic]
+  /// uses, held under its own arbiter owner. Self-host patch: the hub used to
+  /// mint a `NativeMicRecorderService` of its own per capture, which detached
+  /// conversation capture from the native event stream for the rest of the
+  /// process (see [arbitratedPhoneMicHandles]).
+  IMicRecorderService get voiceHubMic => _voiceHubMic;
 
   DeviceService get device => _device;
 

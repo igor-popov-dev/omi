@@ -18,7 +18,7 @@
 //     "hub tool loop (real executor wired)".
 //   * `createProductionFreeFormVoiceMode` — same reasoning: its
 //     `startCapture` factory is the same real-platform-channel
-//     `nativeMicHubCaptureFactory`/`NativeMicRecorderService` pair above,
+//     `nativeMicHubCaptureFactory` pair above,
 //     and its own start/stop/idle-timeout logic is already exercised
 //     hermetically against a plain `HubController` in
 //     `free_form_voice_mode_test.dart`. The `onToolRequest` wiring this
@@ -28,6 +28,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/ask_claude_tool.dart';
+import 'package:omi/services/voice_hub/hub_ptt_capture.dart';
+import 'package:omi/services/voice_hub/voice_hub_production.dart';
 import 'package:omi/services/voice_hub/gemini_hub_session.dart';
 import 'package:omi/services/voice_hub/hub_controller.dart';
 import 'package:omi/services/voice_hub/hub_session.dart';
@@ -122,6 +124,24 @@ void main() {
     test('returns exactly the ask_claude tool catalog', () async {
       final tools = await fetchHubTools();
       expect(tools, [askClaudeToolDeclaration]);
+    });
+  });
+
+  // The one thing about the production capture factory that IS testable
+  // without a platform channel, and the one that went wrong: WHERE the
+  // recorder comes from. Building one here instead of taking the app's shared
+  // handle detaches conversation capture from the native event stream for the
+  // rest of the process (`test/unit/phone_mic_single_owner_test.dart`), so
+  // "it must come from ServiceManager" is the invariant worth pinning.
+  group('productionHubCaptureFactory', () {
+    test('takes the mic from ServiceManager instead of building its own', () async {
+      // ServiceManager is deliberately NOT initialized in this test: asking it
+      // for the mic is exactly what must happen, and its refusal is the proof.
+      // A factory that constructed its own recorder would quietly succeed.
+      await expectLater(
+        productionHubCaptureFactory()(const HubPttCaptureOptions()),
+        throwsA(predicate((e) => e.toString().contains('Service manager is not initiated'))),
+      );
     });
   });
 }

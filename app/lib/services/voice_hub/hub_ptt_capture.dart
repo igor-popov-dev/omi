@@ -90,11 +90,16 @@ class NativeMicHubPttCapture implements HubPttCapture {
   }
 }
 
-/// Production [HubStartCapture]: one fresh [IMicRecorderService] session per
-/// turn. `createRecorder` is injectable so a future caller can share a
-/// longer-lived recorder instance instead of minting one per press; the
-/// default mints a plain `NativeMicRecorderService()` per capture, mirroring
-/// how [HubPttCaptureOptions] is turn-scoped.
+/// Production [HubStartCapture]: one [IMicRecorderService] session per turn.
+///
+/// `createRecorder` is expected to hand back the app's SHARED recorder, not a
+/// fresh one — production passes `ServiceManager.instance().voiceHubMic`. It
+/// once minted a `NativeMicRecorderService()` per capture, which detached
+/// conversation capture from the native event stream for the rest of the
+/// process (see `arbitratedPhoneMicHandles`). The seam stays a factory
+/// because the arbiter, not this file, decides whether the mic is available:
+/// a contended `start()` throws, and the capture contract already promises
+/// callers a rejected future in that case.
 HubStartCapture nativeMicHubCaptureFactory(IMicRecorderService Function() createRecorder) {
   return (options) async {
     final recorder = createRecorder();
