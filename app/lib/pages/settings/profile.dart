@@ -18,6 +18,7 @@ import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 
 import 'delete_account.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -33,8 +34,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildSectionContainer({required List<Widget> children}) {
+    final t = context.omi;
+
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(children: children),
     );
   }
@@ -49,10 +52,12 @@ class _ProfilePageState extends State<ProfilePage> {
     bool showBetaTag = false,
     bool showChevron = true,
   }) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           child: Row(
@@ -67,20 +72,20 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+                          style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
                         ),
                         if (showBetaTag) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.orange.withValues(alpha: 0.2),
+                              color: t.warning.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Text(
+                            child: Text(
                               'BETA',
                               style: TextStyle(
-                                color: Colors.orange,
+                                color: t.warning,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.5,
@@ -94,7 +99,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12, fontWeight: FontWeight.w400),
+                        style: TextStyle(color: t.textSecondary, fontSize: 12, fontWeight: FontWeight.w400),
                       ),
                     ],
                   ],
@@ -103,15 +108,15 @@ class _ProfilePageState extends State<ProfilePage> {
               if (chipValue != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(100)),
+                  decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(100)),
                   child: Text(
                     chipValue,
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                 ),
                 if (showChevron) const SizedBox(width: 8),
               ],
-              if (showChevron) const Icon(Icons.chevron_right, color: Color(0xFF3C3C43), size: 20),
+              if (showChevron) Icon(Icons.chevron_right, color: t.divider, size: 20),
             ],
           ),
         ),
@@ -132,10 +137,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showVoiceResponseModeSheet() {
+    final t = context.omi;
+
     int current = SharedPreferencesUtil().voiceResponseMode;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -154,35 +161,35 @@ class _ProfilePageState extends State<ProfilePage> {
                     margin: const EdgeInsets.only(top: 12, bottom: 16),
                     width: 36,
                     height: 4,
-                    decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+                    decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
                   ),
                   Text(
                     context.l10n.voiceResponseModeTitle,
-                    style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 16),
                   ListTile(
                     title: Text(
                       context.l10n.voiceResponseOff,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                      style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                     ),
-                    trailing: current == 0 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                    trailing: current == 0 ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
                     onTap: () => pick(0),
                   ),
                   ListTile(
                     title: Text(
                       context.l10n.voiceResponseHeadphonesOnly,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                      style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                     ),
-                    trailing: current == 1 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                    trailing: current == 1 ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
                     onTap: () => pick(1),
                   ),
                   ListTile(
                     title: Text(
                       context.l10n.voiceResponseAlways,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                      style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                     ),
-                    trailing: current == 2 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                    trailing: current == 2 ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
                     onTap: () => pick(2),
                   ),
                   const SizedBox(height: 16),
@@ -201,32 +208,34 @@ class _ProfilePageState extends State<ProfilePage> {
     String? chipValue,
     VoidCallback? onTap,
   }) {
+    final t = context.omi;
+
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         child: Row(
           children: [
-            SizedBox(width: 24, height: 24, child: FaIcon(icon, color: const Color(0xFF8E8E93), size: 20)),
+            SizedBox(width: 24, height: 24, child: FaIcon(icon, color: t.textSecondary, size: 20)),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+                style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
               ),
             ),
             if (chipValue != null) ...[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(100)),
+                decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(100)),
                 child: Text(
                   chipValue,
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
                 ),
               ),
               const SizedBox(width: 8),
             ],
-            const Icon(Icons.chevron_right, color: Color(0xFF3C3C43), size: 20),
+            Icon(Icons.chevron_right, color: t.divider, size: 20),
           ],
         ),
       ),
@@ -234,9 +243,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showBackgroundModeSheet() {
+    final t = context.omi;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -266,7 +277,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3C3C43),
+                          color: t.divider,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -276,13 +287,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         Expanded(
                           child: Text(
                             context.l10n.backgroundModeTitle,
-                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                           ),
                         ),
                         Switch(
                           value: enabled,
-                          activeThumbColor: Colors.white,
-                          activeTrackColor: const Color(0xFF8B5CF6),
+                          activeThumbColor: t.textPrimary,
+                          activeTrackColor: t.accent,
                           onChanged: (enabled || canEnable) ? (v) => setEnabled(v) : null,
                         ),
                       ],
@@ -290,24 +301,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 8),
                     Text(
                       context.l10n.backgroundModeDescription,
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.4),
+                      style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.4),
                     ),
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2E),
+                        color: t.bgTertiary,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.info_outline, color: Colors.grey.shade400, size: 18),
+                          Icon(Icons.info_outline, color: t.textSecondary, size: 18),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               context.l10n.backgroundModeNote,
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 13, height: 1.4),
+                              style: TextStyle(color: t.textSecondary, fontSize: 13, height: 1.4),
                             ),
                           ),
                         ],
@@ -324,12 +335,12 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.warning_amber_rounded, color: Color(0xFFE0A030), size: 18),
+                            Icon(Icons.warning_amber_rounded, color: t.warning, size: 18),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 context.l10n.backgroundModeUnavailable,
-                                style: TextStyle(color: Colors.orange.shade200, fontSize: 13, height: 1.4),
+                                style: TextStyle(color: t.warning, fontSize: 13, height: 1.4),
                               ),
                             ),
                           ],
@@ -347,10 +358,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showOfflineModeSheet() {
+    final t = context.omi;
+
     final captureProvider = context.read<CaptureProvider>();
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -382,7 +395,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3C3C43),
+                          color: t.divider,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -392,13 +405,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         Expanded(
                           child: Text(
                             context.l10n.transcribeLaterTitle,
-                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                           ),
                         ),
                         Switch(
                           value: enabled,
-                          activeThumbColor: Colors.white,
-                          activeTrackColor: const Color(0xFF8B5CF6),
+                          activeThumbColor: t.textPrimary,
+                          activeTrackColor: t.accent,
                           onChanged: (v) => setEnabled(v),
                         ),
                       ],
@@ -406,24 +419,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 8),
                     Text(
                       context.l10n.transcribeLaterDescription,
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.4),
+                      style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.4),
                     ),
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2E),
+                        color: t.bgTertiary,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.info_outline, color: Colors.grey.shade400, size: 18),
+                          Icon(Icons.info_outline, color: t.textSecondary, size: 18),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               context.l10n.transcribeLaterNote,
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 13, height: 1.4),
+                              style: TextStyle(color: t.textSecondary, fontSize: 13, height: 1.4),
                             ),
                           ),
                         ],
@@ -440,12 +453,12 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.warning_amber_rounded, color: Color(0xFFE0A030), size: 18),
+                            Icon(Icons.warning_amber_rounded, color: t.warning, size: 18),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 context.l10n.transcribeLaterStorageFull,
-                                style: TextStyle(color: Colors.orange.shade200, fontSize: 13, height: 1.4),
+                                style: TextStyle(color: t.warning, fontSize: 13, height: 1.4),
                               ),
                             ),
                           ],
@@ -464,17 +477,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
         title: Text(
           context.l10n.profile,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: t.bgPrimary,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: t.textPrimary),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -490,7 +505,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   chipValue: SharedPreferencesUtil().givenName.isEmpty
                       ? context.l10n.notSet
                       : SharedPreferencesUtil().givenName,
-                  icon: const FaIcon(FontAwesomeIcons.solidUser, color: Color(0xFF8E8E93), size: 20),
+                  icon: FaIcon(FontAwesomeIcons.solidUser, color: t.textSecondary, size: 20),
                   onTap: () async {
                     PlatformManager.instance.analytics.pageOpened('Profile Change Name');
                     await showDialog(
@@ -501,35 +516,35 @@ class _ProfilePageState extends State<ProfilePage> {
                     ).whenComplete(() => setState(() {}));
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.email,
                   chipValue:
                       SharedPreferencesUtil().email.isEmpty ? context.l10n.notSet : SharedPreferencesUtil().email,
-                  icon: const FaIcon(FontAwesomeIcons.solidEnvelope, color: Color(0xFF8E8E93), size: 20),
+                  icon: FaIcon(FontAwesomeIcons.solidEnvelope, color: t.textSecondary, size: 20),
                   onTap: () {},
                   showChevron: false,
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.language,
-                  icon: const FaIcon(FontAwesomeIcons.globe, color: Color(0xFF8E8E93), size: 20),
+                  icon: FaIcon(FontAwesomeIcons.globe, color: t.textSecondary, size: 20),
                   onTap: () {
                     routeToPage(context, const LanguageSettingsPage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.customVocabulary,
-                  icon: const FaIcon(FontAwesomeIcons.book, color: Color(0xFF8E8E93), size: 20),
+                  icon: FaIcon(FontAwesomeIcons.book, color: t.textSecondary, size: 20),
                   onTap: () {
                     routeToPage(context, const CustomVocabularyPage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.memories,
-                  icon: const FaIcon(FontAwesomeIcons.brain, color: Color(0xFF8E8E93), size: 20),
+                  icon: FaIcon(FontAwesomeIcons.brain, color: t.textSecondary, size: 20),
                   onTap: () {
                     routeToPage(context, const MemoriesPage());
                   },
@@ -543,21 +558,21 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 _buildProfileItem(
                   title: context.l10n.speechProfile,
-                  icon: const FaIcon(FontAwesomeIcons.microphone, color: Color(0xFF8E8E93), size: 20),
+                  icon: FaIcon(FontAwesomeIcons.microphone, color: t.textSecondary, size: 20),
                   onTap: () {
                     routeToPage(context, const SpeechProfilePage());
                     PlatformManager.instance.analytics.pageOpened('Profile Speech Profile');
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.identifyingOthers,
-                  icon: const FaIcon(FontAwesomeIcons.users, color: Color(0xFF8E8E93), size: 20),
+                  icon: FaIcon(FontAwesomeIcons.users, color: t.textSecondary, size: 20),
                   onTap: () {
                     routeToPage(context, const UserPeoplePage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildProfileStyleItem(
                   icon: FontAwesomeIcons.volumeHigh,
                   title: context.l10n.voiceResponseMode,
@@ -565,19 +580,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   onTap: _showVoiceResponseModeSheet,
                 ),
                 if (PlatformService.isAndroid) ...[
-                  const Divider(height: 1, color: Color(0xFF3C3C43)),
+                  Divider(height: 1, color: t.divider),
                   _buildProfileItem(
                     title: context.l10n.backgroundModeTitle,
-                    icon: const FaIcon(FontAwesomeIcons.towerBroadcast, color: Color(0xFF8E8E93), size: 20),
+                    icon: FaIcon(FontAwesomeIcons.towerBroadcast, color: t.textSecondary, size: 20),
                     showBetaTag: true,
                     chipValue: SharedPreferencesUtil().backgroundModeEnabled ? context.l10n.on : context.l10n.off,
                     onTap: _showBackgroundModeSheet,
                   ),
                 ],
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.transcribeLaterTitle,
-                  icon: const FaIcon(FontAwesomeIcons.floppyDisk, color: Color(0xFF8E8E93), size: 20),
+                  icon: FaIcon(FontAwesomeIcons.floppyDisk, color: t.textSecondary, size: 20),
                   showBetaTag: true,
                   chipValue: SharedPreferencesUtil().batchModeEnabled ? context.l10n.on : context.l10n.off,
                   onTap: _showOfflineModeSheet,
@@ -597,7 +612,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     return _buildProfileItem(
                       title: context.l10n.userId,
                       chipValue: truncatedUid,
-                      icon: const FaIcon(FontAwesomeIcons.solidClipboard, color: Color(0xFF8E8E93), size: 20),
+                      icon: FaIcon(FontAwesomeIcons.solidClipboard, color: t.textSecondary, size: 20),
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: uid));
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.userIdCopied)));
@@ -605,10 +620,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     );
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.deleteAccountTitle,
-                  icon: const FaIcon(FontAwesomeIcons.exclamationTriangle, color: Colors.red, size: 20),
+                  icon: FaIcon(FontAwesomeIcons.exclamationTriangle, color: t.error, size: 20),
                   onTap: () {
                     PlatformManager.instance.analytics.pageOpened('Profile Delete Account Dialog');
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const DeleteAccount()));

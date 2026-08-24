@@ -6,6 +6,7 @@ import 'package:omi/backend/preferences.dart';
 import 'package:omi/services/auth_service.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ChangeNameWidget extends StatefulWidget {
   const ChangeNameWidget({super.key});
@@ -36,8 +37,10 @@ class _ChangeNameWidgetState extends State<ChangeNameWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Dialog(
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -47,20 +50,20 @@ class _ChangeNameWidgetState extends State<ChangeNameWidget> {
           children: [
             Text(
               context.l10n.editName,
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            Text(context.l10n.howShouldOmiCallYou, style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+            Text(context.l10n.howShouldOmiCallYou, style: TextStyle(color: t.textSecondary, fontSize: 14)),
             const SizedBox(height: 20),
             Container(
-              decoration: BoxDecoration(color: const Color(0xFF2C2C2E), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
               child: TextField(
                 controller: nameController,
                 autofocus: true,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: TextStyle(color: t.textPrimary, fontSize: 16),
                 decoration: InputDecoration(
                   hintText: context.l10n.enterYourName,
-                  hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                  hintStyle: TextStyle(color: t.textSecondary, fontSize: 16),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -80,13 +83,13 @@ class _ChangeNameWidgetState extends State<ChangeNameWidget> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2E),
+                        color: t.bgTertiary,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(
                         child: Text(
                           context.l10n.cancel,
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
                         ),
                       ),
                     ),
