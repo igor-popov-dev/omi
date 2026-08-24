@@ -10,12 +10,12 @@ import database.notifications as notification_db
 import database.users as user_db
 from database.apps import record_app_usage
 from models.app import App, UsageHistoryType
-from models.chat import ChatSession, Message, ResponseMessage, MessageConversation
+from models.chat import ChatSession, Message, ResponseMessage
 from models.notification_message import NotificationMessage
 from models.transcript_segment import TranscriptSegment
 from utils.apps import get_available_app_by_id
 from utils.executors import db_executor, run_blocking, storage_executor, sync_executor
-from utils.conversation_helpers import extract_memory_ids
+from utils.conversation_helpers import extract_memory_ids, to_message_conversations
 from utils.conversations.factory import deserialize_conversation
 from utils.llm.chat import initial_chat_message
 from utils.llm.persona import initial_persona_chat_message
@@ -526,7 +526,18 @@ async def process_voice_message_segment_stream(
             await run_blocking(db_executor, chat_db.add_message_to_chat_session, uid, chat_session.id, ai_message.id)
 
         await run_blocking(db_executor, chat_db.add_message, uid, ai_message.model_dump())
-        ai_message.memories = [MessageConversation(**m) for m in (memories if len(memories) < 5 else memories[:5])]
+        # The reply is durable from here on. Citations are presentation-only, so a failure
+        # rendering them must not discard the persisted id and report the turn as a
+        # fallback (mirrors the app-usage guard in routers/chat.py).
+        try:
+            ai_message.memories = to_message_conversations(memories)
+        except Exception as citation_exc:
+            logger.error(
+                'voice_chat citation rendering failed for uid=%s message_id=%s: %s',
+                uid,
+                ai_message.id,
+                type(citation_exc).__name__,
+            )
 
         if app_id:
             await run_blocking(

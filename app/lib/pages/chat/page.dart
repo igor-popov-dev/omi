@@ -37,6 +37,7 @@ import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/providers/voice_recorder_provider.dart';
 import 'package:omi/services/integrations/apple_health_service.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/other/dictation_text.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/widgets/bottom_nav_bar.dart';
@@ -590,13 +591,23 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                     voiceRecorderProvider.isActive
                                                         ? VoiceRecorderWidget(
                                                             onTranscriptReady: (transcript, autoSend) {
-                                                              textController.text = transcript;
+                                                              // Merge into the draft rather than replacing it: the
+                                                              // recording may be a second thought added to text the
+                                                              // user typed or dictated a moment ago.
+                                                              textController.value =
+                                                                  insertDictation(textController.value, transcript);
                                                               voiceRecorderProvider.close();
                                                               context
                                                                   .read<MessageProvider>()
                                                                   .setNextMessageOriginIsVoice(true);
-                                                              if (autoSend && transcript.trim().isNotEmpty) {
-                                                                _sendMessageUtil(transcript.trim());
+                                                              final message = textController.text.trim();
+                                                              if (autoSend && message.isNotEmpty) {
+                                                                _sendMessageUtil(message);
+                                                              } else {
+                                                                // Keep the caret where the transcript ended and raise
+                                                                // the keyboard, so editing or dictating again starts
+                                                                // without hunting for the field.
+                                                                textFieldFocusNode.requestFocus();
                                                               }
                                                             },
                                                             onClose: () {
@@ -682,9 +693,9 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                   ),
                                                 ),
                                               // Microphone button — round white pill matching the send button.
-                                              if (!voiceRecorderProvider.isActive &&
-                                                  shouldShowVoiceRecorderButton() &&
-                                                  textController.text.isEmpty)
+                                              // Stays available with a draft in the field: a recording appends to
+                                              // it, so a message can be dictated in several takes.
+                                              if (!voiceRecorderProvider.isActive && shouldShowVoiceRecorderButton())
                                                 GestureDetector(
                                                   onTap: () {
                                                     HapticFeedback.lightImpact();
@@ -720,27 +731,32 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                         !provider.isUploadingFiles &&
                                                         connectivityProvider.isConnected;
 
-                                                    return GestureDetector(
-                                                      onTap: canSend
-                                                          ? () {
-                                                              HapticFeedback.mediumImpact();
-                                                              String message = textController.text.trim();
-                                                              if (message.isEmpty) return;
-                                                              _sendMessageUtil(message);
-                                                            }
-                                                          : null,
-                                                      child: Container(
-                                                        height: 38,
-                                                        width: 38,
-                                                        decoration: const BoxDecoration(
-                                                          color: Colors.white,
-                                                          shape: BoxShape.circle,
-                                                        ),
-                                                        child: const Center(
-                                                          child: FaIcon(
-                                                            FontAwesomeIcons.arrowUp,
-                                                            color: Color(0xFF1f1f25),
-                                                            size: 16,
+                                                    return Padding(
+                                                      // Separates Send from the mic, which now stays put
+                                                      // once the composer holds a draft.
+                                                      padding: const EdgeInsets.only(left: 8),
+                                                      child: GestureDetector(
+                                                        onTap: canSend
+                                                            ? () {
+                                                                HapticFeedback.mediumImpact();
+                                                                String message = textController.text.trim();
+                                                                if (message.isEmpty) return;
+                                                                _sendMessageUtil(message);
+                                                              }
+                                                            : null,
+                                                        child: Container(
+                                                          height: 38,
+                                                          width: 38,
+                                                          decoration: const BoxDecoration(
+                                                            color: Colors.white,
+                                                            shape: BoxShape.circle,
+                                                          ),
+                                                          child: const Center(
+                                                            child: FaIcon(
+                                                              FontAwesomeIcons.arrowUp,
+                                                              color: Color(0xFF1f1f25),
+                                                              size: 16,
+                                                            ),
                                                           ),
                                                         ),
                                                       ),
@@ -748,12 +764,22 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                   },
                                                 ),
                                               // Hands-free voice-mode toggle (ДОПОЛНЕНИЕ 22.08 п.1) —
-                                              // always rightmost, independent of the text/mic/send
-                                              // state above; hidden while the other voice-to-text
-                                              // flow (VoiceRecorderWidget) is active to avoid two
-                                              // competing voice UIs, and internally hidden unless the
+                                              // rightmost, hidden while the other voice-to-text flow
+                                              // (VoiceRecorderWidget) is active to avoid two competing
+                                              // voice UIs, and internally hidden unless the
                                               // `freeFormMode` dev flag is on.
-                                              if (!voiceRecorderProvider.isActive) const FreeFormVoiceModeButton(),
+                                              //
+                                              // Also stands down once the composer holds a draft (an
+                                              // ACTIVE session keeps its button — see the widget).
+                                              // Watches the controller because typing alone does not
+                                              // rebuild this page.
+                                              if (!voiceRecorderProvider.isActive)
+                                                ValueListenableBuilder<TextEditingValue>(
+                                                  valueListenable: textController,
+                                                  builder: (context, value, child) => FreeFormVoiceModeButton(
+                                                    composerHasDraft: value.text.trim().isNotEmpty,
+                                                  ),
+                                                ),
                                             ],
                                           ),
                                         ),

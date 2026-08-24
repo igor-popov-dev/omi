@@ -23,7 +23,15 @@ import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 
 class FreeFormVoiceModeButton extends StatelessWidget {
-  const FreeFormVoiceModeButton({super.key});
+  /// True when the chat composer holds a draft. An idle button stands down in
+  /// that case: with dictation appending to the draft, mic + Send are the two
+  /// controls the draft needs, and a third circle only eats the width they are
+  /// fighting for. An ACTIVE session keeps its button no matter what is in the
+  /// field — it is the only way to stop a per-minute-billed socket, and text
+  /// can appear (typed, dictated) while the session runs.
+  final bool composerHasDraft;
+
+  const FreeFormVoiceModeButton({super.key, this.composerHasDraft = false});
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +40,7 @@ class FreeFormVoiceModeButton extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: captureProvider.freeFormModeActive,
       builder: (context, active, _) {
+        if (!active && composerHasDraft) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(left: 8),
           child: GestureDetector(

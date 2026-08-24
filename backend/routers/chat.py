@@ -38,13 +38,12 @@ from models.chat import (
     SendMessageRequest,
     MessageSender,
     ResponseMessage,
-    MessageConversation,
     FileChat,
     RateMessageRequest,
     ShareChatMessagesRequest,
 )
 from utils.apps import get_available_app_by_id
-from utils.conversation_helpers import extract_memory_ids
+from utils.conversation_helpers import extract_memory_ids, to_message_conversations
 from utils.chat import (
     acquire_chat_session,
     emit_stream_error_fallback,
@@ -505,7 +504,17 @@ def send_message(
             chat_db.add_message_to_chat_session(uid, chat_session.id, ai_message.id)
 
         chat_db.add_message(uid, ai_message.model_dump())
-        ai_message.memories = [MessageConversation(**m) for m in (memories if len(memories) < 5 else memories[:5])]
+        # Message is already durable; citations are presentation-only and must not
+        # change the client-visible id (same contract as the app-usage guard below).
+        try:
+            ai_message.memories = to_message_conversations(memories)
+        except Exception as citation_exc:
+            logger.error(
+                'chat stream citation rendering failed for uid=%s message_id=%s: %s',
+                uid,
+                ai_message.id,
+                type(citation_exc).__name__,
+            )
         usage_app_id = app_id_from_app or compat_app_id
         if usage_app_id:
             try:

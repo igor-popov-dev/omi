@@ -1400,6 +1400,7 @@ class TestVoiceMessageRuntimeErrorHandling:
         sys.modules['database.apps'].record_app_usage = MagicMock()
         sys.modules['utils.apps'].get_available_app_by_id = MagicMock(return_value=None)
         sys.modules['utils.conversation_helpers'].extract_memory_ids = MagicMock(return_value=[])
+        sys.modules['utils.conversation_helpers'].to_message_conversations = MagicMock(return_value=[])
         sys.modules['utils.conversations.factory'].deserialize_conversation = MagicMock(return_value=None)
         sys.modules['utils.llm.chat'].initial_chat_message = MagicMock()
         sys.modules['utils.llm.persona'].initial_persona_chat_message = MagicMock()

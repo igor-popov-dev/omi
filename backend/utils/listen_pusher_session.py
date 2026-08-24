@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 else:
     WebSocketClientProtocol = Any
 
+from utils.llm.gateway_error_contract import PROVIDER_UNAVAILABLE_FAILURE_CODE as _PROVIDER_UNAVAILABLE_FAILURE_CODE
 from utils.metrics import PUSHER_CIRCUIT_BREAKER_REJECTIONS, PUSHER_SESSION_DEGRADED
 from utils.pusher import PusherCircuitBreakerOpen, connect_to_trigger_pusher
 
@@ -49,6 +50,7 @@ PENDING_REQUEST_RECOVERY_COOLDOWN = 300
 # lease is already finalizing this job reports the non-terminal `job_leased`
 # error. That is healthy in-flight work, not a failed attempt.
 FINALIZATION_IN_FLIGHT_ERROR = 'job_leased'
+PROVIDER_UNAVAILABLE_FAILURE_CODE = _PROVIDER_UNAVAILABLE_FAILURE_CODE
 
 
 @dataclass
@@ -321,6 +323,15 @@ class ListenPusherSession:
                             self.pending_conversation_requests.pop(conversation_id, None)
                             logger.error(
                                 f"Conversation processing failed terminally: {conversation_id} {self.uid} {self.session_id}"
+                            )
+                        elif result.get("error") == PROVIDER_UNAVAILABLE_FAILURE_CODE:
+                            # The provider is down for everyone, not just this
+                            # conversation. Re-requesting immediately would spend
+                            # the session's retry burst against an outage and
+                            # leave nothing for work that could still succeed, so
+                            # the entry waits out its normal pending timeout.
+                            logger.warning(
+                                f"Conversation finalization deferred, provider unavailable: {conversation_id} {self.uid} {self.session_id}"
                             )
                         elif result.get("error") == FINALIZATION_IN_FLIGHT_ERROR:
                             # Another dispatch of this same job holds a live lease

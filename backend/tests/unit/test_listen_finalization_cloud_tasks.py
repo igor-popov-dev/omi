@@ -976,6 +976,75 @@ async def test_pusher_dead_letters_a_job_that_exhausted_its_attempt_budget(monke
 
 
 @pytest.mark.anyio
+async def test_pusher_keeps_a_conversation_retryable_through_a_provider_outage(monkeypatch):
+    """A provider outage must never discard the customer's capture.
+
+    Dead-lettering marks the conversation `failed`/`discarded`, so it vanishes
+    from the app. The attempt budget exists to stop a payload that fails
+    deterministically; an outage fails every conversation alike and spends the
+    whole budget in minutes (three captures were hidden that way on 2026-08-24
+    while the chat provider was rate limited).
+    """
+    websocket = _PusherWebSocket()
+    retryable = MagicMock(return_value=True)
+    dead_letter = MagicMock(return_value=True)
+    monkeypatch.setattr(pusher_finalization, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(
+        jobs_db,
+        'claim_finalization_job',
+        lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 4, 'attempt_count': 9},
+    )
+    monkeypatch.setattr(jobs_db, 'mark_finalization_retryable', retryable)
+    monkeypatch.setattr(pusher_finalization, 'final_attempt_failed', dead_letter)
+    monkeypatch.setattr(pusher_finalization, 'get_listen_finalization_tasks_max_attempts', lambda: 5)
+    monkeypatch.setattr(
+        pusher_finalization,
+        'finalize_persisted_conversation',
+        AsyncMock(side_effect=ConversationFinalizationError('provider_unavailable')),
+    )
+
+    await pusher_finalization.process_conversation_task(
+        'uid-1', 'conversation-1', 'en', websocket, finalization_job_id='job-1', dispatch_generation=3
+    )
+
+    # Well past the budget (9 of 5) and still not terminal.
+    dead_letter.assert_not_called()
+    retryable.assert_called_once_with('job-1', 3, 4, 'provider_unavailable')
+    assert json.loads(websocket.sent[0][4:]) == {
+        'conversation_id': 'conversation-1',
+        'error': 'provider_unavailable',
+        'terminal': False,
+    }
+
+
+@pytest.mark.anyio
+async def test_pusher_still_dead_letters_a_payload_that_fails_deterministically(monkeypatch):
+    """The outage exemption is scoped to the outage code, nothing wider."""
+    websocket = _PusherWebSocket()
+    dead_letter = MagicMock(return_value=True)
+    monkeypatch.setattr(pusher_finalization, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(
+        jobs_db,
+        'claim_finalization_job',
+        lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 4, 'attempt_count': 5},
+    )
+    monkeypatch.setattr(jobs_db, 'mark_finalization_retryable', MagicMock(return_value=True))
+    monkeypatch.setattr(pusher_finalization, 'final_attempt_failed', dead_letter)
+    monkeypatch.setattr(pusher_finalization, 'get_listen_finalization_tasks_max_attempts', lambda: 5)
+    monkeypatch.setattr(
+        pusher_finalization,
+        'finalize_persisted_conversation',
+        AsyncMock(side_effect=ConversationFinalizationError('processing_failed')),
+    )
+
+    await pusher_finalization.process_conversation_task(
+        'uid-1', 'conversation-1', 'en', websocket, finalization_job_id='job-1', dispatch_generation=3
+    )
+
+    dead_letter.assert_called_once_with('job-1', 3, 4, 5)
+
+
+@pytest.mark.anyio
 async def test_pusher_lease_loss_never_terminalizes_a_newer_finalization_owner(monkeypatch):
     websocket = _PusherWebSocket()
     dead_letter = MagicMock(return_value=False)
