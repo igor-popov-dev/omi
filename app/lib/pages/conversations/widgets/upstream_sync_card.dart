@@ -50,6 +50,14 @@ class UpstreamSyncCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 _conflictSummary(status),
               ],
+              if (status.lastError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Последний прогон не состоялся (${status.lastErrorAt ?? '?'}): ${status.lastError}. '
+                  'Цифры выше — от предыдущего.',
+                  style: TextStyle(color: ResponsiveHelper.warningColor, fontSize: 12),
+                ),
+              ],
               if (provider.lastError != null) ...[
                 const SizedBox(height: 10),
                 Text(

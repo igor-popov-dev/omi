@@ -58,6 +58,12 @@ class UpstreamSyncStatus {
   final String? stamp;
   final String? started;
   final String? error;
+
+  /// Прогон, который не состоялся до начала работы (занято, нет сети). Цифры
+  /// при этом остались от прошлого удачного — плашка обязана сказать, что
+  /// свежесть под вопросом, а не молча стареть.
+  final String? lastError;
+  final String? lastErrorAt;
   final List<String> nextSteps;
   final List<UpstreamSyncConflict> files;
 
@@ -74,6 +80,8 @@ class UpstreamSyncStatus {
     this.stamp,
     this.started,
     this.error,
+    this.lastError,
+    this.lastErrorAt,
     this.nextSteps = const [],
     this.files = const [],
   });
@@ -94,6 +102,8 @@ class UpstreamSyncStatus {
         stamp: json['stamp'] as String?,
         started: json['started'] as String?,
         error: json['error'] as String?,
+        lastError: json['last_error'] as String?,
+        lastErrorAt: json['last_error_at'] as String?,
         nextSteps: ((json['next_steps'] ?? []) as List).map((e) => e.toString()).toList(),
         files: ((json['files'] ?? []) as List)
             .map((e) => UpstreamSyncConflict.fromJson(e as Map<String, dynamic>))

@@ -91,6 +91,11 @@ class SyncStatus(BaseModel):
     branch: Optional[str] = None
     base_ref: Optional[str] = None
     error: Optional[str] = None
+    # Прогон, который не состоялся ДО работы (занято, нет сети). Цифры при этом
+    # остаются от прошлого удачного прогона — врать «всё сломалось» нельзя, но и
+    # молчать нельзя: плашка иначе тихо стареет.
+    last_error: Optional[str] = None
+    last_error_at: Optional[str] = None
     next_steps: List[str] = []
     files: List[Dict[str, Any]] = []
 
@@ -133,6 +138,8 @@ def _to_status(raw: Dict[str, Any]) -> SyncStatus:
         branch=raw.get('branch'),
         base_ref=raw.get('base_ref'),
         error=raw.get('error'),
+        last_error=raw.get('last_error'),
+        last_error_at=raw.get('last_error_at'),
         next_steps=raw.get('next_steps') or [],
         files=[
             {

@@ -189,4 +189,24 @@ void main() {
 
     expect(find.textContaining('занято: другой мерж'), findsOneWidget);
   });
+
+  testWidgets('несостоявшийся ночной прогон не выдаёт старые цифры за свежие', (tester) async {
+    // Занятый репозиторий не должен затирать посчитанное отставание — но и
+    // молчать об этом нельзя, иначе плашка тихо стареет.
+    final provider = _StubSyncProvider(const UpstreamSyncStatus(
+      available: true,
+      running: false,
+      outcome: 'CONFLICTS',
+      needsAttention: true,
+      behind: 292,
+      lastError: 'синк уже идёт (замок)',
+      lastErrorAt: '2026-08-25 05:40',
+    ));
+
+    await _pump(tester, provider);
+
+    expect(find.text('−292'), findsOneWidget);
+    expect(find.textContaining('Последний прогон не состоялся'), findsOneWidget);
+    expect(find.textContaining('Цифры выше — от предыдущего'), findsOneWidget);
+  });
 }
