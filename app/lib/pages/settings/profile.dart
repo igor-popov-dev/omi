@@ -330,7 +330,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3A2A2A),
+                          color: t.isGlass ? t.error.withValues(alpha: 0.1) : const Color(0xFF3A2A2A),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -448,7 +448,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3A2A2A),
+                          color: t.isGlass ? t.error.withValues(alpha: 0.1) : const Color(0xFF3A2A2A),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(

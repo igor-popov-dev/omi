@@ -266,7 +266,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
           enabledBorder: InputBorder.none,
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.white24, width: 1),
+            borderSide: BorderSide(color: t.hairline, width: 1),
           ),
         ),
       ),

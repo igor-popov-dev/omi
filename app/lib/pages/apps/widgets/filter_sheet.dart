@@ -72,28 +72,28 @@ class FilterBottomSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Rating
-                      _buildSectionTitle(AppLocalizations.of(context).rating),
+                      _buildSectionTitle(context, AppLocalizations.of(context).rating),
                       const SizedBox(height: 12),
-                      _buildRatingSelector(provider),
+                      _buildRatingSelector(context, provider),
 
                       const SizedBox(height: 32),
 
                       // Categories
-                      _buildSectionTitle(AppLocalizations.of(context).categories),
+                      _buildSectionTitle(context, AppLocalizations.of(context).categories),
                       const SizedBox(height: 12),
                       _buildCategoryChips(context, provider),
 
                       const SizedBox(height: 32),
 
                       // Sort Options
-                      _buildSectionTitle(AppLocalizations.of(context).sortBy),
+                      _buildSectionTitle(context, AppLocalizations.of(context).sortBy),
                       const SizedBox(height: 12),
                       _buildSortOptions(context, provider),
 
                       const SizedBox(height: 32),
 
                       // Capabilities
-                      _buildSectionTitle(AppLocalizations.of(context).capabilities),
+                      _buildSectionTitle(context, AppLocalizations.of(context).capabilities),
                       const SizedBox(height: 12),
                       _buildCapabilities(context, provider),
 
@@ -166,14 +166,15 @@ class FilterBottomSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.omi.textPrimary),
     );
   }
 
-  Widget _buildRatingSelector(AppProvider provider) {
+  Widget _buildRatingSelector(BuildContext context, AppProvider provider) {
+    final t = context.omi;
     final ratings = ['1', '2', '3', '4', '5'];
 
     return Row(
@@ -194,7 +195,7 @@ class FilterBottomSheet extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.white.withValues(alpha: 0.22) : const Color(0xFF35343B),
+                color: isSelected ? t.rowFillHover : t.bgTertiary,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
@@ -203,7 +204,7 @@ class FilterBottomSheet extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: isSelected ? Colors.white : Colors.grey.shade400,
+                    color: isSelected ? t.textPrimary : t.textSecondary,
                   ),
                 ),
               ),

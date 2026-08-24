@@ -722,7 +722,9 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
           if (isFail)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: const Color(0xFF3A2A10), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                  color: t.isGlass ? t.warning.withValues(alpha: 0.12) : const Color(0xFF3A2A10),
+                  borderRadius: BorderRadius.circular(8)),
               child: Text('fail', style: TextStyle(color: t.warning, fontSize: 11)),
             )
           else if (isManual)

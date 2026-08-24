@@ -83,7 +83,7 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
                     hintText: context.l10n.writeYourReply,
                     hintStyle: TextStyle(color: t.textSecondary),
                     filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.3),
+                    fillColor: t.isGlass ? t.rowFill : Colors.black.withValues(alpha: 0.3),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.all(12),
                   ),

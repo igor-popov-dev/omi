@@ -1973,7 +1973,7 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
               hintText: context.l10n.writeReviewOptional,
               hintStyle: TextStyle(color: t.textSecondary),
               filled: true,
-              fillColor: Colors.black.withValues(alpha: 0.3),
+              fillColor: t.isGlass ? t.rowFill : Colors.black.withValues(alpha: 0.3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.all(12),
               counterStyle: TextStyle(color: t.textSecondary),

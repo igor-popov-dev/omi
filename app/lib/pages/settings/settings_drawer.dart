@@ -267,7 +267,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               width: MediaQuery.of(context).size.width * 0.7,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: t.isGlass ? t.bgSecondary : Colors.black87,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),

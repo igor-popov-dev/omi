@@ -226,7 +226,7 @@ class LanguageSelectionDialog {
                     backgroundColor: (t.isGlass ? t.accent : Colors.white),
                     disabledBackgroundColor: t.textTertiary,
                     foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
-                    disabledForegroundColor: Colors.black.withValues(alpha: 0.4),
+                    disabledForegroundColor: (t.isGlass ? t.onAccent : Colors.black).withValues(alpha: 0.4),
                   ),
                   child: Text(context.l10n.confirm),
                 ),
