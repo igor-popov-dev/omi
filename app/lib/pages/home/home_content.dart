@@ -23,7 +23,6 @@ import 'package:omi/providers/home_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/enums.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/utils/ui_guidelines.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
@@ -335,6 +334,7 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
   }
 
   Widget _buildDailyRecapsPreview(BuildContext context) {
+    final t = context.omi;
     const cardHeight = DailySummaryCard.height;
     if (_loadingSummaries) {
       return Padding(
@@ -348,12 +348,12 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
             itemBuilder: (_, __) => Padding(
               padding: const EdgeInsets.only(right: 12),
               child: ShimmerWithTimeout(
-                baseColor: AppStyles.backgroundSecondary,
-                highlightColor: AppStyles.backgroundTertiary,
+                baseColor: t.bgSecondary,
+                highlightColor: t.bgTertiary,
                 child: Container(
                   width: DailySummaryCard.width,
                   decoration: BoxDecoration(
-                    color: AppStyles.backgroundSecondary,
+                    color: t.bgSecondary,
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
@@ -465,6 +465,7 @@ class HomeConversationsPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     if (conversationProvider.isLoadingConversations && conversationProvider.conversations.isEmpty) {
       return SliverToBoxAdapter(
         child: Padding(
@@ -475,12 +476,12 @@ class HomeConversationsPreview extends StatelessWidget {
               (_) => Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: ShimmerWithTimeout(
-                  baseColor: AppStyles.backgroundSecondary,
-                  highlightColor: AppStyles.backgroundTertiary,
+                  baseColor: t.bgSecondary,
+                  highlightColor: t.bgTertiary,
                   child: Container(
                     height: 80,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundSecondary,
+                      color: t.bgSecondary,
                       borderRadius: BorderRadius.circular(24),
                     ),
                   ),

@@ -9,7 +9,6 @@ import 'package:omi/backend/schema/daily_summary.dart';
 import 'package:omi/pages/settings/daily_summary_detail_page.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/utils/ui_guidelines.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
 class DailySummariesList extends StatefulWidget {
@@ -162,6 +161,7 @@ class _DailySummariesListState extends State<DailySummariesList> {
   }
 
   Widget _buildLoadingShimmer() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -170,12 +170,12 @@ class _DailySummariesListState extends State<DailySummariesList> {
           (index) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: ShimmerWithTimeout(
-              baseColor: AppStyles.backgroundSecondary,
-              highlightColor: AppStyles.backgroundTertiary,
+              baseColor: t.bgSecondary,
+              highlightColor: t.bgTertiary,
               child: Container(
                 height: 80,
                 decoration: BoxDecoration(
-                  color: AppStyles.backgroundSecondary,
+                  color: t.bgSecondary,
                   borderRadius: BorderRadius.circular(24),
                 ),
               ),

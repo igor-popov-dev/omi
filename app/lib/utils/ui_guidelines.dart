@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 
 /// UI Guidelines to ensure consistent styling throughout the app
 /// Use this class for reference when creating new UI components
+///
+/// Superseded by the theme tokens in `lib/utils/theme/omi_tokens.dart`: these
+/// constants hard-code the Classic dark palette and cannot follow the Glass
+/// theme. Remaining call sites live in `lib/pages/memories/` and
+/// `lib/pages/apps/`, migrated by the T6/T7 waves.
+@Deprecated('Use context.omi tokens instead')
 class AppStyles {
   // Text Styles
   static const TextStyle title = TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white);
@@ -64,6 +70,10 @@ class AppStyles {
 }
 
 /// Theme extension to provide app styles as part of the theme
+///
+/// Superseded by `OmiTokens` (`lib/utils/theme/omi_tokens.dart`), which is the
+/// theme extension both themes actually register.
+@Deprecated('Use context.omi tokens instead')
 class AppTheme extends ThemeExtension<AppTheme> {
   final TextStyle title;
   final TextStyle subtitle;

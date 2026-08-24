@@ -26,7 +26,6 @@ import 'package:omi/providers/home_provider.dart';
 import 'package:omi/services/app_review_service.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
-import 'package:omi/utils/ui_guidelines.dart';
 import 'widgets/conversations_group_widget.dart';
 import 'widgets/conversation_list_item.dart';
 import 'widgets/date_list_item.dart';
@@ -356,12 +355,12 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
         children: [
           // Date header shimmer
           ShimmerWithTimeout(
-            baseColor: AppStyles.backgroundSecondary,
-            highlightColor: AppStyles.backgroundTertiary,
+            baseColor: t.bgSecondary,
+            highlightColor: t.bgTertiary,
             child: Container(
               width: 100,
               height: 16,
-              decoration: BoxDecoration(color: AppStyles.backgroundSecondary, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(8)),
             ),
           ),
           const SizedBox(height: 12),
@@ -371,12 +370,12 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
             (index) => Padding(
               padding: const EdgeInsets.only(bottom: 16.0),
               child: ShimmerWithTimeout(
-                baseColor: AppStyles.backgroundSecondary,
-                highlightColor: AppStyles.backgroundTertiary,
+                baseColor: t.bgSecondary,
+                highlightColor: t.bgTertiary,
                 child: Container(
                   height: 80,
                   decoration: BoxDecoration(
-                    color: AppStyles.backgroundSecondary,
+                    color: t.bgSecondary,
                     borderRadius: BorderRadius.circular(t.rowRadius),
                   ),
                 ),
@@ -492,13 +491,12 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
     return Padding(
       padding: const EdgeInsets.only(top: 16.0),
       child: ShimmerWithTimeout(
-        baseColor: AppStyles.backgroundSecondary,
-        highlightColor: AppStyles.backgroundTertiary,
+        baseColor: t.bgSecondary,
+        highlightColor: t.bgTertiary,
         child: Container(
           height: 60,
           margin: const EdgeInsets.symmetric(horizontal: 16.0),
-          decoration:
-              BoxDecoration(color: AppStyles.backgroundSecondary, borderRadius: BorderRadius.circular(t.rowRadius)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.rowRadius)),
         ),
       ),
     );
