@@ -9,6 +9,7 @@ import 'package:omi/pages/apps/add_app.dart';
 import 'package:omi/pages/apps/list_item.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ManageCreatePage extends StatelessWidget {
   const ManageCreatePage({super.key});
@@ -17,6 +18,8 @@ class ManageCreatePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, child) {
+        final t = context.omi;
+
         return CustomScrollView(
           slivers: [
             const SliverToBoxAdapter(child: SizedBox(height: 18)),
@@ -93,7 +96,7 @@ class ManageCreatePage extends StatelessWidget {
                               padding: const EdgeInsets.all(12.0),
                               margin: const EdgeInsets.only(left: 12.0, right: 12.0, top: 2, bottom: 24),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1F1F25),
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(16.0),
                               ),
                               child: ListTile(
@@ -101,7 +104,7 @@ class ManageCreatePage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(Icons.add, color: Colors.white),
+                                    Icon(Icons.add, color: t.textPrimary),
                                     const SizedBox(width: 8),
                                     Text(context.l10n.createAndSubmitNewApp, textAlign: TextAlign.center),
                                   ],

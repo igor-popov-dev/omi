@@ -5,12 +5,15 @@ import 'package:omi/pages/apps/add_app.dart';
 import 'package:omi/pages/apps/add_mcp_server_page.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CreateOptionsSheet extends StatelessWidget {
   const CreateOptionsSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
       decoration: BoxDecoration(
@@ -36,10 +39,10 @@ class CreateOptionsSheet extends StatelessWidget {
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               titleAlignment: ListTileTitleAlignment.center,
-              leading: const Icon(Icons.apps, color: Colors.white),
+              leading: Icon(Icons.apps, color: t.textPrimary),
               title: Text(
                 context.l10n.createAnApp,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: t.textPrimary),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -55,11 +58,11 @@ class CreateOptionsSheet extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: const Icon(Icons.cable, color: Colors.white),
+              leading: Icon(Icons.cable, color: t.textPrimary),
               titleAlignment: ListTileTitleAlignment.center,
               title: Text(
                 context.l10n.addMcpServer,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: t.textPrimary),
               ),
               onTap: () {
                 Navigator.pop(context);

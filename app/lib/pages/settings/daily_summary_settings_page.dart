@@ -9,6 +9,8 @@ import 'package:omi/backend/http/api/users.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DailySummarySettingsPage extends StatefulWidget {
   const DailySummarySettingsPage({super.key});
@@ -76,11 +78,13 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
   }
 
   Future<void> _showHourPicker() async {
+    final t = context.omi;
+
     if (!_enabled) return;
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         int tempHour = _selectedHour;
@@ -96,11 +100,11 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: Text(context.l10n.cancel, style: TextStyle(color: Colors.grey.shade400, fontSize: 16)),
+                        child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary, fontSize: 16)),
                       ),
                       Text(
                         context.l10n.selectTime,
-                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                       ),
                       TextButton(
                         onPressed: () {
@@ -109,7 +113,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
                         },
                         child: Text(
                           context.l10n.done,
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -130,7 +134,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
                           return Center(
                             child: Text(
                               '$hour12:00 $period',
-                              style: const TextStyle(color: Colors.white, fontSize: 20),
+                              style: TextStyle(color: t.textPrimary, fontSize: 20),
                             ),
                           );
                         }),
@@ -147,6 +151,8 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
   }
 
   Future<void> _showGenerateSummaryPicker() async {
+    final t = context.omi;
+
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -156,13 +162,13 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6366F1),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1C1C1E),
-              onSurface: Colors.white,
+            colorScheme: ColorScheme.dark(
+              primary: t.accent,
+              onPrimary: t.textPrimary,
+              surface: t.bgSecondary,
+              onSurface: t.textPrimary,
             ),
-            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1C1C1E)),
+            dialogTheme: DialogThemeData(backgroundColor: t.bgSecondary),
           ),
           child: child!,
         );
@@ -177,7 +183,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+        builder: (context) => Center(child: CircularProgressIndicator(color: t.textPrimary)),
       );
 
       final summaryId = await generateDailySummary(date: dateStr);
@@ -194,7 +200,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.l10n.summaryGeneratedForDate('${picked.month}/${picked.day}/${picked.year}')),
-            backgroundColor: Colors.green.shade700,
+            backgroundColor: t.success,
           ),
         );
       } else {
@@ -203,7 +209,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.l10n.failedToGenerateSummaryCheckConversations),
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: t.error,
           ),
         );
       }
@@ -212,6 +218,8 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
       appBar: AppBar(
@@ -220,8 +228,8 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
         elevation: 0,
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            color: const Color(0xFF1C1C1E),
+            icon: Icon(Icons.more_vert, color: t.textPrimary),
+            color: t.bgSecondary,
             onSelected: (value) {
               if (value == 'generate') {
                 _showGenerateSummaryPicker();
@@ -232,9 +240,9 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
                 value: 'generate',
                 child: Row(
                   children: [
-                    const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                    OmiIconWidget(icon: OmiIcon.sparkles, color: t.textPrimary, size: 20),
                     const SizedBox(width: 12),
-                    Text(context.l10n.generateSummary, style: const TextStyle(color: Colors.white)),
+                    Text(context.l10n.generateSummary, style: TextStyle(color: t.textPrimary)),
                   ],
                 ),
               ),
@@ -243,7 +251,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(child: CircularProgressIndicator(color: t.textPrimary))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -254,7 +262,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
                     padding: const EdgeInsets.only(bottom: 20),
                     child: Text(
                       context.l10n.dailySummaryDescription,
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.5),
+                      style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.5),
                     ),
                   ),
                   // Combined settings card
@@ -266,21 +274,23 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
   }
 
   Widget _buildSettingsCard() {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(
         children: [
           // Enable toggle row
           _buildSettingRow(
             icon: FontAwesomeIcons.bell,
             title: context.l10n.dailySummary,
-            trailing: Switch(value: _enabled, onChanged: _updateEnabled, activeThumbColor: const Color(0xFF6366F1)),
+            trailing: Switch(value: _enabled, onChanged: _updateEnabled, activeThumbColor: t.accent),
           ),
 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Divider(color: Colors.grey.shade800, height: 1),
+            child: Divider(color: t.textSecondary, height: 1),
           ),
 
           // Time selector row
@@ -298,10 +308,10 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
                   children: [
                     Text(
                       _formatHourDisplay(_selectedHour),
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+                      style: TextStyle(color: t.textSecondary, fontSize: 16),
                     ),
                     const SizedBox(width: 6),
-                    Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                   ],
                 ),
               ),
@@ -313,19 +323,21 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
   }
 
   Widget _buildSettingRow({required FaIconData icon, required String title, required Widget trailing}) {
+    final t = context.omi;
+
     return Row(
       children: [
         Container(
           width: 40,
           height: 40,
-          decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
-          child: Center(child: FaIcon(icon, color: Colors.grey.shade400, size: 16)),
+          decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
+          child: Center(child: FaIcon(icon, color: t.textSecondary, size: 16)),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ),
         trailing,

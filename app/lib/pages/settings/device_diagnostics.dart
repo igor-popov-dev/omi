@@ -16,6 +16,7 @@ import 'package:omi/services/bridges/ble_bridge.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/share_sheet.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class DeviceDiagnostics extends StatefulWidget {
   final String deviceId;
@@ -172,9 +173,11 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
   }
 
   Color _rssiColor(int rssi) {
-    if (rssi >= -60) return const Color(0xFF4CAF50);
-    if (rssi >= -75) return const Color(0xFFFFC107);
-    return const Color(0xFFF44336);
+    final t = context.omi;
+
+    if (rssi >= -60) return t.success;
+    if (rssi >= -75) return t.warning;
+    return t.error;
   }
 
   String _rssiQuality(int rssi) {
@@ -186,28 +189,30 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D0D0D),
+        backgroundColor: t.bgPrimary,
         title: Text(
           context.l10n.deviceDiagnostics,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+          icon: Icon(Icons.arrow_back_ios, color: t.textPrimary, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
             key: _shareButtonKey,
-            icon: const Icon(Icons.ios_share, color: Colors.white, size: 22),
+            icon: Icon(Icons.ios_share, color: t.textPrimary, size: 22),
             onPressed: _exportDiagnostics,
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(child: CircularProgressIndicator(color: t.textPrimary))
           : SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Column(
@@ -228,6 +233,8 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
   }
 
   Widget _buildStatusCards() {
+    final t = context.omi;
+
     final deviceProvider = context.watch<DeviceProvider>();
     final battery = deviceProvider.batteryLevel;
     final connectedAt = _diagnostics?.connectedAt ?? 0;
@@ -251,7 +258,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
                 icon: FontAwesomeIcons.arrowsRotate,
                 label: context.l10n.reconnections,
                 value: '$reconnections',
-                valueColor: reconnections > 5 ? const Color(0xFFF44336) : null,
+                valueColor: reconnections > 5 ? t.error : null,
               ),
             ),
           ],
@@ -292,27 +299,29 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
     Color? valueColor,
     String? subtitle,
   }) {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              FaIcon(icon, color: const Color(0xFF8E8E93), size: 14),
+              FaIcon(icon, color: t.textSecondary, size: 14),
               const SizedBox(width: 8),
-              Text(label, style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+              Text(label, style: TextStyle(color: t.textSecondary, fontSize: 13)),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(color: valueColor ?? Colors.white, fontSize: 22, fontWeight: FontWeight.w600),
+            style: TextStyle(color: valueColor ?? t.textPrimary, fontSize: 22, fontWeight: FontWeight.w600),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            Text(subtitle, style: TextStyle(color: valueColor ?? Colors.grey.shade400, fontSize: 12)),
+            Text(subtitle, style: TextStyle(color: valueColor ?? t.textSecondary, fontSize: 12)),
           ],
         ],
       ),
@@ -320,23 +329,25 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
   }
 
   Widget _buildRssiChart() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           context.l10n.signalStrength,
-          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 16),
         Container(
           height: 200,
           padding: const EdgeInsets.only(top: 16, right: 16, bottom: 8),
-          decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
           child: _rssiPoints.length < 2
               ? Center(
                   child: Text(
                     _rssiPoints.isEmpty ? context.l10n.noRssiDataYet : context.l10n.collectingData,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                    style: TextStyle(color: t.textSecondary, fontSize: 14),
                   ),
                 )
               : LineChart(_buildLineChartData()),
@@ -346,6 +357,8 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
   }
 
   LineChartData _buildLineChartData() {
+    final t = context.omi;
+
     final baseTime = _rssiPoints.first.time;
     final spots = _rssiPoints.asMap().entries.map((e) {
       final seconds = e.value.time.difference(baseTime).inMilliseconds / 1000.0;
@@ -360,7 +373,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
         show: true,
         drawVerticalLine: false,
         horizontalInterval: 25,
-        getDrawingHorizontalLine: (value) => FlLine(color: Colors.white.withValues(alpha: 0.06), strokeWidth: 1),
+        getDrawingHorizontalLine: (value) => FlLine(color: t.rowFill, strokeWidth: 1),
       ),
       titlesData: FlTitlesData(
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -371,7 +384,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
             reservedSize: 28,
             interval: _xInterval(maxX - minX),
             getTitlesWidget: (value, meta) {
-              return Text('${value.toInt()}s', style: TextStyle(color: Colors.grey.shade500, fontSize: 10));
+              return Text('${value.toInt()}s', style: TextStyle(color: t.textSecondary, fontSize: 10));
             },
           ),
         ),
@@ -381,7 +394,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
             reservedSize: 44,
             interval: 25,
             getTitlesWidget: (value, meta) {
-              return Text('${value.toInt()}', style: TextStyle(color: Colors.grey.shade500, fontSize: 10));
+              return Text('${value.toInt()}', style: TextStyle(color: t.textSecondary, fontSize: 10));
             },
           ),
         ),
@@ -393,7 +406,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
       maxX: maxX,
       lineTouchData: LineTouchData(
         touchTooltipData: LineTouchTooltipData(
-          getTooltipColor: (_) => const Color(0xFF2C2C34),
+          getTooltipColor: (_) => t.bgTertiary,
           getTooltipItems: (touchedSpots) {
             return touchedSpots.map((spot) {
               return LineTooltipItem(
@@ -409,7 +422,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
           spots: spots,
           isCurved: true,
           curveSmoothness: 0.2,
-          color: _rssiPoints.isNotEmpty ? _rssiColor(_rssiPoints.last.rssi) : Colors.white,
+          color: _rssiPoints.isNotEmpty ? _rssiColor(_rssiPoints.last.rssi) : t.textPrimary,
           barWidth: 2.5,
           isStrokeCapRound: true,
           dotData: const FlDotData(show: false),
@@ -437,12 +450,16 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
   }
 
   Color _batteryColor(int level) {
-    if (level > 50) return const Color(0xFF4CAF50);
-    if (level > 20) return const Color(0xFFFFC107);
-    return const Color(0xFFF44336);
+    final t = context.omi;
+
+    if (level > 50) return t.success;
+    if (level > 20) return t.warning;
+    return t.error;
   }
 
   Widget _buildBatteryChart() {
+    final t = context.omi;
+
     final now = DateTime.now().millisecondsSinceEpoch;
     final windowMs = _batteryDayView ? 24 * 3600 * 1000 : 7 * 24 * 3600 * 1000;
     final cutoff = now - windowMs;
@@ -455,11 +472,11 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
           children: [
             Text(
               context.l10n.batteryHistory,
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             Container(
-              decoration: BoxDecoration(color: const Color(0xFF2C2C2E), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
               child: Row(
                 children: [
                   _segmentButton(context.l10n.day, _batteryDayView, () => setState(() => _batteryDayView = true)),
@@ -473,12 +490,12 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
         Container(
           height: 200,
           padding: const EdgeInsets.only(top: 16, right: 16, bottom: 8),
-          decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
           child: points.length < 2
               ? Center(
                   child: Text(
                     context.l10n.noBatteryDataYet,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                    style: TextStyle(color: t.textSecondary, fontSize: 14),
                   ),
                 )
               : LineChart(_buildBatteryLineChartData(points)),
@@ -488,18 +505,20 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
   }
 
   Widget _segmentButton(String label, bool active, VoidCallback onTap) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF48484A) : Colors.transparent,
+          color: active ? t.divider : Colors.transparent,
           borderRadius: BorderRadius.circular(7),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: active ? Colors.white : Colors.grey.shade400,
+            color: active ? t.textPrimary : t.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -509,6 +528,8 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
   }
 
   LineChartData _buildBatteryLineChartData(List<BleBatteryPoint> points) {
+    final t = context.omi;
+
     final now = DateTime.now().millisecondsSinceEpoch;
     final spots = points.map((p) {
       final hoursAgo = (now - p.timestamp) / 3600000.0;
@@ -524,7 +545,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
         show: true,
         drawVerticalLine: false,
         horizontalInterval: 25,
-        getDrawingHorizontalLine: (value) => FlLine(color: Colors.white.withValues(alpha: 0.06), strokeWidth: 1),
+        getDrawingHorizontalLine: (value) => FlLine(color: t.rowFill, strokeWidth: 1),
       ),
       titlesData: FlTitlesData(
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -537,9 +558,9 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
             getTitlesWidget: (value, meta) {
               final h = value.abs();
               if (_batteryDayView) {
-                return Text('${h.toInt()}h', style: TextStyle(color: Colors.grey.shade500, fontSize: 10));
+                return Text('${h.toInt()}h', style: TextStyle(color: t.textSecondary, fontSize: 10));
               }
-              return Text('${(h / 24).toInt()}d', style: TextStyle(color: Colors.grey.shade500, fontSize: 10));
+              return Text('${(h / 24).toInt()}d', style: TextStyle(color: t.textSecondary, fontSize: 10));
             },
           ),
         ),
@@ -549,7 +570,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
             reservedSize: 36,
             interval: 25,
             getTitlesWidget: (value, meta) {
-              return Text('${value.toInt()}', style: TextStyle(color: Colors.grey.shade500, fontSize: 10));
+              return Text('${value.toInt()}', style: TextStyle(color: t.textSecondary, fontSize: 10));
             },
           ),
         ),
@@ -561,7 +582,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
       maxX: maxX,
       lineTouchData: LineTouchData(
         touchTooltipData: LineTouchTooltipData(
-          getTooltipColor: (_) => const Color(0xFF2C2C34),
+          getTooltipColor: (_) => t.bgTertiary,
           getTooltipItems: (touchedSpots) {
             return touchedSpots.map((spot) {
               final level = spot.y.toInt();
@@ -602,6 +623,8 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
   }
 
   Widget _buildDisconnectHistory() {
+    final t = context.omi;
+
     final history = _diagnostics?.disconnectHistory ?? [];
 
     return Column(
@@ -609,36 +632,36 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
       children: [
         Text(
           context.l10n.disconnectHistory,
-          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 4),
         Text(
           history.isEmpty ? context.l10n.noDisconnectsRecorded : context.l10n.lastNEvents(history.length),
-          style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+          style: TextStyle(color: t.textSecondary, fontSize: 14),
         ),
         const SizedBox(height: 16),
         if (history.isEmpty)
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
             child: Center(
               child: Column(
                 children: [
-                  FaIcon(FontAwesomeIcons.circleCheck, color: Colors.grey.shade600, size: 32),
+                  FaIcon(FontAwesomeIcons.circleCheck, color: t.textSecondary, size: 32),
                   const SizedBox(height: 12),
-                  Text(context.l10n.noDisconnectsRecorded, style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                  Text(context.l10n.noDisconnectsRecorded, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                 ],
               ),
             ),
           )
         else
           Container(
-            decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
             child: Column(
               children: [
                 for (int i = history.length - 1; i >= 0; i--) ...[
                   _buildDisconnectRow(history[i]),
-                  if (i > 0) const Divider(height: 1, color: Color(0xFF3C3C43)),
+                  if (i > 0) Divider(height: 1, color: t.divider),
                 ],
               ],
             ),
@@ -648,13 +671,15 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
   }
 
   Widget _buildDisconnectRow(BleDisconnectEvent event) {
+    final t = context.omi;
+
     final time = DateTime.fromMillisecondsSinceEpoch(event.timestamp);
     final timeStr = DateFormat('MMM d, HH:mm:ss').format(time);
     final isManual = event.isManual;
     final isFail = event.eventType == 'fail_to_connect';
     final reason = _formatReason(event.reason);
 
-    final Color dot = isManual ? const Color(0xFF8E8E93) : (isFail ? const Color(0xFFFF9500) : const Color(0xFFF44336));
+    final Color dot = isManual ? t.textSecondary : (isFail ? t.warning : t.error);
 
     final metaParts = <String>[];
     if (event.rssiTrend.isNotEmpty) metaParts.add(event.rssiTrend);
@@ -683,13 +708,13 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
               children: [
                 Text(
                   reason,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w400),
+                  style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w400),
                 ),
                 const SizedBox(height: 2),
-                Text(timeStr, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                Text(timeStr, style: TextStyle(color: t.textSecondary, fontSize: 12)),
                 if (metaParts.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(metaParts.join(' · '), style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                  Text(metaParts.join(' · '), style: TextStyle(color: t.textSecondary, fontSize: 11)),
                 ],
               ],
             ),
@@ -697,14 +722,16 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
           if (isFail)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: const Color(0xFF3A2A10), borderRadius: BorderRadius.circular(8)),
-              child: const Text('fail', style: TextStyle(color: Color(0xFFFF9500), fontSize: 11)),
+              decoration: BoxDecoration(
+                  color: t.isGlass ? t.warning.withValues(alpha: 0.12) : const Color(0xFF3A2A10),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text('fail', style: TextStyle(color: t.warning, fontSize: 11)),
             )
           else if (isManual)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(8)),
-              child: Text(context.l10n.manual, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 11)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
+              child: Text(context.l10n.manual, style: TextStyle(color: t.textSecondary, fontSize: 11)),
             ),
         ],
       ),

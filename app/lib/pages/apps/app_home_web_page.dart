@@ -7,6 +7,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/backend/schema/app.dart';
 import 'package:omi/utils/browser.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AppHomeWebPage extends StatefulWidget {
   final App app;
@@ -48,10 +49,13 @@ class _AppHomeWebPageState extends State<AppHomeWebPage> with SingleTickerProvid
             setState(() {
               _isLoading = false;
             });
+            // Resolved in the callback, not in initState: inherited widgets
+            // are not available while initState is still running.
+            final t = context.omi;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Failed to load page: ${error.description}', style: const TextStyle(color: Colors.white)),
-                backgroundColor: Colors.red,
+                content: Text('Failed to load page: ${error.description}', style: TextStyle(color: t.textPrimary)),
+                backgroundColor: t.error,
                 duration: const Duration(seconds: 3),
                 behavior: SnackBarBehavior.floating,
                 margin: EdgeInsets.only(bottom: MediaQuery.of(context).size.height - 100, left: 20, right: 20),
@@ -67,8 +71,10 @@ class _AppHomeWebPageState extends State<AppHomeWebPage> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: t.bgPrimary,
       body: SlideTransition(
         position: _slideAnimation,
         child: SafeArea(
@@ -84,9 +90,9 @@ class _AppHomeWebPageState extends State<AppHomeWebPage> with SingleTickerProvid
               ),
               if (_isLoading)
                 Container(
-                  color: Colors.black,
-                  child: const Center(
-                    child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                  color: t.bgPrimary,
+                  child: Center(
+                    child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
                   ),
                 ),
               Positioned(
@@ -107,10 +113,10 @@ class _AppHomeWebPageState extends State<AppHomeWebPage> with SingleTickerProvid
                     child: Column(
                       mainAxisSize: MainAxisSize.max,
                       children: [
-                        const Icon(Icons.keyboard_double_arrow_down, color: Colors.white, size: 24),
+                        Icon(Icons.keyboard_double_arrow_down, color: t.textPrimary, size: 24),
                         Text(
                           "${widget.app.name}'s App Details",
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: TextStyle(color: t.textPrimary, fontSize: 12),
                         ),
                       ],
                     ),

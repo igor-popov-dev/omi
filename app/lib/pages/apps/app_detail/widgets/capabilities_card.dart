@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:omi/backend/schema/app.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CapabilitiesCard extends StatelessWidget {
   final List<AppCapability> capabilities;
@@ -35,6 +36,8 @@ class CapabilitiesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     if (capabilities.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -49,15 +52,15 @@ class CapabilitiesCard extends StatelessWidget {
         bottom: 6,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F1F25).withValues(alpha: 0.8),
+        color: t.textSecondary,
         borderRadius: BorderRadius.circular(16.0),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Capabilities',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
           Wrap(

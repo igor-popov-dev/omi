@@ -6,6 +6,7 @@ import 'package:omi/pages/apps/app_detail/app_detail.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ExternalIntegrationsSection extends StatelessWidget {
   const ExternalIntegrationsSection({super.key});
@@ -14,6 +15,8 @@ class ExternalIntegrationsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
+        final t = context.omi;
+
         final enabledExternalApps = appProvider.apps.where((app) => app.enabled && app.worksExternally()).toList();
 
         return Column(
@@ -21,23 +24,23 @@ class ExternalIntegrationsSection extends StatelessWidget {
           children: [
             Text(
               context.l10n.externalAppAccess,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text(context.l10n.externalAppAccessDescription, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+            Text(context.l10n.externalAppAccessDescription, style: TextStyle(color: t.textSecondary, fontSize: 14)),
             const SizedBox(height: 16),
             if (enabledExternalApps.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 24.0),
-                decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
                 child: Center(
-                  child: Text(context.l10n.noExternalAppsHaveAccess, style: const TextStyle(color: Colors.grey)),
+                  child: Text(context.l10n.noExternalAppsHaveAccess, style: TextStyle(color: t.textSecondary)),
                 ),
               )
             else
               Container(
-                decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
                 child: ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -53,7 +56,7 @@ class ExternalIntegrationsSection extends StatelessWidget {
                       },
                     );
                   },
-                  separatorBuilder: (context, index) => const Divider(height: 1, color: Colors.grey),
+                  separatorBuilder: (context, index) => Divider(height: 1, color: t.textSecondary),
                 ),
               ),
           ],
