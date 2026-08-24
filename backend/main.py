@@ -103,6 +103,7 @@ from utils.executors import (
 from utils.executors import start_background_task
 from utils.cloud_tasks import validate_account_deletion_dispatch_configuration
 from services.conversation_finalization import reconcile_listen_finalization_jobs
+from services.conversation_finalization import recover_stale_finalization_jobs
 from services.conversation_finalization import reconcile_meeting_receipts
 from services.conversation_finalization import reconcile_stale_processing_conversations
 from services.users.account_deletion import reconcile_pending_deletion_wipes
@@ -285,6 +286,13 @@ async def startup_event():
         run_blocking(db_executor, _drain_listen_finalization_jobs),
         name='startup_listen_finalization_reconcile',
     )
+    # A restart is exactly what strands an in-process finalization: the session
+    # that owned the lease is gone. On deployments without a durable queue this
+    # is the only thing that reclaims it (no-op where Cloud Tasks replays).
+    start_background_task(
+        _drain_in_process_finalization_jobs(),
+        name='startup_in_process_finalization_recovery',
+    )
     start_background_task(
         run_blocking(db_executor, _drain_stale_processing_conversations),
         name='startup_stale_processing_reconcile',
@@ -332,6 +340,16 @@ def _drain_listen_finalization_jobs():
         logger.error(f"Startup listen-finalization reconciliation failed: {e}")
 
 
+async def _drain_in_process_finalization_jobs():
+    """Best-effort in-process replay of leases stranded by the previous run."""
+    try:
+        result = await recover_stale_finalization_jobs()
+        if result.get('recovered') or result.get('failed'):
+            logger.info(f"Startup in-process finalization recovery: {result}")
+    except Exception as e:
+        logger.error(f"Startup in-process finalization recovery failed: {e}")
+
+
 def _drain_stale_processing_conversations():
     """Best-effort recovery of bare-`processing` conversations orphaned by a sync-route crash."""
     try:
@@ -373,6 +391,12 @@ async def _periodic_listen_finalization_reconcile(interval_seconds: int | None =
                 logger.info(f"Periodic listen-finalization reconciliation: {result}")
         except Exception as e:
             logger.error(f"Periodic listen-finalization reconciliation failed: {e}")
+        try:
+            recovered = await recover_stale_finalization_jobs()
+            if recovered.get('recovered') or recovered.get('failed'):
+                logger.info(f"Periodic in-process finalization recovery: {recovered}")
+        except Exception as e:
+            logger.error(f"Periodic in-process finalization recovery failed: {e}")
         try:
             stale_result = await run_blocking(db_executor, reconcile_stale_processing_conversations)
             if stale_result.get('completed') or stale_result.get('migrated'):

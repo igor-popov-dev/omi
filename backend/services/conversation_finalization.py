@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import logging
 import os
+from functools import partial
 from typing import Any
 
 from google.api_core.exceptions import InvalidArgument
 
 from database import conversation_finalization_jobs as jobs_db
 from database._client import is_document_size_limit_error
+from utils.executors import db_executor, run_blocking
 from utils.cloud_tasks import (
     enqueue_listen_finalization_job,
     get_listen_finalization_tasks_max_attempts,
@@ -150,6 +152,96 @@ def reconcile_listen_finalization_jobs(limit: int = 100, *, firestore_client: An
         result['requeued'] += 1
         record_capture_finalization_reconciliation('requeued')
         LISTEN_FINALIZATION_RETRIES_TOTAL.inc()
+
+    _publish_job_metrics(firestore_client=firestore_client)
+    return result
+
+
+async def _run_finalization_job(job_id: str, dispatch_generation: int) -> Any:
+    """Seam over the shared executor, imported late to break the module cycle.
+
+    The executor imports this module for its retry budget, so it cannot be
+    imported at module scope here.
+    """
+    from services.listen_finalization_worker import execute_finalization_job
+
+    return await execute_finalization_job(job_id, dispatch_generation)
+
+
+async def recover_stale_finalization_jobs(limit: int = 100, *, firestore_client: Any = None) -> dict[str, int]:
+    """Run stale platform-key jobs here, for deployments with no durable queue.
+
+    ``reconcile_listen_finalization_jobs`` replays a stale lease by enqueueing a
+    Cloud Task, so it can only run where Cloud Tasks is configured. Below that,
+    finalization is executed by the live pusher session (``route='pusher'``), and
+    a session lost to a crash or deploy leaves its job ``leased`` with nobody to
+    reclaim it once the lease expires. ``reconcile_stale_processing_conversations``
+    does not cover those rows -- by construction it only sweeps conversations with
+    no job at all -- so without this sweep the conversation never finalizes and the
+    user simply never gets a title, summary or action items.
+
+    This is the same replay, executed in-process instead of enqueued. It runs only
+    where the durable queue does not, so the two can never double-drive a job.
+
+    BYOK jobs are excluded before they reach here: the data layer withholds
+    ``reconcile_after_at`` from them precisely so a credential-free reconciler
+    cannot pick them up, and ``claim_finalization_job`` fences them a second time.
+    """
+    result: dict[str, int] = {'recovered': 0, 'skipped': 0, 'failed': 0}
+    if is_listen_finalization_dispatch_enabled():
+        return result
+
+    stale_after = jobs_db.get_finalization_reconcile_stale_after()
+    try:
+        candidates = await run_blocking(
+            db_executor,
+            partial(jobs_db.get_finalization_replay_candidates, limit=limit, firestore_client=firestore_client),
+        )
+    except Exception:
+        logger.exception('in-process finalization recovery query failed')
+        _publish_job_metrics(firestore_client=firestore_client)
+        return result | {'error': 1}
+
+    for candidate in candidates:
+        job_id = candidate.get('job_id')
+        if not isinstance(job_id, str) or not job_id:
+            result['skipped'] += 1
+            continue
+        try:
+            claimed = await run_blocking(
+                db_executor,
+                partial(
+                    jobs_db.claim_finalization_replay,
+                    job_id,
+                    stale_after=stale_after,
+                    firestore_client=firestore_client,
+                ),
+            )
+        except Exception:
+            logger.exception('in-process finalization recovery claim failed job=%s', job_id)
+            result['skipped'] += 1
+            continue
+        # Losing the replay CAS means the job is owned again; re-running it here
+        # would duplicate the work the current owner is already doing.
+        if claimed['status'] != 'queued' or claimed['dispatch_generation'] is None:
+            result['skipped'] += 1
+            continue
+
+        record_capture_finalization_reconciliation('requeued')
+        LISTEN_FINALIZATION_RETRIES_TOTAL.inc()
+        try:
+            run = await _run_finalization_job(job_id, int(claimed['dispatch_generation']))
+        except Exception:
+            # One unrecoverable job must not stop the sweep from freeing the rest.
+            logger.exception('in-process finalization recovery run failed job=%s', job_id)
+            result['failed'] += 1
+            continue
+        if run.status in {'done', 'acked', 'dead_letter', 'skipped', 'dropped'}:
+            result['recovered'] += 1
+        else:
+            # 'retry', 'locked' and the fencing outcomes leave the job actionable;
+            # counting them recovered would hide a backlog that is still stuck.
+            result['failed'] += 1
 
     _publish_job_metrics(firestore_client=firestore_client)
     return result

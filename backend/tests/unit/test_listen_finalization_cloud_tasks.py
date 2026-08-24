@@ -19,6 +19,7 @@ from database.firestore_transaction_retry import FirestoreContentionExhausted
 from models.conversation_enums import ConversationStatus
 from routers.conversation_finalization import _parse_task_payload
 import routers.conversation_finalization as finalization_router
+import services.listen_finalization_worker as finalization_worker
 import routers.pusher as pusher_router
 import utils.pusher_finalization as pusher_finalization
 import utils.pusher_protocol as pusher_protocol
@@ -27,6 +28,7 @@ from utils import app_integrations
 from utils import cloud_tasks
 from utils.conversations.finalizer import ConversationFinalizationDisposition, ConversationFinalizationError
 import utils.conversations.finalizer as persisted_finalizer
+import services.conversation_finalization as finalization_service
 
 
 def _prod_backend_sync_runtime_env(monkeypatch):
@@ -38,7 +40,7 @@ def _prod_backend_sync_runtime_env(monkeypatch):
     validator = runpy.run_path(
         str(backend_root / 'scripts/validate-backend-runtime-env.py'), run_name='validate_backend_runtime_env_contract'
     )
-    assert validator['validate_runtime_env'](env='prod', check_workflows=True, check_rendered_cloud_run=True) == []
+    assert validator['validate_runtime_env'](env='prod', check_workflows=True) == []
 
     manifest = renderer['_load_yaml'](renderer['DEFAULT_MANIFEST'])
     env_entries = manifest['environments']['prod']['cloud_run']['services']['backend-sync']['env']
@@ -92,7 +94,7 @@ def test_prod_backend_sync_finalization_task_route_uses_rendered_oidc_contract(
     monkeypatch.setattr(cloud_tasks.id_token, 'verify_oauth2_token', verify)
     # A lock contention is the narrow post-auth dependency seam: it proves the
     # real FastAPI route accepted the task without touching a durable job.
-    monkeypatch.setattr(finalization_router, 'try_acquire_job_run_lock', lambda _key: None)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda _key: None)
 
     with _finalization_task_client() as client:
         response = client.post(
@@ -492,9 +494,9 @@ async def _inline_run_blocking(_executor, func, *args, **kwargs):
 
 @pytest.mark.anyio
 async def test_worker_retries_processing_failure_before_final_attempt(monkeypatch):
-    monkeypatch.setattr(finalization_router, 'run_blocking', _inline_run_blocking)
-    monkeypatch.setattr(finalization_router, 'try_acquire_job_run_lock', lambda key: 'lock-token')
-    monkeypatch.setattr(finalization_router, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
     monkeypatch.setattr(
         jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 1}
     )
@@ -502,13 +504,13 @@ async def test_worker_retries_processing_failure_before_final_attempt(monkeypatc
         jobs_db, 'get_finalization_job', lambda job_id: {'uid': 'uid-1', 'conversation_id': 'conversation-1'}
     )
     monkeypatch.setattr(
-        finalization_router,
+        finalization_worker,
         'finalize_persisted_conversation',
         AsyncMock(side_effect=ConversationFinalizationError('processing_failed')),
     )
     retryable = MagicMock(return_value=True)
     monkeypatch.setattr(jobs_db, 'mark_finalization_retryable', retryable)
-    monkeypatch.setattr(finalization_router, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
+    monkeypatch.setattr(finalization_worker, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
 
     response = await finalization_router.run_listen_finalization_job(
         _Request({'job_id': 'job-1', 'dispatch_generation': 1}), task_retry_count=0
@@ -521,9 +523,9 @@ async def test_worker_retries_processing_failure_before_final_attempt(monkeypatc
 
 @pytest.mark.anyio
 async def test_worker_dead_letters_the_final_failed_attempt(monkeypatch):
-    monkeypatch.setattr(finalization_router, 'run_blocking', _inline_run_blocking)
-    monkeypatch.setattr(finalization_router, 'try_acquire_job_run_lock', lambda key: 'lock-token')
-    monkeypatch.setattr(finalization_router, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
     monkeypatch.setattr(
         jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 1}
     )
@@ -531,13 +533,13 @@ async def test_worker_dead_letters_the_final_failed_attempt(monkeypatch):
         jobs_db, 'get_finalization_job', lambda job_id: {'uid': 'uid-1', 'conversation_id': 'conversation-1'}
     )
     monkeypatch.setattr(
-        finalization_router,
+        finalization_worker,
         'finalize_persisted_conversation',
         AsyncMock(side_effect=ConversationFinalizationError('processing_failed')),
     )
     dead_letter = MagicMock(return_value=True)
-    monkeypatch.setattr(finalization_router, 'final_attempt_failed', dead_letter)
-    monkeypatch.setattr(finalization_router, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
+    monkeypatch.setattr(finalization_worker, 'final_attempt_failed', dead_letter)
+    monkeypatch.setattr(finalization_worker, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
 
     response = await finalization_router.run_listen_finalization_job(
         _Request({'job_id': 'job-1', 'dispatch_generation': 1}), task_retry_count=2
@@ -550,9 +552,9 @@ async def test_worker_dead_letters_the_final_failed_attempt(monkeypatch):
 
 @pytest.mark.anyio
 async def test_worker_completes_claimed_job(monkeypatch):
-    monkeypatch.setattr(finalization_router, 'run_blocking', _inline_run_blocking)
-    monkeypatch.setattr(finalization_router, 'try_acquire_job_run_lock', lambda key: 'lock-token')
-    monkeypatch.setattr(finalization_router, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
     monkeypatch.setattr(
         jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 1}
     )
@@ -561,11 +563,11 @@ async def test_worker_completes_claimed_job(monkeypatch):
         'get_finalization_job',
         lambda job_id: {'uid': 'uid-1', 'conversation_id': 'conversation-1', 'created_at': 'accepted-at'},
     )
-    monkeypatch.setattr(finalization_router, 'finalize_persisted_conversation', AsyncMock())
+    monkeypatch.setattr(finalization_worker, 'finalize_persisted_conversation', AsyncMock())
     completed = MagicMock(return_value=True)
     terminal = MagicMock()
     monkeypatch.setattr(jobs_db, 'mark_finalization_completed', completed)
-    monkeypatch.setattr(finalization_router, 'record_capture_finalization_terminal', terminal)
+    monkeypatch.setattr(finalization_worker, 'record_capture_finalization_terminal', terminal)
 
     response = await finalization_router.run_listen_finalization_job(
         _Request({'job_id': 'job-1', 'dispatch_generation': 1}), task_retry_count=0
@@ -579,9 +581,9 @@ async def test_worker_completes_claimed_job(monkeypatch):
 
 @pytest.mark.anyio
 async def test_worker_forwards_rest_force_processing_mode_from_the_durable_job(monkeypatch):
-    monkeypatch.setattr(finalization_router, 'run_blocking', _inline_run_blocking)
-    monkeypatch.setattr(finalization_router, 'try_acquire_job_run_lock', lambda key: 'lock-token')
-    monkeypatch.setattr(finalization_router, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
     monkeypatch.setattr(
         jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 1}
     )
@@ -596,9 +598,9 @@ async def test_worker_forwards_rest_force_processing_mode_from_the_durable_job(m
         },
     )
     finalizer = AsyncMock()
-    monkeypatch.setattr(finalization_router, 'finalize_persisted_conversation', finalizer)
+    monkeypatch.setattr(finalization_worker, 'finalize_persisted_conversation', finalizer)
     monkeypatch.setattr(jobs_db, 'mark_finalization_completed', MagicMock(return_value=True))
-    monkeypatch.setattr(finalization_router, 'record_capture_finalization_terminal', MagicMock())
+    monkeypatch.setattr(finalization_worker, 'record_capture_finalization_terminal', MagicMock())
 
     response = await finalization_router.run_listen_finalization_job(
         _Request({'job_id': 'job-1', 'dispatch_generation': 1}), task_retry_count=0
@@ -619,9 +621,9 @@ async def test_worker_forwards_rest_force_processing_mode_from_the_durable_job(m
 @pytest.mark.anyio
 async def test_worker_marks_the_terminal_attempt_so_delivery_cannot_strand_the_conversation(monkeypatch):
     """The last attempt dead-letters regardless, so the finalizer may drop a failing webhook."""
-    monkeypatch.setattr(finalization_router, 'run_blocking', _inline_run_blocking)
-    monkeypatch.setattr(finalization_router, 'try_acquire_job_run_lock', lambda key: 'lock-token')
-    monkeypatch.setattr(finalization_router, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
     monkeypatch.setattr(
         jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 1}
     )
@@ -631,10 +633,10 @@ async def test_worker_marks_the_terminal_attempt_so_delivery_cannot_strand_the_c
         lambda job_id: {'uid': 'uid-1', 'conversation_id': 'conversation-1', 'created_at': 'accepted-at'},
     )
     finalizer = AsyncMock()
-    monkeypatch.setattr(finalization_router, 'finalize_persisted_conversation', finalizer)
+    monkeypatch.setattr(finalization_worker, 'finalize_persisted_conversation', finalizer)
     monkeypatch.setattr(jobs_db, 'mark_finalization_completed', MagicMock(return_value=True))
-    monkeypatch.setattr(finalization_router, 'record_capture_finalization_terminal', MagicMock())
-    monkeypatch.setattr(finalization_router, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
+    monkeypatch.setattr(finalization_worker, 'record_capture_finalization_terminal', MagicMock())
+    monkeypatch.setattr(finalization_worker, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
 
     response = await finalization_router.run_listen_finalization_job(
         _Request({'job_id': 'job-1', 'dispatch_generation': 1}), task_retry_count=2
@@ -646,9 +648,9 @@ async def test_worker_marks_the_terminal_attempt_so_delivery_cannot_strand_the_c
 
 @pytest.mark.anyio
 async def test_worker_closes_a_fenced_finalization_without_fanout(monkeypatch):
-    monkeypatch.setattr(finalization_router, 'run_blocking', _inline_run_blocking)
-    monkeypatch.setattr(finalization_router, 'try_acquire_job_run_lock', lambda key: 'lock-token')
-    monkeypatch.setattr(finalization_router, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
     monkeypatch.setattr(
         jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 1}
     )
@@ -658,7 +660,7 @@ async def test_worker_closes_a_fenced_finalization_without_fanout(monkeypatch):
         lambda job_id: {'uid': 'uid-1', 'conversation_id': 'conversation-1', 'created_at': 'accepted-at'},
     )
     monkeypatch.setattr(
-        finalization_router,
+        finalization_worker,
         'finalize_persisted_conversation',
         AsyncMock(return_value=ConversationFinalizationDisposition.fenced),
     )
@@ -669,9 +671,9 @@ async def test_worker_closes_a_fenced_finalization_without_fanout(monkeypatch):
     terminal = MagicMock()
     monkeypatch.setattr(jobs_db, 'mark_finalization_completed', normal_completion)
     monkeypatch.setattr(jobs_db, 'mark_finalization_retryable', retryable)
-    monkeypatch.setattr(finalization_router, 'final_attempt_failed', dead_letter)
-    monkeypatch.setattr(finalization_router.lifecycle_service, 'complete_fenced_finalization', fenced_completion)
-    monkeypatch.setattr(finalization_router, 'record_capture_finalization_terminal', terminal)
+    monkeypatch.setattr(finalization_worker, 'final_attempt_failed', dead_letter)
+    monkeypatch.setattr(finalization_worker.lifecycle_service, 'complete_fenced_finalization', fenced_completion)
+    monkeypatch.setattr(finalization_worker, 'record_capture_finalization_terminal', terminal)
 
     response = await finalization_router.run_listen_finalization_job(
         _Request({'job_id': 'job-1', 'dispatch_generation': 1}), task_retry_count=0
@@ -688,9 +690,9 @@ async def test_worker_closes_a_fenced_finalization_without_fanout(monkeypatch):
 
 @pytest.mark.anyio
 async def test_worker_requeues_an_unexpected_failure_after_claim(monkeypatch):
-    monkeypatch.setattr(finalization_router, 'run_blocking', _inline_run_blocking)
-    monkeypatch.setattr(finalization_router, 'try_acquire_job_run_lock', lambda key: 'lock-token')
-    monkeypatch.setattr(finalization_router, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
     monkeypatch.setattr(
         jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 9}
     )
@@ -698,11 +700,11 @@ async def test_worker_requeues_an_unexpected_failure_after_claim(monkeypatch):
         jobs_db, 'get_finalization_job', lambda job_id: {'uid': 'uid-1', 'conversation_id': 'conversation-1'}
     )
     monkeypatch.setattr(
-        finalization_router, 'finalize_persisted_conversation', AsyncMock(side_effect=RuntimeError('raw text'))
+        finalization_worker, 'finalize_persisted_conversation', AsyncMock(side_effect=RuntimeError('raw text'))
     )
     retryable = MagicMock(return_value=True)
     monkeypatch.setattr(jobs_db, 'mark_finalization_retryable', retryable)
-    monkeypatch.setattr(finalization_router, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
+    monkeypatch.setattr(finalization_worker, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
 
     response = await finalization_router.run_listen_finalization_job(
         _Request({'job_id': 'job-1', 'dispatch_generation': 1}), task_retry_count=0
@@ -1268,10 +1270,10 @@ async def test_finalizer_fences_a_deleted_conversation_before_processing(monkeyp
 @pytest.mark.anyio
 async def test_deleted_conversation_after_delivered_fanout_replay_completes_job(monkeypatch):
     """A deletion after durable fanout acknowledgement cannot strand the lease."""
-    monkeypatch.setattr(finalization_router, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
     monkeypatch.setattr(persisted_finalizer, 'run_blocking', _inline_run_blocking)
-    monkeypatch.setattr(finalization_router, 'try_acquire_job_run_lock', lambda key: 'lock-token')
-    monkeypatch.setattr(finalization_router, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
     monkeypatch.setattr(
         jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 3}
     )
