@@ -82,7 +82,12 @@ class LiveConversationController:
         recording_session_id = recording_session_id_for_lifecycle_event(
             self.host.recording_session_ids_by_conversation, conversation_id
         )
-        if not recording_session_id:
+        if not recording_session_id and phase != 'completed':
+            # `processing` is a live-recording signal: clients attribute it to the
+            # capture that is running right now (the mobile client stamps the
+            # session's pending WAL audio with the conversation id it carries).
+            # A conversation this socket never opened must not claim that
+            # attribution, so the in-flight phase stays suppressed.
             logger.warning('Suppressing lifecycle event without durable binding conversation=%s', conversation_id)
             return
         data = await self.host.persistence.call(
@@ -90,19 +95,31 @@ class LiveConversationController:
         )
         if not data:
             return
-        envelope = await self._recording_session_event(recording_session_id, conversation_id, phase)
-        if envelope is None:
-            return
+        envelope = None
+        if recording_session_id:
+            envelope = await self._recording_session_event(recording_session_id, conversation_id, phase)
+            if envelope is None:
+                return
+        else:
+            # Recovery finalizes conversations opened by sockets that are gone
+            # (`process_pending`, `recover_stale_in_progress`), so their binding
+            # is not in this session's map and no ordered envelope can be minted
+            # for it. Dropping the terminal event left the conversation finished
+            # on the server and unfinished on the client until a manual refresh.
+            # The envelope fields are additive and documented as absent for
+            # producers without a recording identity, so the completion is
+            # delivered on that compatibility route instead of being lost.
+            logger.info('Emitting unbound completion for recovered conversation=%s', conversation_id)
         self.host.send_event(
             ConversationEvent(
                 event_type='memory_created' if phase == 'completed' else 'memory_processing_started',
                 memory=deserialize_conversation(data),
                 messages=[] if phase == 'completed' else None,
-                recording_session_id=envelope['recording_session_id'],
-                conversation_id=envelope['conversation_id'],
-                lifecycle_version=envelope['lifecycle_version'],
-                lifecycle_phase=envelope['lifecycle_phase'],
-                lifecycle_sequence=envelope['lifecycle_sequence'],
+                recording_session_id=envelope['recording_session_id'] if envelope else None,
+                conversation_id=envelope['conversation_id'] if envelope else conversation_id,
+                lifecycle_version=envelope['lifecycle_version'] if envelope else None,
+                lifecycle_phase=envelope['lifecycle_phase'] if envelope else None,
+                lifecycle_sequence=envelope['lifecycle_sequence'] if envelope else None,
             )
         )
 

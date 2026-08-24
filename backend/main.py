@@ -111,6 +111,7 @@ from services.conversation_finalization import reconcile_meeting_receipts
 from services.conversation_finalization import reconcile_stale_processing_conversations
 from services.users.account_deletion import reconcile_pending_deletion_wipes
 from utils.other.local_storage import local_storage_root_from_env
+from utils.other.endpoints import install_websocket_close_delivery
 
 # Log LangSmith tracing status at startup
 log_langsmith_status()
@@ -140,6 +141,13 @@ else:
     firebase_admin.initialize_app(options=_firebase_admin_options)  # type: ignore[reportUnknownMemberType]  # firebase_admin untyped
 
 app = FastAPI()
+
+# WebSocket rejections carry a code the clients act on (4001 refresh the token,
+# 4004 re-login, 4005 account deletion, 1013 retry later). FastAPI's default
+# handler closes the socket before it is accepted, which the ASGI server turns
+# into a bare HTTP 403 with no code at all — this handler accepts the upgrade
+# first so the code actually reaches the client.
+install_websocket_close_delivery(app)
 
 _local_storage_root = local_storage_root_from_env()
 if _local_storage_root is not None:

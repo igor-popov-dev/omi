@@ -10,7 +10,12 @@ from utils.log_sanitizer import sanitize
 
 logger = logging.getLogger(__name__)
 
-MAX_PAGES = 20  # Safety cap to prevent runaway pagination
+PER_PAGE = 100
+# GitHub serves at most 1000 results from a paginated list endpoint. A page past
+# that window answers 422 no matter how many releases the repository has, so the
+# walk has to stop at the ceiling instead of discovering it by failing.
+MAX_LISTABLE_RESULTS = 1000
+MAX_PAGES = MAX_LISTABLE_RESULTS // PER_PAGE  # the last page GitHub will serve
 
 
 async def get_omi_github_releases(
@@ -48,8 +53,13 @@ async def get_omi_github_releases(
         page = 1
         client = get_web_fetch_client()
         while page <= MAX_PAGES:
-            url = f"https://api.github.com/repos/BasedHardware/omi/releases?per_page=100&page={page}"
+            url = f"https://api.github.com/repos/BasedHardware/omi/releases?per_page={PER_PAGE}&page={page}"
             response = await client.get(url, headers=headers)
+            if response.status_code == 422 and page > 1:
+                # The ceiling moved below the constant above. Pages already read
+                # are complete results, not a failed fetch.
+                logger.info("GitHub releases pagination ceiling reached at page %d for %s", page, cache_key)
+                break
             if response.status_code != 200:
                 logger.error(
                     "Error fetching GitHub releases page %d: %d %s",
@@ -76,7 +86,7 @@ async def get_omi_github_releases(
             if not tag_filter:
                 break
 
-            if len(page_releases) < 100:
+            if len(page_releases) < PER_PAGE:
                 break
 
             page += 1

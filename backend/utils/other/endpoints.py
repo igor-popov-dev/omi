@@ -4,9 +4,9 @@ import os
 import time
 from typing import Any, Callable, Dict, Optional, TypeVar, cast
 
-from fastapi import Depends, Header, HTTPException, WebSocketException
+from fastapi import Depends, FastAPI, Header, HTTPException, WebSocketException
 from fastapi import Request
-from starlette.websockets import WebSocket
+from starlette.websockets import WebSocket, WebSocketState
 from firebase_admin import auth
 from firebase_admin.auth import CertificateFetchError, ExpiredIdTokenError, InvalidIdTokenError, RevokedIdTokenError
 import logging
@@ -33,6 +33,38 @@ WS_AUTH_CODE_TOKEN_REFRESH = 4001
 WS_AUTH_CODE_RELOGIN_REQUIRED = 4004
 WS_AUTH_CODE_ACCOUNT_DELETION = 4005
 WS_AUTH_CODE_ACCOUNT_CUTOVER = 4006
+
+
+async def deliver_websocket_close(websocket: WebSocket, error: WebSocketException) -> None:
+    """Send a real close frame for a ``WebSocketException`` raised before ``accept()``.
+
+    FastAPI's built-in handler closes a socket that was never accepted, and an
+    unaccepted close is not a WebSocket close at all: the ASGI server answers the
+    upgrade request with a bare HTTP 403 and drops the code and reason. Every code
+    picked above — 4001 (refresh the token), 4004 (re-login), 4005 (account
+    deletion), 4006 (cutover), 1013 (deletion state unavailable), 1008 (rate
+    limited) — therefore reaches mobile and desktop clients as one anonymous
+    handshake failure, so a client cannot tell "refresh your token" from "stop
+    retrying" and reconnects blindly instead. Accepting the upgrade first and then
+    closing carries the code and reason as designed; ``/v4/web/listen`` already
+    hand-rolls this same accept-then-close sequence, which is why the web client
+    sees the codes and the mobile one does not.
+    """
+    if websocket.client_state == WebSocketState.CONNECTING:
+        try:
+            await websocket.accept()
+        except Exception as accept_error:
+            logger.warning('WebSocket close-code delivery could not accept: %s', type(accept_error).__name__)
+            return
+    try:
+        await websocket.close(code=error.code, reason=error.reason)
+    except Exception as close_error:
+        logger.warning('WebSocket close-code delivery failed: %s', type(close_error).__name__)
+
+
+def install_websocket_close_delivery(app: FastAPI) -> None:
+    """Route ``WebSocketException`` through :func:`deliver_websocket_close`."""
+    app.add_exception_handler(WebSocketException, deliver_websocket_close)  # type: ignore[arg-type]  # FastAPI dispatches WebSocketException handlers with the WebSocket, not a Request
 
 
 _DeletionStatusReader = Callable[..., "str | None"]
