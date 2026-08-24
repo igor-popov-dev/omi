@@ -52,7 +52,14 @@ class AudioFocusCoordinator(
             .setUsage(AudioAttributes.USAGE_ASSISTANT)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
-        val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        // GAIN_TRANSIENT_EXCLUSIVE, НЕ GAIN (баг Игоря 24.08 ~11:54, логкат):
+        // с постоянным GAIN музыкальный плеер (Suno) не считал сессию временной
+        // и пере-запрашивал фокус; наша политика на потерю — STOP, восстановление
+        // сессии просило фокус заново — война каждые ~2 с, голос ассистента давал
+        // «0 frames delivered», пользователь слышал тишину при живом микрофоне.
+        // Транзиентный эксклюзив — штатная семантика голосового ассистента:
+        // музыка вежливо встаёт на паузу и сама возобновляется после abandon().
+        val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
             .setAudioAttributes(attributes)
             .setOnAudioFocusChangeListener(listener)
             .build()
