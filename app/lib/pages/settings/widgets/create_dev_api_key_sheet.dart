@@ -7,6 +7,7 @@ import 'package:omi/providers/dev_api_key_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class CreateDevApiKeySheet extends StatefulWidget {
   const CreateDevApiKeySheet({super.key});
@@ -292,7 +293,7 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                           gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(Icons.key, color: t.textPrimary, size: 22),
+                        child: OmiIconWidget(icon: OmiIcon.key, color: t.textPrimary, size: 22),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -319,7 +320,7 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                             color: t.bgTertiary,
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Icon(Icons.close, color: t.textSecondary, size: 20),
+                          child: OmiIconWidget(icon: OmiIcon.close, color: t.textSecondary, size: 20),
                         ),
                       ),
                     ],
@@ -434,7 +435,7 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, color: t.warning, size: 16),
+                      OmiIconWidget(icon: OmiIcon.info, color: t.warning, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

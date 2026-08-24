@@ -24,6 +24,7 @@ import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DeviceSettings extends StatefulWidget {
   const DeviceSettings({super.key});
@@ -219,7 +220,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             if (showChevronResolved) const SizedBox(width: 8),
           ],
           if (trailing != null) trailing,
-          if (showChevronResolved) Icon(Icons.chevron_right, color: t.divider, size: 20),
+          if (showChevronResolved) OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
         ],
       ),
     );
@@ -431,7 +432,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                       context.l10n.endAndProcess,
                       style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                     ),
-                    trailing: currentAction == 0 ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
+                    trailing:
+                        currentAction == 0 ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                     onTap: () {
                       setState(() => SharedPreferencesUtil().doubleTapAction = 0);
                       Navigator.pop(sheetContext);
@@ -442,7 +444,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                       context.l10n.deviceOnboardingMuteUnmute,
                       style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                     ),
-                    trailing: currentAction == 1 ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
+                    trailing:
+                        currentAction == 1 ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                     onTap: () {
                       setState(() => SharedPreferencesUtil().doubleTapAction = 1);
                       Navigator.pop(sheetContext);
@@ -453,7 +456,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                       context.l10n.starOngoing,
                       style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                     ),
-                    trailing: currentAction == 2 ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
+                    trailing:
+                        currentAction == 2 ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                     onTap: () {
                       setState(() => SharedPreferencesUtil().doubleTapAction = 2);
                       Navigator.pop(sheetContext);

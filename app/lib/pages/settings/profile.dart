@@ -19,6 +19,7 @@ import 'package:omi/utils/platform/platform_service.dart';
 
 import 'delete_account.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -116,7 +117,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 if (showChevron) const SizedBox(width: 8),
               ],
-              if (showChevron) Icon(Icons.chevron_right, color: t.divider, size: 20),
+              if (showChevron) OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
             ],
           ),
         ),
@@ -173,7 +174,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       context.l10n.voiceResponseOff,
                       style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                     ),
-                    trailing: current == 0 ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
+                    trailing: current == 0 ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                     onTap: () => pick(0),
                   ),
                   ListTile(
@@ -181,7 +182,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       context.l10n.voiceResponseHeadphonesOnly,
                       style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                     ),
-                    trailing: current == 1 ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
+                    trailing: current == 1 ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                     onTap: () => pick(1),
                   ),
                   ListTile(
@@ -189,7 +190,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       context.l10n.voiceResponseAlways,
                       style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                     ),
-                    trailing: current == 2 ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
+                    trailing: current == 2 ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                     onTap: () => pick(2),
                   ),
                   const SizedBox(height: 16),
@@ -235,7 +236,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(width: 8),
             ],
-            Icon(Icons.chevron_right, color: t.divider, size: 20),
+            OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
           ],
         ),
       ),
@@ -313,7 +314,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.info_outline, color: t.textSecondary, size: 18),
+                          OmiIconWidget(icon: OmiIcon.info, color: t.textSecondary, size: 18),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -335,7 +336,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: t.warning, size: 18),
+                            OmiIconWidget(icon: OmiIcon.warning, color: t.warning, size: 18),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -431,7 +432,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.info_outline, color: t.textSecondary, size: 18),
+                          OmiIconWidget(icon: OmiIcon.info, color: t.textSecondary, size: 18),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -453,7 +454,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: t.warning, size: 18),
+                            OmiIconWidget(icon: OmiIcon.warning, color: t.warning, size: 18),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -505,7 +506,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   chipValue: SharedPreferencesUtil().givenName.isEmpty
                       ? context.l10n.notSet
                       : SharedPreferencesUtil().givenName,
-                  icon: FaIcon(FontAwesomeIcons.solidUser, color: t.textSecondary, size: 20),
+                  icon: OmiIconWidget(icon: OmiIcon.user, color: t.textSecondary, size: 20),
                   onTap: () async {
                     PlatformManager.instance.analytics.pageOpened('Profile Change Name');
                     await showDialog(
@@ -521,14 +522,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   title: context.l10n.email,
                   chipValue:
                       SharedPreferencesUtil().email.isEmpty ? context.l10n.notSet : SharedPreferencesUtil().email,
-                  icon: FaIcon(FontAwesomeIcons.solidEnvelope, color: t.textSecondary, size: 20),
+                  icon: OmiIconWidget(icon: OmiIcon.envelope, color: t.textSecondary, size: 20),
                   onTap: () {},
                   showChevron: false,
                 ),
                 Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.language,
-                  icon: FaIcon(FontAwesomeIcons.globe, color: t.textSecondary, size: 20),
+                  icon: OmiIconWidget(icon: OmiIcon.globe, color: t.textSecondary, size: 20),
                   onTap: () {
                     routeToPage(context, const LanguageSettingsPage());
                   },
@@ -536,7 +537,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.customVocabulary,
-                  icon: FaIcon(FontAwesomeIcons.book, color: t.textSecondary, size: 20),
+                  icon: OmiIconWidget(icon: OmiIcon.book, color: t.textSecondary, size: 20),
                   onTap: () {
                     routeToPage(context, const CustomVocabularyPage());
                   },
@@ -544,7 +545,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 Divider(height: 1, color: t.divider),
                 _buildProfileItem(
                   title: context.l10n.memories,
-                  icon: FaIcon(FontAwesomeIcons.brain, color: t.textSecondary, size: 20),
+                  icon: OmiIconWidget(icon: OmiIcon.brain, color: t.textSecondary, size: 20),
                   onTap: () {
                     routeToPage(context, const MemoriesPage());
                   },
@@ -558,7 +559,7 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 _buildProfileItem(
                   title: context.l10n.speechProfile,
-                  icon: FaIcon(FontAwesomeIcons.microphone, color: t.textSecondary, size: 20),
+                  icon: OmiIconWidget(icon: OmiIcon.mic, color: t.textSecondary, size: 20),
                   onTap: () {
                     routeToPage(context, const SpeechProfilePage());
                     PlatformManager.instance.analytics.pageOpened('Profile Speech Profile');

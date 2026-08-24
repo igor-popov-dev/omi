@@ -15,6 +15,7 @@ import 'package:omi/l10n/app_localizations.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 /// Renders an import job's creation timestamp for its history row.
 ///
@@ -420,7 +421,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                       child: FaIcon(FontAwesomeIcons.plus, color: t.textPrimary, size: 16),
                     )
             else
-              Icon(Icons.lock_outline, color: t.textSecondary, size: 20),
+              OmiIconWidget(icon: OmiIcon.lock, color: t.textSecondary, size: 20),
           ],
         ),
       ),
@@ -728,7 +729,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
             decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
             child: Row(
               children: [
-                Icon(Icons.history, color: t.textSecondary, size: 24),
+                OmiIconWidget(icon: OmiIcon.rewind, color: t.textSecondary, size: 24),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(context.l10n.noImportsYet, style: TextStyle(color: t.textSecondary, fontSize: 14)),

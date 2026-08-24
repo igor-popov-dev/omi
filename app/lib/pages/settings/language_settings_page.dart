@@ -10,6 +10,7 @@ import 'package:omi/providers/locale_provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class LanguageSettingsPage extends StatefulWidget {
   const LanguageSettingsPage({super.key});
@@ -110,7 +111,7 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-                  child: Center(child: FaIcon(FontAwesomeIcons.microphone, color: t.textSecondary, size: 16)),
+                  child: Center(child: OmiIconWidget(icon: OmiIcon.mic, color: t.textSecondary, size: 16)),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -251,7 +252,7 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                           fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
                         ),
                       ),
-                      trailing: isSelected ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
+                      trailing: isSelected ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                       onTap: () {
                         localeProvider.setLocale(locale);
                         Navigator.pop(context);
@@ -316,7 +317,8 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                                 fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
                               ),
                             ),
-                            trailing: isSelected ? Icon(Icons.check, color: t.textPrimary, size: 20) : null,
+                            trailing:
+                                isSelected ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                             onTap: _isUpdatingLanguage
                                 ? null
                                 : () async {

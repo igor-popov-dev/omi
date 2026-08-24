@@ -25,6 +25,7 @@ import 'package:omi/utils/logger.dart';
 import 'package:omi/widgets/confirmation_dialog.dart';
 import 'package:omi/pages/settings/payment_webview_page.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class PlansSheet extends StatefulWidget {
   final AnimationController waveController;
@@ -436,7 +437,7 @@ class _PlansSheetState extends State<PlansSheet> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: t.accent, size: 20),
+                    OmiIconWidget(icon: OmiIcon.info, color: t.accent, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -1244,7 +1245,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                         builder: (context, child) {
                                           return Transform.translate(
                                             offset: Offset(widget.arrowAnimation.value, 0),
-                                            child: const Icon(Icons.arrow_forward, size: 20),
+                                            child: const OmiIconWidget(icon: OmiIcon.arrowRight, size: 20),
                                           );
                                         },
                                       ),
@@ -1377,7 +1378,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                         builder: (context, child) {
                                           return Transform.translate(
                                             offset: Offset(widget.arrowAnimation.value, 0),
-                                            child: const Icon(Icons.arrow_forward, size: 20),
+                                            child: const OmiIconWidget(icon: OmiIcon.arrowRight, size: 20),
                                           );
                                         },
                                       ),
@@ -1418,7 +1419,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                   AppSnackbar.showSnackbarError(l10n.couldNotOpenPaymentSettings);
                                 }
                               },
-                              icon: const Icon(Icons.credit_card, size: 20),
+                              icon: const OmiIconWidget(icon: OmiIcon.creditCard, size: 20),
                               label: Text(context.l10n.managePaymentMethod),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: t.textPrimary,
@@ -1542,7 +1543,7 @@ class _PlansSheetState extends State<PlansSheet> {
       ),
       child: Column(
         children: [
-          Icon(Icons.error_outline, color: t.error, size: 32),
+          OmiIconWidget(icon: OmiIcon.errorCircle, color: t.error, size: 32),
           const SizedBox(height: 8),
           Text(
             context.l10n.unableToLoadPlans,
@@ -1955,7 +1956,7 @@ class _PlansSheetState extends State<PlansSheet> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check, color: t.success, size: 14),
+                    OmiIconWidget(icon: OmiIcon.check, color: t.success, size: 14),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(f, style: TextStyle(color: t.textSecondary, fontSize: 12, height: 1.3)),

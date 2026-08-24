@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class ConversationDisplaySettings extends StatefulWidget {
   const ConversationDisplaySettings({super.key});
@@ -118,7 +119,7 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-                child: Center(child: FaIcon(FontAwesomeIcons.clock, color: t.textSecondary, size: 16)),
+                child: Center(child: OmiIconWidget(icon: OmiIcon.clock, color: t.textSecondary, size: 16)),
               ),
               const SizedBox(width: 14),
               Expanded(

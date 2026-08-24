@@ -7,6 +7,7 @@ import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/services/integrations/clickup_service.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class ClickUpSettingsPage extends StatefulWidget {
   const ClickUpSettingsPage({super.key});
@@ -206,7 +207,7 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.check_circle, color: t.success, size: 16),
+                OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -243,7 +244,7 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
                   Expanded(
                     child: Text(teamName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                   ),
-                  if (isSelected) Icon(Icons.check_circle, color: t.textPrimary, size: 24),
+                  if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                 ],
               ),
             ),
@@ -293,7 +294,7 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
                       Expanded(
                         child: Text(spaceName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                       ),
-                      if (isSelected) Icon(Icons.check_circle, color: t.textPrimary, size: 24),
+                      if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                     ],
                   ),
                 ),
@@ -344,7 +345,7 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
                       Expanded(
                         child: Text(listName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                       ),
-                      if (isSelected) Icon(Icons.check_circle, color: t.textPrimary, size: 24),
+                      if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                     ],
                   ),
                 ),

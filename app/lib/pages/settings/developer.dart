@@ -36,6 +36,7 @@ import 'package:omi/utils/firmware_update_build_policy.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DeveloperSettingsPage extends StatelessWidget {
   const DeveloperSettingsPage({super.key});
@@ -442,13 +443,13 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                 SizedBox(
                   width: 24,
                   height: 24,
-                  child: Center(child: FaIcon(FontAwesomeIcons.microchip, color: t.textPrimary, size: 16)),
+                  child: Center(child: OmiIconWidget(icon: OmiIcon.chip, color: t.textPrimary, size: 16)),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text('Flash Custom Firmware', style: TextStyle(color: t.textPrimary, fontSize: 16)),
                 ),
-                Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
+                OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
               ],
             ),
           ),
@@ -552,7 +553,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Center(
-                              child: FaIcon(FontAwesomeIcons.microphone, color: t.textSecondary, size: 16),
+                              child: OmiIconWidget(icon: OmiIcon.mic, color: t.textSecondary, size: 16),
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -605,7 +606,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                               color: t.bgTertiary,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Center(child: FaIcon(FontAwesomeIcons.clock, color: t.textSecondary, size: 16)),
+                            child: Center(child: OmiIconWidget(icon: OmiIcon.clock, color: t.textSecondary, size: 16)),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -1817,7 +1818,7 @@ class _ManualFirmwareFlashPageState extends State<_ManualFirmwareFlashPage> with
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: t.warning, size: 24),
+                    OmiIconWidget(icon: OmiIcon.warning, color: t.warning, size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -1871,7 +1872,7 @@ class _ManualFirmwareFlashPageState extends State<_ManualFirmwareFlashPage> with
               Center(
                 child: Column(
                   children: [
-                    Icon(Icons.check_circle, color: t.success, size: 64),
+                    OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 64),
                     const SizedBox(height: 16),
                     Text(
                       'Firmware flashed successfully!',

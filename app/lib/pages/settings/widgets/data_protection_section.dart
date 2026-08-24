@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 extension StringExtension on String {
   String capitalize() {
@@ -129,7 +130,7 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, color: t.error, size: 20),
+                OmiIconWidget(icon: OmiIcon.errorCircle, color: t.error, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   context.l10n.migrationFailed,
@@ -269,7 +270,7 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.lock_outline, color: t.textSecondary, size: 28),
+            OmiIconWidget(icon: OmiIcon.lock, color: t.textSecondary, size: 28),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -300,7 +301,7 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
                 ],
               ),
             ),
-            Icon(Icons.info_outline, color: t.textSecondary, size: 20),
+            OmiIconWidget(icon: OmiIcon.info, color: t.textSecondary, size: 20),
           ],
         ),
       ),

@@ -20,6 +20,7 @@ import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/utils/share_links.dart';
 import 'package:omi/utils/theme/omi_emoji.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DailySummaryDetailPage extends StatefulWidget {
   final String summaryId;
@@ -387,7 +388,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
         icon: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3), shape: BoxShape.circle),
-          child: Icon(Icons.arrow_back, color: t.textPrimary, size: 20),
+          child: OmiIconWidget(icon: OmiIcon.arrowLeft, color: t.textPrimary, size: 20),
         ),
         onPressed: () => Navigator.pop(context),
       ),
@@ -410,7 +411,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                         valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                       ),
                     )
-                  : Icon(Icons.share_outlined, color: t.textPrimary, size: 20),
+                  : OmiIconWidget(icon: OmiIcon.share, color: t.textPrimary, size: 20),
             ),
           ),
         ),
@@ -673,7 +674,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                       ],
                     ),
                   ),
-                  if (highlight.conversationIds.isNotEmpty) Icon(Icons.chevron_right, color: t.textSecondary, size: 18),
+                  if (highlight.conversationIds.isNotEmpty)
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 18),
                 ],
               ),
             ),
@@ -733,7 +735,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                 color: item.completed ? t.success.withValues(alpha: 0.2) : Colors.transparent,
                 border: Border.all(color: item.completed ? t.success : t.textSecondary, width: 1.5),
               ),
-              child: item.completed ? Icon(Icons.check, color: t.success, size: 14) : null,
+              child: item.completed ? OmiIconWidget(icon: OmiIcon.check, color: t.success, size: 14) : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -747,7 +749,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                 ),
               ),
             ),
-            if (item.sourceConversationId != null) Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
+            if (item.sourceConversationId != null)
+              OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
           ],
         ),
       ),
@@ -774,7 +777,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                   Expanded(
                     child: Text(q.question, style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.4)),
                   ),
-                  if (q.conversationId != null) Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
+                  if (q.conversationId != null)
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                 ],
               ),
             ),
@@ -804,7 +808,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                   Expanded(
                     child: Text(d.decision, style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.4)),
                   ),
-                  if (d.conversationId != null) Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
+                  if (d.conversationId != null)
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                 ],
               ),
             ),
@@ -834,7 +839,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                   Expanded(
                     child: Text(k.insight, style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.4)),
                   ),
-                  if (k.conversationId != null) Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
+                  if (k.conversationId != null)
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                 ],
               ),
             ),
@@ -900,7 +906,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          FaIcon(FontAwesomeIcons.clock, color: t.textSecondary, size: 12),
+                          OmiIconWidget(icon: OmiIcon.clock, color: t.textSecondary, size: 12),
                           const SizedBox(width: 4),
                           Text(timeText, style: TextStyle(color: t.textSecondary, fontSize: 13)),
                         ],
@@ -909,7 +915,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
+              OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
             ],
           ),
         ),

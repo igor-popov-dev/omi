@@ -24,6 +24,7 @@ import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/services/wals/sync_rate_limit_reconciliation.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class UsagePage extends StatefulWidget {
   final bool showUpgradeDialog;
@@ -467,7 +468,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                     children: [
                       Text(context.l10n.managePlan, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                       const SizedBox(width: 4),
-                      Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
+                      OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                     ],
                   ),
                 ),
@@ -499,7 +500,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                         children: [
                           Text(context.l10n.upgrade, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                           const SizedBox(width: 8),
-                          const Icon(Icons.arrow_forward, size: 18),
+                          const OmiIconWidget(icon: OmiIcon.arrowRight, size: 18),
                         ],
                       ),
               ),
@@ -585,7 +586,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
               style: TextStyle(color: dotColor, fontSize: 13, fontWeight: FontWeight.w500),
             ),
             const Spacer(),
-            Icon(Icons.chevron_right, color: dotColor, size: 18),
+            OmiIconWidget(icon: OmiIcon.chevronRight, color: dotColor, size: 18),
           ],
         ),
       ),

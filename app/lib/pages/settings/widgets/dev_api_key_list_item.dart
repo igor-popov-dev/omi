@@ -7,6 +7,7 @@ import 'package:omi/backend/schema/dev_api_key.dart';
 import 'package:omi/providers/dev_api_key_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DevApiKeyListItem extends StatelessWidget {
   final DevApiKey apiKey;
@@ -69,7 +70,7 @@ class DevApiKeyListItem extends StatelessWidget {
                   color: t.accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.key, color: t.accent, size: 18),
+                child: OmiIconWidget(icon: OmiIcon.key, color: t.accent, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -7,6 +7,7 @@ import 'package:omi/backend/preferences.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class NotificationsSettingsPage extends StatefulWidget {
   const NotificationsSettingsPage({super.key});
@@ -429,7 +430,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                       style: TextStyle(color: t.textSecondary, fontSize: 16),
                     ),
                     const SizedBox(width: 6),
-                    Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                   ],
                 ),
               ),

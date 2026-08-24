@@ -4,6 +4,7 @@ import 'package:omi/backend/preferences.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class ConversationTimeoutDialog {
   static Future<void> show(BuildContext context) async {
@@ -92,7 +93,8 @@ class ConversationTimeoutDialog {
                                       ],
                                     ),
                                   ),
-                                  if (isSelected) Icon(Icons.check_circle, color: t.textPrimary, size: 20),
+                                  if (isSelected)
+                                    OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 20),
                                 ],
                               ),
                             ),

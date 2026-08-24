@@ -13,6 +13,7 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AiAppGeneratorPage extends StatelessWidget {
   const AiAppGeneratorPage({super.key});
@@ -847,7 +848,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  FaIcon(FontAwesomeIcons.dollarSign, color: t.success, size: 12),
+                                  OmiIconWidget(icon: OmiIcon.dollar, color: t.success, size: 12),
                                   Text(
                                     '\$${provider.price.toStringAsFixed(0)} / Month',
                                     style: TextStyle(

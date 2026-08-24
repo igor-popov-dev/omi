@@ -12,6 +12,7 @@ import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DataPrivacyPage extends StatefulWidget {
   const DataPrivacyPage({super.key});
@@ -47,7 +48,7 @@ class _DataPrivacyPageState extends State<DataPrivacyPage> {
               color: t.accent.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.lock_outline, color: t.accent, size: 20),
+            child: OmiIconWidget(icon: OmiIcon.lock, color: t.accent, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(

@@ -8,6 +8,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class IntegrationSettingsPage extends StatefulWidget {
   final String appName;
@@ -137,7 +138,7 @@ class _IntegrationSettingsPageState extends State<IntegrationSettingsPage> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, color: t.success, size: 16),
+                    OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

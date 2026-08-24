@@ -14,6 +14,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 enum IntegrationApp { appleHealth, googleCalendar, gmail }
 
@@ -570,7 +571,7 @@ class _IntegrationsPageState extends State<IntegrationsPage> with WidgetsBinding
                 padding: const EdgeInsets.only(top: 20),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: t.textSecondary, size: 16),
+                    OmiIconWidget(icon: OmiIcon.info, color: t.textSecondary, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

@@ -7,6 +7,7 @@ import 'package:omi/providers/theme_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AppearanceSettingsPage extends StatelessWidget {
   const AppearanceSettingsPage({super.key});
@@ -69,7 +70,7 @@ class AppearanceSettingsPage extends StatelessWidget {
                 ],
               ),
             ),
-            if (isSelected) Icon(Icons.check, color: t.textPrimary, size: 20),
+            if (isSelected) OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20),
           ],
         ),
       ),

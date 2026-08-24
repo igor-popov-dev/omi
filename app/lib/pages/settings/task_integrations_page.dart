@@ -20,6 +20,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 enum TaskIntegrationApp { appleReminders, todoist, clickup, asana, googleTasks, trello, monday }
 
@@ -644,7 +645,7 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
                 ),
                 child: Row(
                   children: [
-                    FaIcon(FontAwesomeIcons.solidLightbulb, color: t.warning.withValues(alpha: 0.5), size: 20),
+                    OmiIconWidget(icon: OmiIcon.lightbulb, color: t.warning.withValues(alpha: 0.5), size: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(

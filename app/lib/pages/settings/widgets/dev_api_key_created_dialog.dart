@@ -5,6 +5,7 @@ import 'package:omi/backend/schema/dev_api_key.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DevApiKeyCreatedSheet extends StatefulWidget {
   final DevApiKeyCreated apiKey;
@@ -61,7 +62,7 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
                     ),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.check_circle, color: t.success, size: 40),
+                  child: OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 40),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -86,7 +87,7 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: t.warning, size: 20),
+                  OmiIconWidget(icon: OmiIcon.warning, color: t.warning, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(

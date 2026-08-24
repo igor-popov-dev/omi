@@ -193,7 +193,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: t.divider, size: 20),
+              OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
             ],
           ),
         ),
@@ -231,7 +231,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           onTap: _copyVersionInfo,
           child: Container(
             padding: const EdgeInsets.all(2),
-            child: Icon(Icons.copy, size: 12, color: t.textSecondary),
+            child: OmiIconWidget(icon: OmiIcon.copy, size: 12, color: t.textSecondary),
           ),
         ),
       ],
@@ -843,7 +843,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                               setState(() => _isSearching = true);
                               Future.microtask(() => _searchFocusNode.requestFocus());
                             },
-                            child: Icon(Icons.search, color: t.textPrimary, size: 22),
+                            child: OmiIconWidget(icon: OmiIcon.search, color: t.textPrimary, size: 22),
                           ),
                           Expanded(
                             child: Center(

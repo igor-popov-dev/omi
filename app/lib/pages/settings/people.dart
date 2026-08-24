@@ -13,6 +13,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/widgets/extensions/functions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class UserPeoplePage extends StatelessWidget {
   const UserPeoplePage({super.key});
@@ -252,7 +253,7 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Icon(Icons.question_mark, size: 40),
+                          const OmiIconWidget(icon: OmiIcon.help, size: 40),
                           const SizedBox(height: 24),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -279,7 +280,7 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
                                   Text(person.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
                               onTap: () => _showPersonDialog(context, provider, person: person),
                               trailing: IconButton(
-                                icon: const Icon(Icons.delete, size: 20),
+                                icon: const OmiIconWidget(icon: OmiIcon.trash, size: 20),
                                 onPressed: () => _confirmDeletePerson(person, provider),
                               ),
                             ),

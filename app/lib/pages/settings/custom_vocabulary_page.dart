@@ -10,6 +10,7 @@ import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class CustomVocabularyPage extends StatefulWidget {
   const CustomVocabularyPage({super.key});
@@ -51,7 +52,7 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-                child: Center(child: FaIcon(FontAwesomeIcons.book, color: t.textSecondary, size: 16)),
+                child: Center(child: OmiIconWidget(icon: OmiIcon.book, color: t.textSecondary, size: 16)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -185,11 +186,8 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
                               color: t.textTertiary,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(
-                              Icons.close,
-                              color: isDisabled ? t.textSecondary : t.textSecondary,
-                              size: 12,
-                            ),
+                            child: OmiIconWidget(
+                                icon: OmiIcon.close, color: isDisabled ? t.textSecondary : t.textSecondary, size: 12),
                           ),
                         ),
                     ],

@@ -8,6 +8,7 @@ import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class LanguageSelectionDialog {
   static Future<void> show(
@@ -99,7 +100,7 @@ class LanguageSelectionDialog {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, color: t.textSecondary, size: 18),
+                            OmiIconWidget(icon: OmiIcon.info, color: t.textSecondary, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(

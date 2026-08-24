@@ -27,6 +27,7 @@ import 'package:omi/services/sockets/transcription_service.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 /// Top-level transcription source the user picks from the single dropdown.
 enum TranscriptionMode { omi, onDevice, cloudProvider, omiParakeet }
@@ -213,7 +214,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             SnackBar(
               content: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: t.textPrimary, size: 28),
+                  OmiIconWidget(icon: OmiIcon.warning, color: t.textPrimary, size: 28),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -687,7 +688,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.info_outline, size: 14, color: t.textSecondary),
+                    OmiIconWidget(icon: OmiIcon.info, size: 14, color: t.textSecondary),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -917,7 +918,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
               backgroundColor: t.bgSecondary,
               title: Row(
                 children: [
-                  Icon(Icons.error_outline, color: t.error, size: 24),
+                  OmiIconWidget(icon: OmiIcon.errorCircle, color: t.error, size: 24),
                   const SizedBox(width: 8),
                   Text(
                     context.l10n.deviceNotCompatibleTitle,
@@ -964,7 +965,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
               backgroundColor: t.bgSecondary,
               title: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: t.warning, size: 24),
+                  OmiIconWidget(icon: OmiIcon.warning, color: t.warning, size: 24),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1207,7 +1208,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: t.warning, size: 14),
+          OmiIconWidget(icon: OmiIcon.warning, color: t.warning, size: 14),
           const SizedBox(width: 6),
           Expanded(
             child: Text(warningText, style: TextStyle(color: t.textSecondary, fontSize: 12)),
@@ -1313,7 +1314,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             if (_currentConfig.docsUrl != null)
               GestureDetector(
                 onTap: () => _launchUrl(_currentConfig.docsUrl!),
-                child: Icon(Icons.open_in_new, color: t.textSecondary, size: 14),
+                child: OmiIconWidget(icon: OmiIcon.externalLink, color: t.textSecondary, size: 14),
               ),
           ],
         ),
@@ -1561,7 +1562,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             if (_currentConfig.apiKeyUrl != null)
               GestureDetector(
                 onTap: () => _launchUrl(_currentConfig.apiKeyUrl!),
-                child: Icon(Icons.open_in_new, color: t.textSecondary, size: 14),
+                child: OmiIconWidget(icon: OmiIcon.externalLink, color: t.textSecondary, size: 14),
               ),
           ],
         ),
@@ -1724,7 +1725,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.check_circle, color: t.success, size: 20),
+                OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -2101,7 +2102,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       },
       child: Row(
         children: [
-          Icon(Icons.refresh, color: t.textSecondary, size: 16),
+          OmiIconWidget(icon: OmiIcon.refresh, color: t.textSecondary, size: 16),
           const SizedBox(width: 6),
           Text(context.l10n.resetRequestConfig, style: TextStyle(color: t.textSecondary, fontSize: 12)),
         ],
@@ -2300,7 +2301,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                         SnackBar(content: Text(context.l10n.logsCopied), duration: const Duration(seconds: 1)),
                       );
                     },
-                    child: Icon(Icons.copy, color: t.textSecondary, size: 16),
+                    child: OmiIconWidget(icon: OmiIcon.copy, color: t.textSecondary, size: 16),
                   ),
                 ],
               ],
@@ -2624,7 +2625,7 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.error_outline, color: t.error, size: 18),
+                  OmiIconWidget(icon: OmiIcon.errorCircle, color: t.error, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

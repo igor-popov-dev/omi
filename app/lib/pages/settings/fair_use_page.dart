@@ -4,6 +4,7 @@ import 'package:omi/backend/http/api/users.dart';
 import 'package:omi/services/wals/sync_rate_limit_reconciliation.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class FairUsePage extends StatefulWidget {
   const FairUsePage({super.key});
@@ -187,7 +188,7 @@ class _FairUsePageState extends State<FairUsePage> {
                       style: TextStyle(color: t.textSecondary, fontSize: 12, fontFamily: 'monospace'),
                     ),
                     const SizedBox(width: 4),
-                    Icon(Icons.copy, size: 12, color: t.textSecondary),
+                    OmiIconWidget(icon: OmiIcon.copy, size: 12, color: t.textSecondary),
                   ],
                 ),
               ),
@@ -378,7 +379,7 @@ class _FairUsePageState extends State<FairUsePage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: t.textSecondary, size: 16),
+            OmiIconWidget(icon: OmiIcon.info, color: t.textSecondary, size: 16),
             const SizedBox(width: 10),
             Expanded(
               child: Text(message, style: TextStyle(color: t.textSecondary, fontSize: 13, height: 1.4)),

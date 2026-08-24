@@ -10,6 +10,7 @@ import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DailySummarySettingsPage extends StatefulWidget {
   const DailySummarySettingsPage({super.key});
@@ -239,7 +240,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
                 value: 'generate',
                 child: Row(
                   children: [
-                    Icon(Icons.auto_awesome, color: t.textPrimary, size: 20),
+                    OmiIconWidget(icon: OmiIcon.sparkles, color: t.textPrimary, size: 20),
                     const SizedBox(width: 12),
                     Text(context.l10n.generateSummary, style: TextStyle(color: t.textPrimary)),
                   ],
@@ -310,7 +311,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
                       style: TextStyle(color: t.textSecondary, fontSize: 16),
                     ),
                     const SizedBox(width: 6),
-                    Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                   ],
                 ),
               ),

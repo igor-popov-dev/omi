@@ -7,6 +7,7 @@ import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/services/integrations/asana_service.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AsanaSettingsPage extends StatefulWidget {
   const AsanaSettingsPage({super.key});
@@ -174,7 +175,7 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.check_circle, color: t.success, size: 16),
+                OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -211,7 +212,7 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
                   Expanded(
                     child: Text(workspaceName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                   ),
-                  if (isSelected) Icon(Icons.check_circle, color: t.textPrimary, size: 24),
+                  if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                 ],
               ),
             ),
@@ -271,7 +272,7 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
                       Expanded(
                         child: Text(projectName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                       ),
-                      if (isSelected) Icon(Icons.check_circle, color: t.textPrimary, size: 24),
+                      if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                     ],
                   ),
                 ),

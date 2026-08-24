@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class PermissionsPage extends StatefulWidget {
   const PermissionsPage({super.key});
@@ -245,7 +246,7 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
               style: TextStyle(color: isGranted ? t.textTertiary : t.textPrimary, fontSize: 15),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.chevron_right, color: t.divider, size: 20),
+            OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
           ],
         ),
       ),
