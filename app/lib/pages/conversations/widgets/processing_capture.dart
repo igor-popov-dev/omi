@@ -23,6 +23,7 @@ import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/backend/schema/phone_call.dart';
 import 'package:omi/providers/phone_call_provider.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ConversationCaptureWidget extends StatefulWidget {
   const ConversationCaptureWidget({super.key});
@@ -67,6 +68,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     // Hide capture widget when a phone call is in progress (banner replaces it)
     var phoneCallState = context.watch<PhoneCallProvider>().callState;
     if (phoneCallState == PhoneCallState.active ||
@@ -111,7 +113,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
           child: Container(
             margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             width: double.maxFinite,
-            decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(24)),
+            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(24)),
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 10,
@@ -182,6 +184,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
   }
 
   Widget? _getConversationHeader(BuildContext context) {
+    final t = context.omi;
     var captureProvider = context.read<CaptureProvider>();
     bool deviceServiceStateOk = captureProvider.recordingDeviceServiceReady;
     bool transcriptServiceStateOk = captureProvider.transcriptServiceReady;
@@ -236,11 +239,11 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
           const Icon(Icons.record_voice_over),
           const SizedBox(width: 12),
           Container(
-            decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(t.cardRadius)),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Text(
               context.l10n.waitingForDevice,
-              style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: t.textPrimary),
               maxLines: 1,
             ),
           ),
@@ -254,11 +257,11 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
           const Icon(Icons.record_voice_over),
           const SizedBox(width: 12),
           Container(
-            decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(t.cardRadius)),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Text(
               (isHavingTranscript || isHavingPhotos) ? context.l10n.inProgress : context.l10n.saySomething,
-              style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: t.textPrimary),
               maxLines: 1,
             ),
           ),
@@ -317,7 +320,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
             children: [
               Text(
                 stateText,
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                style: TextStyle(color: t.textSecondary, fontSize: 14),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -348,6 +351,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
   }
 
   Widget _buildUnifiedRecordingUI(CaptureProvider provider, Widget? header) {
+    final t = context.omi;
     bool isDeviceRecording = provider.havingRecordingDevice &&
         (provider.recordingState == RecordingState.deviceRecord || provider.recordingState == RecordingState.pause);
 
@@ -405,20 +409,20 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
           // Left: Status tag
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(20)),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   statusText,
-                  style: const TextStyle(color: Color(0xFFC9CBCF), fontSize: 14, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(width: 6),
                 Container(
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: isPaused ? const Color(0xFFFF9500) : const Color(0xFFFE5D50),
+                    color: isPaused ? t.warning : t.error,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -431,17 +435,17 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.2),
+                color: t.warning.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const FaIcon(FontAwesomeIcons.solidStar, size: 12, color: Colors.amber),
+                  FaIcon(FontAwesomeIcons.solidStar, size: 12, color: t.warning),
                   const SizedBox(width: 4),
                   Text(
                     context.l10n.starred,
-                    style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: t.warning, fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -452,15 +456,15 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(20)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(20)),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const FaIcon(FontAwesomeIcons.camera, size: 12, color: Color(0xFFC9CBCF)),
+                  FaIcon(FontAwesomeIcons.camera, size: 12, color: t.textSecondary),
                   const SizedBox(width: 6),
                   Text(
                     '${provider.photos.length}',
-                    style: const TextStyle(color: Color(0xFFC9CBCF), fontSize: 13, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -473,7 +477,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
                 padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
                 child: Text(
                   '... ${provider.segments.last.text} ...',
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                  style: TextStyle(color: t.textSecondary, fontSize: 13),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -510,11 +514,11 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
                 decoration: BoxDecoration(
                   color: isPaused
                       ? isDeviceRecording
-                          ? const Color(0xFFFE5D50)
-                          : const Color(0xFF7C3AED)
+                          ? t.error
+                          : t.accent
                       : isDeviceRecording
-                          ? const Color(0xFF35343B)
-                          : const Color(0xFFFF9500),
+                          ? t.bgTertiary
+                          : t.warning,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -526,7 +530,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
                         : isDeviceRecording
                             ? FontAwesomeIcons.microphone
                             : FontAwesomeIcons.pause,
-                    color: Colors.white,
+                    color: t.textPrimary,
                     size: 12,
                   ),
                 ),
@@ -574,6 +578,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
   /// saving regardless of the Dart stream). Shows a live "captured so far" timer
   /// for the current session. Tapping opens [_showOfflineModeInfoSheet].
   Widget _buildBatchRecordingUI(CaptureProvider provider) {
+    final t = context.omi;
     final isPendant = provider.recordingDevice?.type == DeviceType.limitless;
     final prefs = SharedPreferencesUtil();
     final muted = !isPendant && provider.offlineMuted;
@@ -589,7 +594,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
     } else if (elapsed != null) {
       elapsedLabel = '${elapsed ~/ 60}m ${(elapsed % 60).toString().padLeft(2, '0')}s';
     }
-    final dotColor = paused ? Colors.grey.shade600 : const Color(0xFFFE5D50);
+    final dotColor = paused ? t.textTertiary : t.error;
     return Padding(
       padding: const EdgeInsets.only(left: 8, right: 6),
       child: Column(
@@ -599,7 +604,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(20)),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -615,7 +620,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
                           : muted
                               ? context.l10n.muted
                               : context.l10n.recording,
-                      style: const TextStyle(color: Color(0xFFC9CBCF), fontSize: 14, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -624,11 +629,11 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
               if (elapsedLabel != null)
                 Text(
                   elapsedLabel,
-                  style: const TextStyle(
-                    color: Color(0xFFC9CBCF),
+                  style: TextStyle(
+                    color: t.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
             ],
@@ -640,7 +645,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
                 : storageFull
                     ? context.l10n.transcribeLaterStorageFull
                     : (muted ? context.l10n.transcribeLaterPaused : context.l10n.transcribeLaterNote),
-            style: TextStyle(color: Colors.grey.shade400, fontSize: 13, height: 1.35),
+            style: TextStyle(color: t.textSecondary, fontSize: 13, height: 1.35),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -648,7 +653,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
             const SizedBox(height: 8),
             Text(
               context.l10n.pendantStorageAlmostFull,
-              style: TextStyle(color: Colors.orange.shade300, fontSize: 12, height: 1.3),
+              style: TextStyle(color: t.warning, fontSize: 12, height: 1.3),
             ),
           ],
           // Mute / New recording drive the native writer prefs, which the pendant
@@ -699,7 +704,8 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
     required bool primary,
     required VoidCallback onTap,
   }) {
-    final color = primary ? Colors.white : const Color(0xFFC9CBCF);
+    final t = context.omi;
+    final color = primary ? t.textPrimary : t.textSecondary;
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -707,8 +713,8 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: primary ? const Color(0xFF35343B) : const Color(0xFF2A2A2E),
-            borderRadius: BorderRadius.circular(12),
+            color: primary ? t.bgTertiary : t.bgTertiary,
+            borderRadius: BorderRadius.circular(t.rowRadius),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -756,9 +762,10 @@ class _RecordingStatusIndicatorState extends State<RecordingStatusIndicator> wit
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return FadeTransition(
       opacity: _opacityAnim,
-      child: const Icon(Icons.fiber_manual_record, color: Colors.red, size: 16.0),
+      child: Icon(Icons.fiber_manual_record, color: t.error, size: 16.0),
     );
   }
 }
@@ -792,9 +799,10 @@ class _PausedStatusIndicatorState extends State<PausedStatusIndicator> with Sing
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return FadeTransition(
       opacity: _opacityAnim,
-      child: const Icon(Icons.fiber_manual_record, color: Colors.orange, size: 16.0),
+      child: Icon(Icons.fiber_manual_record, color: t.warning, size: 16.0),
     );
   }
 }
@@ -805,6 +813,7 @@ getPhoneMicRecordingButton(
   RecordingState currentActualState, {
   bool isPhoneMicPaused = false,
 }) {
+  final t = context.omi;
   if (SharedPreferencesUtil().btDevice.id.isNotEmpty) {
     // If a BT device is configured and we are NOT on desktop, don't show this button.
     return const SizedBox.shrink();
@@ -817,15 +826,15 @@ getPhoneMicRecordingButton(
   {
     if (isLoading) {
       text = context.l10n.initialisingRecorder;
-      icon = const SizedBox(height: 8, width: 8, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white));
+      icon = SizedBox(height: 8, width: 8, child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary));
     } else if (currentActualState == RecordingState.record) {
       text = context.l10n.pauseRecording;
       icon = Container(
         margin: const EdgeInsets.only(right: 4),
         width: 24,
         height: 24,
-        decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-        child: const Center(child: Icon(Icons.pause, color: Colors.white, size: 14)),
+        decoration: BoxDecoration(color: t.warning, shape: BoxShape.circle),
+        child: Center(child: Icon(Icons.pause, color: t.textPrimary, size: 14)),
       );
     } else if (isPhoneMicPaused) {
       text = context.l10n.resumeRecording;
@@ -833,11 +842,11 @@ getPhoneMicRecordingButton(
         margin: const EdgeInsets.only(right: 4),
         width: 24,
         height: 24,
-        decoration: const BoxDecoration(
-          color: Color(0xFF7C3AED), // Deep purple
+        decoration: BoxDecoration(
+          color: t.accent, // Deep purple
           shape: BoxShape.circle,
         ),
-        child: const Center(child: Icon(Icons.play_arrow, color: Colors.white, size: 14)),
+        child: Center(child: Icon(Icons.play_arrow, color: t.textPrimary, size: 14)),
       );
     } else {
       text = context.l10n.continueRecording;
@@ -856,7 +865,7 @@ getPhoneMicRecordingButton(
         const SizedBox(width: 4),
         Text(
           text,
-          style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.white, fontWeight: FontWeight.w500),
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: t.textPrimary, fontWeight: FontWeight.w500),
         ),
         const SizedBox(width: 4),
       ],
@@ -887,6 +896,7 @@ class ProcessingConversationWidget extends StatefulWidget {
 class _ProcessingConversationWidgetState extends State<ProcessingConversationWidget> {
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       onTap: () async {
         routeToPage(context, ProcessingConversationPage(conversation: widget.conversation));
@@ -895,7 +905,7 @@ class _ProcessingConversationWidgetState extends State<ProcessingConversationWid
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Container(
           width: double.maxFinite,
-          decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(24.0)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(24.0)),
           // Static skeleton - no animation to save CPU/battery
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -911,21 +921,21 @@ class _ProcessingConversationWidgetState extends State<ProcessingConversationWid
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A32),
-                        borderRadius: BorderRadius.circular(12),
+                        color: t.bgTertiary,
+                        borderRadius: BorderRadius.circular(t.rowRadius),
                       ),
                     ),
                     const SizedBox(width: 8),
                     // Processing label
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF35343B),
-                        borderRadius: BorderRadius.circular(16),
+                        color: t.bgTertiary,
+                        borderRadius: BorderRadius.circular(t.cardRadius),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       child: Text(
                         context.l10n.processing,
-                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                        style: TextStyle(color: t.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                     ),
                     const Spacer(),
@@ -933,7 +943,7 @@ class _ProcessingConversationWidgetState extends State<ProcessingConversationWid
                     Container(
                       width: 50,
                       height: 14,
-                      decoration: BoxDecoration(color: const Color(0xFF2A2A32), borderRadius: BorderRadius.circular(4)),
+                      decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(4)),
                     ),
                   ],
                 ),
@@ -942,7 +952,7 @@ class _ProcessingConversationWidgetState extends State<ProcessingConversationWid
                 Container(
                   width: double.maxFinite,
                   height: 16,
-                  decoration: BoxDecoration(color: const Color(0xFF2A2A32), borderRadius: BorderRadius.circular(4)),
+                  decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(4)),
                 ),
               ],
             ),

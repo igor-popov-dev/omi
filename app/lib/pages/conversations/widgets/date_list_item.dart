@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class DateListItem extends StatelessWidget {
   final bool isFirst;
@@ -11,6 +12,7 @@ class DateListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     var now = DateTime.now();
     var yesterday = now.subtract(const Duration(days: 1));
     var isToday = date.month == now.month && date.day == now.day && date.year == now.year;
@@ -30,7 +32,7 @@ class DateListItem extends StatelessWidget {
             isYesterday
                 ? context.l10n.yesterday
                 : dateTimeFormat('MMM dd', date, locale: Localizations.localeOf(context).languageCode),
-            style: const TextStyle(color: Colors.white, fontSize: 18),
+            style: TextStyle(color: t.textPrimary, fontSize: 18),
           ),
         ],
       ),

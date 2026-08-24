@@ -11,6 +11,7 @@ import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/other/time_utils.dart';
 import 'package:omi/utils/theme/omi_emoji.dart';
 import 'package:omi/widgets/extensions/string.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class SyncedConversationListItem extends StatefulWidget {
   final DateTime date;
@@ -52,6 +53,7 @@ class _SyncedConversationListItemState extends State<SyncedConversationListItem>
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     // Is new conversation
     DateTime memorizedAt = conversation.createdAt;
     if (conversation.finishedAt != null && conversation.finishedAt!.isAfter(memorizedAt)) {
@@ -68,7 +70,7 @@ class _SyncedConversationListItemState extends State<SyncedConversationListItem>
         padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
         child: Container(
           width: double.maxFinite,
-          decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(24.0)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(24.0)),
           child: Padding(
             padding: const EdgeInsetsDirectional.all(16),
             child: Row(
@@ -111,19 +113,19 @@ class _SyncedConversationListItemState extends State<SyncedConversationListItem>
                           setReprocessing(false);
                         },
                         child: isReprocessing
-                            ? const Center(
+                            ? Center(
                                 child: Padding(
-                                  padding: EdgeInsets.all(8.0),
+                                  padding: const EdgeInsets.all(8.0),
                                   child: SizedBox(
                                     height: 20,
                                     width: 20,
-                                    child: CircularProgressIndicator(color: Colors.white),
+                                    child: CircularProgressIndicator(color: t.textPrimary),
                                   ),
                                 ),
                               )
                             : Padding(
                                 padding: const EdgeInsets.all(8.0),
-                                child: Icon(Icons.refresh_outlined, color: Colors.grey.shade400),
+                                child: Icon(Icons.refresh_outlined, color: t.textSecondary),
                               ),
                       )
                     : const SizedBox.shrink(),
@@ -136,6 +138,7 @@ class _SyncedConversationListItemState extends State<SyncedConversationListItem>
   }
 
   _getConversationHeader() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.only(left: 4.0, right: 12),
       child: Row(
@@ -147,7 +150,8 @@ class _SyncedConversationListItemState extends State<SyncedConversationListItem>
               : const SizedBox.shrink(),
           conversation.structured.category.isNotEmpty
               ? Container(
-                  decoration: BoxDecoration(color: conversation.getTagColor(), borderRadius: BorderRadius.circular(16)),
+                  decoration: BoxDecoration(
+                      color: conversation.getTagColor(), borderRadius: BorderRadius.circular(t.cardRadius)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: Text(
                     conversation.getTag(),
@@ -163,7 +167,7 @@ class _SyncedConversationListItemState extends State<SyncedConversationListItem>
               children: [
                 Text(
                   dateTimeFormat('h:mm a', conversation.startedAt ?? conversation.createdAt),
-                  style: const TextStyle(color: Color(0xFF6A6B71), fontSize: 14),
+                  style: TextStyle(color: t.textTertiary, fontSize: 14),
                   maxLines: 1,
                   textAlign: TextAlign.end,
                 ),
@@ -172,10 +176,10 @@ class _SyncedConversationListItemState extends State<SyncedConversationListItem>
                     padding: const EdgeInsets.only(top: 2.0),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(4)),
+                      decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(4)),
                       child: Text(
                         _getConversationDuration(context),
-                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                        style: TextStyle(color: t.textPrimary, fontSize: 11),
                         maxLines: 1,
                         textAlign: TextAlign.end,
                       ),

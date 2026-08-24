@@ -6,6 +6,7 @@ import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/providers/sync_provider.dart';
 import 'widgets/synced_conversation_list_item.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class SyncedConversationsPage extends StatelessWidget {
   const SyncedConversationsPage({super.key});
@@ -60,6 +61,7 @@ class ConversationsListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     if (conversations.isEmpty) {
       return const SizedBox();
     }
@@ -67,7 +69,7 @@ class ConversationsListWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 18),
-        Text(title, style: const TextStyle(color: Colors.white, fontSize: 20)),
+        Text(title, style: TextStyle(color: t.textPrimary, fontSize: 20)),
         const SizedBox(height: 10),
         ListView.separated(
           shrinkWrap: true,
