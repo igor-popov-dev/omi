@@ -351,6 +351,19 @@ const Duration hubIdleReleaseDuration = Duration(milliseconds: 120000);
 /// why this exists independently of the idle release).
 const Duration hubWarmTimeoutDuration = Duration(milliseconds: 10000);
 
+/// How much notice a `goAway` gives when the server names no deadline of its
+/// own. Every measured warning said exactly "50s"
+/// (`marathon/probes/lane5-goaway-audio.py`, three sockets in one run), so
+/// assuming it is far better than waiting indefinitely for a quiet moment.
+const Duration goAwayAssumedRunway = Duration(seconds: 50);
+
+/// Held back from the `goAway` runway so the rebuild it pays for can actually
+/// finish. Covers a warm that runs the full [hubWarmTimeoutDuration] plus the
+/// socket handshake (measured 24.08: 0.76-0.83s to `setupComplete`, whole seam
+/// 3.4-6.6s) — the rebuild has to COMPLETE before the provider hangs up, not
+/// merely start.
+const Duration goAwayRebuildReserve = Duration(seconds: 15);
+
 // MARK: Default socket factory (real WebSocket, via web_socket_channel)
 
 /// Wraps an [IOWebSocketChannel] to satisfy [HubSocket], deriving

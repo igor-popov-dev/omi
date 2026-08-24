@@ -165,18 +165,18 @@ class _EventLog {
       );
 }
 
-/// Injected fake timer for the A7c reconnect backoff — never auto-fires, so
-/// tests are deterministic and no real timer leaks between cases.
-/// `_scheduleReWarm` coalesces on `_reconnectPending`, so at most one is
-/// armed at a time.
+/// Injected fake timer — never auto-fires, so tests are deterministic and no
+/// real timer leaks between cases. Two users: the A7c reconnect backoff
+/// (coalesced on `_reconnectPending`, so at most one) and the `goAway`
+/// deadline (at most one, cancelled the moment the warning is spent).
 class _FakeReconnectClock implements HubClock {
-  final Map<int, void Function()> _timers = {};
+  final Map<int, ({Duration duration, void Function() fire})> _timers = {};
   int _seq = 0;
 
   @override
   Object setTimer(Duration duration, void Function() fire) {
     final id = ++_seq;
-    _timers[id] = fire;
+    _timers[id] = (duration: duration, fire: fire);
     return id;
   }
 
@@ -185,11 +185,15 @@ class _FakeReconnectClock implements HubClock {
 
   bool get pending => _timers.isNotEmpty;
 
+  /// What is armed right now, in arming order — lets a test name the timer it
+  /// means instead of trusting there is only ever one.
+  List<Duration> get pendingDurations => _timers.values.map((t) => t.duration).toList();
+
   void fire() {
     if (_timers.isEmpty) throw StateError('no pending reconnect timer');
     final entry = _timers.entries.first;
     _timers.remove(entry.key);
-    entry.value();
+    entry.value.fire();
   }
 }
 
@@ -1187,6 +1191,106 @@ void main() {
       expect(h.session.toreDown, 0);
       expect(h.createCalls, 1);
       expect(h.log.goAways, [const Duration(seconds: 8)]);
+    });
+
+    test('user mid-sentence: the rebuild waits, and speech ENDING is not itself the moment', () async {
+      // The rebuild takes mic capture down with the socket
+      // (`FreeFormVoiceMode.restart`), so firing it while the user is talking
+      // eats the rest of their sentence — and they never learn they were not
+      // heard. Measured 24.08 (design doc §11.3): while audio streams the
+      // server offers a handle about once a second, so every one of those
+      // would otherwise look like a safe moment.
+      final h = _Harness();
+      await _warmed(h);
+      final old = h.session;
+      old.events.onResumptionHandle?.call('H1');
+      old.events.onUserSpeechState?.call(true);
+
+      old.events.onGoAway?.call(const Duration(seconds: 50));
+      await _tick();
+      expect(old.toreDown, 0);
+      expect(h.createCalls, 1);
+      expect(h.log.goAways, isEmpty);
+
+      // A handle offered mid-sentence is not a safe moment either.
+      old.events.onResumptionHandle?.call('H2');
+      await _tick();
+      expect(h.createCalls, 1);
+
+      // Speech ends — deliberately NOT a trigger: the reply to that sentence
+      // has not started generating yet, so rebuilding here would lose the
+      // sentence we just waited out.
+      old.events.onUserSpeechState?.call(false);
+      await _tick();
+      expect(h.createCalls, 1);
+
+      // The reply runs (handle withdrawn) and closes (handle re-offered) —
+      // that is the moment.
+      old.events.onResumptionHandle?.call(null);
+      old.events.onResumptionHandle?.call('H3');
+      await settleRewarm(h);
+      expect(h.createCalls, 2);
+      expect(h.specHandles, [null, 'H3']);
+      expect(h.log.goAways, [const Duration(seconds: 50)]);
+      // The deadline that guarded the wait is gone with the warning.
+      expect(h.clock.pending, isFalse);
+    });
+
+    test('talking through the whole warning still rebuilds, at the deadline', () async {
+      // Without this the wait added above would turn a monologue into exactly
+      // the drop the warning existed to prevent — and that drop costs the
+      // same words PLUS the spoken apology the recovery path makes.
+      final h = _Harness();
+      await _warmed(h);
+      final old = h.session;
+      old.events.onResumptionHandle?.call('H1');
+      old.events.onUserSpeechState?.call(true);
+
+      old.events.onGoAway?.call(const Duration(seconds: 50));
+      await _tick();
+      expect(h.createCalls, 1);
+      // 50s of notice minus the reserve the rebuild itself needs.
+      expect(h.clock.pendingDurations, [const Duration(seconds: 35)]);
+
+      h.clock.fire();
+      await settleRewarm(h);
+      expect(old.toreDown, 1);
+      expect(h.createCalls, 2);
+      expect(h.specHandles, [null, 'H1']);
+      expect(h.log.goAways, [const Duration(seconds: 50)]);
+    });
+
+    test('the duplicate warning does not push the deadline out', () async {
+      // The server sends the frame twice, 0.4s apart (measured 24.08). Re-arming
+      // on the second would quietly hand the wait 0.4s it does not have.
+      final h = _Harness();
+      await _warmed(h);
+      final old = h.session;
+      old.events.onResumptionHandle?.call('H1');
+      old.events.onUserSpeechState?.call(true);
+
+      old.events.onGoAway?.call(const Duration(seconds: 50));
+      old.events.onGoAway?.call(const Duration(seconds: 50));
+      await _tick();
+      expect(h.clock.pendingDurations, [const Duration(seconds: 35)]);
+      expect(h.log.goAways, isEmpty);
+    });
+
+    test('a warning with no named deadline still gets one, off the measured 50s', () async {
+      final h = _Harness();
+      await _warmed(h);
+      final old = h.session;
+      old.events.onResumptionHandle?.call('H1');
+      old.events.onUserSpeechState?.call(true);
+
+      old.events.onGoAway?.call(null);
+      await _tick();
+      expect(h.clock.pendingDurations, [goAwayAssumedRunway - goAwayRebuildReserve]);
+
+      h.clock.fire();
+      await settleRewarm(h);
+      expect(h.createCalls, 2);
+      expect(h.log.goAways, [null]);
     });
 
     test('a PTT press that straddles the warning rebuilds as soon as the press ends', () async {

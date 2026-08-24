@@ -304,6 +304,18 @@ class HubController {
   /// deferred warning (null when the server named no deadline).
   Duration? _goAwayTimeLeft;
 
+  /// The user is speaking RIGHT NOW, per the provider's own VAD
+  /// ([HubSessionEvents.onUserSpeechState]). A `goAway` rebuild waits this
+  /// out: the rebuild takes the microphone down with the socket, so firing it
+  /// mid-sentence drops whatever the user was saying — silently, since they
+  /// have no way to know they were not being heard.
+  bool _userSpeaking = false;
+
+  /// Deadline timer that spends a `goAway` even if no safe moment ever
+  /// arrives. Without it a user who keeps talking through the whole warning
+  /// window gets the very drop the warning existed to avoid.
+  Object? _goAwayDeadlineHandle;
+
   /// The handle handed to the session currently being built. Lets a session
   /// that dies BEFORE ever connecting blame — and discard — the handle it was
   /// built with. Measured 24.08: a handle the server no longer knows does not
@@ -531,6 +543,7 @@ class HubController {
     // a clean lifetime.
     _clearGoAway();
     _replyGenerating = false;
+    _userSpeaking = false;
     final s = session;
     session = null;
     sessionId = null;
@@ -579,9 +592,40 @@ class HubController {
   /// lose the conversation to save the socket. And it does not rebuild under
   /// a host-owned long turn (free-form mode) — see [HubControllerEvents.onGoAway].
   void _handleGoAway(Duration? timeLeft) {
+    final firstWarning = !_goAwayPending;
     _goAwayPending = true;
     _goAwayTimeLeft = timeLeft;
+    // Arm the deadline off the FIRST warning only: the server sends the frame
+    // twice, 0.4s apart (measured 24.08), and re-arming on the duplicate
+    // would quietly push the deadline out by that much.
+    if (firstWarning) _armGoAwayDeadline(timeLeft);
     _actOnGoAwayIfSafe();
+  }
+
+  /// Spends the warning at the last safe instant even if the conversation
+  /// never goes quiet. [timeLeft] is what the server named; when it named
+  /// nothing we assume the measured 50s (design doc §11) rather than wait
+  /// forever, and keep [goAwayRebuildReserve] back to actually do the rebuild.
+  void _armGoAwayDeadline(Duration? timeLeft) {
+    _cancelGoAwayDeadline();
+    final runway = timeLeft ?? goAwayAssumedRunway;
+    final wait = runway - goAwayRebuildReserve;
+    _goAwayDeadlineHandle = clock.setTimer(wait.isNegative ? Duration.zero : wait, () {
+      _goAwayDeadlineHandle = null;
+      // Past the point of politeness: cutting a sentence short beats the
+      // provider hanging up on it, which costs the same words PLUS the
+      // spoken apology the drop recovery makes.
+      _userSpeaking = false;
+      _actOnGoAwayIfSafe();
+    });
+  }
+
+  void _cancelGoAwayDeadline() {
+    final handle = _goAwayDeadlineHandle;
+    if (handle != null) {
+      clock.clearTimer(handle);
+      _goAwayDeadlineHandle = null;
+    }
   }
 
   /// Spends a pending `goAway` if this is a safe moment; otherwise leaves it
@@ -603,6 +647,13 @@ class HubController {
       return;
     }
     if (_replyGenerating) return;
+    // The user is mid-sentence. The rebuild disposes mic capture along with
+    // the socket (`FreeFormVoiceMode.restart`), so acting here would swallow
+    // the rest of what they are saying. Handles arrive about once a second
+    // while audio streams (measured 24.08, design doc §11.3), so the retry
+    // this defers to is moments away — and the deadline armed in
+    // [_handleGoAway] covers the case where it never comes.
+    if (_userSpeaking) return;
     final timeLeft = _goAwayTimeLeft;
     _clearGoAway();
     events.onGoAway?.call(timeLeft);
@@ -623,6 +674,7 @@ class HubController {
   void _clearGoAway() {
     _goAwayPending = false;
     _goAwayTimeLeft = null;
+    _cancelGoAwayDeadline();
   }
 
   // MARK: The four per-turn primitives (turn-ID fenced)
@@ -763,7 +815,14 @@ class HubController {
       onError: (message, retryable, closeCode) => _handleError(message, retryable, closeCode),
       onInputTranscript: (text, isFinal, identity) => events.onInputTranscript?.call(text, isFinal, identity),
       onAssistantText: (text, isFinal, identity) => events.onAssistantText?.call(text, isFinal, identity),
-      onUserSpeechState: (isSpeaking) => events.onUserSpeechState?.call(isSpeaking),
+      onUserSpeechState: (isSpeaking) {
+        // Only recorded, never used as a trigger: a rebuild fired the instant
+        // speech ends would land BEFORE the reply to it starts generating,
+        // i.e. lose the very sentence it just waited out. The safe moments
+        // stay what they were — a handle offer or a finished turn.
+        _userSpeaking = isSpeaking;
+        events.onUserSpeechState?.call(isSpeaking);
+      },
       onSpeakingStart: () => events.onSpeakingStart?.call(),
       onSpeakingEnd: () => events.onSpeakingEnd?.call(),
       onToolRequest: (call, identity) => events.onToolRequest?.call(call, identity),
@@ -838,6 +897,7 @@ class HubController {
     // The warning has been overtaken by the drop it warned about.
     _clearGoAway();
     _replyGenerating = false;
+    _userSpeaking = false;
     // Classify BEFORE forwarding: the forward drives the reducer's
     // terminal, which clears `_activeTurnId`, so the turn-at-close-time
     // must be captured first.
