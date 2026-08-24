@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omi/backend/schema/transcript_segment.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 void showEditSegmentBottomSheet(
   BuildContext context, {
@@ -10,11 +11,12 @@ void showEditSegmentBottomSheet(
   required Function(String newText) onSave,
   VoidCallback? onDismissed,
 }) {
+  final t = context.omi;
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.grey.shade900,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+    backgroundColor: t.bgSecondary,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(t.cardRadius))),
     builder: (context) => _EditSegmentSheet(segment: segment, speakerName: speakerName, onSave: onSave),
   ).whenComplete(() => onDismissed?.call());
 }
@@ -55,6 +57,7 @@ class _EditSegmentSheetState extends State<_EditSegmentSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: MediaQuery.of(context).viewInsets,
       child: SingleChildScrollView(
@@ -68,7 +71,7 @@ class _EditSegmentSheetState extends State<_EditSegmentSheet> {
                 child: Container(
                   width: 40,
                   height: 4,
-                  decoration: BoxDecoration(color: Colors.grey.shade600, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -77,13 +80,13 @@ class _EditSegmentSheetState extends State<_EditSegmentSheet> {
                   Expanded(
                     child: Text(
                       widget.speakerName,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                   if (widget.segment.start > 0)
                     Text(
                       widget.segment.getTimestampString(),
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                      style: TextStyle(color: t.textSecondary, fontSize: 12),
                     ),
                 ],
               ),
@@ -93,11 +96,12 @@ class _EditSegmentSheetState extends State<_EditSegmentSheet> {
                 autofocus: true,
                 maxLines: null,
                 minLines: 3,
-                style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.5),
+                style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.5),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.grey.shade800,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  fillColor: t.textTertiary,
+                  border:
+                      OutlineInputBorder(borderRadius: BorderRadius.circular(t.rowRadius), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.all(14),
                 ),
               ),
@@ -107,10 +111,10 @@ class _EditSegmentSheetState extends State<_EditSegmentSheet> {
                 child: ElevatedButton(
                   onPressed: _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
+                    backgroundColor: t.textPrimary,
+                    foregroundColor: t.bgPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                   ),
                   child: Text(context.l10n.save, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
