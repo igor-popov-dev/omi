@@ -174,15 +174,7 @@ class FreeFormVoiceMode {
     // and wrong here — the callers of this method speak into the session
     // immediately afterwards (the recovery line), and text handed to a hub
     // with no socket is dropped, not queued.
-    try {
-      await hub.ensureWarm();
-    } on HubWarmAbortedError {
-      // `ensureWarm()` coalesces onto an in-flight warm — and right after the
-      // teardown above, that in-flight warm is precisely the one the teardown
-      // invalidated, so it rejects. The retry gets a warm built against the
-      // current generation.
-      await hub.ensureWarm();
-    }
+    await hub.ensureWarm();
     await start();
   }
 
