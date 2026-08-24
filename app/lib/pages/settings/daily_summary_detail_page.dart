@@ -18,6 +18,7 @@ import 'package:omi/utils/daily_summary_journey.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/utils/share_links.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
 
 class DailySummaryDetailPage extends StatefulWidget {
   final String summaryId;
@@ -451,7 +452,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(summary.dayEmoji, style: const TextStyle(fontSize: 32)),
+                      OmiEmoji(summary.dayEmoji, size: 32),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -633,7 +634,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(highlight.emoji, style: const TextStyle(fontSize: 20)),
+                  OmiEmoji(highlight.emoji, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
