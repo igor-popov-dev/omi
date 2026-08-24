@@ -22,7 +22,6 @@ import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/debouncer.dart';
 import 'package:omi/utils/other/temp.dart';
-import 'package:omi/utils/ui_guidelines.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
 String filterValueToString(dynamic value) {
@@ -213,9 +212,11 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
   }
 
   Widget _buildShimmerSearchBar() {
+    final t = context.omi;
+
     return ShimmerWithTimeout(
-      baseColor: AppStyles.backgroundSecondary,
-      highlightColor: AppStyles.backgroundTertiary,
+      baseColor: t.bgSecondary,
+      highlightColor: t.bgTertiary,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: Row(
@@ -224,8 +225,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppStyles.backgroundSecondary,
-                  borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                  color: t.bgSecondary,
+                  borderRadius: BorderRadius.circular(t.rowRadius),
                 ),
               ),
             ),
@@ -234,8 +235,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
               width: 44,
               height: 48,
               decoration: BoxDecoration(
-                color: AppStyles.backgroundSecondary,
-                borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                color: t.bgSecondary,
+                borderRadius: BorderRadius.circular(t.rowRadius),
               ),
             ),
             const SizedBox(width: 8),
@@ -243,8 +244,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppStyles.backgroundSecondary,
-                borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                color: t.bgSecondary,
+                borderRadius: BorderRadius.circular(t.rowRadius),
               ),
             ),
             const SizedBox(width: 8),
@@ -252,8 +253,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: AppStyles.backgroundSecondary,
-                borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                color: t.bgSecondary,
+                borderRadius: BorderRadius.circular(t.rowRadius),
               ),
             ),
           ],
@@ -263,9 +264,11 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
   }
 
   Widget _buildShimmerCategorySection() {
+    final t = context.omi;
+
     return ShimmerWithTimeout(
-      baseColor: AppStyles.backgroundSecondary,
-      highlightColor: AppStyles.backgroundTertiary,
+      baseColor: t.bgSecondary,
+      highlightColor: t.bgTertiary,
       child: Container(
         margin: const EdgeInsets.only(top: 12, bottom: 14),
         child: Column(
@@ -280,7 +283,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                     width: 140,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundSecondary,
+                      color: t.bgSecondary,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -289,7 +292,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                     width: 60,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundSecondary,
+                      color: t.bgSecondary,
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
@@ -318,7 +321,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: AppStyles.backgroundSecondary,
+                          color: t.bgSecondary,
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -332,7 +335,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                               width: double.infinity,
                               height: 16,
                               decoration: BoxDecoration(
-                                color: AppStyles.backgroundSecondary,
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
@@ -341,7 +344,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                               width: 80,
                               height: 12,
                               decoration: BoxDecoration(
-                                color: AppStyles.backgroundSecondary,
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
@@ -353,7 +356,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                         width: 60,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: AppStyles.backgroundSecondary,
+                          color: t.bgSecondary,
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
@@ -468,8 +471,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                         height: 44,
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            color: AppStyles.backgroundSecondary,
-                                            borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                            color: t.bgSecondary,
+                                            borderRadius: BorderRadius.circular(t.rowRadius),
                                           ),
                                           child: IconButton(
                                             onPressed: () {
@@ -510,7 +513,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                                   child: Icon(Icons.search, color: t.textSecondary, size: 20),
                                                 ),
                                                 backgroundColor: WidgetStateProperty.all(
-                                                  AppStyles.backgroundSecondary,
+                                                  t.bgSecondary,
                                                 ),
                                                 elevation: WidgetStateProperty.all(0),
                                                 padding: WidgetStateProperty.all(
@@ -539,14 +542,14 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                                       ]
                                                     : null,
                                                 hintStyle: WidgetStateProperty.all(
-                                                  TextStyle(color: AppStyles.textTertiary, fontSize: 14),
+                                                  TextStyle(color: t.textTertiary, fontSize: 14),
                                                 ),
                                                 textStyle: WidgetStateProperty.all(
-                                                  const TextStyle(color: AppStyles.textPrimary, fontSize: 14),
+                                                  TextStyle(color: t.textPrimary, fontSize: 14),
                                                 ),
                                                 shape: WidgetStateProperty.all(
                                                   RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                                    borderRadius: BorderRadius.circular(t.rowRadius),
                                                   ),
                                                 ),
                                                 onChanged: (value) {
@@ -572,7 +575,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                         height: 44,
                                         decoration: BoxDecoration(
                                           color: t.rowFillHover,
-                                          borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                          borderRadius: BorderRadius.circular(t.rowRadius),
                                         ),
                                         child: TextButton.icon(
                                           onPressed: () {
@@ -612,8 +615,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                         duration: const Duration(milliseconds: 200),
                                         curve: Curves.easeInOut,
                                         decoration: BoxDecoration(
-                                          color: AppStyles.backgroundSecondary,
-                                          borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                          color: t.bgSecondary,
+                                          borderRadius: BorderRadius.circular(t.rowRadius),
                                         ),
                                         child: IconButton(
                                           onPressed: () {
@@ -648,7 +651,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                         height: 44,
                                         decoration: BoxDecoration(
                                           color: t.rowFillHover,
-                                          borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                          borderRadius: BorderRadius.circular(t.rowRadius),
                                         ),
                                         child: TextButton.icon(
                                           onPressed: () {
@@ -690,8 +693,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                         duration: const Duration(milliseconds: 200),
                                         curve: Curves.easeInOut,
                                         decoration: BoxDecoration(
-                                          color: AppStyles.backgroundSecondary,
-                                          borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                          color: t.bgSecondary,
+                                          borderRadius: BorderRadius.circular(t.rowRadius),
                                         ),
                                         child: IconButton(
                                           onPressed: () {
@@ -726,7 +729,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                         height: 44,
                                         decoration: BoxDecoration(
                                           color: t.rowFillHover,
-                                          borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                          borderRadius: BorderRadius.circular(t.rowRadius),
                                         ),
                                         child: TextButton.icon(
                                           onPressed: () {
@@ -769,10 +772,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                             duration: const Duration(milliseconds: 200),
                                             curve: Curves.easeInOut,
                                             decoration: BoxDecoration(
-                                              color: state.visibleFilterCount > 0
-                                                  ? t.rowFillHover
-                                                  : AppStyles.backgroundSecondary,
-                                              borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                              color: state.visibleFilterCount > 0 ? t.rowFillHover : t.bgSecondary,
+                                              borderRadius: BorderRadius.circular(t.rowRadius),
                                             ),
                                             child: IconButton(
                                               onPressed: () {

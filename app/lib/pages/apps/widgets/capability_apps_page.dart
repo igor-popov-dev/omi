@@ -8,7 +8,6 @@ import 'package:omi/backend/schema/app.dart';
 import 'package:omi/pages/apps/widgets/capability_category_section.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/logger.dart';
-import 'package:omi/utils/ui_guidelines.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CapabilityAppsPage extends StatefulWidget {
@@ -64,9 +63,11 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
   }
 
   Widget _buildShimmerCategorySection() {
+    final t = context.omi;
+
     return ShimmerWithTimeout(
-      baseColor: AppStyles.backgroundSecondary,
-      highlightColor: AppStyles.backgroundTertiary,
+      baseColor: t.bgSecondary,
+      highlightColor: t.bgTertiary,
       child: Container(
         margin: const EdgeInsets.only(top: 12, bottom: 14),
         child: Column(
@@ -81,7 +82,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                     width: 140,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundSecondary,
+                      color: t.bgSecondary,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -90,7 +91,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                     width: 40,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundSecondary,
+                      color: t.bgSecondary,
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
@@ -120,7 +121,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: AppStyles.backgroundSecondary,
+                          color: t.bgSecondary,
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -134,7 +135,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                               width: double.infinity,
                               height: 16,
                               decoration: BoxDecoration(
-                                color: AppStyles.backgroundSecondary,
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
@@ -143,7 +144,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                               width: 80,
                               height: 12,
                               decoration: BoxDecoration(
-                                color: AppStyles.backgroundSecondary,
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
@@ -155,7 +156,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                         width: 60,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: AppStyles.backgroundSecondary,
+                          color: t.bgSecondary,
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
