@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ConversationDisplaySettings extends StatefulWidget {
   const ConversationDisplaySettings({super.key});
@@ -22,13 +23,17 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
   }
 
   Widget _buildSectionContainer({required List<Widget> children}) {
+    final t = context.omi;
+
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
       child: Column(children: children),
     );
   }
 
   Widget _buildSectionHeader(String title, {String? subtitle}) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.only(left: 4, right: 4, bottom: 12),
       child: Column(
@@ -36,11 +41,11 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
         children: [
           Text(
             title,
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 6),
-            Text(subtitle, style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+            Text(subtitle, style: TextStyle(color: t.textSecondary, fontSize: 14)),
           ],
         ],
       ),
@@ -54,6 +59,8 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
     required bool value,
     required ValueChanged<bool>? onChanged,
   }) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -61,8 +68,8 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
-            child: Center(child: FaIcon(icon, color: Colors.grey.shade400, size: 16)),
+            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
+            child: Center(child: FaIcon(icon, color: t.textSecondary, size: 16)),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -71,20 +78,22 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 2),
-                Text(description, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                Text(description, style: TextStyle(color: t.textSecondary, fontSize: 12)),
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged, activeThumbColor: const Color(0xFF22C55E)),
+          Switch(value: value, onChanged: onChanged, activeThumbColor: t.success),
         ],
       ),
     );
   }
 
   Widget _buildThresholdSelector(ConversationProvider provider) {
+    final t = context.omi;
+
     String getThresholdLabel(int seconds) {
       final minutes = seconds ~/ 60;
       return context.l10n.minLabel(minutes);
@@ -108,8 +117,8 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
               Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
-                child: Center(child: FaIcon(FontAwesomeIcons.clock, color: Colors.grey.shade400, size: 16)),
+                decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
+                child: Center(child: FaIcon(FontAwesomeIcons.clock, color: t.textSecondary, size: 16)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -118,22 +127,22 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
                   children: [
                     Text(
                       context.l10n.durationThreshold,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       context.l10n.durationThresholdDesc,
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                      style: TextStyle(color: t.textSecondary, fontSize: 12),
                     ),
                   ],
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
                 child: Text(
                   getThresholdLabel(provider.shortConversationThreshold),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: t.textPrimary),
                 ),
               ),
             ],
@@ -153,9 +162,9 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
                     margin: EdgeInsets.only(right: threshold != thresholds.last ? 8 : 0),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF22C55E).withValues(alpha: 0.2) : const Color(0xFF2A2A2E),
+                      color: isSelected ? t.success.withValues(alpha: 0.2) : t.bgTertiary,
                       borderRadius: BorderRadius.circular(8),
-                      border: isSelected ? Border.all(color: const Color(0xFF22C55E), width: 1) : null,
+                      border: isSelected ? Border.all(color: t.success, width: 1) : null,
                     ),
                     child: Text(
                       threshold.$2,
@@ -163,7 +172,7 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: isSelected ? Colors.white : Colors.grey.shade400,
+                        color: isSelected ? t.textPrimary : t.textSecondary,
                       ),
                     ),
                   ),
@@ -178,10 +187,12 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: t.bgPrimary,
         elevation: 0,
         leading: IconButton(
           icon: const FaIcon(FontAwesomeIcons.chevronLeft, size: 18),
@@ -215,7 +226,7 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
                         );
                       },
                     ),
-                    const Divider(height: 1, color: Color(0xFF3C3C43)),
+                    Divider(height: 1, color: t.divider),
                     _buildToggleItem(
                       icon: FontAwesomeIcons.trash,
                       title: context.l10n.showDiscardedConversations,
