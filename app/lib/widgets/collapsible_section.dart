@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CollapsibleSection extends StatefulWidget {
   final Widget title;
@@ -15,6 +16,7 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -27,7 +29,7 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
           child: Row(
             children: [
               Expanded(child: widget.title),
-              Icon(_isExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.white60),
+              Icon(_isExpanded ? Icons.expand_less : Icons.expand_more, color: t.textPrimary.withValues(alpha: 0.6)),
             ],
           ),
         ),

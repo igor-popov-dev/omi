@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:omi/backend/schema/device_guide.dart';
 import 'package:omi/utils/analytics/intercom.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class DevicePairingSheet extends StatelessWidget {
   final DeviceGuideProduct product;
@@ -14,10 +14,11 @@ class DevicePairingSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
-      decoration: const BoxDecoration(
-        color: ResponsiveHelper.backgroundSecondary,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -27,7 +28,7 @@ class DevicePairingSheet extends StatelessWidget {
             margin: const EdgeInsets.only(top: 12),
             width: 40,
             height: 4,
-            decoration: BoxDecoration(color: ResponsiveHelper.textTertiary, borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
           ),
 
           Padding(
@@ -41,18 +42,18 @@ class DevicePairingSheet extends StatelessWidget {
                     child: Image.asset(product.localImagePath!, height: 180, width: 180, fit: BoxFit.contain),
                   )
                 else
-                  const SizedBox(
+                  SizedBox(
                     height: 180,
                     width: 180,
-                    child: Icon(Icons.bluetooth_searching, size: 64, color: ResponsiveHelper.purplePrimary),
+                    child: Icon(Icons.bluetooth_searching, size: 64, color: t.accent),
                   ),
                 const SizedBox(height: 24),
 
                 // Title
                 Text(
                   product.pairingTitle.isNotEmpty ? product.pairingTitle : product.name,
-                  style: const TextStyle(
-                    color: ResponsiveHelper.textPrimary,
+                  style: TextStyle(
+                    color: t.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
                   ),
@@ -64,7 +65,7 @@ class DevicePairingSheet extends StatelessWidget {
                 if (product.pairingDescription.isNotEmpty)
                   Text(
                     product.pairingDescription,
-                    style: const TextStyle(color: ResponsiveHelper.textTertiary, fontSize: 15, height: 1.4),
+                    style: TextStyle(color: t.textTertiary, fontSize: 15, height: 1.4),
                     textAlign: TextAlign.center,
                   ),
                 const SizedBox(height: 32),
@@ -76,8 +77,8 @@ class DevicePairingSheet extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onDismissAll,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: ResponsiveHelper.purplePrimary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: t.accent,
+                      foregroundColor: t.textPrimary,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                       elevation: 0,
                     ),
@@ -98,7 +99,7 @@ class DevicePairingSheet extends StatelessWidget {
                   },
                   child: Text(
                     context.l10n.reportAnIssue,
-                    style: const TextStyle(color: ResponsiveHelper.textTertiary, fontSize: 14),
+                    style: TextStyle(color: t.textTertiary, fontSize: 14),
                   ),
                 ),
 

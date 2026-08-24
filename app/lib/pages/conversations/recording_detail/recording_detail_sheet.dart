@@ -11,6 +11,7 @@ import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/other/time_utils.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/widgets/waveform_painter.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
@@ -287,7 +288,12 @@ class _RecordingDetailSheetState extends State<_RecordingDetailSheet> {
             height: double.infinity,
             child: RepaintBoundary(
               child: CustomPaint(
-                painter: WaveformPainter(isPlaying: isPlaying, waveformData: _waveform, playbackProgress: progress),
+                painter: WaveformPainter(
+                  isPlaying: isPlaying,
+                  t: context.omi,
+                  waveformData: _waveform,
+                  playbackProgress: progress,
+                ),
               ),
             ),
           ),

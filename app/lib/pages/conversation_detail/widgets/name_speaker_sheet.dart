@@ -11,6 +11,7 @@ import 'package:omi/pages/settings/people.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/providers/people_provider.dart';
 import 'package:omi/widgets/person_chip.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class NameSpeakerBottomSheet extends StatefulWidget {
   final int speakerId;
@@ -145,6 +146,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final peopleProvider = context.watch<PeopleProvider>();
     final people = peopleProvider.people;
     final userName = SharedPreferencesUtil().givenName;
@@ -159,9 +161,10 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               loading
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.white))),
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child:
+                          Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(t.textPrimary))),
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,6 +190,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
   }
 
   Widget _buildHeader() {
+    final t = context.omi;
     return Column(
       children: [
         Row(
@@ -199,7 +203,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.close, color: Colors.grey),
+              icon: Icon(Icons.close, color: t.textSecondary),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ],
@@ -208,7 +212,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
           const SizedBox(height: 8),
           Text(
             speakerTextSample!,
-            style: TextStyle(color: Colors.grey.shade400, fontStyle: FontStyle.italic),
+            style: TextStyle(color: t.textSecondary, fontStyle: FontStyle.italic),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -218,6 +222,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
   }
 
   Widget _buildNewPersonInput(List<Person> people, String userName) {
+    final t = context.omi;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -250,9 +255,9 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
             hintText: context.l10n.enterPersonsName,
             filled: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            fillColor: Colors.grey[900],
+            fillColor: t.bgSecondary,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            hintStyle: const TextStyle(color: Colors.grey),
+            hintStyle: TextStyle(color: t.textSecondary),
             errorText: _duplicateNameError,
           ),
         ),
@@ -265,7 +270,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
               setAllowSave(selectedPerson.isNotEmpty);
             });
           },
-          child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.white)),
+          child: Text(context.l10n.cancel, style: TextStyle(color: t.textPrimary)),
         ),
       ],
     );
@@ -338,6 +343,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
   }
 
   Widget _buildUntaggedSegments() {
+    final t = context.omi;
     final untaggedSegments = widget.segments
         .where((s) => s.speakerId == widget.speakerId && s.personId == null && !s.isUser && s.id != widget.segmentId)
         .toList();
@@ -350,7 +356,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
             _isSegmentsExpanded
                 ? context.l10n.tagOtherSegmentsFromSpeaker(selectedUntaggedSegmentsCount, untaggedSegments.length)
                 : context.l10n.tagOtherSegments,
-            style: TextStyle(fontSize: 14, color: untaggedSegments.isNotEmpty ? Colors.white : Colors.grey),
+            style: TextStyle(fontSize: 14, color: untaggedSegments.isNotEmpty ? t.textPrimary : t.textSecondary),
           ),
           value: _isSegmentsExpanded,
           onChanged: untaggedSegments.isNotEmpty
@@ -369,7 +375,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
           controlAffinity: ListTileControlAffinity.leading,
           dense: true,
           activeColor: Theme.of(context).colorScheme.secondary,
-          checkColor: Colors.white,
+          checkColor: t.textPrimary,
           contentPadding: EdgeInsets.zero,
           secondary: InkWell(
             onTap: () {
@@ -379,11 +385,11 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
               padding: const EdgeInsets.only(right: 8.0),
               child: Text(
                 context.l10n.managePeople,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: t.textPrimary.withValues(alpha: 0.7),
                   fontSize: 14,
                   decoration: TextDecoration.underline,
-                  decorationColor: Colors.white70,
+                  decorationColor: t.textPrimary.withValues(alpha: 0.7),
                 ),
               ),
             ),
@@ -405,10 +411,10 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
                         segment.text,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: Colors.white),
+                        style: TextStyle(fontSize: 12, color: t.textPrimary),
                       ),
                       const SizedBox(height: 4),
-                      Text(segment.getTimestampString(), style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+                      Text(segment.getTimestampString(), style: TextStyle(fontSize: 10, color: t.textSecondary)),
                     ],
                   ),
                   value: _selectedSegmentIds.contains(segment.id),
@@ -424,7 +430,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
                   controlAffinity: ListTileControlAffinity.leading,
                   dense: true,
                   activeColor: Theme.of(context).colorScheme.secondary,
-                  checkColor: Colors.white,
+                  checkColor: t.textPrimary,
                 );
               },
             ),
@@ -434,12 +440,13 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
   }
 
   Widget _buildSaveButton() {
+    final t = context.omi;
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
+          backgroundColor: t.textPrimary,
+          foregroundColor: t.bgPrimary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         onPressed: !allowSave || loading

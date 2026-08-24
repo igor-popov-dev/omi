@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ConfirmationDialog extends StatefulWidget {
   final String title;
@@ -55,17 +56,18 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     // Hide cancel button if cancelText is null and onCancel doesn't do anything meaningful
     final showCancelButton = widget.cancelText != null;
 
     if (Platform.isAndroid) {
       return AlertDialog(
-        backgroundColor: const Color(0xFF1F1F25),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: t.bgSecondary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.cardRadius)),
         contentPadding: const EdgeInsets.only(top: 20, left: 24, right: 24, bottom: 10),
         title: Text(
           widget.title,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -75,7 +77,7 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
             Text(
               widget.description,
               textAlign: TextAlign.start,
-              style: TextStyle(color: Colors.grey.shade200, fontSize: 14),
+              style: TextStyle(color: t.textPrimary, fontSize: 14),
             ),
             if (widget.checkboxText != null && widget.checkboxText!.isNotEmpty) ...[
               const SizedBox(height: 20),
@@ -88,18 +90,18 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
                       checkboxTheme: CheckboxThemeData(
                         fillColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> states) {
                           if (states.contains(WidgetState.selected)) {
-                            return Colors.white;
+                            return t.textPrimary;
                           }
-                          return Colors.grey.shade700;
+                          return t.textTertiary;
                         }),
-                        checkColor: WidgetStateProperty.all(Colors.black),
+                        checkColor: WidgetStateProperty.all(t.bgPrimary),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                       ),
                     ),
                     child: Checkbox(value: _checkboxValue, onChanged: _updateCheckboxValue),
                   ),
                   const SizedBox(width: 8),
-                  Text(widget.checkboxText!, style: TextStyle(color: Colors.grey.shade300, fontSize: 14)),
+                  Text(widget.checkboxText!, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                 ],
               ),
             ],
@@ -110,7 +112,7 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
             TextButton(
               onPressed: widget.onCancel,
               style: TextButton.styleFrom(
-                foregroundColor: Colors.grey.shade300,
+                foregroundColor: t.textSecondary,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: Text(widget.cancelText ?? context.l10n.cancel),
@@ -118,8 +120,8 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
           TextButton(
             onPressed: widget.onConfirm,
             style: TextButton.styleFrom(
-              foregroundColor: Colors.black,
-              backgroundColor: Colors.white,
+              foregroundColor: t.bgPrimary,
+              backgroundColor: t.textPrimary,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -131,7 +133,7 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
       return CupertinoAlertDialog(
         title: Text(
           widget.title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: t.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -141,7 +143,7 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
             Text(
               widget.description,
               textAlign: TextAlign.start,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade200),
+              style: TextStyle(fontSize: 14, color: t.textPrimary),
             ),
             if (widget.checkboxText != null && widget.checkboxText!.isNotEmpty) ...[
               const SizedBox(height: 20),
@@ -152,11 +154,11 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
                   CupertinoCheckbox(
                     value: _checkboxValue,
                     onChanged: _updateCheckboxValue,
-                    activeColor: Colors.white,
+                    activeColor: t.textPrimary,
                     checkColor: CupertinoColors.black,
                   ),
                   const SizedBox(width: 8),
-                  Text(widget.checkboxText!, style: TextStyle(fontSize: 14, color: Colors.grey.shade300)),
+                  Text(widget.checkboxText!, style: TextStyle(fontSize: 14, color: t.textSecondary)),
                 ],
               ),
             ],
@@ -169,7 +171,7 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
               isDestructiveAction: false,
               child: Text(
                 widget.cancelText ?? context.l10n.cancel,
-                style: TextStyle(fontSize: 16, color: Colors.grey.shade300),
+                style: TextStyle(fontSize: 16, color: t.textSecondary),
               ),
             ),
           CupertinoDialogAction(
@@ -177,7 +179,7 @@ class _ConfirmationDialogState extends State<ConfirmationDialog> {
             isDefaultAction: true,
             child: Text(
               widget.confirmText ?? context.l10n.confirm,
-              style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: 16, color: t.textPrimary, fontWeight: FontWeight.w600),
             ),
           ),
         ],

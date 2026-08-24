@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class OmiConfirmDialog {
   static Future<bool?> show(
@@ -9,22 +9,24 @@ class OmiConfirmDialog {
     required String message,
     String confirmLabel = 'Confirm',
     String cancelLabel = 'Cancel',
-    Color confirmColor = ResponsiveHelper.errorColor,
+    Color? confirmColor,
   }) {
+    final t = context.omi;
+    confirmColor ??= t.error;
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ResponsiveHelper.backgroundSecondary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: t.bgSecondary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.cardRadius)),
         title: Text(
           title,
-          style: const TextStyle(color: ResponsiveHelper.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        content: Text(message, style: const TextStyle(color: ResponsiveHelper.textSecondary, fontSize: 14)),
+        content: Text(message, style: TextStyle(color: t.textSecondary, fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(cancelLabel, style: const TextStyle(color: ResponsiveHelper.textSecondary)),
+            child: Text(cancelLabel, style: TextStyle(color: t.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -42,25 +44,27 @@ class OmiConfirmDialog {
     String confirmLabel = 'Confirm',
     String cancelLabel = 'Cancel',
     String skipLabel = 'Do not show this again',
-    Color confirmColor = ResponsiveHelper.errorColor,
+    Color? confirmColor,
   }) {
+    final t = context.omi;
+    confirmColor ??= t.error;
     bool skipFutureConfirmations = false;
 
     return showDialog<ConfirmationResult>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          backgroundColor: ResponsiveHelper.backgroundSecondary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: t.bgSecondary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.cardRadius)),
           title: Text(
             title,
-            style: const TextStyle(color: ResponsiveHelper.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(message, style: const TextStyle(color: ResponsiveHelper.textSecondary, fontSize: 14)),
+              Text(message, style: TextStyle(color: t.textSecondary, fontSize: 14)),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -74,13 +78,13 @@ class OmiConfirmDialog {
                           skipFutureConfirmations = value ?? false;
                         });
                       },
-                      activeColor: ResponsiveHelper.purplePrimary,
-                      checkColor: ResponsiveHelper.backgroundPrimary,
+                      activeColor: t.accent,
+                      checkColor: t.bgPrimary,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(skipLabel, style: const TextStyle(color: ResponsiveHelper.textSecondary, fontSize: 12)),
+                    child: Text(skipLabel, style: TextStyle(color: t.textSecondary, fontSize: 12)),
                   ),
                 ],
               ),
@@ -92,7 +96,7 @@ class OmiConfirmDialog {
                 ctx,
                 ConfirmationResult(confirmed: false, skipFutureConfirmations: skipFutureConfirmations),
               ),
-              child: Text(cancelLabel, style: const TextStyle(color: ResponsiveHelper.textSecondary)),
+              child: Text(cancelLabel, style: TextStyle(color: t.textSecondary)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(

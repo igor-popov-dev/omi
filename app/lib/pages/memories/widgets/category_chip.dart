@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:omi/backend/schema/memory.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CategoryChip extends StatelessWidget {
   final MemoryCategory category;
@@ -20,12 +21,16 @@ class CategoryChip extends StatelessWidget {
     this.showCheckmark = false,
   });
 
+  /// Categorical palette: four hues that must stay distinguishable from each
+  /// other, not four semantic roles. Left un-themed on purpose (same rule as
+  /// user-colored folder icons) — collapsing these onto tokens would make
+  /// `system` and `manual` the same color under Glass.
   Color _getCategoryColor() {
     switch (category) {
       case MemoryCategory.system:
         return Colors.blue;
       case MemoryCategory.interesting:
-        return Colors.amber;
+        return Colors.orange;
       case MemoryCategory.manual:
         return Colors.purple;
       case MemoryCategory.workflow:
@@ -48,6 +53,7 @@ class CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     // Use shorter display names for categories
     String displayName;
     switch (category) {
@@ -76,7 +82,7 @@ class CategoryChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: isSelected
             ? (onTap != null ? categoryColor : categoryColor.withValues(alpha: 0.15))
-            : const Color(0xFF35343B).withValues(alpha: 0.6),
+            : t.bgTertiary.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(13),
         border: isSelected && onTap == null ? Border.all(color: categoryColor, width: 1) : null,
       ),
@@ -84,17 +90,18 @@ class CategoryChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (showIcon) ...[
-            Icon(categoryIcon, size: 14, color: isSelected && onTap != null ? Colors.white : categoryColor),
+            Icon(categoryIcon, size: 14, color: isSelected && onTap != null ? t.textPrimary : categoryColor),
             const SizedBox(width: 4),
           ],
           if (showCheckmark && isSelected) ...[
-            const Icon(Icons.check, size: 12, color: Colors.white),
+            Icon(Icons.check, size: 12, color: t.textPrimary),
             const SizedBox(width: 2),
           ],
           Text(
             displayName + countText,
             style: TextStyle(
-              color: isSelected ? (onTap != null ? Colors.white : categoryColor) : Colors.white70,
+              color:
+                  isSelected ? (onTap != null ? t.textPrimary : categoryColor) : t.textPrimary.withValues(alpha: 0.7),
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),

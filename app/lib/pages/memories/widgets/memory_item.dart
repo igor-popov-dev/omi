@@ -18,9 +18,9 @@ import 'package:omi/providers/memories_provider.dart';
 import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
-import 'package:omi/utils/ui_guidelines.dart';
 import 'package:omi/widgets/extensions/string.dart';
 import 'delete_confirmation.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MemoryItem extends StatelessWidget {
   final Memory memory;
@@ -43,6 +43,7 @@ class MemoryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final provenanceType = ClientDeviceService.instance.deviceProvenanceType(
       primaryCaptureDevice: memory.primaryCaptureDevice,
     );
@@ -55,9 +56,9 @@ class MemoryItem extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.fromLTRB(18, 18, 16, 18),
         decoration: BoxDecoration(
-          color: AppStyles.backgroundSecondary,
+          color: t.bgSecondary,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
+          boxShadow: [BoxShadow(color: t.bgPrimary.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Stack(
           children: [
@@ -68,26 +69,27 @@ class MemoryItem extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(memory.content.decodeString, style: AppStyles.body),
+                      Text(memory.content.decodeString,
+                          style: TextStyle(fontSize: 15, height: 1.4, color: t.textPrimary)),
                       if (provenanceLabel != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(provenanceLabel, style: TextStyle(fontSize: 11, color: AppStyles.textTertiary)),
+                          child: Text(provenanceLabel, style: TextStyle(fontSize: 11, color: t.textTertiary)),
                         ),
                     ],
                   ),
                 ),
-                const SizedBox(width: AppStyles.spacingM),
+                const SizedBox(width: 12.0),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (memory.isBaseline) ...[
-                      const Icon(Icons.flag, color: Colors.blue, size: 20),
-                      const SizedBox(width: AppStyles.spacingS),
+                      Icon(Icons.flag, color: t.accent, size: 20),
+                      const SizedBox(width: 8.0),
                     ],
                     if (memory.conversationId != null) ...[
                       _buildConversationLinkButton(context),
-                      const SizedBox(width: AppStyles.spacingS),
+                      const SizedBox(width: 8.0),
                     ],
                     // _buildVisibilityButton(context),
                   ],
@@ -109,13 +111,13 @@ class MemoryItem extends StatelessWidget {
                       child: Container(
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.01),
+                          color: t.bgPrimary.withValues(alpha: 0.01),
                           borderRadius: const BorderRadius.all(Radius.circular(8)),
                         ),
                         child: context.watch<UsageProvider>().showSubscriptionUI
-                            ? const Text(
+                            ? Text(
                                 'Upgrade to unlimited',
-                                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
                               )
                             : const SizedBox.shrink(),
                       ),
@@ -150,10 +152,10 @@ class MemoryItem extends StatelessWidget {
       },
       background: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(color: AppStyles.error, borderRadius: BorderRadius.circular(24)),
+        decoration: BoxDecoration(color: t.error, borderRadius: BorderRadius.circular(24)),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
+        child: Icon(Icons.delete_outline, color: t.textPrimary),
       ),
       child: memoryWidget,
     );
@@ -182,16 +184,17 @@ class MemoryItem extends StatelessWidget {
   }
 
   Widget _buildConversationLinkButton(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       onTap: () => _navigateToConversation(context),
       child: Container(
         height: 36,
         width: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppStyles.radiusMedium),
+          color: t.rowFillHover,
+          borderRadius: BorderRadius.circular(8.0),
         ),
-        child: const Center(child: FaIcon(FontAwesomeIcons.message, size: 16, color: Colors.white70)),
+        child: Center(child: FaIcon(FontAwesomeIcons.message, size: 16, color: t.textPrimary.withValues(alpha: 0.7))),
       ),
     );
   }
@@ -229,9 +232,10 @@ class MemoryItem extends StatelessWidget {
   }
 
   void _showConversationNotFoundError(BuildContext context) {
+    final t = context.omi;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(context.l10n.conversationNotFoundOrDeleted), backgroundColor: Colors.red));
+    ).showSnackBar(SnackBar(content: Text(context.l10n.conversationNotFoundOrDeleted), backgroundColor: t.error));
   }
 
   // Widget _buildVisibilityButton(BuildContext context) {
@@ -239,17 +243,17 @@ class MemoryItem extends StatelessWidget {
   //     padding: EdgeInsets.zero,
   //     position: PopupMenuPosition.under,
   //     surfaceTintColor: Colors.transparent,
-  //     color: AppStyles.backgroundTertiary,
+  //     color: t.bgTertiary,
   //     shape: RoundedRectangleBorder(
-  //       borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+  //       borderRadius: BorderRadius.circular(t.rowRadius),
   //     ),
   //     offset: const Offset(0, 4),
   //     child: Container(
   //       height: 36,
   //       width: 56,
   //       decoration: BoxDecoration(
-  //         color: Colors.white.withValues(alpha: 0.1),
-  //         borderRadius: BorderRadius.circular(AppStyles.radiusMedium),
+  //         color: t.rowFillHover,
+  //         borderRadius: BorderRadius.circular(8.0),
   //       ),
   //       child: Row(
   //         mainAxisSize: MainAxisSize.min,
@@ -258,13 +262,13 @@ class MemoryItem extends StatelessWidget {
   //           Icon(
   //             memory.visibility == MemoryVisibility.private ? Icons.lock_outline : Icons.public,
   //             size: 16,
-  //             color: Colors.white70,
+  //             color: t.textPrimary.withValues(alpha: 0.7),
   //           ),
   //           const SizedBox(width: 6),
   //           const Icon(
   //             Icons.keyboard_arrow_down,
   //             size: 18,
-  //             color: Colors.white70,
+  //             color: t.textPrimary.withValues(alpha: 0.7),
   //           ),
   //         ],
   //       ),
@@ -306,7 +310,7 @@ class MemoryItem extends StatelessWidget {
   //           Icon(
   //             icon,
   //             size: 18,
-  //             color: isSelected ? Colors.white : Colors.white70,
+  //             color: isSelected ? t.textPrimary : t.textPrimary.withValues(alpha: 0.7),
   //           ),
   //           const SizedBox(width: 12),
   //           Expanded(
@@ -316,21 +320,21 @@ class MemoryItem extends StatelessWidget {
   //                 Text(
   //                   visibility.name[0].toUpperCase() + visibility.name.substring(1),
   //                   style: TextStyle(
-  //                     color: isSelected ? Colors.white : Colors.white70,
+  //                     color: isSelected ? t.textPrimary : t.textPrimary.withValues(alpha: 0.7),
   //                     fontSize: 14,
   //                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
   //                   ),
   //                 ),
   //                 Text(
   //                   description,
-  //                   style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+  //                   style: TextStyle(color: t.textSecondary, fontSize: 12),
   //                   maxLines: 2,
   //                   overflow: TextOverflow.ellipsis,
   //                 ),
   //               ],
   //             ),
   //           ),
-  //           if (isSelected) const Icon(Icons.check, size: 18, color: Colors.white),
+  //           if (isSelected) const Icon(Icons.check, size: 18, color: t.textPrimary),
   //         ],
   //       ),
   //     ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
 
 class ActionItemShimmerWidget extends StatelessWidget {
@@ -7,13 +8,18 @@ class ActionItemShimmerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+    // Classic keeps the exact grey pair it always used; Glass needs a light
+    // placeholder pair that still reads as "loading" on a white card.
+    final base = t.isGlass ? t.bgTertiary : Colors.grey[800]!;
+    final highlight = t.isGlass ? t.bgSecondary : Colors.grey[600]!;
     return ShimmerWithTimeout(
-      baseColor: Colors.grey[800]!,
-      highlightColor: Colors.grey[600]!,
+      baseColor: base,
+      highlightColor: highlight,
       child: Container(
         height: 60,
         width: double.infinity,
-        decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(t.cardRadius)),
       ),
     );
   }
