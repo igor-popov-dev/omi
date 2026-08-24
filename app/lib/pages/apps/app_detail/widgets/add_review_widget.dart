@@ -203,7 +203,7 @@ class _AddReviewWidgetState extends State<AddReviewWidget> {
                                   text: widget.app.userReview != null
                                       ? context.l10n.updateReview
                                       : context.l10n.submitReview,
-                                  textStyle: const TextStyle(color: Colors.black, fontSize: 16),
+                                  textStyle: TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16),
                                   onPressed: () async {
                                     FocusScope.of(context).unfocus();
                                     if (rating == widget.app.userReview?.score &&

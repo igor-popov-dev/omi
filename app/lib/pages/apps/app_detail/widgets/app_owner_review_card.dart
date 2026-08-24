@@ -149,7 +149,7 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                                       width: MediaQuery.sizeOf(context).width * 0.36,
                                       child: OutlinedButton(
                                         style: OutlinedButton.styleFrom(
-                                          side: const BorderSide(color: Colors.white),
+                                          side: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                         ),
                                         onPressed: () {
@@ -166,8 +166,8 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                                       width: MediaQuery.sizeOf(context).width * 0.36,
                                       child: OutlinedButton(
                                         style: OutlinedButton.styleFrom(
-                                          side: const BorderSide(color: Colors.white),
-                                          backgroundColor: Colors.white,
+                                          side: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
+                                          backgroundColor: (t.isGlass ? t.accent : Colors.white),
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                         ),
                                         onPressed: () async {
@@ -196,7 +196,8 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                                         },
                                         child: Text(
                                           context.l10n.submitReply,
-                                          style: const TextStyle(color: Colors.black, fontSize: 16),
+                                          style:
+                                              TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16),
                                         ),
                                       ),
                                     ),
@@ -237,7 +238,7 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                     children: [
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
+                          backgroundColor: (t.isGlass ? t.accent : Colors.white),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                         onPressed: () {
@@ -245,7 +246,7 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                         },
                         child: Text(
                           widget.review.response.isNotEmpty ? context.l10n.editYourReply : context.l10n.replyToReview,
-                          style: const TextStyle(color: Colors.black),
+                          style: TextStyle(color: (t.isGlass ? t.onAccent : Colors.black)),
                         ),
                       ),
                     ],

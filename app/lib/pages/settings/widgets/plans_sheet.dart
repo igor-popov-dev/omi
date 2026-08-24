@@ -163,7 +163,7 @@ class _PlansSheetState extends State<PlansSheet> {
                             return Colors.transparent;
                           }),
                           checkColor: t.bgPrimary,
-                          side: const BorderSide(color: Colors.white, width: 1.5),
+                          side: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1.5),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1423,7 +1423,7 @@ class _PlansSheetState extends State<PlansSheet> {
                               label: Text(context.l10n.managePaymentMethod),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: t.textPrimary,
-                                side: const BorderSide(color: Colors.white, width: 1),
+                                side: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
@@ -1841,11 +1841,12 @@ class _PlansSheetState extends State<PlansSheet> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                        decoration: BoxDecoration(
+                            color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(12)),
                         child: Text(
                           context.l10n.popularBadge,
-                          style: const TextStyle(
-                            color: Colors.black,
+                          style: TextStyle(
+                            color: (t.isGlass ? t.onAccent : Colors.black),
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -2212,11 +2213,12 @@ class _PlansSheetState extends State<PlansSheet> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-                    child: const Text(
+                    decoration: BoxDecoration(
+                        color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(8)),
+                    child: Text(
                       'Active',
                       style: TextStyle(
-                        color: Colors.black,
+                        color: (t.isGlass ? t.onAccent : Colors.black),
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.3,

@@ -15,8 +15,10 @@ class DeveloperApiKeysSection extends StatelessWidget {
   const DeveloperApiKeysSection({super.key});
 
   Widget _buildDocsButton(BuildContext context, String url, String label) {
+    final t = context.omi;
+
     return Material(
-      color: Colors.white,
+      color: (t.isGlass ? t.accent : Colors.white),
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: () {
@@ -28,7 +30,7 @@ class DeveloperApiKeysSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Text(
             context.l10n.docs,
-            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600, fontSize: 12),
+            style: TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontWeight: FontWeight.w600, fontSize: 12),
           ),
         ),
       ),

@@ -232,7 +232,7 @@ class SectionAppItemCard extends StatelessWidget {
                   width: 60,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: isEnabled ? t.textSecondary : Colors.white,
+                    color: isEnabled ? t.textSecondary : (t.isGlass ? t.accent : Colors.white),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
@@ -241,7 +241,7 @@ class SectionAppItemCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: isEnabled ? t.textPrimary : Colors.black,
+                        color: isEnabled ? t.textPrimary : (t.isGlass ? t.onAccent : Colors.black),
                       ),
                     ),
                   ),

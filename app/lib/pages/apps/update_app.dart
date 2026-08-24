@@ -417,7 +417,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                             ),
                                             focusedBorder: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(12),
-                                              borderSide: const BorderSide(color: Colors.white),
+                                              borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                                             ),
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                           ),
@@ -496,11 +496,13 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                         padding: const EdgeInsets.all(12.0),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12.0),
-                          color: (provider.isValid && provider.hasChanges) ? Colors.white : t.textSecondary,
+                          color: (provider.isValid && provider.hasChanges)
+                              ? (t.isGlass ? t.accent : Colors.white)
+                              : t.textSecondary,
                         ),
                         child: Text(
                           context.l10n.updateApp,
-                          style: const TextStyle(color: Colors.black, fontSize: 16),
+                          style: TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16),
                           textAlign: TextAlign.center,
                         ),
                       ),

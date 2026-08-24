@@ -170,7 +170,7 @@ class _DeleteAccountState extends State<DeleteAccount> {
           height: 4,
           margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(
-            color: active ? Colors.white : t.textSecondary,
+            color: active ? (t.isGlass ? t.accent : Colors.white) : t.textSecondary,
             borderRadius: BorderRadius.circular(2),
           ),
         );
@@ -225,9 +225,9 @@ class _DeleteAccountState extends State<DeleteAccount> {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
+                  backgroundColor: (t.isGlass ? t.accent : Colors.white),
                   disabledBackgroundColor: t.textSecondary,
-                  foregroundColor: Colors.black,
+                  foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                   disabledForegroundColor: t.textSecondary,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -356,8 +356,8 @@ class _DeleteAccountState extends State<DeleteAccount> {
                   child: ElevatedButton(
                     onPressed: _next,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
+                      backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                      foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -506,8 +506,8 @@ class _DeleteAccountState extends State<DeleteAccount> {
                             Navigator.of(context).pop();
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
+                      backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                      foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),

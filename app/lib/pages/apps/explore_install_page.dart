@@ -437,8 +437,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
               HapticFeedback.mediumImpact();
               await context.read<AppProvider>().forceRefreshApps();
             },
-            color: Colors.black,
-            backgroundColor: Colors.white,
+            color: (t.isGlass ? t.onAccent : Colors.black),
+            backgroundColor: (t.isGlass ? t.accent : Colors.white),
             child: CustomScrollView(
               controller: widget.scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
@@ -786,16 +786,17 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               child: Container(
                                                 padding: const EdgeInsets.all(4),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.white,
+                                                  color: (t.isGlass ? t.accent : Colors.white),
                                                   shape: BoxShape.circle,
-                                                  border: Border.all(color: Colors.black, width: 1.5),
+                                                  border: Border.all(
+                                                      color: (t.isGlass ? t.onAccent : Colors.black), width: 1.5),
                                                 ),
                                                 constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                                                 child: Center(
                                                   child: Text(
                                                     state.visibleFilterCount.toString(),
-                                                    style: const TextStyle(
-                                                      color: Colors.black,
+                                                    style: TextStyle(
+                                                      color: (t.isGlass ? t.onAccent : Colors.black),
                                                       fontSize: 10,
                                                       fontWeight: FontWeight.w600,
                                                       height: 1.0,

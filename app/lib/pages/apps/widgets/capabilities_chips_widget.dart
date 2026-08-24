@@ -18,7 +18,7 @@ class CapabilitiesChipsWidget extends StatelessWidget {
       child: Container(
         height: 44,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
+          color: isSelected ? (t.isGlass ? t.accent : Colors.white) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: isSelected ? t.textPrimary : t.textTertiary, width: 1),
         ),
@@ -26,7 +26,7 @@ class CapabilitiesChipsWidget extends StatelessWidget {
           child: Text(
             capability.getLocalizedTitle(context),
             style: TextStyle(
-              color: isSelected ? Colors.black : t.textPrimary,
+              color: isSelected ? (t.isGlass ? t.onAccent : Colors.black) : t.textPrimary,
               fontSize: 14,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),

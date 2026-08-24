@@ -174,7 +174,7 @@ class AppListItem extends StatelessWidget {
                           width: 72,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: state.enabled ? t.textSecondary : Colors.white,
+                            color: state.enabled ? t.textSecondary : (t.isGlass ? t.accent : Colors.white),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Center(
@@ -184,7 +184,7 @@ class AppListItem extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: state.enabled ? t.textPrimary : Colors.black,
+                                color: state.enabled ? t.textPrimary : (t.isGlass ? t.onAccent : Colors.black),
                               ),
                             ),
                           ),

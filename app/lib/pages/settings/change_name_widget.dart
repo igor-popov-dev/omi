@@ -113,17 +113,22 @@ class _ChangeNameWidgetState extends State<ChangeNameWidget> {
                           },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(
+                          color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(10)),
                       child: Center(
                         child: isSaving
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: (t.isGlass ? t.onAccent : Colors.black)),
                               )
                             : Text(
                                 context.l10n.save,
-                                style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                    color: (t.isGlass ? t.onAccent : Colors.black),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600),
                               ),
                       ),
                     ),

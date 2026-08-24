@@ -278,7 +278,8 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                         child: Container(
                           height: 24,
                           width: 160,
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
+                          decoration: BoxDecoration(
+                              color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(6)),
                         ),
                       ),
                 const SizedBox(height: 12),
@@ -302,7 +303,8 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                         child: Container(
                           height: 28,
                           width: 100,
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(
+                              color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
               ],
@@ -531,25 +533,29 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             Container(
               height: 16,
               width: 200,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+              decoration:
+                  BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(4)),
             ),
             const SizedBox(height: 10),
             Container(
               height: 16,
               width: 160,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+              decoration:
+                  BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(4)),
             ),
             const SizedBox(height: 10),
             Container(
               height: 16,
               width: 120,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+              decoration:
+                  BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(4)),
             ),
             const Spacer(),
             Container(
               height: 36,
               width: 80,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              decoration:
+                  BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(20)),
             ),
           ],
         ),

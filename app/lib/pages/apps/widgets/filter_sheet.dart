@@ -24,6 +24,8 @@ class FilterBottomSheet extends StatelessWidget {
       ),
       child: Consumer<AppProvider>(
         builder: (context, provider, child) {
+          final t = context.omi;
+
           return Column(
             children: [
               // Header
@@ -141,13 +143,16 @@ class FilterBottomSheet extends StatelessWidget {
                           Future.microtask(() => provider.applyFilters());
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
+                          backgroundColor: (t.isGlass ? t.accent : Colors.white),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Text(
                           AppLocalizations.of(context).applyFilters,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black),
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: (t.isGlass ? t.onAccent : Colors.black)),
                         ),
                       ),
                     ),
@@ -286,10 +291,12 @@ class FilterBottomSheet extends StatelessWidget {
                     height: 20,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isSelected ? Colors.white : Colors.transparent,
+                      color: isSelected ? (t.isGlass ? t.accent : Colors.white) : Colors.transparent,
                       border: Border.all(color: isSelected ? t.textPrimary : t.textSecondary, width: 2),
                     ),
-                    child: isSelected ? const OmiIconWidget(icon: OmiIcon.check, size: 12, color: Colors.black) : null,
+                    child: isSelected
+                        ? OmiIconWidget(icon: OmiIcon.check, size: 12, color: (t.isGlass ? t.onAccent : Colors.black))
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Text(

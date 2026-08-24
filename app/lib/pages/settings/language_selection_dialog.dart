@@ -132,7 +132,7 @@ class LanguageSelectionDialog {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Colors.white),
+                          borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                         ),
                       ),
                     ),
@@ -223,9 +223,9 @@ class LanguageSelectionDialog {
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
+                    backgroundColor: (t.isGlass ? t.accent : Colors.white),
                     disabledBackgroundColor: t.textTertiary,
-                    foregroundColor: Colors.black,
+                    foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                     disabledForegroundColor: Colors.black.withValues(alpha: 0.4),
                   ),
                   child: Text(context.l10n.confirm),

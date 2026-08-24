@@ -205,7 +205,7 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 1.5),
+                    borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1.5),
                   ),
                 ),
                 validator: (value) {
@@ -227,7 +227,7 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 1.5),
+                    borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1.5),
                   ),
                 ),
                 maxLines: 2,
@@ -245,7 +245,7 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 1.5),
+                    borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1.5),
                   ),
                 ),
                 keyboardType: TextInputType.url,
@@ -268,24 +268,25 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
                 child: ElevatedButton(
                   onPressed: (_isLoading || _isPolling) ? null : _connect,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
+                    backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                    foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: (_isLoading || _isPolling)
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const SizedBox(
+                            SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: (t.isGlass ? t.onAccent : Colors.black)),
                             ),
                             if (_isPolling) ...[
                               const SizedBox(width: 12),
                               Text(
                                 context.l10n.authorizingMcpServer,
-                                style: const TextStyle(fontSize: 14, color: Colors.black),
+                                style: TextStyle(fontSize: 14, color: (t.isGlass ? t.onAccent : Colors.black)),
                               ),
                             ],
                           ],

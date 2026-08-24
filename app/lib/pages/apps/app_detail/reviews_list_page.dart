@@ -100,6 +100,8 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
           ValueListenableBuilder<bool>(
             valueListenable: isSubmitting,
             builder: (context, submitting, _) {
+              final t = context.omi;
+
               return ElevatedButton(
                 onPressed: submitting
                     ? null
@@ -140,7 +142,9 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
                           isSubmitting.value = false;
                         }
                       },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                    foregroundColor: (t.isGlass ? t.onAccent : Colors.black)),
                 child: submitting
                     ? SizedBox(
                         width: 16,

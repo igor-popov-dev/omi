@@ -243,7 +243,7 @@ class _AppleHealthDetailPageState extends State<AppleHealthDetailPage> {
                 textStyle: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: isConnected ? t.error : Colors.black,
+                  color: isConnected ? t.error : (t.isGlass ? t.onAccent : Colors.black),
                 ),
                 width: MediaQuery.of(context).size.width * 0.8,
                 onPressed: _isConnecting ? () async {} : (isConnected ? _disconnect : _connect),
@@ -264,14 +264,14 @@ class _AppleHealthDetailPageState extends State<AppleHealthDetailPage> {
         const SizedBox(width: 18),
         Container(
           padding: const EdgeInsets.all(10),
-          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-          child: Image.asset(Assets.images.herologo.path, width: 36, color: Colors.black),
+          decoration: BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), shape: BoxShape.circle),
+          child: Image.asset(Assets.images.herologo.path, width: 36, color: (t.isGlass ? t.onAccent : Colors.black)),
         ),
         Transform.translate(
           offset: const Offset(-18, 0),
           child: Container(
             padding: const EdgeInsets.all(10),
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), shape: BoxShape.circle),
             child: ClipOval(
               child: Image.asset(
                 'assets/integration_app_logos/apple-health-logo.png',

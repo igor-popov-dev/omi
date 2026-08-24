@@ -33,11 +33,11 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
               styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
                 a: const TextStyle(fontSize: 18, height: 1.2),
                 p: const TextStyle(fontSize: 16, height: 1.2),
-                blockquote: const TextStyle(
+                blockquote: TextStyle(
                   fontSize: 16,
                   height: 1.2,
                   backgroundColor: Colors.transparent,
-                  color: Colors.black,
+                  color: (t.isGlass ? t.onAccent : Colors.black),
                 ),
                 blockquoteDecoration: BoxDecoration(
                   color: t.bgTertiary,

@@ -857,10 +857,15 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                             onTap: () => Navigator.pop(context),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                              decoration: BoxDecoration(
+                                  color: (t.isGlass ? t.accent : Colors.white),
+                                  borderRadius: BorderRadius.circular(20)),
                               child: Text(
                                 context.l10n.done,
-                                style: const TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                    color: (t.isGlass ? t.onAccent : Colors.black),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600),
                               ),
                             ),
                           ),

@@ -449,13 +449,13 @@ class _IntegrationsPageState extends State<IntegrationsPage> with WidgetsBinding
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: !isAvailable ? t.textTertiary : Colors.white,
+                  color: !isAvailable ? t.textTertiary : (t.isGlass ? t.accent : Colors.white),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
                   !isAvailable ? context.l10n.comingSoon : context.l10n.connect,
                   style: TextStyle(
-                    color: !isAvailable ? t.textSecondary : Colors.black,
+                    color: !isAvailable ? t.textSecondary : (t.isGlass ? t.onAccent : Colors.black),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),

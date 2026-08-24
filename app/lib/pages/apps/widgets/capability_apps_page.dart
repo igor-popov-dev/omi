@@ -205,8 +205,8 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                 await _loadCapabilityApps();
               },
               // The arc is drawn on backgroundColor, so it must not also be white.
-              color: Colors.black,
-              backgroundColor: Colors.white,
+              color: (t.isGlass ? t.onAccent : Colors.black),
+              backgroundColor: (t.isGlass ? t.accent : Colors.white),
               child: _totalCount == 0
                   ? Center(
                       child: Column(

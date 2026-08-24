@@ -556,10 +556,12 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
               // Connect button
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(
+                    color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(16)),
                 child: Text(
                   context.l10n.connect,
-                  style: const TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                      color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 12, fontWeight: FontWeight.w500),
                 ),
               )
             else

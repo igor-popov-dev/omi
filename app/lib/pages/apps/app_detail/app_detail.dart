@@ -893,7 +893,8 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                               color: t.textPrimary,
                                               // AnimatedLoadingButton defaults both to white; on a
                                               // white surface the label and spinner vanish.
-                                              textStyle: const TextStyle(fontSize: 16, color: Colors.black),
+                                              textStyle: TextStyle(
+                                                  fontSize: 16, color: (t.isGlass ? t.onAccent : Colors.black)),
                                               loaderColor: t.bgPrimary,
                                             )
                                           : AnimatedLoadingButton(
@@ -929,7 +930,8 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                               color: t.textPrimary,
                                               // AnimatedLoadingButton defaults both to white; on a
                                               // white surface the label and spinner vanish.
-                                              textStyle: const TextStyle(fontSize: 16, color: Colors.black),
+                                              textStyle: TextStyle(
+                                                  fontSize: 16, color: (t.isGlass ? t.onAccent : Colors.black)),
                                               loaderColor: t.bgPrimary,
                                             )),
                             ],
@@ -1985,8 +1987,8 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
               key: const ValueKey('app_detail_submit_review_button'),
               onPressed: isSubmitting ? null : _submitReview,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
+                backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),

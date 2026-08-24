@@ -74,6 +74,8 @@ class PopularAppsSection extends StatelessWidget {
           itemCount: displayedApps.length,
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
+            final t = context.omi;
+
             final app = displayedApps[index];
             return GestureDetector(
               onTap: () {
@@ -192,7 +194,7 @@ class PopularAppsSection extends StatelessWidget {
                       width: 72,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: app.enabled ? t.textSecondary : Colors.white,
+                        color: app.enabled ? t.textSecondary : (t.isGlass ? t.accent : Colors.white),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Center(
@@ -202,7 +204,7 @@ class PopularAppsSection extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: app.enabled ? t.textPrimary : Colors.black,
+                            color: app.enabled ? t.textPrimary : (t.isGlass ? t.onAccent : Colors.black),
                           ),
                         ),
                       ),

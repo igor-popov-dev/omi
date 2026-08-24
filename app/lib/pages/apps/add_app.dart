@@ -69,7 +69,7 @@ class _AddAppPageState extends State<AddAppPage> {
                 child: Padding(
                   padding: const EdgeInsets.only(right: 16.0),
                   child: Material(
-                    color: Colors.white,
+                    color: (t.isGlass ? t.accent : Colors.white),
                     borderRadius: BorderRadius.circular(20),
                     child: InkWell(
                       onTap: () {
@@ -84,10 +84,14 @@ class _AddAppPageState extends State<AddAppPage> {
                           children: [
                             Text(
                               context.l10n.docs,
-                              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600, fontSize: 12),
+                              style: TextStyle(
+                                  color: (t.isGlass ? t.onAccent : Colors.black),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12),
                             ),
                             const SizedBox(width: 4),
-                            const FaIcon(FontAwesomeIcons.arrowUpRightFromSquare, color: Colors.black, size: 10),
+                            FaIcon(FontAwesomeIcons.arrowUpRightFromSquare,
+                                color: (t.isGlass ? t.onAccent : Colors.black), size: 10),
                           ],
                         ),
                       ),
@@ -297,14 +301,14 @@ class _AddAppPageState extends State<AddAppPage> {
                                                     onTap: () => provider.removeThumbnail(index),
                                                     child: Container(
                                                       padding: const EdgeInsets.all(4),
-                                                      decoration: const BoxDecoration(
-                                                        color: Colors.white,
+                                                      decoration: BoxDecoration(
+                                                        color: (t.isGlass ? t.accent : Colors.white),
                                                         shape: BoxShape.circle,
                                                       ),
-                                                      child: const FaIcon(
+                                                      child: FaIcon(
                                                         FontAwesomeIcons.xmark,
                                                         size: 10,
-                                                        color: Colors.black,
+                                                        color: (t.isGlass ? t.onAccent : Colors.black),
                                                       ),
                                                     ),
                                                   ),
@@ -490,7 +494,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                             ),
                                             focusedBorder: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(12),
-                                              borderSide: const BorderSide(color: Colors.white),
+                                              borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                                             ),
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                           ),
@@ -797,8 +801,8 @@ class _AddAppPageState extends State<AddAppPage> {
                                                           },
                                                           child: Text(
                                                             context.l10n.connectNow,
-                                                            style: const TextStyle(
-                                                              color: Colors.black,
+                                                            style: TextStyle(
+                                                              color: (t.isGlass ? t.onAccent : Colors.black),
                                                               fontWeight: FontWeight.w600,
                                                             ),
                                                           ),
@@ -835,11 +839,11 @@ class _AddAppPageState extends State<AddAppPage> {
                           padding: const EdgeInsets.all(12.0),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12.0),
-                            color: provider.isValid ? Colors.white : t.textSecondary,
+                            color: provider.isValid ? (t.isGlass ? t.accent : Colors.white) : t.textSecondary,
                           ),
                           child: Text(
                             context.l10n.submitApp,
-                            style: const TextStyle(color: Colors.black, fontSize: 16),
+                            style: TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16),
                             textAlign: TextAlign.center,
                           ),
                         ),

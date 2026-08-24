@@ -1485,6 +1485,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             );
           },
           fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+            final t = context.omi;
+
             return TextField(
               controller: controller,
               focusNode: focusNode,
@@ -1504,7 +1506,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Colors.white),
+                  borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                 ),
               ),
             );
@@ -1585,7 +1587,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.white),
+              borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
             ),
             suffixIcon: IconButton(
               icon: Icon(_showApiKey ? Icons.visibility_off : Icons.visibility, color: t.textSecondary, size: 20),
@@ -1665,7 +1667,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.white),
+              borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
             ),
           ),
         ),
@@ -1785,8 +1787,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                     context.l10n.downloadModelWithName('ggml-${_currentModel.isEmpty ? 'tiny' : _currentModel}.bin'),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
+                    backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                    foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
@@ -2414,20 +2416,21 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
           child: ElevatedButton(
             onPressed: _isSaving ? null : _saveConfig,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
+              backgroundColor: (t.isGlass ? t.accent : Colors.white),
               disabledBackgroundColor: t.textSecondary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
             child: _isSaving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: (t.isGlass ? t.onAccent : Colors.black)),
                   )
                 : Text(
                     context.l10n.save,
-                    style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16, fontWeight: FontWeight.w600),
                   ),
           ),
         ),
@@ -2675,14 +2678,15 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
           child: ElevatedButton(
             onPressed: _parseError != null ? null : () => Navigator.of(context).pop(_controller.text),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
+              backgroundColor: (t.isGlass ? t.accent : Colors.white),
               disabledBackgroundColor: t.textSecondary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
             child: Text(
               context.l10n.save,
-              style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w600),
+              style:
+                  TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
         ),

@@ -484,16 +484,17 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
               child: ElevatedButton(
                 onPressed: _isUpgrading ? null : _showPlansSheet,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
+                  backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                  foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: _isUpgrading
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        child:
+                            CircularProgressIndicator(strokeWidth: 2, color: (t.isGlass ? t.onAccent : Colors.black)),
                       )
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
