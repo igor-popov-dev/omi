@@ -209,6 +209,29 @@ class CaptureController extends ChangeNotifier
       return;
     }
 
+    // A socket that never heard the mic cannot be recovered by rebuilding it:
+    // the replacement gets the same silence and dies the same way. The
+    // everyday cause is a phone call — the native capture treats a stalled mic
+    // under a call mode as an interruption and waits it out, so the hub sits
+    // on a mute wire until the provider hangs up (see
+    // `BaseHubSession.canIdleRelease`).
+    //
+    // Left to the retry budget below this would never stop: the drops arrive
+    // ~2.5 minutes apart (the provider's own idle close), so they fall outside
+    // [_voiceRecoveryWindow] and never accumulate to [_maxVoiceRecoveries],
+    // while each recovery speaks its line out loud — which counts as activity
+    // and rearms the 3-minute silence auto-off that would otherwise end the
+    // mode. A long call would therefore hold the mode open indefinitely,
+    // rebuilding and talking over itself. Stop instead; the user turns the
+    // mode back on when they have the mic again.
+    if (!mode.hasHeardInput) {
+      Logger.error('[VoiceMode] микрофон молчал всю сессию (звонок?) — выключаю режим, а не пересобираю');
+      _voiceRecoveries.clear();
+      mode.stop();
+      resetFreeFormVoiceModeUi();
+      return;
+    }
+
     final now = DateTime.now();
     _voiceRecoveries.removeWhere((at) => now.difference(at) > _voiceRecoveryWindow);
     if (_voiceRecoveries.length >= _maxVoiceRecoveries) {

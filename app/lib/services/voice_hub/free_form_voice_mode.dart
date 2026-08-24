@@ -91,8 +91,22 @@ class FreeFormVoiceMode {
   VoiceTurnId? _turnId;
   HubPttCapture? _capture;
   Object? _idleHandle;
+  int _inputFrames = 0;
 
   bool get isRunning => _turnId != null;
+
+  /// Whether a single mic frame has reached the hub since the CURRENT socket
+  /// generation started (reset by every [start], including the one inside
+  /// [restart]).
+  ///
+  /// The question it answers is "would rebuilding this socket help?". A drop
+  /// recovery is worth paying for when the mic is feeding a socket that died;
+  /// it is pure loss when the mic itself is what stopped, because the fresh
+  /// socket gets the same silence and dies the same way — and each rebuild
+  /// speaks a recovery line out loud and rearms the silence auto-off, so the
+  /// loop sustains itself instead of timing out. The everyday cause is a
+  /// phone call (see `BaseHubSession.canIdleRelease`).
+  bool get hasHeardInput => _inputFrames > 0;
 
   /// Idempotent: a [start] while already running is a no-op.
   Future<void> start() async {
@@ -104,9 +118,13 @@ class FreeFormVoiceMode {
     // this continuous turn claims the player.
     hub.clearPlayback();
     hub.beginTurn(turnId);
+    _inputFrames = 0;
     try {
       _capture = await startCapture(HubPttCaptureOptions(
-        onChunk: (pcm) => hub.appendAudio(turnId, pcm),
+        onChunk: (pcm) {
+          _inputFrames += 1;
+          hub.appendAudio(turnId, pcm);
+        },
       ));
     } catch (_) {
       hub.cancelTurn(turnId);
