@@ -70,6 +70,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:omi/utils/logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -748,8 +749,22 @@ abstract class BaseHubSession implements HubSession {
   /// Decode base64 spoken PCM and play through the injected [VoicePlayer].
   void playAudio(String b64) {
     if (b64.isEmpty) return;
-    _player?.enqueuePcm16(base64Decode(b64));
+    final player = _player;
+    // Диагностика «слышу текст, не слышу голос» (24.08): каждый потерянный
+    // чанк обязан оставлять след. Первый чанк и каждый 25-й — тоже, чтобы по
+    // логу было видно, что тракт жив.
+    if (player == null) {
+      Logger.debug('[hub-audio] аудио-чанк ПОТЕРЯН: плеер отсутствует (_player == null)');
+      return;
+    }
+    _audioChunksPlayed += 1;
+    if (_audioChunksPlayed == 1 || _audioChunksPlayed % 25 == 0) {
+      Logger.debug('[hub-audio] чанк №$_audioChunksPlayed -> нативный плеер');
+    }
+    player.enqueuePcm16(base64Decode(b64));
   }
+
+  int _audioChunksPlayed = 0;
 
   /// Barge-in: drop everything buffered in the player immediately.
   @override

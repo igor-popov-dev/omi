@@ -58,6 +58,8 @@
 // file to begin with.
 import 'dart:convert';
 
+import 'package:omi/utils/logger.dart';
+
 import 'gemini_tool_schema.dart';
 import 'hub_session.dart';
 
@@ -372,8 +374,15 @@ class GeminiHubSession extends BaseHubSession {
       final inline = part['inlineData'] as Map<String, dynamic>?;
       final mime = inline?['mimeType'] is String ? inline!['mimeType'] as String : '';
       final data = inline?['data'] is String ? inline!['data'] as String : '';
-      if (mime.contains('audio/pcm') && data.isNotEmpty && _turnGateOpen) {
-        playAudio(data); // gated: only the live turn's reply
+      if (mime.contains('audio/pcm') && data.isNotEmpty) {
+        if (_turnGateOpen) {
+          playAudio(data); // gated: only the live turn's reply
+        } else {
+          // Диагностика «слышу текст, не слышу голос» (24.08): если аудио
+          // Gemini дошло, но гейт закрыт — это должно быть видно в логе, а
+          // не пропадать молча.
+          Logger.debug('[hub-audio] аудио-чанк отброшен гейтом (streaming=$_streamingActive)');
+        }
       }
     }
     if (sc['turnComplete'] == true) {
