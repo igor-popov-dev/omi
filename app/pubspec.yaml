@@ -222,6 +222,17 @@ flutter:
         - asset: assets/fonts/SFPRODISPLAYBLACKITALIC.OTF
           weight: 900
           style: italic
+    # Open Runde (SIL OFL 1.1, see assets/fonts/OpenRunde-OFL.txt) — glass theme headlines.
+    - family: "Open Runde"
+      fonts:
+        - asset: assets/fonts/OpenRunde-Regular.otf
+          weight: 400
+        - asset: assets/fonts/OpenRunde-Medium.otf
+          weight: 500
+        - asset: assets/fonts/OpenRunde-Semibold.otf
+          weight: 600
+        - asset: assets/fonts/OpenRunde-Bold.otf
+          weight: 700
 
 flutter_gen:
   output: lib/gen/

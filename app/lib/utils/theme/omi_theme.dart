@@ -46,7 +46,51 @@ ThemeData _buildGlassTheme(OmiTokens t) {
       backgroundColor: t.bgSecondary,
       contentTextStyle: TextStyle(fontSize: 16, color: t.textPrimary, fontWeight: FontWeight.w500),
     ),
-    // textTheme Glass — полоса Т2
+    textTheme: _glassTextTheme(t),
     extensions: const [OmiTokens.glass],
+  );
+}
+
+/// Family name declared in `pubspec.yaml` for the bundled Open Runde weights.
+const String _glassDisplayFont = 'Open Runde';
+
+/// Glass typography: Open Runde for display sizes (>= 22pt), system font below.
+///
+/// The system font is SF on iOS and Roboto on Android — deliberate, since SF Pro
+/// cannot be bundled for Android. Slots without `fontFamily` therefore inherit it.
+TextTheme _glassTextTheme(OmiTokens t) {
+  return TextTheme(
+    headlineMedium: TextStyle(
+      fontFamily: _glassDisplayFont,
+      fontSize: 27,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.81,
+      height: 1.18,
+      color: t.textPrimary,
+    ),
+    headlineSmall: TextStyle(
+      fontFamily: _glassDisplayFont,
+      fontSize: 22,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.66,
+      height: 1.2,
+      color: t.textPrimary,
+    ),
+    bodyLarge: TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.w400,
+      letterSpacing: -0.17,
+      height: 1.55,
+      color: t.textPrimary,
+    ),
+    bodyMedium: TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.15,
+      height: 1.40,
+      color: t.textPrimary,
+    ),
+    labelLarge: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: -0.15, color: t.textPrimary),
+    bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, letterSpacing: 0, color: t.textSecondary),
   );
 }
