@@ -1441,3 +1441,111 @@ def test_advance_cursor_succeeds_on_first_write_when_doc_absent():
     assert result is True
     assert transaction.sets[0][1]['generation'] == 1
     assert transaction.sets[0][1]['resume_after_path'] == 'users/u/c/first'
+
+
+def _abandoned_snapshot(
+    uid: str,
+    conversation_id: str,
+    *,
+    finished_at: datetime | None,
+    admitted_at: datetime | None = None,
+    finalization_job_id: str | None = None,
+    deferred: bool = False,
+    discarded: bool = False,
+    deleted: bool = False,
+) -> _OrphanSnapshot:
+    data: dict = {'status': 'in_progress'}
+    if finished_at is not None:
+        data['finished_at'] = finished_at
+    if admitted_at is not None:
+        data['processing_admitted_at'] = admitted_at
+    if finalization_job_id:
+        data['finalization_job_id'] = finalization_job_id
+    if deferred:
+        data['deferred'] = True
+    if discarded:
+        data['discarded'] = True
+    if deleted:
+        data['deleted'] = True
+    return _OrphanSnapshot(uid, conversation_id, data)
+
+
+def test_abandoned_in_progress_query_is_a_single_field_collection_group_equality():
+    """Same index economics as the crash-orphan sweep: one equality, no order_by,
+    so Firestore's automatic single-field index serves it with no composite."""
+    now = _now()
+    client = _OrphanClient([_abandoned_snapshot('uid', 'eligible', finished_at=now - timedelta(hours=1))])
+
+    jobs.get_abandoned_in_progress_candidates(stale_after=timedelta(seconds=900), firestore_client=client)
+
+    assert client.collection_group_calls == ['conversations']
+    assert client.collection_calls == []
+    assert all(query.where_count == 1 for query in client.queries)
+    assert all(query.order_by_count == 0 for query in client.queries)
+
+
+def test_abandoned_in_progress_window_is_clamped_to_a_safe_floor_and_ceiling(monkeypatch):
+    assert jobs.get_abandoned_in_progress_finalize_after() == timedelta(seconds=900)
+    monkeypatch.setenv('LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_SECONDS', '10')
+    assert jobs.get_abandoned_in_progress_finalize_after() == timedelta(seconds=300)
+    monkeypatch.setenv('LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_SECONDS', '9999999')
+    assert jobs.get_abandoned_in_progress_finalize_after() == timedelta(seconds=86_400)
+    monkeypatch.setenv('LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_SECONDS', 'not-a-number')
+    assert jobs.get_abandoned_in_progress_finalize_after() == timedelta(seconds=900)
+
+
+def test_only_a_finished_unowned_aged_in_progress_row_is_a_candidate(monkeypatch):
+    """Every exclusion here is a row somebody else still owns, or one the user
+    already closed; acting on any of them would duplicate or resurrect work."""
+    now = _now()
+    monkeypatch.setattr(jobs, '_now', lambda: now)
+    aged = now - timedelta(seconds=1000)
+    snapshots = [
+        _abandoned_snapshot('uid', 'still-recording', finished_at=None),
+        _abandoned_snapshot('uid', 'fresh-finish', finished_at=now - timedelta(seconds=10)),
+        _abandoned_snapshot('uid', 'owned-by-a-job', finished_at=aged, finalization_job_id='job-1'),
+        _abandoned_snapshot('uid', 'deferred', finished_at=aged, deferred=True),
+        _abandoned_snapshot('uid', 'discarded', finished_at=aged, discarded=True),
+        _abandoned_snapshot('uid', 'deleted', finished_at=aged, deleted=True),
+        # Rolled back moments ago: its producer may still be retrying.
+        _abandoned_snapshot('uid', 'fresh-rollback', finished_at=aged, admitted_at=now - timedelta(seconds=10)),
+        _abandoned_snapshot('uid', 'abandoned', finished_at=aged, admitted_at=aged),
+    ]
+
+    candidates = jobs.get_abandoned_in_progress_candidates(
+        stale_after=timedelta(seconds=900), firestore_client=_OrphanClient(snapshots)
+    )['candidates']
+
+    assert [candidate['conversation_id'] for candidate in candidates] == ['abandoned']
+    assert candidates[0] == {'uid': 'uid', 'conversation_id': 'abandoned', 'finished_at': aged}
+
+
+def test_abandoned_in_progress_sweep_pages_past_a_stable_excluded_prefix(monkeypatch):
+    """Exclusion happens after the page cap, so without a cursor a stable prefix
+    of ineligible rows would hide every eligible row behind it forever."""
+    now = _now()
+    monkeypatch.setattr(jobs, '_now', lambda: now)
+    aged = now - timedelta(seconds=1000)
+    snapshots = [
+        _abandoned_snapshot('uid', f'owned-{index}', finished_at=aged, finalization_job_id=f'job-{index}')
+        for index in range(3)
+    ]
+    snapshots.append(_abandoned_snapshot('uid', 'abandoned', finished_at=aged))
+    client = _OrphanClient(snapshots)
+
+    first = jobs.get_abandoned_in_progress_candidates(
+        stale_after=timedelta(seconds=900), limit=1, max_scan=3, firestore_client=client
+    )
+
+    assert first['candidates'] == []
+    assert first['exhausted'] is False
+    assert first['resume_after_path'] == 'users/uid/conversations/owned-2'
+
+    second = jobs.get_abandoned_in_progress_candidates(
+        stale_after=timedelta(seconds=900),
+        limit=1,
+        resume_after_path=first['resume_after_path'],
+        firestore_client=client,
+    )
+
+    assert [candidate['conversation_id'] for candidate in second['candidates']] == ['abandoned']

@@ -39,6 +39,12 @@ DEFAULT_RECONCILE_STALE_SECONDS = 300
 # job, and its request thread is not killed by the HTTP timeout, so the orphan
 # window must exceed any plausible live synchronous process_conversation run.
 DEFAULT_ORPHAN_RECONCILE_STALE_SECONDS = 900
+# A recording whose owner rolled its admission back to `in_progress` has no job
+# and no lease, so recovery is bounded by the client-supplied `finished_at` only.
+# Floor it well above any plausible live synchronous run plus one client retry
+# cycle, and ceiling it at a day so a misconfiguration cannot defer recovery
+# indefinitely.
+DEFAULT_ABANDONED_IN_PROGRESS_STALE_SECONDS = 900
 MEETING_RECEIPT_SCHEMA_VERSION = 1
 MEETING_RECEIPT_RECONCILE_AFTER = timedelta(minutes=10)
 
@@ -88,6 +94,26 @@ def get_finalization_reconcile_stale_after() -> timedelta:
     except ValueError:
         seconds = DEFAULT_RECONCILE_STALE_SECONDS
     return timedelta(seconds=max(30, seconds))
+
+
+def get_abandoned_in_progress_finalize_after() -> timedelta:
+    """Return the delay before an `in_progress` row with no owner is recoverable.
+
+    Bounds ``finished_at``: the recording is over, so the only thing that can
+    still legitimately move the row is the client's own retry. The floor keeps
+    this sweep behind that retry window; the ceiling keeps a misconfiguration
+    from disabling recovery outright.
+    """
+    try:
+        seconds = int(
+            os.getenv(
+                'LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_SECONDS',
+                str(DEFAULT_ABANDONED_IN_PROGRESS_STALE_SECONDS),
+            )
+        )
+    except ValueError:
+        seconds = DEFAULT_ABANDONED_IN_PROGRESS_STALE_SECONDS
+    return timedelta(seconds=min(86_400, max(300, seconds)))
 
 
 def get_stale_processing_orphan_after() -> timedelta:
@@ -1295,6 +1321,107 @@ def get_finalization_replay_candidates(*, limit: int = 100, firestore_client: An
     return result
 
 
+def get_abandoned_in_progress_candidates(
+    *,
+    stale_after: timedelta,
+    limit: int = 100,
+    max_scan: int = 2000,
+    resume_after_path: str | None = None,
+    firestore_client: Any = None,
+) -> dict[str, Any]:
+    """Return a bounded window of finished recordings nobody is finalizing.
+
+    A synchronous processing failure rolls the admission back to ``in_progress``
+    (``processing_admission_guard``), which assumes the producer will retry. When
+    it stops retrying -- the app gives up after a few 500s, or the user closed it --
+    the row is left finished but unowned: no ``finalization_job_id``, so the durable
+    replay never sees it, and not ``processing``, so the crash-orphan sweep never
+    sees it either. The recording stays whole and permanently unprocessed.
+
+    Eligibility is bounded by ``finished_at``: the capture is over, so the only
+    party that can still legitimately move the row is the producer's own retry, and
+    ``stale_after`` keeps this sweep behind that window. A row with a fresher
+    ``processing_admitted_at`` is excluded as well, so a rollback that just happened
+    is never re-driven under a producer that may still be running.
+
+    The cross-user sweep is the same single-equality ``collection_group`` query the
+    crash-orphan sweep uses (served by the automatic single-field index, so no
+    composite index is registered), with the same paging cursor: client-side
+    exclusion happens after the page cap, so a stable prefix of excluded rows cannot
+    starve a later eligible one.
+
+    Returns ``{'candidates', 'resume_after_path', 'exhausted'}``.
+    """
+    client = _client(firestore_client)
+    cutoff = _now() - stale_after
+    page_size = max(1, min(limit, 100))
+    collected: list[dict[str, Any]] = []
+    scanned = 0
+    last_path: str | None = None
+    exhausted = False
+
+    cursor_snapshot: Any = None
+    if resume_after_path:
+        fetched = client.document(resume_after_path).get()
+        if getattr(fetched, 'exists', False):
+            cursor_snapshot = fetched  # resume the collection-group scan
+        # A vanished cursor document wraps the sweep back to the top (safe re-scan).
+
+    while len(collected) < limit and scanned < max_scan:
+        query = client.collection_group(CONVERSATIONS_COLLECTION).where(
+            filter=firestore.FieldFilter('status', '==', 'in_progress')
+        )
+        query = query.limit(page_size)
+        if cursor_snapshot is not None:
+            query = query.start_after(cursor_snapshot)
+        page = list(query.stream())
+        if not page:
+            exhausted = True  # reached the tail of the collection from the cursor
+            break
+        for snapshot in page:
+            scanned += 1
+            if scanned > max_scan:
+                break
+            last_path = snapshot.reference.path
+            uid = _uid_from_conversation_path(snapshot.reference.path)
+            if uid is None:
+                continue
+            data = snapshot.to_dict() or {}
+            if data.get('deferred') or data.get('finalization_job_id'):
+                continue
+            if data.get('discarded') or data.get('deleted'):
+                # The user's own terminal decisions are not something to revive.
+                continue
+            finished_at = data.get('finished_at')
+            if not isinstance(finished_at, datetime):
+                continue  # still recording: nothing has claimed the capture is over
+            if finished_at.tzinfo is None:
+                finished_at = finished_at.replace(tzinfo=timezone.utc)
+            if finished_at > cutoff:
+                continue  # inside the producer's own retry window
+            admitted_at = data.get('processing_admitted_at')
+            if isinstance(admitted_at, datetime):
+                if admitted_at.tzinfo is None:
+                    admitted_at = admitted_at.replace(tzinfo=timezone.utc)
+                if admitted_at > cutoff:
+                    continue  # a rollback this recent may still have a live producer
+            collected.append({'uid': uid, 'conversation_id': snapshot.id, 'finished_at': finished_at})
+            if len(collected) >= limit:
+                break
+        if scanned > max_scan:
+            break  # bounded work for this invocation; the cursor persists progress
+        if len(page) < page_size:
+            exhausted = True  # partial page => reached the tail
+            break
+        cursor_snapshot = page[-1]
+
+    return {
+        'candidates': collected,
+        'resume_after_path': None if exhausted else last_path,
+        'exhausted': exhausted,
+    }
+
+
 def get_stale_processing_orphan_candidates(
     *,
     stale_after: timedelta,
@@ -1402,6 +1529,7 @@ def get_stale_processing_orphan_candidates(
 STALE_PROCESSING_SWEEP_STATE_COLLECTION = 'conversation_recovery_state'
 STALE_PROCESSING_SWEEP_STATE_DOC = 'stale_processing_sweep'
 MEETING_RECEIPT_SWEEP_STATE_DOC = 'meeting_receipt_backfill_sweep'
+ABANDONED_IN_PROGRESS_SWEEP_STATE_DOC = 'abandoned_in_progress_sweep'
 
 
 def get_stale_processing_sweep_cursor(*, firestore_client: Any = None) -> dict[str, Any]:
@@ -1469,6 +1597,42 @@ def advance_stale_processing_sweep_cursor(
     return transactional(
         transaction,
         client.collection(STALE_PROCESSING_SWEEP_STATE_COLLECTION).document(STALE_PROCESSING_SWEEP_STATE_DOC),
+        expected_generation,
+        new_resume_after_path,
+        _now(),
+    )
+
+
+def get_abandoned_in_progress_sweep_cursor(*, firestore_client: Any = None) -> dict[str, Any]:
+    """Return the abandoned-`in_progress` sweep cursor and its CAS generation.
+
+    Its own document, not the crash-orphan one: the two sweeps scan different
+    statuses and would otherwise rotate each other's progress.
+    """
+    client = _client(firestore_client)
+    snapshot = (
+        client.collection(STALE_PROCESSING_SWEEP_STATE_COLLECTION).document(ABANDONED_IN_PROGRESS_SWEEP_STATE_DOC).get()
+    )
+    if not getattr(snapshot, 'exists', False):
+        return {'resume_after_path': None, 'generation': 0}
+    data = snapshot.to_dict() or {}
+    path = data.get('resume_after_path')
+    return {
+        'resume_after_path': path if isinstance(path, str) else None,
+        'generation': int(data.get('generation', 0)),
+    }
+
+
+def advance_abandoned_in_progress_sweep_cursor(
+    expected_generation: int, new_resume_after_path: str | None, *, firestore_client: Any = None
+) -> bool:
+    """Atomically advance this sweep's cursor; ``None`` rotates back to the top."""
+    client = _client(firestore_client)
+    transaction = client.transaction()
+    transactional = firestore.transactional(_advance_stale_processing_sweep_cursor_txn)
+    return transactional(
+        transaction,
+        client.collection(STALE_PROCESSING_SWEEP_STATE_COLLECTION).document(ABANDONED_IN_PROGRESS_SWEEP_STATE_DOC),
         expected_generation,
         new_resume_after_path,
         _now(),

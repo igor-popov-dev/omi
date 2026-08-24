@@ -16,6 +16,7 @@ from typing import Any
 from google.api_core.exceptions import InvalidArgument
 
 from database import conversation_finalization_jobs as jobs_db
+from database import users as users_db
 from database._client import is_document_size_limit_error
 from utils.executors import db_executor, run_blocking
 from utils.cloud_tasks import (
@@ -24,6 +25,7 @@ from utils.cloud_tasks import (
     is_listen_finalization_dispatch_enabled,
 )
 from utils.metrics import (
+    LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL,
     LISTEN_FINALIZATION_DEAD_LETTER_TOTAL,
     LISTEN_FINALIZATION_DURABLE_JOBS,
     LISTEN_FINALIZATION_JOB_STATUS,
@@ -31,6 +33,8 @@ from utils.metrics import (
     LISTEN_FINALIZATION_RETRIES_TOTAL,
     LISTEN_FINALIZATION_STALE_PROCESSING_RECONCILIATIONS_TOTAL,
 )
+from utils.account_cutover.access import should_skip_background_account_mutation
+from utils.conversations import lifecycle as lifecycle_service
 from utils.observability.fallback import record_fallback
 from utils.conversations.meeting_receipt import (
     record_and_persist_finalized_meeting_receipt,
@@ -244,6 +248,105 @@ async def recover_stale_finalization_jobs(limit: int = 100, *, firestore_client:
             result['failed'] += 1
 
     _publish_job_metrics(firestore_client=firestore_client)
+    return result
+
+
+def reconcile_abandoned_in_progress_conversations(limit: int = 100, *, firestore_client: Any = None) -> dict[str, int]:
+    """Re-admit finished recordings that no producer ever retried.
+
+    A synchronous processing failure rolls the admission back to ``in_progress``
+    on the assumption that the producer retries. The mobile client retries a few
+    times and then gives up, so a failure that outlives those attempts (a
+    provider outage, an exhausted upstream quota) leaves the recording finished,
+    whole and permanently unprocessed: no job, so ``reconcile_listen_finalization_jobs``
+    never replays it; not ``processing``, so ``reconcile_stale_processing_conversations``
+    never sweeps it. The user is left with a conversation that has no title,
+    summary or action items and no path back into the pipeline except a manual
+    reprocess.
+
+    This sweep re-admits exactly those rows through the ordinary durable
+    admission (``request_finalization``), so everything downstream -- the
+    generation fence, the bounded retry budget, dead-lettering -- is the path
+    that already exists. Admission is what bounds repetition: the accepted row
+    carries a ``finalization_job_id`` from then on, and this sweep skips rows
+    that have one, so a conversation can be re-admitted at most once per
+    generation no matter how often the sweep runs.
+
+    Two users are deliberately left alone: an account mid-cutover (no background
+    mutation may touch it) and a BYOK user, whose keys exist only inside a live
+    request -- admitting one here would silently finalize their recording on
+    platform credentials.
+    """
+    result: dict[str, int] = {'requested': 0, 'skipped': 0, 'error': 0}
+    stale_after = jobs_db.get_abandoned_in_progress_finalize_after()
+    try:
+        cursor = jobs_db.get_abandoned_in_progress_sweep_cursor(firestore_client=firestore_client)
+    except Exception:
+        logger.exception('abandoned in_progress sweep cursor read failed; sweeping from the top')
+        cursor = {'resume_after_path': None, 'generation': 0}
+    _path = cursor.get('resume_after_path')
+    resume_after_path: str | None = _path if isinstance(_path, str) else None
+    expected_generation: int = int(cursor.get('generation') or 0)
+    try:
+        sweep = jobs_db.get_abandoned_in_progress_candidates(
+            stale_after=stale_after, limit=limit, resume_after_path=resume_after_path, firestore_client=firestore_client
+        )
+    except Exception:
+        logger.exception('abandoned in_progress conversation reconciliation query failed')
+        LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='error').inc()
+        return result | {'error': 1}
+    next_cursor = None if sweep['exhausted'] else sweep['resume_after_path']
+    try:
+        jobs_db.advance_abandoned_in_progress_sweep_cursor(
+            expected_generation, next_cursor, firestore_client=firestore_client
+        )
+    except Exception:
+        logger.exception('abandoned in_progress sweep cursor advance failed; coverage is still guaranteed')
+
+    for candidate in sweep['candidates']:
+        uid = candidate.get('uid')
+        conversation_id = candidate.get('conversation_id')
+        if not isinstance(uid, str) or not isinstance(conversation_id, str):
+            result['skipped'] += 1
+            LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='skipped').inc()
+            continue
+        try:
+            if should_skip_background_account_mutation(uid):
+                result['skipped'] += 1
+                LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='skipped').inc()
+                continue
+            if users_db.is_byok_active(uid, firestore_client=firestore_client):
+                # Their keys live in a live request; only a live session can finalize.
+                result['skipped'] += 1
+                LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='byok').inc()
+                continue
+            finalization = lifecycle_service.request_finalization(
+                uid,
+                conversation_id,
+                has_byok_keys=False,
+                firestore_client=firestore_client,
+            )
+        except lifecycle_service.FinalizationDispatchUnavailable:
+            # A contended or unconfigured handoff is a clean boundary: nothing was
+            # persisted, and the next sweep re-scans this window.
+            result['skipped'] += 1
+            LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='skipped').inc()
+            continue
+        except Exception:
+            logger.exception('abandoned in_progress conversation reconciliation failed for one row')
+            result['error'] += 1
+            LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='error').inc()
+            continue
+        # 'noop' means the transaction refused admission (the row moved on, was
+        # discarded, or has nothing to finalize) -- an expected fencing, not work.
+        if finalization.get('route') == 'noop':
+            result['skipped'] += 1
+            LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='skipped').inc()
+            continue
+        result['requested'] += 1
+        LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='requested').inc()
+    if result['requested']:
+        logger.info('abandoned in_progress conversation reconciliation: %s', result)
     return result
 
 
