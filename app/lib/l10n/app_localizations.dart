@@ -18410,6 +18410,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Last error: {error}.'**
   String appDisabledLastError(String error);
+
+  /// Title of the appearance (theme) settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get appearance;
+
+  /// Name of the classic (dark) app theme
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get appearanceClassic;
+
+  /// Name of the glass (light) app theme
+  ///
+  /// In en, this message translates to:
+  /// **'Glass'**
+  String get appearanceGlass;
+
+  /// Name of the glass app theme with a beta marker, used in settings search
+  ///
+  /// In en, this message translates to:
+  /// **'Glass (beta)'**
+  String get appearanceGlassBeta;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

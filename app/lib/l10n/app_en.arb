@@ -11698,5 +11698,21 @@
                 "example": "HTTP 307"
             }
         }
+    },
+    "appearance": "Appearance",
+    "@appearance": {
+        "description": "Title of the appearance (theme) settings screen"
+    },
+    "appearanceClassic": "Classic",
+    "@appearanceClassic": {
+        "description": "Name of the classic (dark) app theme"
+    },
+    "appearanceGlass": "Glass",
+    "@appearanceGlass": {
+        "description": "Name of the glass (light) app theme"
+    },
+    "appearanceGlassBeta": "Glass (beta)",
+    "@appearanceGlassBeta": {
+        "description": "Name of the glass app theme with a beta marker, used in settings search"
     }
 }

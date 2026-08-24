@@ -9719,4 +9719,16 @@ class AppLocalizationsKo extends AppLocalizations {
   String appDisabledLastError(String error) {
     return '마지막 오류: $error';
   }
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get appearanceClassic => 'Classic';
+
+  @override
+  String get appearanceGlass => 'Glass';
+
+  @override
+  String get appearanceGlassBeta => 'Glass (beta)';
 }

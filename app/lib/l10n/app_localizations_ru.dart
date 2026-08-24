@@ -9922,4 +9922,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String appDisabledLastError(String error) {
     return 'Последняя ошибка: $error.';
   }
+
+  @override
+  String get appearance => 'Оформление';
+
+  @override
+  String get appearanceClassic => 'Классическая';
+
+  @override
+  String get appearanceGlass => 'Glass';
+
+  @override
+  String get appearanceGlassBeta => 'Glass (бета)';
 }

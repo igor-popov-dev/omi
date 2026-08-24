@@ -9890,4 +9890,16 @@ class AppLocalizationsBn extends AppLocalizations {
   String appDisabledLastError(String error) {
     return 'শেষ ত্রুটি: $error';
   }
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get appearanceClassic => 'Classic';
+
+  @override
+  String get appearanceGlass => 'Glass';
+
+  @override
+  String get appearanceGlassBeta => 'Glass (beta)';
 }

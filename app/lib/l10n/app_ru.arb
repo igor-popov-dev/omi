@@ -3262,5 +3262,9 @@
     "appReEnableFailedTitle": "Не удалось включить снова",
     "appReEnableFailedBody": "Это приложение не удалось включить снова. Попробуйте ещё раз.",
     "appDisabledOn": "Отключено {date}.",
-    "appDisabledLastError": "Последняя ошибка: {error}."
+    "appDisabledLastError": "Последняя ошибка: {error}.",
+    "appearance": "Оформление",
+    "appearanceClassic": "Классическая",
+    "appearanceGlass": "Glass",
+    "appearanceGlassBeta": "Glass (бета)"
 }

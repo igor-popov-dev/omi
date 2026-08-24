@@ -9828,4 +9828,16 @@ class AppLocalizationsTh extends AppLocalizations {
   String appDisabledLastError(String error) {
     return 'ข้อผิดพลาดล่าสุด: $error';
   }
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get appearanceClassic => 'Classic';
+
+  @override
+  String get appearanceGlass => 'Glass';
+
+  @override
+  String get appearanceGlassBeta => 'Glass (beta)';
 }

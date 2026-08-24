@@ -7,6 +7,7 @@ import 'package:omi/app_globals.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/core/app_shell.dart';
 import 'package:omi/services/auth_service.dart';
+import 'package:omi/pages/settings/appearance_settings_page.dart';
 import 'package:omi/pages/settings/developer.dart';
 import 'package:omi/pages/settings/notifications_settings_page.dart';
 import 'package:omi/pages/settings/permissions_page.dart';
@@ -302,6 +303,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
     void goToMemories() => routeToPage(context, const MemoriesPage());
     void goToDeveloper() async => await routeToPage(context, const DeveloperSettingsPage());
+    void goToAppearance() => routeToPage(context, const AppearanceSettingsPage());
 
     const profileIcon = FaIcon(FontAwesomeIcons.solidUser, color: Color(0xFF8E8E93), size: 20);
     const notifIcon = FaIcon(FontAwesomeIcons.solidBell, color: Color(0xFF8E8E93), size: 20);
@@ -312,6 +314,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     const devIcon = FaIcon(FontAwesomeIcons.code, color: Color(0xFF8E8E93), size: 20);
     const intIcon = FaIcon(FontAwesomeIcons.networkWired, color: Color(0xFF8E8E93), size: 20);
     const syncIcon = FaIcon(FontAwesomeIcons.solidCloud, color: Color(0xFF8E8E93), size: 20);
+    const appearanceIcon = FaIcon(FontAwesomeIcons.palette, color: Color(0xFF8E8E93), size: 20);
 
     final items = <_SearchableItem>[
       // --- Profile ---
@@ -383,6 +386,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           },
         ),
       ],
+      // --- Appearance ---
+      _SearchableItem(title: context.l10n.appearance, icon: appearanceIcon, onTap: goToAppearance),
+      _SearchableItem(title: context.l10n.appearanceClassic, icon: appearanceIcon, onTap: goToAppearance),
+      _SearchableItem(title: context.l10n.appearanceGlassBeta, icon: appearanceIcon, onTap: goToAppearance),
       // --- Developer ---
       _SearchableItem(title: context.l10n.developerSettings, icon: devIcon, onTap: goToDeveloper),
       _SearchableItem(title: context.l10n.apiKeys, icon: devIcon, onTap: goToDeveloper),
@@ -627,6 +634,14 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ),
                   const Divider(height: 1, color: Color(0xFF3C3C43)),
                 ],
+                _buildSettingsItem(
+                  title: context.l10n.appearance,
+                  icon: const FaIcon(FontAwesomeIcons.palette, color: Color(0xFF8E8E93), size: 20),
+                  onTap: () {
+                    routeToPage(context, const AppearanceSettingsPage());
+                  },
+                ),
+                const Divider(height: 1, color: Color(0xFF3C3C43)),
                 _buildSettingsItem(
                   title: context.l10n.developerSettings,
                   icon: const FaIcon(FontAwesomeIcons.code, color: Color(0xFF8E8E93), size: 20),

@@ -9827,4 +9827,16 @@ class AppLocalizationsAr extends AppLocalizations {
   String appDisabledLastError(String error) {
     return 'آخر خطأ: $error';
   }
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get appearanceClassic => 'Classic';
+
+  @override
+  String get appearanceGlass => 'Glass';
+
+  @override
+  String get appearanceGlassBeta => 'Glass (beta)';
 }

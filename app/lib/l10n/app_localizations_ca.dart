@@ -9942,4 +9942,16 @@ class AppLocalizationsCa extends AppLocalizations {
   String appDisabledLastError(String error) {
     return 'Últim error: $error.';
   }
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get appearanceClassic => 'Classic';
+
+  @override
+  String get appearanceGlass => 'Glass';
+
+  @override
+  String get appearanceGlassBeta => 'Glass (beta)';
 }

@@ -9934,4 +9934,16 @@ class AppLocalizationsTe extends AppLocalizations {
   String appDisabledLastError(String error) {
     return 'చివరి లోపం: $error';
   }
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get appearanceClassic => 'Classic';
+
+  @override
+  String get appearanceGlass => 'Glass';
+
+  @override
+  String get appearanceGlassBeta => 'Glass (beta)';
 }
