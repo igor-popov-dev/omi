@@ -469,83 +469,88 @@ class _DeviceSettingsState extends State<DeviceSettings> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 16),
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
-                  ),
-                  Text(
-                    context.l10n.doubleTapAction,
-                    style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 16),
-                  ListTile(
-                    title: Text(
-                      context.l10n.endAndProcess,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+              // Прокрутка обязательна: self-host пункты (голосовой режим,
+              // аварийное завершение) удлинили список, и на невысоких экранах
+              // Column переполнялся (ловилось widget-тестом двойного тапа).
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 16),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
                     ),
-                    trailing: currentAction == 0 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
-                    onTap: () {
-                      setState(() => SharedPreferencesUtil().doubleTapAction = 0);
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-                  ListTile(
-                    title: Text(
-                      context.l10n.deviceOnboardingMuteUnmute,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                    Text(
+                      context.l10n.doubleTapAction,
+                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
                     ),
-                    trailing: currentAction == 1 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
-                    onTap: () {
-                      setState(() => SharedPreferencesUtil().doubleTapAction = 1);
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-                  ListTile(
-                    title: Text(
-                      context.l10n.starOngoing,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: Text(
+                        context.l10n.endAndProcess,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                      ),
+                      trailing: currentAction == 0 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      onTap: () {
+                        setState(() => SharedPreferencesUtil().doubleTapAction = 0);
+                        Navigator.pop(sheetContext);
+                      },
                     ),
-                    trailing: currentAction == 2 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
-                    onTap: () {
-                      setState(() => SharedPreferencesUtil().doubleTapAction = 2);
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-                  // Self-host патч (Игорь, 24.08): двойной тап по кулону
-                  // включает/выключает свободный голосовой режим — разговор
-                  // с ассистентом, не доставая телефон. Закончить может сам
-                  // ассистент («всё, пока» → end_conversation).
-                  ListTile(
-                    title: const Text(
-                      'Голосовой режим (разговор с ассистентом)',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                    ListTile(
+                      title: Text(
+                        context.l10n.deviceOnboardingMuteUnmute,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                      ),
+                      trailing: currentAction == 1 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      onTap: () {
+                        setState(() => SharedPreferencesUtil().doubleTapAction = 1);
+                        Navigator.pop(sheetContext);
+                      },
                     ),
-                    trailing: currentAction == 3 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
-                    onTap: () {
-                      setState(() => SharedPreferencesUtil().doubleTapAction = 3);
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-                  // Аварийный вариант: только ВЫКЛЮЧИТЬ разговор, не прощаясь
-                  // с нейронкой (пара к singleTapAction=1, который запускает).
-                  ListTile(
-                    title: const Text(
-                      'Завершить голосовой режим (без прощания)',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                    ListTile(
+                      title: Text(
+                        context.l10n.starOngoing,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                      ),
+                      trailing: currentAction == 2 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      onTap: () {
+                        setState(() => SharedPreferencesUtil().doubleTapAction = 2);
+                        Navigator.pop(sheetContext);
+                      },
                     ),
-                    trailing: currentAction == 4 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
-                    onTap: () {
-                      setState(() => SharedPreferencesUtil().doubleTapAction = 4);
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                    // Self-host патч (Игорь, 24.08): двойной тап по кулону
+                    // включает/выключает свободный голосовой режим — разговор
+                    // с ассистентом, не доставая телефон. Закончить может сам
+                    // ассистент («всё, пока» → end_conversation).
+                    ListTile(
+                      title: const Text(
+                        'Голосовой режим (разговор с ассистентом)',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                      ),
+                      trailing: currentAction == 3 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      onTap: () {
+                        setState(() => SharedPreferencesUtil().doubleTapAction = 3);
+                        Navigator.pop(sheetContext);
+                      },
+                    ),
+                    // Аварийный вариант: только ВЫКЛЮЧИТЬ разговор, не прощаясь
+                    // с нейронкой (пара к singleTapAction=1, который запускает).
+                    ListTile(
+                      title: const Text(
+                        'Завершить голосовой режим (без прощания)',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                      ),
+                      trailing: currentAction == 4 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      onTap: () {
+                        setState(() => SharedPreferencesUtil().doubleTapAction = 4);
+                        Navigator.pop(sheetContext);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             );
           },
