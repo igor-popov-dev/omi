@@ -56,6 +56,7 @@ import 'package:omi/providers/sync_provider.dart';
 import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/services/integrations/apple_reminders_sync_service.dart';
 import 'package:omi/services/quick_actions_service.dart';
+import 'package:omi/utils/offline_sync_policy.dart';
 import 'package:omi/utils/device.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/services/announcement_service.dart';
@@ -692,7 +693,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
       deviceProvider.onOfflineDataDetected = (device, fileCount, totalBytes) {
         // Custom STT users sync manually (with confirmation) — never auto-sync,
         // since offline files are transcribed on Omi and count toward the limit.
-        if (SharedPreferencesUtil().useCustomStt) {
+        // Self-host builds transcribe them on the user's own stack, so the gate
+        // opens (see utils/offline_sync_policy.dart).
+        if (offlineSyncNeedsConsent(SharedPreferencesUtil().useCustomStt)) {
           Logger.debug('HomePage: Auto-sync skipped, custom STT provider enabled');
           return;
         }

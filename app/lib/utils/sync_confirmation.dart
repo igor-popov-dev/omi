@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/widgets/omi_confirm_dialog.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/offline_sync_policy.dart';
 
 /// Confirmation gate for manually syncing offline recordings.
 ///
@@ -12,10 +13,11 @@ import 'package:omi/utils/l10n_extensions.dart';
 /// these users (see capture/sync providers); when they manually press Sync we
 /// surface this trade-off and let them opt in per their choice.
 ///
-/// Returns `true` when the sync should proceed. For non-custom-STT users this is
-/// a no-op that always returns `true` (no dialog).
+/// Returns `true` when the sync should proceed. For non-custom-STT users — and
+/// for self-host builds, where the files never leave the user's own STT — this
+/// is a no-op that always returns `true` (no dialog).
 Future<bool> confirmSyncForCustomStt(BuildContext context) async {
-  if (!SharedPreferencesUtil().useCustomStt) return true;
+  if (!offlineSyncNeedsConsent(SharedPreferencesUtil().useCustomStt)) return true;
 
   final l = context.l10n;
   final confirmed = await OmiConfirmDialog.show(

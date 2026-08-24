@@ -8,6 +8,7 @@ import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/services/wals.dart';
+import 'package:omi/utils/offline_sync_policy.dart';
 import 'package:omi/utils/debug_log_manager.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/other/time_utils.dart';
@@ -396,7 +397,8 @@ class SyncProvider extends ChangeNotifier implements IWalServiceListener, IWalSy
         refreshPending: refreshWals,
         drain: _drainEligibleWals,
         autoUploadEnabled: () =>
-            !SharedPreferencesUtil().useCustomStt && SharedPreferencesUtil().autoSyncOfflineRecordings,
+            !offlineSyncNeedsConsent(SharedPreferencesUtil().useCustomStt) &&
+            SharedPreferencesUtil().autoSyncOfflineRecordings,
         connectivityChanges: ConnectivityService().onConnectionChange,
         initiallyConnected: ConnectivityService().isConnected,
       );

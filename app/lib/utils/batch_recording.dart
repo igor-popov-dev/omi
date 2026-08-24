@@ -1,4 +1,6 @@
 import 'package:omi/backend/schema/bt_device/bt_device.dart';
+import 'package:omi/env/env.dart';
+import 'package:omi/utils/offline_sync_policy.dart';
 
 /// Marker stored in [Wal.device] for recordings produced by offline/batch mode.
 /// Lets the conversations list show *only* batch recordings — never the device
@@ -34,14 +36,19 @@ const int autoPhoneUploadMaxFailures = 3;
 
 /// Whether the silent auto-upload of offline-fallback recordings may run right
 /// now. Mirrors the gates in `SyncProvider._autoUploadPendingPhoneFiles`:
-/// custom-STT users sync manually (with confirmation), the auto-sync opt-out is
-/// respected, and a second upload never starts while one is already in flight.
+/// custom-STT users sync manually (with confirmation) unless their own backend
+/// owns offline transcription (see utils/offline_sync_policy.dart), the
+/// auto-sync opt-out is respected, and a second upload never starts while one is
+/// already in flight.
 bool canAutoUploadPhoneRecordings({
   required bool useCustomStt,
   required bool autoSyncOfflineRecordings,
   required bool isUploading,
+  bool selfHostOwnsOfflineStt = Env.selfHostOwnsOfflineStt,
 }) =>
-    !useCustomStt && autoSyncOfflineRecordings && !isUploading;
+    !offlineSyncNeedsConsent(useCustomStt, selfHostOwnsOfflineStt: selfHostOwnsOfflineStt) &&
+    autoSyncOfflineRecordings &&
+    !isUploading;
 
 /// The next offline-fallback recording to auto-upload from [fileNames], or null
 /// when none is eligible. Only auto-marker files qualify (explicit Transcribe
