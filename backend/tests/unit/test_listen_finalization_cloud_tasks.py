@@ -551,6 +551,81 @@ async def test_worker_dead_letters_the_final_failed_attempt(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_worker_keeps_a_provider_outage_retryable_past_the_budget(monkeypatch):
+    """The durable worker owes an outage victim the same exemption the inline seam gives.
+
+    Both executors dead-letter on the same delivery budget, and dead-lettering marks
+    the conversation `failed`/`discarded` — it disappears from the user's list. An
+    outage rejects every conversation alike and burns that budget in minutes, so the
+    exemption has to hold on whichever executor happens to run the job (on 2026-08-24
+    three captures survived the inline seam and were hidden by this one).
+    """
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(
+        jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 1}
+    )
+    monkeypatch.setattr(
+        jobs_db, 'get_finalization_job', lambda job_id: {'uid': 'uid-1', 'conversation_id': 'conversation-1'}
+    )
+    monkeypatch.setattr(
+        finalization_worker,
+        'finalize_persisted_conversation',
+        AsyncMock(side_effect=ConversationFinalizationError('provider_unavailable')),
+    )
+    retryable = MagicMock(return_value=True)
+    dead_letter = MagicMock(return_value=True)
+    monkeypatch.setattr(jobs_db, 'mark_finalization_retryable', retryable)
+    monkeypatch.setattr(finalization_worker, 'final_attempt_failed', dead_letter)
+    monkeypatch.setattr(finalization_worker, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
+
+    response = await finalization_router.run_listen_finalization_job(
+        _Request({'job_id': 'job-1', 'dispatch_generation': 1}), task_retry_count=7
+    )
+
+    # Well past the budget (delivery 8 of 3) and still not terminal.
+    assert response.status_code == 500
+    assert json.loads(response.body) == {'status': 'retry'}
+    dead_letter.assert_not_called()
+    retryable.assert_called_once_with('job-1', 1, 1, 'provider_unavailable')
+
+
+@pytest.mark.anyio
+async def test_worker_persists_the_failure_code_the_finalizer_reported(monkeypatch):
+    """A retryable delivery must record what actually failed, not a generic stand-in.
+
+    The persisted code is what the next executor and any operator read; collapsing
+    every finalizer error to `processing_failed` is what hid the outage in the first
+    place.
+    """
+    monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
+    monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')
+    monkeypatch.setattr(finalization_worker, 'release_job_run_lock', lambda key, token: None)
+    monkeypatch.setattr(
+        jobs_db, 'claim_finalization_job', lambda *args, **kwargs: {'status': 'claimed', 'lease_epoch': 1}
+    )
+    monkeypatch.setattr(
+        jobs_db, 'get_finalization_job', lambda job_id: {'uid': 'uid-1', 'conversation_id': 'conversation-1'}
+    )
+    monkeypatch.setattr(
+        finalization_worker,
+        'finalize_persisted_conversation',
+        AsyncMock(side_effect=ConversationFinalizationError('fanout_lease_conflict')),
+    )
+    retryable = MagicMock(return_value=True)
+    monkeypatch.setattr(jobs_db, 'mark_finalization_retryable', retryable)
+    monkeypatch.setattr(finalization_worker, 'get_listen_finalization_tasks_max_attempts_for_worker', lambda: 3)
+
+    response = await finalization_router.run_listen_finalization_job(
+        _Request({'job_id': 'job-1', 'dispatch_generation': 1}), task_retry_count=0
+    )
+
+    assert json.loads(response.body) == {'status': 'retry'}
+    retryable.assert_called_once_with('job-1', 1, 1, 'fanout_lease_conflict')
+
+
+@pytest.mark.anyio
 async def test_worker_completes_claimed_job(monkeypatch):
     monkeypatch.setattr(finalization_worker, 'run_blocking', _inline_run_blocking)
     monkeypatch.setattr(finalization_worker, 'try_acquire_job_run_lock', lambda key: 'lock-token')

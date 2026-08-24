@@ -32,6 +32,7 @@ from utils.conversations.finalizer import (
     finalize_persisted_conversation,
 )
 from utils.executors import db_executor, run_blocking
+from utils.llm.gateway_error_contract import PROVIDER_UNAVAILABLE_FAILURE_CODE
 from utils.metrics import LISTEN_FINALIZATION_RETRIES_TOTAL
 from utils.observability.journeys import record_capture_finalization_terminal
 
@@ -54,9 +55,17 @@ async def _retry_or_dead_letter(
     task_retry_count: int,
     reason: str,
 ) -> bool:
-    """Record a task failure; return whether this was the terminal delivery."""
+    """Record a task failure; return whether this was the terminal delivery.
+
+    The delivery budget bounds a job whose own payload keeps failing: dead-lettering
+    it marks the conversation `failed`/`discarded`, which hides a capture the user
+    never gets back. A provider outage is not that failure — it rejects every
+    conversation alike and burns the budget in minutes — so those deliveries are
+    released as retryable no matter how many have been spent, exactly as the inline
+    pusher seam already does (`utils/pusher_finalization.record_failure`).
+    """
     max_attempts = get_listen_finalization_tasks_max_attempts_for_worker()
-    if task_retry_count >= max_attempts - 1:
+    if reason != PROVIDER_UNAVAILABLE_FAILURE_CODE and task_retry_count >= max_attempts - 1:
         marked_dead_letter = await run_blocking(
             db_executor,
             final_attempt_failed,
@@ -160,12 +169,16 @@ async def execute_finalization_job(
                 force_process=bool(job.get('force_process')),
                 final_attempt=deliveries >= get_listen_finalization_tasks_max_attempts_for_worker() - 1,
             )
-        except ConversationFinalizationError:
+        except ConversationFinalizationError as error:
+            # The finalizer's bounded code is the only signal that separates a
+            # rejected payload from an unreachable provider; collapsing it to
+            # `processing_failed` here dead-lettered every capture an outage touched.
+            failure_code = error.failure_code
             terminal = await _retry_or_dead_letter(
-                job_id, dispatch_generation, claimed_lease_epoch, deliveries, 'processing_failed'
+                job_id, dispatch_generation, claimed_lease_epoch, deliveries, failure_code
             )
             if terminal:
-                logger.error('listen finalization final attempt failed job=%s failure=processing_failed', job_id)
+                logger.error('listen finalization final attempt failed job=%s failure=%s', job_id, failure_code)
                 return FinalizationRunResult('dead_letter')
             return FinalizationRunResult('retry')
 
