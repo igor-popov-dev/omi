@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/pages/settings/voice_orb_theme_dialog.dart' show voiceOrbThemeFromIndex;
+import 'package:omi/backend/preferences.dart';
 import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/providers/developer_mode_provider.dart';
 import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection;
@@ -23,12 +24,19 @@ class HubVoiceStatusIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final captureProvider = context.watch<CaptureProvider>();
-    final themeIndex = context.select<DeveloperModeProvider, int>((p) => p.voiceOrbTheme);
-    // Тот же флаг, что решает, есть ли на экране кнопка голосового режима
-    // (`FreeFormVoiceModeButton`), — но из провайдера, а не из настроек
-    // напрямую: так индикатор перерисуется, когда флаг переключат, и его
-    // можно поднять в виджет-тесте без биндинга SharedPreferences.
-    final hasVoiceModeButton = context.select<DeveloperModeProvider, bool>((p) => p.freeFormMode);
+    // `DeveloperModeProvider` НЕ зарегистрирован глобально: его создаёт только
+    // экран настроек разработчика. Обязательное чтение отсюда роняло чат в
+    // ProviderNotFound → каскад RenderFlex Infinity → чёрный экран на старте
+    // (живой случай 24.08 23:41, та же ошибка в соседней кнопке).
+    //
+    // Поэтому чтение необязательное: если провайдер в дереве есть (экран
+    // настроек, виджет-тест) — берём из него и перерисовываемся при
+    // переключении флага; если его нет — читаем то же самое из настроек,
+    // которые провайдер и зеркалит. Обе половины контракта сохранены.
+    final developer = context.watch<DeveloperModeProvider?>();
+    final prefs = SharedPreferencesUtil();
+    final themeIndex = developer?.voiceOrbTheme ?? prefs.voiceOrbTheme;
+    final hasVoiceModeButton = developer?.freeFormMode ?? prefs.freeFormMode;
 
     return ValueListenableBuilder<VoiceTurnUiProjection>(
       valueListenable: captureProvider.hubProjection,

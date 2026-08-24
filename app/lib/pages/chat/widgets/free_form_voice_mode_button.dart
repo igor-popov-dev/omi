@@ -27,6 +27,7 @@ import 'package:omi/backend/preferences.dart';
 import 'package:omi/pages/chat/widgets/claude_escalation_sheet.dart';
 import 'package:omi/pages/settings/voice_orb_theme_dialog.dart' show voiceOrbThemeFromIndex;
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/providers/developer_mode_provider.dart';
 import 'package:omi/services/mic/mic_arbiter.dart' show MicBusyError, kConversationMicOwner;
 import 'package:omi/services/voice_hub/escalation_level.dart';
 import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection;
@@ -50,15 +51,21 @@ class FreeFormVoiceModeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!SharedPreferencesUtil().freeFormMode) return const SizedBox.shrink();
     final captureProvider = context.watch<CaptureProvider>();
-    // Тема орба — напрямую из prefs, НЕ через context.select<DeveloperModeProvider>:
-    // этот провайдер нигде не зарегистрирован глобально (он живёт только внутри
-    // экрана настроек разработчика), и select ронял build кнопки ProviderNotFound'ом,
-    // а за ним каскадом всю отрисовку чата — чёрный экран на старте
-    // (баг Игоря 24.08 ~23:42, финальная сборка all-final). Цена: смена темы
-    // орба доедет до чата при следующем ребилде кнопки, а не мгновенно.
-    final themeIndex = SharedPreferencesUtil().voiceOrbTheme;
+    // `DeveloperModeProvider` глобально НЕ зарегистрирован — он живёт только
+    // внутри экрана настроек разработчика. Обязательный `context.select` отсюда
+    // ронял build кнопки ProviderNotFound'ом, а за ним каскадом всю отрисовку
+    // чата: чёрный экран на старте (баг Игоря 24.08 ~23:42).
+    //
+    // Чтение необязательное: есть провайдер в дереве (настройки, виджет-тест) —
+    // берём из него и перерисовываемся сразу; нет — читаем то же самое из
+    // настроек, которые провайдер и зеркалит. Тот же паттерн, что в
+    // `HubVoiceStatusIndicator`; сторож на оба —
+    // `test/pages/chat/chat_widgets_without_developer_provider_test.dart`.
+    final developer = context.watch<DeveloperModeProvider?>();
+    final prefs = SharedPreferencesUtil();
+    if (!(developer?.freeFormMode ?? prefs.freeFormMode)) return const SizedBox.shrink();
+    final themeIndex = developer?.voiceOrbTheme ?? prefs.voiceOrbTheme;
 
     return ValueListenableBuilder<bool>(
       valueListenable: captureProvider.freeFormModeActive,
