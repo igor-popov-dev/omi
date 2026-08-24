@@ -179,6 +179,12 @@ app.include_router(chat.router)
 from routers import selfhost_voice_log  # noqa: E402
 
 app.include_router(selfhost_voice_log.router)
+# Self-host patch (routers/selfhost_upstream_sync.py, docs/selfhost-patches.md):
+# пульт апстрим-синка. Форк отстаёт от upstream на десятки коммитов в день, и
+# напоминание об этом должно быть там, где человек бывает ежедневно.
+from routers import selfhost_upstream_sync  # noqa: E402
+
+app.include_router(selfhost_upstream_sync.router)
 app.include_router(speech_profile.router)
 # app.include_router(screenpipe.router)
 app.include_router(notifications.router)
