@@ -178,14 +178,7 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
         events: events,
         buildInstructions: buildProductionHubInstructions,
         mintToken: mintGeminiHubToken,
-        createSession: (spec) => GeminiHubSession(
-          token: spec.token,
-          instructions: spec.instructions,
-          playerFactory: nativeVoicePlayerFactory,
-          events: spec.events,
-          tools: spec.tools,
-          freeFormMode: freeFormMode(),
-        ),
+        createSession: (spec) => buildProductionGeminiSession(spec, freeFormMode: freeFormMode()),
         fetchTools: fetchHubTools,
       );
       return hub;
@@ -195,6 +188,33 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     pttHubEnabled: pttHubEnabled,
     toolExecutor: askClaudeExecutor.handle,
   ));
+}
+
+/// The one place a production Gemini session is built out of the spec
+/// `HubController` hands its `createSession`. Both production factories go
+/// through it — they used to hand-list the same six arguments each, and the
+/// two lists drifted: NEITHER passed `spec.resumptionHandle`.
+///
+/// That field is how a conversation survives its socket (design doc §10). The
+/// controller keeps the latest handle across a teardown and offers it in the
+/// spec precisely so the next socket continues the same conversation; dropping
+/// it here made every rebuild silently blank — including the drop recovery,
+/// which reconnects and then asks the model out loud to "продолжай с того
+/// места, где мы остановились" (`CaptureController.recoverFreeFormVoiceMode`).
+/// The model had never heard that place. The controller-level fix for exactly
+/// this ("keeps the conversation, so the model really can continue it") was
+/// tested against a fake session, so nothing caught that production threw the
+/// handle away on the way to the real one.
+GeminiHubSession buildProductionGeminiSession(HubSessionSpec spec, {required bool freeFormMode}) {
+  return GeminiHubSession(
+    token: spec.token,
+    instructions: spec.instructions,
+    playerFactory: nativeVoicePlayerFactory,
+    events: spec.events,
+    tools: spec.tools,
+    resumptionHandle: spec.resumptionHandle,
+    freeFormMode: freeFormMode,
+  );
 }
 
 bool _defaultFreeFormModeOff() => false;
@@ -281,14 +301,7 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     ),
     buildInstructions: buildProductionHubInstructions,
     mintToken: mintGeminiHubToken,
-    createSession: (spec) => GeminiHubSession(
-      token: spec.token,
-      instructions: spec.instructions,
-      playerFactory: nativeVoicePlayerFactory,
-      events: spec.events,
-      tools: spec.tools,
-      freeFormMode: true,
-    ),
+    createSession: (spec) => buildProductionGeminiSession(spec, freeFormMode: true),
     fetchTools: fetchHubTools,
   );
 

@@ -28,9 +28,60 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/ask_claude_tool.dart';
+import 'package:omi/services/voice_hub/gemini_hub_session.dart';
+import 'package:omi/services/voice_hub/hub_controller.dart';
+import 'package:omi/services/voice_hub/hub_session.dart';
 import 'package:omi/services/voice_hub/voice_hub_production.dart';
 
 void main() {
+  // The seam both production factories build their session through. It exists
+  // because they used to hand-list the constructor arguments separately and
+  // both lists were missing the same one — see the function's own doc comment.
+  group('buildProductionGeminiSession', () {
+    Map<String, dynamic> setupOf(GeminiHubSession session) =>
+        (session.sessionSetupFrame()['setup'] as Map<String, dynamic>);
+
+    test('carries the resumption handle the controller offers, so a rebuilt socket continues the conversation', () {
+      final session = buildProductionGeminiSession(
+        const HubSessionSpec(token: 't', instructions: 'i', events: HubSessionEvents(), resumptionHandle: 'H1'),
+        freeFormMode: true,
+      );
+
+      final resumption = setupOf(session)['sessionResumption'] as Map<String, dynamic>;
+      expect(resumption['handle'], 'H1');
+    });
+
+    test('a spec with no handle asks for a fresh conversation, not a broken resume', () {
+      final session = buildProductionGeminiSession(
+        const HubSessionSpec(token: 't', instructions: 'i', events: HubSessionEvents()),
+        freeFormMode: false,
+      );
+
+      final resumption = setupOf(session)['sessionResumption'] as Map<String, dynamic>;
+      expect(resumption, isEmpty);
+      // Sanity that the rest of the spec still reaches the session.
+      expect(setupOf(session)['systemInstruction'], isNotNull);
+    });
+
+    test('passes the free-form flag through (server VAD on/off is the whole mode)', () {
+      final free = buildProductionGeminiSession(
+        const HubSessionSpec(token: 't', instructions: 'i', events: HubSessionEvents()),
+        freeFormMode: true,
+      );
+      final manual = buildProductionGeminiSession(
+        const HubSessionSpec(token: 't', instructions: 'i', events: HubSessionEvents()),
+        freeFormMode: false,
+      );
+
+      final freeVad = ((setupOf(free)['realtimeInputConfig'] as Map<String, dynamic>)['automaticActivityDetection']
+          as Map<String, dynamic>);
+      final manualVad = ((setupOf(manual)['realtimeInputConfig'] as Map<String, dynamic>)['automaticActivityDetection']
+          as Map<String, dynamic>);
+      expect(freeVad['disabled'], isNot(true));
+      expect(manualVad['disabled'], isTrue);
+    });
+  });
+
   group('buildProductionHubInstructions', () {
     test('returns a non-empty, stable prompt', () {
       final a = buildProductionHubInstructions();
