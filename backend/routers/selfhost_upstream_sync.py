@@ -23,16 +23,17 @@ WHY THIS FILE EXISTS SEPARATELY
 См. `docs/selfhost-patches.md`.
 """
 
+import asyncio
 import json
 import os
 import subprocess
-import threading
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from utils.notifications import send_notification
+from utils.executors import start_background_task
+from utils.notifications import send_notification_async
 from utils.other import endpoints as auth
 
 router = APIRouter()
@@ -154,15 +155,22 @@ def _to_status(raw: Dict[str, Any]) -> SyncStatus:
     )
 
 
-def _notify_when_done(uid: str, args: List[str]) -> None:
+async def _notify_when_done(uid: str, args: List[str]) -> None:
     """Прогон в фоне + пуш, но ТОЛЬКО когда нужен человек.
 
     Зелёный результат намеренно молчит: если синк начнёт присылать «всё хорошо»
     каждый день, уведомления перестанут читать — и первое красное тоже.
+
+    Подпроцесс именно асинхронный, а не поток и не executor: полный синк идёт
+    минутами (мерж, регенерация, оба набора тестов), и занять на это время поток
+    из общего пула значило бы отнять его у запросов. Здесь не занимается ничего.
     """
     launch_error = None
     try:
-        proc = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc = await asyncio.create_subprocess_exec(
+            *args, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+        )
+        await proc.wait()
         outcome, needs = _CLASSES.get(proc.returncode, ('ERROR', True))
     except OSError as exc:
         outcome, needs, launch_error = 'ERROR', True, str(exc)
@@ -179,7 +187,7 @@ def _notify_when_done(uid: str, args: List[str]) -> None:
             raw.get('behind', 0),
         )
     )
-    send_notification(
+    await send_notification_async(
         uid,
         _NOTIFY_TITLE.get(outcome, 'Апстрим-синк'),
         body,
@@ -195,7 +203,7 @@ def upstream_sync_status(uid: str = Depends(auth.get_current_user_uid)):
 
 
 @router.post('/v1/selfhost/upstream-sync/run', tags=['selfhost'], response_model=SyncStatus)
-def upstream_sync_run(data: SyncRunRequest, uid: str = Depends(auth.get_current_user_uid)):
+async def upstream_sync_run(data: SyncRunRequest, uid: str = Depends(auth.get_current_user_uid)):
     """Кнопка «Синхронизировать». Возвращается сразу — прогон идёт в фоне.
 
     Долгий ответ здесь был бы хуже бесполезного: тесты идут минутами, мобильный
@@ -208,7 +216,7 @@ def upstream_sync_run(data: SyncRunRequest, uid: str = Depends(auth.get_current_
         raise HTTPException(status_code=400, detail='mode must be dry or full')
 
     args = [_SCRIPT] + (['--dry'] if data.mode == 'dry' else [])
-    threading.Thread(target=_notify_when_done, args=(uid, args), daemon=True).start()
+    start_background_task(_notify_when_done(uid, args), name=f'upstream-sync:{data.mode}')
 
     status = _to_status(_read_status())
     status.running = True

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI
@@ -138,24 +137,50 @@ def test_run_returns_immediately_and_starts_the_script(monkeypatch, tmp_path):
     client, _ = _client(monkeypatch, tmp_path)
     started = {}
 
-    def fake_thread(target, args, daemon):
-        started['args'] = args
+    def fake_start(coro, *, name):
+        started['name'] = name
+        # Корутину надо закрыть явно, иначе pytest ругается на неожидаемую.
+        coro.close()
 
-        class _T:
-            def start(self):
-                started['started'] = True
-
-        return _T()
-
-    # Подменяем ссылку на модуль внутри роутера, а не сам threading: TestClient
-    # поднимает собственный пул потоков и глобальная подмена ломает его.
-    monkeypatch.setattr(sync, 'threading', SimpleNamespace(Thread=fake_thread))
+    monkeypatch.setattr(sync, 'start_background_task', fake_start)
+    monkeypatch.setattr(sync, '_SCRIPT_ARGS_SPY', None, raising=False)
 
     body = client.post('/v1/selfhost/upstream-sync/run', json={'mode': 'dry'}).json()
 
-    assert started['started'] is True
-    assert started['args'][1][-1] == '--dry'
+    assert started['name'] == 'upstream-sync:dry'
     assert body['running'] is True
+
+
+@pytest.mark.anyio
+async def test_the_sync_subprocess_never_occupies_a_worker_thread(monkeypatch, tmp_path):
+    """Полный синк идёт минутами. Поток из общего пула на это время — отнятый у
+    запросов поток, поэтому подпроцесс должен быть асинхронным."""
+    _client(monkeypatch, tmp_path)
+    seen = {}
+
+    class _Proc:
+        returncode = 10
+
+        async def wait(self):
+            return 10
+
+    async def fake_exec(*args, **kwargs):
+        seen['args'] = args
+        return _Proc()
+
+    monkeypatch.setattr(sync.asyncio, 'create_subprocess_exec', fake_exec)
+    sent = []
+
+    async def fake_notify(*a, **kw):
+        sent.append(a)
+
+    monkeypatch.setattr(sync, 'send_notification_async', fake_notify)
+
+    await sync._notify_when_done(UID, ['/bin/true', '--dry'])
+
+    assert seen['args'] == ('/bin/true', '--dry')
+    # Исход 10 — зелёный, значит человека не будим.
+    assert sent == []
 
 
 @pytest.mark.parametrize('branch', ['private', 'main', 'feat/whatever', 'sync/base-2026-08-24'])
@@ -212,7 +237,8 @@ def test_a_foreign_uid_does_not_learn_the_console_exists(monkeypatch, tmp_path):
     assert client.get('/v1/selfhost/upstream-sync/status').status_code == 404
 
 
-def test_a_green_run_stays_silent(monkeypatch, tmp_path):
+@pytest.mark.anyio
+async def test_a_green_run_stays_silent(monkeypatch, tmp_path):
     """Если синк начнёт присылать «всё хорошо» ежедневно, уведомления перестанут
     читать — и первое красное тоже."""
     _client(monkeypatch, tmp_path)
@@ -221,15 +247,26 @@ def test_a_green_run_stays_silent(monkeypatch, tmp_path):
     class _Proc:
         returncode = 10
 
-    monkeypatch.setattr(sync.subprocess, 'run', lambda *a, **kw: _Proc())
-    monkeypatch.setattr(sync, 'send_notification', lambda *a, **kw: sent.append(a))
+        async def wait(self):
+            return 10
 
-    sync._notify_when_done(UID, ['/bin/true'])
+    async def fake_exec(*a, **kw):
+        return _Proc()
+
+    monkeypatch.setattr(sync.asyncio, 'create_subprocess_exec', fake_exec)
+
+    async def fake_notify(*a, **kw):
+        sent.append(a)
+
+    monkeypatch.setattr(sync, 'send_notification_async', fake_notify)
+
+    await sync._notify_when_done(UID, ['/bin/true'])
 
     assert sent == []
 
 
-def test_a_run_that_needs_a_decision_reaches_the_phone(monkeypatch, tmp_path):
+@pytest.mark.anyio
+async def test_a_run_that_needs_a_decision_reaches_the_phone(monkeypatch, tmp_path):
     _client(monkeypatch, tmp_path)
     _write_status(tmp_path / 'upstream-sync')
     sent = []
@@ -237,10 +274,20 @@ def test_a_run_that_needs_a_decision_reaches_the_phone(monkeypatch, tmp_path):
     class _Proc:
         returncode = 20
 
-    monkeypatch.setattr(sync.subprocess, 'run', lambda *a, **kw: _Proc())
-    monkeypatch.setattr(sync, 'send_notification', lambda uid, title, body, data=None: sent.append((title, data)))
+        async def wait(self):
+            return 20
 
-    sync._notify_when_done(UID, ['/bin/true'])
+    async def fake_exec(*a, **kw):
+        return _Proc()
+
+    monkeypatch.setattr(sync.asyncio, 'create_subprocess_exec', fake_exec)
+
+    async def fake_notify(uid, title, body, data=None):
+        sent.append((title, data))
+
+    monkeypatch.setattr(sync, 'send_notification_async', fake_notify)
+
+    await sync._notify_when_done(UID, ['/bin/true'])
 
     assert len(sent) == 1
     title, data = sent[0]
