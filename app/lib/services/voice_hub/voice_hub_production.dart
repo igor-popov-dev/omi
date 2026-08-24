@@ -120,7 +120,9 @@ const String _kHubInstructions = 'You are Omi, a warm and concise voice assistan
     'ORDER MATTERS: FIRST say a short filler out loud — in Russian say exactly '
     '"секунду, уточню" — and only THEN call the tool. The call itself is seconds of silence, '
     'so a filler spoken after the result lands is useless — the user has already sat through '
-    'the wait wondering whether you heard them at all.';
+    'the wait wondering whether you heard them at all. Say that filler ONCE per turn: if '
+    'one request makes you call the tool several times, the single filler covers them all — '
+    'repeating it back to back sounds like a stutter.';
 
 /// Production [HubFetchTools]: the one tool this app declares today.
 Future<List<VoiceToolDeclaration>> fetchHubTools() async => const [askClaudeToolDeclaration];

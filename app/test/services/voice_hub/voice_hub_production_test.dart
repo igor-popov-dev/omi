@@ -53,6 +53,18 @@ void main() {
       expect(instructions, contains('THEN call the tool'));
       expect(instructions.indexOf('FIRST'), lessThan(instructions.indexOf('THEN call the tool')));
     });
+
+    test('asks for the filler ONCE per turn, so a batch of calls is not a stutter', () {
+      // Measured on live Gemini 24.08 (`marathon/probes/lane5-filler-once.py`,
+      // 5 turns per wording): with the order-only wording the model said
+      // "секунду, уточню секунду, уточню" back to back in 4 turns out of 5 —
+      // and not only when it batched calls, twice it doubled on a single call.
+      // The same wording plus this one sentence: 0 doubles in 5, and the
+      // filler still spoken in all 5 (dropping it is the worse failure —
+      // silence for 7-40s reads as "it did not hear me").
+      final instructions = buildProductionHubInstructions();
+      expect(instructions, contains('ONCE per turn'));
+    });
   });
 
   group('fetchHubTools', () {
