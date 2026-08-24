@@ -21,6 +21,8 @@ import 'package:omi/models/stt_provider.dart';
 import 'package:omi/pages/settings/conversation_display_settings.dart';
 import 'package:omi/pages/settings/conversation_timeout_dialog.dart';
 import 'package:omi/pages/settings/free_form_voice_timeout_dialog.dart';
+import 'package:omi/pages/settings/voice_orb_theme_dialog.dart';
+import 'package:omi/widgets/omi_voice_orb.dart';
 import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/pages/settings/data_privacy_page.dart';
 import 'package:omi/pages/settings/import_history_page.dart';
@@ -237,6 +239,56 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
             style: TextStyle(color: enabled ? Colors.grey.shade300 : Colors.grey.shade700, fontSize: 14),
           ),
           const SizedBox(width: 8),
+          FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade600, size: 14),
+        ],
+      ),
+    );
+  }
+
+  /// Оформление живой иконки голосового режима — та же форма, что у строки
+  /// авто-выключения выше, но справа вместо текста сама иконка: тему выбирают
+  /// глазами, и подпись «Gradient» без картинки ничего не говорит.
+  Widget _buildVoiceOrbThemeItem(DeveloperModeProvider provider) {
+    final theme = voiceOrbThemeFromIndex(provider.voiceOrbTheme);
+    return GestureDetector(
+      onTap: () async {
+        final chosen = await VoiceOrbThemeDialog.show(context, currentIndex: provider.voiceOrbTheme);
+        if (chosen == null) return;
+        provider.onVoiceOrbThemeChanged(chosen);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
+            child: Center(child: FaIcon(FontAwesomeIcons.circleHalfStroke, color: Colors.grey.shade400, size: 16)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Voice icon theme',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Look of the animated icon shown in chat',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            voiceOrbThemeLabel(theme),
+            style: TextStyle(color: Colors.grey.shade300, fontSize: 14),
+          ),
+          const SizedBox(width: 10),
+          OmiVoiceOrb(phase: OmiVoiceOrbPhase.listening, theme: theme, diameter: 22),
+          const SizedBox(width: 4),
           FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade600, size: 14),
         ],
       ),
@@ -1721,6 +1773,10 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                         // greyed out so it does not read as live.
                         const SizedBox(height: 16),
                         _buildFreeFormVoiceTimeoutItem(provider),
+                        // Оформление живой иконки в чате: работает независимо
+                        // от флага режима — иконку рисует любой голосовой ход.
+                        const SizedBox(height: 16),
+                        _buildVoiceOrbThemeItem(provider),
                         // Ползунок «мозг голосового режима» (0 = чистый Gemini
                         // Live, 4 = каждый ответ через Claude) СКРЫТ вместе с
                         // шторкой в чате: на правом крае модель «двоилась»

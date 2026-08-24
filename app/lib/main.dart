@@ -409,6 +409,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             capture.onVoiceModeCallStart = voiceCallSession.start;
             capture.onVoiceModeCallEnd = voiceCallSession.end;
             capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
+              // Живая иконка в чате дышит по громкости ответа ассистента.
+              outputEnvelope: capture.voiceOutputEnvelope,
               events: freeFormModeProjectionEvents(
                 // Гейт по активности: поздние события уже остановленной сессии
                 // (хвост speaking-end и т.п.) перещёлкивали индикатор обратно в

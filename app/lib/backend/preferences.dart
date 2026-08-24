@@ -430,6 +430,13 @@ class SharedPreferencesUtil {
 
   int get singleTapAction => getInt('singleTapAction', defaultValue: 0);
 
+  // Оформление живой иконки голосового режима (`OmiVoiceOrb`): индекс в
+  // `OmiVoiceOrbTheme` — 0 фирменный градиент, 1 тёмная, 2 светлая. Хранится
+  // числом, поэтому порядок значений в enum менять нельзя.
+  set voiceOrbTheme(int value) => saveInt('voiceOrbTheme', value);
+
+  int get voiceOrbTheme => getInt('voiceOrbTheme', defaultValue: 0);
+
   // Free-form Voice Mode — hands-free voice-mode button in chat (experimental)
   set freeFormMode(bool value) => saveBool('freeFormMode', value);
 

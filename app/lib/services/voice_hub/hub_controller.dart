@@ -969,6 +969,9 @@ class HubController {
   /// driver's own header), so both paths converge on this one call.
   void clearPlayback() => session?.clearPlayback();
 
+  /// Ручной barge-in из UI — см. [HubSession.muteCurrentResponse].
+  void muteCurrentResponse() => session?.muteCurrentResponse();
+
   /// The reducer's `hubWarm` deadline fired: the hub lost the race. Hands
   /// the buffered PCM to the batch cascade. The turn CONTINUES on the
   /// cascade — nothing here terminates it.

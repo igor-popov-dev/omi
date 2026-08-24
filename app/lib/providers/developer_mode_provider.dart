@@ -54,6 +54,10 @@ class DeveloperModeProvider extends BaseProvider {
   // Ползунок «как часто голосовой хаб ходит к Claude» (0..4, дефолт 2 —
   // balanced). Семантика уровней — services/voice_hub/escalation_level.dart.
   int claudeEscalationLevel = 2;
+  // Оформление живой иконки голосового режима в чате (индекс OmiVoiceOrbTheme).
+  // Копия `SharedPreferencesUtil().voiceOrbTheme`, чтобы строка настроек и сам
+  // индикатор перерисовывались по одному notifyListeners.
+  int voiceOrbTheme = 0;
 
   void onConversationEventsToggled(bool value) {
     conversationEventsToggled = value;
@@ -133,6 +137,7 @@ class DeveloperModeProvider extends BaseProvider {
     freeFormMode = SharedPreferencesUtil().freeFormMode;
     freeFormVoiceIdleTimeoutMinutes = SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes;
     claudeEscalationLevel = SharedPreferencesUtil().claudeEscalationLevel;
+    voiceOrbTheme = SharedPreferencesUtil().voiceOrbTheme;
     conversationEventsToggled = SharedPreferencesUtil().conversationEventsToggled;
     transcriptsToggled = SharedPreferencesUtil().transcriptsToggled;
     audioBytesToggled = SharedPreferencesUtil().audioBytesToggled;
@@ -315,6 +320,12 @@ class DeveloperModeProvider extends BaseProvider {
   void onFreeFormVoiceIdleTimeoutChanged(int minutes) {
     freeFormVoiceIdleTimeoutMinutes = minutes;
     SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes = minutes;
+    notifyListeners();
+  }
+
+  void onVoiceOrbThemeChanged(int value) {
+    voiceOrbTheme = value;
+    SharedPreferencesUtil().voiceOrbTheme = value;
     notifyListeners();
   }
 
