@@ -171,6 +171,22 @@ class FreeFormVoiceMode {
   /// one the user has to re-explain themselves to.
   void stop() => _stop(endsConversation: true);
 
+  /// Stops the mode WITHOUT ending the conversation — for every path where
+  /// the mode gave up ON ITS OWN rather than the user switching it off.
+  ///
+  /// The rule this completes: only the button means "we're done". Everything
+  /// else — a phone call taking the mic, drops the retry budget could not
+  /// absorb, the silence auto-off — is the mode standing down around a user
+  /// who never said anything of the sort, so the next [start] within the
+  /// handle's 15-minute life ([HubController.resumptionHandleTtlMs]) should
+  /// pick the conversation up instead of opening a blank one they have to
+  /// re-explain themselves to.
+  ///
+  /// The silence auto-off already worked this way (see [stop]'s own comment
+  /// for why); the call path did not, which is the odd one out — a call is
+  /// the LEAST ambiguous case of "the user did not end this".
+  void suspend() => _stop(endsConversation: false);
+
   void _stop({required bool endsConversation}) {
     final turnId = _turnId;
     if (turnId == null) return;

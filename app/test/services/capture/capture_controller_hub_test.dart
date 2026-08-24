@@ -562,6 +562,66 @@ void main() {
       expect(session.userTexts, isEmpty, reason: 'ничего не сказано поверх звонка');
     });
 
+    // The other end of the same call: what the user comes back TO. The mode
+    // shuts down mid-call by the rule above, and until now it did so through
+    // the public stop(), which since the resumption work means "the USER
+    // ended the conversation" (`FreeFormVoiceMode.stop`) — so a five-minute
+    // call cost the whole conversation. Switching the mode back on afterwards
+    // opened a blank session and the user had to re-explain themselves,
+    // while the exact same five minutes of SILENCE (the idle auto-off, which
+    // has always suspended rather than stopped) would have been picked up
+    // where it left off. A call is the least ambiguous "the user did not end
+    // this" there is.
+    test('recoverFreeFormVoiceMode: a call suspends the conversation instead of ending it', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode(onMicInterruption: (began) {
+        provider.applyFreeFormMicInterruption(began);
+      });
+      await provider.startFreeFormVoiceMode();
+      feedMicFrame(); // the user was mid-sentence when the call came in
+      session.events.onResumptionHandle?.call('H1');
+      lastOnInterruption!(true);
+
+      await provider.recoverFreeFormVoiceMode(StateError('socket closed 1011'));
+
+      expect(provider.freeFormModeActive.value, isFalse, reason: 'режим всё равно выключается');
+      expect(hub.canResumeConversation, isTrue, reason: 'но разговор переживает звонок');
+    });
+
+    // The same rule for the give-up path: what failed there is the socket,
+    // and the handle is not tied to a socket. The user pressed nothing.
+    test('recoverFreeFormVoiceMode: giving up after repeated drops also keeps the conversation', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      session.events.onResumptionHandle?.call('H1');
+
+      for (var i = 0; i < 4; i++) {
+        feedMicFrame();
+        await provider.recoverFreeFormVoiceMode(StateError('drop $i'));
+      }
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(hub.canResumeConversation, isTrue);
+    });
+
+    // The line the whole distinction rests on: the button still means what it
+    // says. Without this the change above would read as "nothing ever ends a
+    // conversation", and a user who deliberately closed one would find it
+    // waiting for them.
+    test('stopFreeFormVoiceMode: the button still ends the conversation', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      feedMicFrame();
+      session.events.onResumptionHandle?.call('H1');
+      expect(hub.canResumeConversation, isTrue);
+
+      provider.stopFreeFormVoiceMode();
+
+      expect(hub.canResumeConversation, isFalse, reason: 'кнопка — единственное «мы закончили»');
+    });
+
     test('recoverFreeFormVoiceMode: a mode that will not restart stops cleanly', () async {
       final provider = CaptureProvider();
       provider.freeFormVoiceMode = buildMode();

@@ -258,7 +258,11 @@ class CaptureController extends ChangeNotifier
           ? '[VoiceMode] микрофон отобран прямо сейчас — выключаю режим, а не пересобираю'
           : '[VoiceMode] микрофон молчал всю сессию (звонок?) — выключаю режим, а не пересобираю');
       _voiceRecoveries.clear();
-      mode.stop();
+      // suspend(), not stop(): a call is not the user saying "we're done".
+      // The conversation stays on the resumption handle, so switching the
+      // mode back on when the call ends carries on where it broke off
+      // instead of opening a blank session (design doc §10).
+      mode.suspend();
       resetFreeFormVoiceModeUi();
       return;
     }
@@ -268,7 +272,9 @@ class CaptureController extends ChangeNotifier
     if (_voiceRecoveries.length >= _maxVoiceRecoveries) {
       Logger.error('[VoiceMode] ${_voiceRecoveries.length} обрывов подряд — выключаю режим');
       _voiceRecoveries.clear();
-      mode.stop();
+      // Same rule: the mode gave up, the user did not. What could not hold
+      // here is the socket, and the handle is not tied to it.
+      mode.suspend();
       resetFreeFormVoiceModeUi();
       return;
     }
