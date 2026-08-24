@@ -33,6 +33,8 @@ import 'package:omi/services/capture/freemium_threshold_tracker.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
+import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart'
+    show freeFormListeningProjection, freeFormMicBusyProjection;
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
 import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection, idleVoiceTurnProjection;
 import 'package:omi/services/voice_playback/omi_voice_playback_service.dart';
@@ -171,6 +173,26 @@ class CaptureController extends ChangeNotifier
     }
   }
 
+  /// The native capture reported the mic taken away (`interrupted: true`) or
+  /// given back (`false`) while the free-form mode runs —
+  /// `HubPttCaptureOptions.onInterruption`, driven by `PhoneMicController`'s
+  /// `INTERRUPTED`/`RUNNING` transitions (a phone call taking the audio mode,
+  /// or another app preempting the input).
+  ///
+  /// All this does is tell the truth on screen. The mode keeps running and the
+  /// socket is deliberately left open — the native side resumes the capture by
+  /// itself when the call ends, and for a short interruption that means the
+  /// conversation simply continues. What it replaces is an indicator that said
+  /// "Слушаю…" for the entire length of a call while nothing could possibly
+  /// reach the model.
+  void applyFreeFormMicInterruption(bool interrupted) {
+    if (!freeFormModeActive.value) return;
+    Logger.debug(interrupted
+        ? '[VoiceMode] микрофон отобрали (звонок или другое приложение) — режим ждёт'
+        : '[VoiceMode] микрофон вернулся — продолжаю слушать');
+    hubProjection.value = interrupted ? freeFormMicBusyProjection : freeFormListeningProjection;
+  }
+
   /// Resets [freeFormModeActive]/[hubProjection] to idle WITHOUT calling
   /// `FreeFormVoiceMode.stop()` — for callers where the mode has already
   /// stopped itself (the hub-level `onError` handler wired in production,
@@ -209,6 +231,13 @@ class CaptureController extends ChangeNotifier
       return;
     }
 
+    // Two ways to know a rebuild is pointless, one conclusion. The direct one
+    // is the native capture saying the mic is not ours right now
+    // ([FreeFormVoiceMode.micInterrupted]); it catches the case the inference
+    // below cannot — a session that DID hear the user before the call started,
+    // whose socket then dies mid-call looking perfectly recoverable, so it
+    // gets rebuilt and announces itself out loud over the call.
+    //
     // A socket that never heard the mic cannot be recovered by rebuilding it:
     // the replacement gets the same silence and dies the same way. The
     // everyday cause is a phone call — the native capture treats a stalled mic
@@ -224,8 +253,10 @@ class CaptureController extends ChangeNotifier
     // mode. A long call would therefore hold the mode open indefinitely,
     // rebuilding and talking over itself. Stop instead; the user turns the
     // mode back on when they have the mic again.
-    if (!mode.hasHeardInput) {
-      Logger.error('[VoiceMode] микрофон молчал всю сессию (звонок?) — выключаю режим, а не пересобираю');
+    if (mode.micInterrupted || !mode.hasHeardInput) {
+      Logger.error(mode.micInterrupted
+          ? '[VoiceMode] микрофон отобран прямо сейчас — выключаю режим, а не пересобираю'
+          : '[VoiceMode] микрофон молчал всю сессию (звонок?) — выключаю режим, а не пересобираю');
       _voiceRecoveries.clear();
       mode.stop();
       resetFreeFormVoiceModeUi();

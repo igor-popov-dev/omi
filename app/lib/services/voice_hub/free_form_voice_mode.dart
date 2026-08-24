@@ -72,6 +72,10 @@ class FreeFormVoiceMode {
   /// e.g. surface a notification. NOT fired on an explicit [stop] call.
   final void Function()? onIdleTimeout;
 
+  /// Fired when the mic is taken away (`true`) and given back (`false`) while
+  /// the mode runs — see [micInterrupted] for why the mode cares.
+  final void Function(bool interrupted)? onMicInterruption;
+
   FreeFormVoiceMode({
     required this.hub,
     required this.startCapture,
@@ -80,6 +84,7 @@ class FreeFormVoiceMode {
     int Function()? now,
     Duration? Function()? resolveIdleTimeout,
     this.onIdleTimeout,
+    this.onMicInterruption,
   })  : clock = clock ?? const DefaultHubClock(),
         now = now ?? _defaultNow,
         resolveIdleTimeout = resolveIdleTimeout ?? _defaultIdleTimeout;
@@ -92,6 +97,7 @@ class FreeFormVoiceMode {
   HubPttCapture? _capture;
   Object? _idleHandle;
   int _inputFrames = 0;
+  bool _micInterrupted = false;
 
   bool get isRunning => _turnId != null;
 
@@ -108,6 +114,19 @@ class FreeFormVoiceMode {
   /// phone call (see `BaseHubSession.canIdleRelease`).
   bool get hasHeardInput => _inputFrames > 0;
 
+  /// Whether the mic is currently taken away from us — a phone call, or
+  /// another app preempting the input (`HubPttCaptureOptions.onInterruption`).
+  ///
+  /// [hasHeardInput] answers the same question by inference, one dead socket
+  /// later; this is the native side saying so at the moment it happens. The
+  /// difference matters because the inference costs a spoken recovery line
+  /// over the top of the call it is describing: a session that HAD heard the
+  /// mic before the call started looks recoverable when its socket dies
+  /// mid-call, so it gets rebuilt and announced, and only the socket after
+  /// that one is caught. With this flag the first drop is already known to be
+  /// unrecoverable.
+  bool get micInterrupted => _micInterrupted;
+
   /// Idempotent: a [start] while already running is a no-op.
   Future<void> start() async {
     if (_turnId != null) return;
@@ -119,12 +138,17 @@ class FreeFormVoiceMode {
     hub.clearPlayback();
     hub.beginTurn(turnId);
     _inputFrames = 0;
+    _micInterrupted = false;
     try {
       _capture = await startCapture(HubPttCaptureOptions(
         onChunk: (pcm) {
           _inputFrames += 1;
           hub.appendAudio(turnId, pcm);
         },
+        // Turn-scoped like `onChunk`: a late event from the capture this
+        // start() replaced belongs to a mic session that is already stopped,
+        // and acting on it would flip the state of the live one.
+        onInterruption: (began) => _noteMicInterruption(turnId, began),
       ));
     } catch (_) {
       hub.cancelTurn(turnId);
@@ -154,6 +178,10 @@ class FreeFormVoiceMode {
     _capture?.dispose();
     _capture = null;
     _turnId = null;
+    // Silently, without [onMicInterruption]: the flag describes a mic we are
+    // holding, and we have just let go of it. A host told "the mic came back"
+    // here would paint a listening indicator over a mode that stopped.
+    _micInterrupted = false;
     hub.cancelTurn(turnId);
     if (endsConversation) hub.forgetConversation();
   }
@@ -213,6 +241,16 @@ class FreeFormVoiceMode {
   void noteActivity() {
     if (_turnId == null) return;
     _armIdleTimer();
+  }
+
+  void _noteMicInterruption(VoiceTurnId turnId, bool began) {
+    if (_turnId != turnId) return;
+    if (_micInterrupted == began) return;
+    _micInterrupted = began;
+    // Deliberately NOT `noteActivity()`: losing the mic is the opposite of
+    // the user still being there, and rearming the silence auto-off on it
+    // would keep an unusable session billing for another full timeout.
+    onMicInterruption?.call(began);
   }
 
   void _armIdleTimer() {

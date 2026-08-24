@@ -82,11 +82,17 @@ class _FakeClock implements HubClock {
   /// asserting "the timeout the mode actually used" needs to see.
   Duration? lastDuration;
 
+  /// How many times a timer was armed — what "the silence clock was NOT
+  /// rearmed" needs, since a rearm looks identical to the first arm from
+  /// [lastDuration] alone.
+  int arms = 0;
+
   @override
   Object setTimer(Duration duration, void Function() fire) {
     final id = ++_seq;
     _timers[id] = fire;
     lastDuration = duration;
+    arms += 1;
     return id;
   }
 
@@ -109,6 +115,8 @@ void main() {
     late _FakeSession session;
     late _FakeClock clock;
     late void Function(Uint8List)? lastOnChunk;
+    late void Function(bool)? lastOnInterruption;
+    final List<bool> micInterruptions = [];
     late _FakeCapture capture;
     Object? captureError;
     int captureCalls = 0;
@@ -129,6 +137,7 @@ void main() {
     Future<HubPttCapture> fakeStartCapture(HubPttCaptureOptions options) async {
       captureCalls += 1;
       lastOnChunk = options.onChunk;
+      lastOnInterruption = options.onInterruption;
       if (captureError != null) throw captureError!;
       capture = _FakeCapture();
       return capture;
@@ -155,6 +164,7 @@ void main() {
         now: () => 0,
         resolveIdleTimeout: idleTimeout ?? () => const Duration(minutes: 3),
         onIdleTimeout: () => idleTimeoutCalls += 1,
+        onMicInterruption: micInterruptions.add,
       );
     }
 
@@ -164,6 +174,8 @@ void main() {
       idleTimeoutCalls = 0;
       turnIdCalls = 0;
       lastOnChunk = null;
+      lastOnInterruption = null;
+      micInterruptions.clear();
     });
 
     // Conversation resumption (design doc §10): the two ways the mode ends
@@ -217,6 +229,82 @@ void main() {
       lastOnChunk!(chunk);
 
       expect(session.appended, [chunk]);
+    });
+
+    // The mic can be taken away mid-session — a phone call takes the audio
+    // mode, or another app preempts the input (`PhoneMicController.kt`). From
+    // the hub's side that is indistinguishable from a person who stopped
+    // talking, so without this signal nothing in the stack knows.
+    test('a mic interruption is relayed to the host and flips micInterrupted', () async {
+      final mode = await buildMode();
+      await mode.start();
+      expect(mode.micInterrupted, isFalse);
+
+      lastOnInterruption!(true);
+      expect(mode.micInterrupted, isTrue);
+      expect(micInterruptions, [true]);
+
+      lastOnInterruption!(false);
+      expect(mode.micInterrupted, isFalse);
+      expect(micInterruptions, [true, false]);
+    });
+
+    test('a repeated interruption event does not re-announce the same state', () async {
+      final mode = await buildMode();
+      await mode.start();
+
+      lastOnInterruption!(true);
+      lastOnInterruption!(true);
+
+      expect(micInterruptions, [true], reason: 'состояние не менялось — сообщать нечего');
+    });
+
+    // Losing the mic is the opposite of the user still being there: rearming
+    // the silence auto-off on it would buy an unusable session another full
+    // timeout of per-minute billing.
+    test('an interruption does NOT rearm the silence auto-off', () async {
+      final mode = await buildMode();
+      await mode.start();
+      final armsAfterStart = clock.arms;
+
+      lastOnInterruption!(true);
+      expect(clock.arms, armsAfterStart);
+
+      mode.noteActivity();
+      expect(clock.arms, armsAfterStart + 1, reason: 'обычная активность таймер всё ещё взводит');
+    });
+
+    // The flag describes a mic we are holding. Once the mode lets go of it,
+    // saying "the mic came back" would paint a live indicator over a session
+    // that no longer exists.
+    test('stop() clears micInterrupted silently', () async {
+      final mode = await buildMode();
+      await mode.start();
+      lastOnInterruption!(true);
+      micInterruptions.clear();
+
+      mode.stop();
+
+      expect(mode.micInterrupted, isFalse);
+      expect(micInterruptions, isEmpty);
+    });
+
+    // Capture events are turn-scoped like the audio chunks: the mic session a
+    // restart replaced is already stopped, and its late resume event would
+    // clear the flag of the live one.
+    test('an interruption from the capture a restart replaced is ignored', () async {
+      final mode = await buildMode();
+      await mode.start();
+      final staleOnInterruption = lastOnInterruption!;
+
+      await mode.restart();
+      lastOnInterruption!(true);
+      micInterruptions.clear();
+
+      staleOnInterruption(false);
+
+      expect(mode.micInterrupted, isTrue, reason: 'живой захват всё ещё без микрофона');
+      expect(micInterruptions, isEmpty);
     });
 
     test('stop() disposes capture and cancels the hub turn', () async {

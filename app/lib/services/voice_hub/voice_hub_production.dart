@@ -257,6 +257,7 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   http.Client? bridgeHttpClient,
   Duration? Function()? resolveIdleTimeout,
   void Function()? onIdleTimeout,
+  void Function(bool interrupted)? onMicInterruption,
 }) {
   late final HubController hub;
   // Same `late final` idiom as `hub` above and in
@@ -311,6 +312,7 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     mintTurnId: () => const Uuid().v4(),
     resolveIdleTimeout: resolveIdleTimeout,
     onIdleTimeout: onIdleTimeout,
+    onMicInterruption: onMicInterruption,
   );
   return mode;
 }

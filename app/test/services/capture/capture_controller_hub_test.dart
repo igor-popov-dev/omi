@@ -20,6 +20,8 @@ import 'package:omi/env/env.dart';
 import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
+import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart'
+    show freeFormListeningProjection, freeFormMicBusyProjection;
 import 'package:omi/services/voice_hub/hub_controller.dart';
 import 'package:omi/services/voice_hub/hub_ptt_capture.dart';
 import 'package:omi/services/voice_hub/hub_session.dart';
@@ -290,6 +292,7 @@ void main() {
     Object? captureError;
     int idleTimeoutCalls = 0;
     void Function(Uint8List)? lastOnChunk;
+    void Function(bool)? lastOnInterruption;
 
     /// One mic frame, as the native capture tees them. The drop recovery now
     /// asks whether the dying socket ever heard the mic at all, so a test
@@ -297,7 +300,12 @@ void main() {
     /// said something first.
     void feedMicFrame() => lastOnChunk?.call(Uint8List.fromList(const [1, 2, 3, 4]));
 
-    FreeFormVoiceMode buildMode({HubClock? clock, Duration? Function()? idleTimeout, void Function()? onIdle}) {
+    FreeFormVoiceMode buildMode({
+      HubClock? clock,
+      Duration? Function()? idleTimeout,
+      void Function()? onIdle,
+      void Function(bool)? onMicInterruption,
+    }) {
       hub = HubController(
         buildInstructions: () => 'INSTRUCTIONS',
         mintToken: () async => 'ek_token',
@@ -311,6 +319,7 @@ void main() {
         startCapture: (options) async {
           captureCalls += 1;
           lastOnChunk = options.onChunk;
+          lastOnInterruption = options.onInterruption;
           if (captureError != null) throw captureError!;
           capture = _FakeHubCapture();
           return capture;
@@ -322,6 +331,7 @@ void main() {
         // the silence timeout passes both a duration and hand-wound [clock].
         resolveIdleTimeout: idleTimeout ?? () => null,
         onIdleTimeout: onIdle ?? () => idleTimeoutCalls += 1,
+        onMicInterruption: onMicInterruption,
       );
     }
 
@@ -330,6 +340,7 @@ void main() {
       captureError = null;
       idleTimeoutCalls = 0;
       lastOnChunk = null;
+      lastOnInterruption = null;
     });
 
     test('startFreeFormVoiceMode: releases the PTT hub socket first', () async {
@@ -495,6 +506,60 @@ void main() {
       await provider.recoverFreeFormVoiceMode(StateError('drop 2'));
       expect(provider.freeFormModeActive.value, isFalse);
       expect(captureCalls, 2);
+    });
+
+    // The indicator's only source of truth is the hub's own events, and the
+    // hub has nothing to say about a mic that was taken away — it just stops
+    // receiving frames, exactly as if the user had gone quiet. So a call used
+    // to leave "Слушаю…" on screen for its entire length while nothing the
+    // user said could reach anybody.
+    test('a mic taken away by a call says so instead of "Слушаю…"', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode(onMicInterruption: (began) {
+        provider.applyFreeFormMicInterruption(began);
+      });
+      await provider.startFreeFormVoiceMode();
+
+      lastOnInterruption!(true);
+      expect(provider.hubProjection.value, freeFormMicBusyProjection);
+      expect(provider.freeFormModeActive.value, isTrue, reason: 'режим не выключаем: звонок кончится сам');
+
+      lastOnInterruption!(false);
+      expect(provider.hubProjection.value, freeFormListeningProjection);
+    });
+
+    test('a mic interruption after the mode stopped does not repaint the idle UI', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      provider.stopFreeFormVoiceMode();
+
+      provider.applyFreeFormMicInterruption(true);
+
+      expect(provider.hubProjection.value, idleVoiceTurnProjection);
+    });
+
+    // The starved-mic guard above only fires on a socket that never heard the
+    // mic AT ALL — so a session the user had been talking to right up to the
+    // moment the call arrived looks perfectly recoverable when its socket dies
+    // mid-call. It would be rebuilt and would announce "Связь прервалась" out
+    // loud, over the call. Knowing the mic is gone right now settles it on the
+    // FIRST drop.
+    test('recoverFreeFormVoiceMode: a drop while the mic is taken stops the mode, silently', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode(onMicInterruption: (began) {
+        provider.applyFreeFormMicInterruption(began);
+      });
+      await provider.startFreeFormVoiceMode();
+      feedMicFrame(); // the user was mid-sentence when the call came in
+      lastOnInterruption!(true);
+
+      await provider.recoverFreeFormVoiceMode(StateError('socket closed 1011'));
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.freeFormVoiceMode!.isRunning, isFalse);
+      expect(captureCalls, 1, reason: 'сокет не пересобирали');
+      expect(session.userTexts, isEmpty, reason: 'ничего не сказано поверх звонка');
     });
 
     test('recoverFreeFormVoiceMode: a mode that will not restart stops cleanly', () async {
