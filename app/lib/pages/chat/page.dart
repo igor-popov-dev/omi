@@ -764,12 +764,22 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                   },
                                                 ),
                                               // Hands-free voice-mode toggle (ДОПОЛНЕНИЕ 22.08 п.1) —
-                                              // always rightmost, independent of the text/mic/send
-                                              // state above; hidden while the other voice-to-text
-                                              // flow (VoiceRecorderWidget) is active to avoid two
-                                              // competing voice UIs, and internally hidden unless the
+                                              // rightmost, hidden while the other voice-to-text flow
+                                              // (VoiceRecorderWidget) is active to avoid two competing
+                                              // voice UIs, and internally hidden unless the
                                               // `freeFormMode` dev flag is on.
-                                              if (!voiceRecorderProvider.isActive) const FreeFormVoiceModeButton(),
+                                              //
+                                              // Also stands down once the composer holds a draft (an
+                                              // ACTIVE session keeps its button — see the widget).
+                                              // Watches the controller because typing alone does not
+                                              // rebuild this page.
+                                              if (!voiceRecorderProvider.isActive)
+                                                ValueListenableBuilder<TextEditingValue>(
+                                                  valueListenable: textController,
+                                                  builder: (context, value, child) => FreeFormVoiceModeButton(
+                                                    composerHasDraft: value.text.trim().isNotEmpty,
+                                                  ),
+                                                ),
                                             ],
                                           ),
                                         ),
