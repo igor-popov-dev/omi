@@ -23,6 +23,7 @@ import 'package:omi/pages/settings/widgets/plans_sheet.dart';
 import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/services/wals/sync_rate_limit_reconciliation.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class UsagePage extends StatefulWidget {
   final bool showUpgradeDialog;
@@ -64,6 +65,8 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
   }
 
   Future<void> _shareUsage() async {
+    final t = context.omi;
+
     // Capture context-dependent values before async gaps
     final l10n = context.l10n;
     final provider = context.read<UsageProvider>();
@@ -92,7 +95,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
       text: TextSpan(
         text: 'omi.me',
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.8),
+          color: t.textSecondary,
           fontSize: 14 * 3.0, // Scale font size with pixelRatio
           fontWeight: FontWeight.w600,
         ),
@@ -297,10 +300,12 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: t.bgPrimary,
         title: Text(context.l10n.yourOmiInsights),
         centerTitle: true,
         elevation: 0,
@@ -314,7 +319,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.deepPurple,
+          indicatorColor: t.accent,
           isScrollable: true,
           indicatorWeight: 3,
           labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -338,8 +343,8 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
             return Column(
               children: [
                 _buildFairUseBanner(),
-                const Expanded(
-                  child: Center(child: CircularProgressIndicator(color: Colors.deepPurple)),
+                Expanded(
+                  child: Center(child: CircularProgressIndicator(color: t.accent)),
                 ),
               ],
             );
@@ -356,7 +361,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                       child: Text(
                         provider.error!,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+                        style: TextStyle(color: t.textSecondary, fontSize: 16),
                       ),
                     ),
                   ),
@@ -421,6 +426,8 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
   }
 
   Widget _buildSubscriptionInfo(BuildContext context, UsageProvider provider) {
+    final t = context.omi;
+
     if (provider.isLoading && provider.subscription == null) {
       return const SizedBox.shrink();
     }
@@ -442,9 +449,9 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
       margin: const EdgeInsets.fromLTRB(16, 24, 16, 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F1F25),
+        color: t.bgSecondary,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: t.rowFillHover),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,9 +465,9 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                   onTap: _isUpgrading ? null : _showPlansSheet,
                   child: Row(
                     children: [
-                      Text(context.l10n.managePlan, style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+                      Text(context.l10n.managePlan, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                       const SizedBox(width: 4),
-                      Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+                      Icon(Icons.chevron_right, color: t.textSecondary, size: 20),
                     ],
                   ),
                 ),
@@ -468,7 +475,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
           ),
           if (!isPaid) ...[
             const SizedBox(height: 4),
-            Text(context.l10n.basicPlanDescription, style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+            Text(context.l10n.basicPlanDescription, style: TextStyle(fontSize: 13, color: t.textSecondary)),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -504,13 +511,15 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
   }
 
   void _showPlansSheet() {
+    final t = context.omi;
+
     if (!context.read<UsageProvider>().showSubscriptionUI) {
       return;
     }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.black,
+      backgroundColor: t.bgPrimary,
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
@@ -527,6 +536,8 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
   }
 
   Widget _buildFairUseBanner() {
+    final t = context.omi;
+
     if (_fairUseStatus == null) return const SizedBox.shrink();
     final rawStage = _fairUseStatus!['stage'];
     final stage = rawStage is String ? rawStage : 'none';
@@ -536,15 +547,15 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
     String stageLabel;
     switch (stage) {
       case 'warning':
-        dotColor = const Color(0xFFFBBF24);
+        dotColor = t.warning;
         stageLabel = context.l10n.fairUseStageWarning;
         break;
       case 'throttle':
-        dotColor = const Color(0xFFF97316);
+        dotColor = t.warning;
         stageLabel = context.l10n.fairUseStageThrottle;
         break;
       case 'restrict':
-        dotColor = const Color(0xFFEF4444);
+        dotColor = t.error;
         stageLabel = context.l10n.fairUseStageRestrict;
         break;
       default:
@@ -582,6 +593,8 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
   }
 
   Widget _buildEmptyState() {
+    final t = context.omi;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -591,7 +604,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
           Text(
             context.l10n.startConversationToSeeInsights,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.grey.shade400),
+            style: TextStyle(fontSize: 16, color: t.textSecondary),
           ),
         ],
       ),
@@ -605,13 +618,15 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
     GlobalKey key,
     UsageProvider provider,
   ) {
+    final t = context.omi;
+
     Future<void> onRefresh() async {
       // Using Future.wait to run both fetches concurrently
       await Future.wait([provider.fetchUsageStats(period: period), provider.fetchSubscription(), _loadFairUseStatus()]);
     }
 
     if (stats == null) {
-      return const Center(child: CircularProgressIndicator(color: Colors.deepPurple));
+      return Center(child: CircularProgressIndicator(color: t.accent));
     }
 
     if (stats.transcriptionSeconds == 0 &&
@@ -620,11 +635,11 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
         stats.memoriesCreated == 0) {
       return RefreshIndicator(
         onRefresh: onRefresh,
-        color: Colors.deepPurple,
+        color: t.accent,
         child: RepaintBoundary(
           key: key,
           child: Container(
-            color: Colors.black,
+            color: t.bgPrimary,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return SingleChildScrollView(
@@ -643,11 +658,11 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
 
     return RefreshIndicator(
       onRefresh: onRefresh,
-      color: Colors.deepPurple,
+      color: t.accent,
       child: RepaintBoundary(
         key: key,
         child: Container(
-          color: Colors.black,
+          color: t.bgPrimary,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
             children: [
@@ -669,7 +684,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                 value:
                     '${numberFormatter.format(stats.wordsTranscribed)} ${context.l10n.understandingWords}', // Use correct key
                 subtitle: context.l10n.understandingSubtitle,
-                color: Colors.green.shade300,
+                color: t.success,
                 subscription: provider.subscription,
               ),
               const SizedBox(height: 16),
@@ -679,7 +694,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                 title: context.l10n.providing,
                 value: '${numberFormatter.format(stats.insightsGained)} ${context.l10n.insights}',
                 subtitle: context.l10n.providingSubtitle,
-                color: Colors.orange.shade300,
+                color: t.warning,
                 subscription: provider.subscription,
               ),
               const SizedBox(height: 16),
@@ -689,7 +704,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                 title: context.l10n.remembering,
                 value: '${numberFormatter.format(stats.memoriesCreated)} ${context.l10n.memories}',
                 subtitle: context.l10n.rememberingSubtitle,
-                color: Colors.purple.shade300,
+                color: t.accent,
                 subscription: provider.subscription,
               ),
               if (provider.chatQuotaUnit != null && period == 'monthly') ...[
@@ -704,6 +719,8 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
   }
 
   Widget _buildChart(List<UsageHistoryPoint> history, String period) {
+    final t = context.omi;
+
     List<UsageHistoryPoint> processedHistory;
     final now = DateTime.now();
 
@@ -789,7 +806,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
         processedHistory = List.from(history);
     }
 
-    final metricColors = [Colors.blue.shade300, Colors.green.shade300, Colors.orange.shade300, Colors.purple.shade300];
+    final metricColors = [Colors.blue.shade300, t.success, t.warning, t.accent];
 
     double maxY = 0;
     for (var point in processedHistory) {
@@ -851,12 +868,12 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
       gridData: const FlGridData(show: false),
       borderData: FlBorderData(
         show: true,
-        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.2), width: 1)),
+        border: Border(bottom: BorderSide(color: t.hairline, width: 1)),
       ),
       lineTouchData: LineTouchData(
         handleBuiltInTouches: true,
         touchTooltipData: LineTouchTooltipData(
-          getTooltipColor: (touchedSpot) => Colors.grey.shade800,
+          getTooltipColor: (touchedSpot) => t.textSecondary,
           getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
             return touchedBarSpots
                 .map((barSpot) {
@@ -876,7 +893,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                     children: [
                       TextSpan(
                         text: NumberFormat.compact(locale: 'en_US').format(flSpot.y),
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: TextStyle(color: t.textPrimary, fontSize: 12),
                       ),
                     ],
                   );
@@ -899,7 +916,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                 space: 8,
                 child: Text(
                   NumberFormat.compact(locale: 'en_US').format(value),
-                  style: const TextStyle(color: Colors.grey, fontSize: 10),
+                  style: TextStyle(color: t.textSecondary, fontSize: 10),
                 ),
               );
             },
@@ -952,7 +969,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
 
               return SideTitleWidget(
                 axisSide: meta.axisSide,
-                child: Text(text, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                child: Text(text, style: TextStyle(color: t.textSecondary, fontSize: 10)),
               );
             },
             reservedSize: 20,
@@ -968,9 +985,9 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
           height: 200,
           padding: const EdgeInsets.only(top: 16, right: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1F1F25),
+            color: t.bgSecondary,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            border: Border.all(color: t.rowFillHover),
           ),
           child: LineChart(lineChartData, duration: const Duration(milliseconds: 250)),
         ),
@@ -981,11 +998,13 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
   }
 
   Widget _buildLegend() {
+    final t = context.omi;
+
     final legendItems = [
       {'color': Colors.blue.shade300, 'text': context.l10n.listeningMins},
-      {'color': Colors.green.shade300, 'text': context.l10n.understandingWords},
-      {'color': Colors.orange.shade300, 'text': context.l10n.insights},
-      {'color': Colors.purple.shade300, 'text': context.l10n.memories},
+      {'color': t.success, 'text': context.l10n.understandingWords},
+      {'color': t.warning, 'text': context.l10n.insights},
+      {'color': t.accent, 'text': context.l10n.memories},
     ];
 
     return Wrap(
@@ -1008,6 +1027,8 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
   }
 
   Widget _buildLegendItem(Color color, String text, bool isVisible, VoidCallback onTap) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       child: Opacity(
@@ -1017,7 +1038,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
           children: [
             Container(width: 10, height: 10, color: color),
             const SizedBox(width: 6),
-            Text(text, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+            Text(text, style: TextStyle(fontSize: 12, color: t.textSecondary)),
           ],
         ),
       ),
@@ -1025,6 +1046,8 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
   }
 
   Widget _buildChatQuotaLine(BuildContext context, UsageProvider provider) {
+    final t = context.omi;
+
     final sub = provider.subscription;
     if (sub == null) return const SizedBox.shrink();
 
@@ -1066,7 +1089,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: t.rowFillHover),
         boxShadow: [
           BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 2)),
         ],
@@ -1091,15 +1114,15 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
             const SizedBox(height: 8),
             Text(
               context.l10n.chatQuotaSubtitle,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade400, height: 1.4),
+              style: TextStyle(fontSize: 14, color: t.textSecondary, height: 1.4),
             ),
             if (percentage > 0) ...[
               const SizedBox(height: 16),
-              Text(usageText, style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+              Text(usageText, style: TextStyle(fontSize: 12, color: t.textSecondary)),
               const SizedBox(height: 8),
               LinearProgressIndicator(
                 value: percentage,
-                backgroundColor: Colors.grey.shade700,
+                backgroundColor: t.textSecondary,
                 valueColor: AlwaysStoppedAnimation<Color>(color),
                 minHeight: 4,
                 borderRadius: BorderRadius.circular(2),
@@ -1120,6 +1143,8 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
     required Color color,
     UserSubscriptionResponse? subscription,
   }) {
+    final t = context.omi;
+
     final numberFormatter = NumberFormat.decimalPattern('en_US');
     return Container(
       decoration: BoxDecoration(
@@ -1129,7 +1154,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: t.rowFillHover),
         boxShadow: [
           BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 2)),
         ],
@@ -1152,7 +1177,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
               ],
             ),
             const SizedBox(height: 8),
-            Text(subtitle, style: TextStyle(fontSize: 14, color: Colors.grey.shade400, height: 1.4)),
+            Text(subtitle, style: TextStyle(fontSize: 14, color: t.textSecondary, height: 1.4)),
             if (icon == FontAwesomeIcons.microphone &&
                 subscription != null &&
                 subscription.subscription.plan == PlanType.basic &&
@@ -1169,12 +1194,12 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                     children: [
                       Text(
                         context.l10n.minsUsedThisMonth(numberFormatter.format(minutesUsed), minutesLimit),
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        style: TextStyle(fontSize: 12, color: t.textSecondary),
                       ),
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
                         value: percentage,
-                        backgroundColor: Colors.grey.shade700,
+                        backgroundColor: t.textSecondary,
                         valueColor: AlwaysStoppedAnimation<Color>(color),
                         minHeight: 4,
                         borderRadius: BorderRadius.circular(2),
@@ -1193,19 +1218,19 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                               children: [
                                 TextSpan(
                                   text: '${context.l10n.premiumMinutesUsed} ',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                  style: TextStyle(fontSize: 11, color: t.textSecondary),
                                 ),
                                 TextSpan(
                                   text: context.l10n.setupOnDevice,
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.grey.shade400,
+                                    color: t.textSecondary,
                                     decoration: TextDecoration.underline,
                                   ),
                                 ),
                                 TextSpan(
                                   text: ' ${context.l10n.forUnlimitedFreeTranscription}',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                  style: TextStyle(fontSize: 11, color: t.textSecondary),
                                 ),
                               ],
                             ),
@@ -1225,19 +1250,19 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                               children: [
                                 TextSpan(
                                   text: '${context.l10n.premiumMinsLeft(minutesLimit - minutesUsed)} ',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                  style: TextStyle(fontSize: 11, color: t.textSecondary),
                                 ),
                                 TextSpan(
                                   text: context.l10n.onDevice,
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.grey.shade400,
+                                    color: t.textSecondary,
                                     decoration: TextDecoration.underline,
                                   ),
                                 ),
                                 TextSpan(
                                   text: ' ${context.l10n.alwaysAvailable}',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                  style: TextStyle(fontSize: 11, color: t.textSecondary),
                                 ),
                               ],
                             ),
@@ -1264,12 +1289,12 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                     children: [
                       Text(
                         context.l10n.wordsUsedThisMonth(numberFormatter.format(used), numberFormatter.format(limit)),
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        style: TextStyle(fontSize: 12, color: t.textSecondary),
                       ),
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
                         value: percentage,
-                        backgroundColor: Colors.grey.shade700,
+                        backgroundColor: t.textSecondary,
                         valueColor: AlwaysStoppedAnimation<Color>(color),
                         minHeight: 4,
                         borderRadius: BorderRadius.circular(2),
@@ -1294,12 +1319,12 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                     children: [
                       Text(
                         context.l10n.insightsUsedThisMonth(numberFormatter.format(used), numberFormatter.format(limit)),
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        style: TextStyle(fontSize: 12, color: t.textSecondary),
                       ),
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
                         value: percentage,
-                        backgroundColor: Colors.grey.shade700,
+                        backgroundColor: t.textSecondary,
                         valueColor: AlwaysStoppedAnimation<Color>(color),
                         minHeight: 4,
                         borderRadius: BorderRadius.circular(2),
