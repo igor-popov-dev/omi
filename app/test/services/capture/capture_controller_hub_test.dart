@@ -311,6 +311,24 @@ void main() {
       expect(session.userTexts.single, contains('Связь прервалась'));
     });
 
+    // Регресс 24.08 ~16:08: ре-коннект «на месте» восстанавливал сессию В ОБХОД
+    // звонка-оболочки — воскресшая сессия жила без звонка, держала микрофон
+    // бесконечно и отбирала аудиофокус у других приложений.
+    test('recoverFreeFormVoiceMode: восстановленная сессия снова живёт в звонке', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      final callEvents = <String>[];
+      provider.onVoiceModeCallStart = () async => callEvents.add('start');
+      provider.onVoiceModeCallEnd = () async => callEvents.add('end');
+      await provider.startFreeFormVoiceMode();
+
+      await provider.recoverFreeFormVoiceMode(StateError('socket closed 1005'));
+
+      expect(provider.freeFormModeActive.value, isTrue);
+      expect(callEvents, ['start', 'end', 'start'],
+          reason: 'обрыв обязан пройти полный цикл: звонок снят и поставлен заново');
+    });
+
     test('recoverFreeFormVoiceMode: gives up after repeated drops rather than looping', () async {
       final provider = CaptureProvider();
       provider.freeFormVoiceMode = buildMode();

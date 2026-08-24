@@ -229,6 +229,14 @@ class CaptureController extends ChangeNotifier
   /// it dropped. Falls back to a clean stop when recovery itself fails or when
   /// drops keep coming — reconnecting forever would burn per-minute billing on a
   /// session that cannot hold.
+  ///
+  /// ПОЛНЫЙ цикл через единый путь, а не ре-коннект «на месте» (баг Игоря
+  /// 24.08 ~16:08): прежний `mode.stop(); mode.start()` восстанавливал сессию
+  /// В ОБХОД звонка-оболочки — звонок к тому моменту уже был снят, а
+  /// воскресшая сессия жила без него: держала микрофон бесконечно и отбирала
+  /// аудиофокус у любого другого приложения (Яндекс.Музыка играла полсекунды
+  /// и глохла). Теперь обрыв проходит те же двери, что и человек: полный
+  /// стоп (режим, хаб, звонок, микрофон) → полный старт (звонок → режим).
   Future<void> recoverFreeFormVoiceMode(Object error) async {
     final mode = freeFormVoiceMode;
     Logger.error('[VoiceMode] сессия оборвалась: $error');
@@ -242,15 +250,12 @@ class CaptureController extends ChangeNotifier
     if (_voiceRecoveries.length >= _maxVoiceRecoveries) {
       Logger.error('[VoiceMode] ${_voiceRecoveries.length} обрывов подряд — выключаю режим');
       _voiceRecoveries.clear();
-      mode.stop();
-      // Сдались — значит СОВСЕМ: без teardown тёплый огрызок сессии держал
-      // аудиорежим и слал события в индикатор (см. stopFreeFormVoiceMode).
-      mode.hub.teardownSession();
-      resetFreeFormVoiceModeUi();
+      stopFreeFormVoiceMode();
       return;
     }
     _voiceRecoveries.add(now);
 
+    stopFreeFormVoiceMode();
     hubProjection.value = const VoiceTurnUiProjection(
       isListening: false,
       isLocked: false,
@@ -262,9 +267,12 @@ class CaptureController extends ChangeNotifier
       isResponseActive: false,
     );
 
-    mode.stop();
     try {
-      await mode.start();
+      await startFreeFormVoiceMode();
+      // Старт мог быть молча отменён (стоп во время старта, см. гард в
+      // startFreeFormVoiceMode) — тогда пользователь выключил режим сам,
+      // и объявлять «связь восстановлена» некому.
+      if (!freeFormModeActive.value) return;
       Logger.debug('[VoiceMode] сессия восстановлена, попытка ${_voiceRecoveries.length}');
       mode.announce(_voiceRecoveryPrompt);
     } catch (e) {
