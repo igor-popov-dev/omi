@@ -70,9 +70,14 @@ HubControllerEvents freeFormModeProjectionEvents({
 
   void commitUser() {
     if (chatLog == null || userSaid.isEmpty) return;
-    chatLog.addUserTurn(userSaid.toString(), at: userStartedAt);
+    // Gemini размечает не-речь токеном <noise> в транскрипте — это служебная
+    // метка, а не сказанное; пузырь «<noise>» в чате (скрин Игоря 24.08)
+    // выглядит как мусор. Токен вырезается, реплика из одного шума не пишется.
+    final said = userSaid.toString().replaceAll('<noise>', ' ');
+    final startedAt = userStartedAt;
     userSaid.clear();
     userStartedAt = null;
+    chatLog.addUserTurn(said, at: startedAt);
   }
 
   void commitAssistant({bool interrupted = false}) {

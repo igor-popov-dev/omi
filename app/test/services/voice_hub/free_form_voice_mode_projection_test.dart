@@ -133,6 +133,21 @@ void main() {
           reason: 'хронология по меткам обязана совпадать с реальным порядком речи');
     });
 
+    // Скрин Игоря 24.08: пузырь «<noise>» в чате — служебная метка не-речи
+    // от Gemini, а не сказанное.
+    test('токен <noise> вырезается, реплика из одного шума не пишется', () async {
+      events.onInputTranscript!('<noise>', false, null);
+      events.onSpeakingStart!(); // коммит user — чистый шум, писать нечего
+      events.onAssistantText!('Тут я.', false, null);
+      events.onTurnDone!(null);
+      events.onInputTranscript!('<noise>', false, null);
+      events.onInputTranscript!('Ты меня слышишь?', false, null);
+      events.onTurnDone!(null);
+      await log.flush();
+
+      expect(posted.map((t) => t.text), ['Тут я.', 'Ты меня слышишь?']);
+    });
+
     test('перебивание помечает реплику как недоговорённую', () async {
       events.onSpeakingStart!();
       events.onAssistantText!('вчера была паста и ещё', false, null);

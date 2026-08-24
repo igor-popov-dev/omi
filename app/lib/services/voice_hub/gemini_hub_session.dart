@@ -139,6 +139,13 @@ class GeminiHubSession extends BaseHubSession {
           'responseModalities': ['AUDIO'],
           'temperature': 0.3,
           'mediaResolution': 'MEDIA_RESOLUTION_HIGH',
+          // Thinking выключен (24.08, после перехода на 2.5-native-audio):
+          // модель молча «думала» перед ответом — в эфире это длинные паузы,
+          // а её английские thought-саммари утекали текстом в чат («Testing
+          // Response Generation…»). Для живого разговора скорость важнее
+          // цепочек рассуждений: сложное и так эскалируется в ask_claude.
+          // Сетап с thinkingBudget=0 проверен пробой (setupComplete, 24.08).
+          'thinkingConfig': {'thinkingBudget': 0},
           'speechConfig': {
             'voiceConfig': {
               'prebuiltVoiceConfig': {'voiceName': 'Charon'},
@@ -375,6 +382,11 @@ class GeminiHubSession extends BaseHubSession {
     final parts = (modelTurn?['parts'] as List<dynamic>?) ?? const [];
     for (final partRaw in parts) {
       final part = partRaw as Map<String, dynamic>;
+      // Страховка к thinkingBudget=0 выше: если модель всё же прислала
+      // thought-часть (динамический thinking, смена модели за алиасом),
+      // это её внутренний монолог, а не сказанное — в транскрипт и чат
+      // ему нельзя.
+      if (part['thought'] == true) continue;
       if (part['text'] is String) emitAssistantText(part['text'] as String, false);
       final inline = part['inlineData'] as Map<String, dynamic>?;
       final mime = inline?['mimeType'] is String ? inline!['mimeType'] as String : '';

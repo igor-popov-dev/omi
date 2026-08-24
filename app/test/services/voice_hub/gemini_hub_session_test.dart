@@ -120,6 +120,7 @@ class _Harness {
   final _FakeVoicePlayer player;
   final List<({String message, bool retryable, int? closeCode})> errors = [];
   final List<String> connected = [];
+  final List<String> assistantTexts = [];
 
   _Harness._(this.session, this.socketFactory, this.player);
 
@@ -140,6 +141,9 @@ class _Harness {
         onConnected: (sid) => h.connected.add(sid),
         onError: (message, retryable, closeCode) =>
             h.errors.add((message: message, retryable: retryable, closeCode: closeCode)),
+        onAssistantText: (text, isFinal, identity) {
+          if (text.isNotEmpty) h.assistantTexts.add(text);
+        },
       ),
     );
     h = _Harness._(session, socketFactory, player);
@@ -209,6 +213,32 @@ void main() {
       h.socketFactory.message(jsonEncode({'setupComplete': <String, dynamic>{}}));
       await Future<void>.value();
       expect(h.connected, ['sess-1']);
+    });
+
+    // 24.08, после перехода на 2.5-native-audio: thinking выключен в сетапе,
+    // а thought-части (внутренний монолог модели, английские саммари) не
+    // должны попадать в транскрипт и чат даже если модель их всё же прислала.
+    test('setup несёт thinkingBudget=0; thought-части не доходят до onAssistantText', () async {
+      final h = _Harness(freeFormMode: true);
+      await _armConnection(h);
+      h.socketFactory.open();
+      final setup = h.socket.frames()[0]['setup'] as Map<String, dynamic>;
+      final gen = setup['generationConfig'] as Map<String, dynamic>;
+      expect((gen['thinkingConfig'] as Map<String, dynamic>)['thinkingBudget'], 0);
+
+      h.socketFactory.message(jsonEncode({'setupComplete': <String, dynamic>{}}));
+      await Future<void>.value();
+      h.session.beginTurn();
+      h.socketFactory.message(jsonEncode(_serverContent({
+        'modelTurn': {
+          'parts': [
+            {'text': 'Testing Response Generation…', 'thought': true},
+            {'text': 'Слышу тебя.'},
+          ]
+        }
+      })));
+
+      expect(h.assistantTexts, ['Слышу тебя.'], reason: 'thought-часть — не сказанное');
     });
 
     test('projects an injected tool catalog into functionDeclarations, schema sanitized', () async {
