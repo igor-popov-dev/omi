@@ -193,6 +193,28 @@ void main() {
       expect(await client.ask(question: 'q'), 'Половина ответа');
     });
 
+    test('an HTML rejection names Cloudflare Access instead of a bare status code', () async {
+      // Measured 24.08: a call without CF-Access credentials is not answered
+      // 403 — Access redirects to its login page, the client follows, and the
+      // app sees an HTML 404 from a host that works fine seconds later.
+      final client = AskClaudeBridgeClient(
+        httpClient: MockClient((request) async => http.Response('<html>' + 'x' * 5000 + '</html>', 404,
+            headers: {'content-type': 'text/html; charset=UTF-8'})),
+      );
+      await expectLater(
+        client.ask(question: 'q'),
+        throwsA(isA<AskClaudeBridgeException>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('404'),
+              contains('Cloudflare Access'),
+              // The page body must not ride along into the model's context.
+              predicate<String>((m) => m.length < 400, 'is truncated'),
+            ))),
+      );
+    });
+
     test('an empty answer is a failure, not silence to pass along', () async {
       final client = AskClaudeBridgeClient(
         httpClient: MockClient((request) async {

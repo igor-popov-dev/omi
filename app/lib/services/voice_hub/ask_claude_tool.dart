@@ -234,8 +234,21 @@ class AskClaudeBridgeClient {
       });
     final streamed = await httpClient.send(request);
     if (streamed.statusCode != 200) {
+      // Truncated on purpose: this message ends up inside the tool result the
+      // model reads, and a rejection page is kilobytes of HTML — the whole of
+      // it would be spent on context describing one failed call.
       final body = await streamed.stream.bytesToString();
-      throw AskClaudeBridgeException('bridge HTTP ${streamed.statusCode}: $body');
+      final excerpt = body.length > 200 ? '${body.substring(0, 200)}…' : body;
+      // The likeliest failure on a fresh build, and the least legible one:
+      // measured 24.08, a call with no/incorrect CF-Access credentials does not
+      // come back 403 — Access answers 302 to its login page, `http.Client`
+      // follows the redirect by default, and the app sees a bare HTML 404 from
+      // a host it just talked to. Naming the suspect here saves the next reader
+      // from hunting a phantom routing bug.
+      final looksLikeAccess = (streamed.headers['content-type'] ?? '').contains('text/html');
+      throw AskClaudeBridgeException('bridge HTTP ${streamed.statusCode}: $excerpt'
+          '${looksLikeAccess ? ' (HTML, not SSE — likely Cloudflare Access rejecting the request:'
+              ' check the CF-Access dart-defines in this build)' : ''}');
     }
     final deltaBuffer = StringBuffer();
     String? doneText;
