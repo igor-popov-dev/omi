@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
+import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/services/voice_hub/hub_controller.dart';
 import 'package:omi/services/voice_hub/hub_ptt_capture.dart';
 import 'package:omi/services/voice_hub/hub_session.dart';
@@ -32,6 +33,7 @@ class _FakeSession implements HubSession {
   final List<Uint8List> appended = [];
   int cancelled = 0;
   int cleared = 0;
+  int toreDown = 0;
 
   @override
   Future<void> ensureWarm() {
@@ -63,7 +65,7 @@ class _FakeSession implements HubSession {
   @override
   void clearPlayback() => cleared += 1;
   @override
-  void teardown() {}
+  void teardown() => toreDown += 1;
 }
 
 class _FakeCapture implements HubPttCapture {
@@ -76,10 +78,15 @@ class _FakeClock implements HubClock {
   final Map<int, void Function()> _timers = {};
   int _seq = 0;
 
+  /// The duration the most recent [setTimer] was armed with — what a test
+  /// asserting "the timeout the mode actually used" needs to see.
+  Duration? lastDuration;
+
   @override
   Object setTimer(Duration duration, void Function() fire) {
     final id = ++_seq;
     _timers[id] = fire;
+    lastDuration = duration;
     return id;
   }
 
@@ -131,7 +138,9 @@ void main() {
     // here exercises `FreeFormVoiceMode`'s own start/stop/idle-timeout
     // logic against an already-warm session, not `HubController`'s
     // cold-start race (covered separately by `hub_controller_test.dart`).
-    Future<FreeFormVoiceMode> buildMode({Duration? idleTimeout = const Duration(minutes: 3)}) async {
+    // `idleTimeout` is passed as a resolver, mirroring production: the real
+    // one reads a user-editable preference on every arm.
+    Future<FreeFormVoiceMode> buildMode({Duration? Function()? idleTimeout}) async {
       hub = buildHub();
       await hub.ensureWarm();
       clock = _FakeClock();
@@ -144,7 +153,7 @@ void main() {
         },
         clock: clock,
         now: () => 0,
-        idleTimeout: idleTimeout,
+        resolveIdleTimeout: idleTimeout ?? () => const Duration(minutes: 3),
         onIdleTimeout: () => idleTimeoutCalls += 1,
       );
     }
@@ -155,6 +164,30 @@ void main() {
       idleTimeoutCalls = 0;
       turnIdCalls = 0;
       lastOnChunk = null;
+    });
+
+    // Conversation resumption (design doc §10): the two ways the mode ends
+    // stopped meaning the same thing once the hub could carry a conversation
+    // across sockets.
+    test('an explicit stop() ends the conversation, not just the socket', () async {
+      final mode = await buildMode();
+      await mode.start();
+      session.events.onResumptionHandle?.call('H1');
+      expect(hub.canResumeConversation, isTrue);
+
+      mode.stop();
+      expect(hub.canResumeConversation, isFalse);
+    });
+
+    test('the silence auto-stop keeps the conversation — coming back continues it', () async {
+      final mode = await buildMode();
+      await mode.start();
+      session.events.onResumptionHandle?.call('H1');
+
+      clock.fire(); // the idle timer elapses -> auto-stop
+      expect(mode.isRunning, isFalse);
+      expect(idleTimeoutCalls, 1);
+      expect(hub.canResumeConversation, isTrue);
     });
 
     test('start() opens one hub turn and starts continuous capture', () async {
@@ -196,6 +229,35 @@ void main() {
       expect(session.cancelled, 1);
     });
 
+    test('restart() rebuilds the socket and KEEPS the conversation', () async {
+      final mode = await buildMode();
+      await mode.start();
+      final old = session;
+      session.events.onResumptionHandle?.call('H1');
+
+      await mode.restart();
+
+      expect(mode.isRunning, isTrue);
+      expect(captureCalls, 2, reason: 'захват перезапущен');
+      // The point of the whole exercise: a NEW socket. Restarting capture
+      // around the same dying socket would look identical from the outside
+      // and achieve nothing.
+      expect(identical(session, old), isFalse, reason: 'сокет действительно новый');
+      expect(old.toreDown, 1, reason: 'старый сокет закрыт — сервер этого и требует');
+      expect(session.begun, isNotEmpty, reason: 'новый сокет получил begin-кадр');
+      expect(hub.canResumeConversation, isTrue, reason: 'разговор переживает пересборку сокета');
+    });
+
+    test('restart() starts a stopped mode rather than politely doing nothing', () async {
+      // The recovery path calls this after a failed rebuild has already left
+      // the mode stopped; a no-op there would leave the toggle showing "on"
+      // with no session behind it.
+      final mode = await buildMode();
+      await mode.restart();
+      expect(mode.isRunning, isTrue);
+      expect(captureCalls, 1);
+    });
+
     test('stop() while not running is a no-op', () async {
       final mode = await buildMode();
       mode.stop();
@@ -213,7 +275,7 @@ void main() {
     });
 
     test('idle timeout auto-stops and fires onIdleTimeout', () async {
-      final mode = await buildMode(idleTimeout: const Duration(minutes: 3));
+      final mode = await buildMode(idleTimeout: () => const Duration(minutes: 3));
       await mode.start();
       expect(clock.pending, isTrue);
 
@@ -245,12 +307,49 @@ void main() {
       expect(clock.pending, isFalse);
     });
 
-    test('idleTimeout: null disables the auto-stop timer', () async {
-      final mode = await buildMode(idleTimeout: null);
+    test('a resolver returning null disables the auto-stop timer', () async {
+      final mode = await buildMode(idleTimeout: () => null);
       await mode.start();
 
       expect(clock.pending, isFalse);
       expect(mode.isRunning, isTrue);
+    });
+
+    // The setting behind the resolver is user-editable while the app runs, and
+    // this object is built once at bootstrap — so a changed value has to reach
+    // the timer without anything being rebuilt.
+    test('the idle timeout is re-read on every arm, not captured once', () async {
+      Duration? current = const Duration(minutes: 3);
+      final mode = await buildMode(idleTimeout: () => current);
+      await mode.start();
+      expect(clock.lastDuration, const Duration(minutes: 3));
+
+      current = const Duration(minutes: 10);
+      mode.noteActivity();
+      expect(clock.lastDuration, const Duration(minutes: 10));
+
+      // ...including all the way to "never", which must cancel the pending
+      // timer rather than leave the old one armed.
+      current = null;
+      mode.noteActivity();
+      expect(clock.pending, isFalse);
+      expect(mode.isRunning, isTrue);
+    });
+
+    test('a mode built without a resolver still auto-stops after the stock 3 minutes', () async {
+      hub = buildHub();
+      await hub.ensureWarm();
+      clock = _FakeClock();
+      final mode = FreeFormVoiceMode(
+        hub: hub,
+        startCapture: fakeStartCapture,
+        mintTurnId: () => 'turn-default',
+        clock: clock,
+        now: () => 0,
+      );
+      await mode.start();
+
+      expect(clock.lastDuration, const Duration(minutes: kDefaultFreeFormVoiceIdleTimeoutMinutes));
     });
 
     test('an explicit stop() cancels a pending idle timer without firing onIdleTimeout', () async {
@@ -260,6 +359,98 @@ void main() {
 
       expect(clock.pending, isFalse);
       expect(idleTimeoutCalls, 0);
+    });
+
+    // The regression these guard: before `freeFormActivityEvents` existed
+    // NOTHING called `noteActivity()` in production, so the mode auto-stopped
+    // a fixed interval after `start()` however much the user was talking.
+    group('freeFormActivityEvents', () {
+      // A rearm is observed through the resolver: change what it returns, fire
+      // an event, and a fresh `lastDuration` proves the timer was re-armed
+      // rather than left alone.
+      Future<(FreeFormVoiceMode, HubControllerEvents, void Function(Duration?))> wired(
+        HubControllerEvents inner,
+      ) async {
+        Duration? current = const Duration(minutes: 3);
+        final mode = await buildMode(idleTimeout: () => current);
+        await mode.start();
+        return (mode, freeFormActivityEvents(inner, mode.noteActivity), (Duration? d) => current = d);
+      }
+
+      test('every content event rearms the clock and still reaches the inner handler', () async {
+        final seen = <String>[];
+        final (_, events, setTimeout) = await wired(HubControllerEvents(
+          onInputTranscript: (t, f, i) => seen.add('in:$t'),
+          onAssistantText: (t, f, i) => seen.add('out:$t'),
+          onUserSpeechState: (speaking) => seen.add('vad:$speaking'),
+          onSpeakingStart: () => seen.add('speak-start'),
+          onSpeakingEnd: () => seen.add('speak-end'),
+          onToolRequest: (call, i) => seen.add('tool:${call.name}'),
+          onTurnDone: (i) => seen.add('turn-done'),
+        ));
+
+        var minutes = 4;
+        for (final fire in <void Function()>[
+          () => events.onInputTranscript!('привет', false, null),
+          () => events.onAssistantText!('здравствуй', false, null),
+          // The user simply opening their mouth counts — and counts earliest:
+          // the VAD says so ~1s before any transcript of that sentence exists.
+          () => events.onUserSpeechState!(true),
+          () => events.onUserSpeechState!(false),
+          () => events.onSpeakingStart!(),
+          () => events.onSpeakingEnd!(),
+          () => events.onToolRequest!(
+              const HubToolCallRequest(name: 'ask_claude', callId: 'c1', argumentsJson: '{}'), null),
+          () => events.onTurnDone!(null),
+        ]) {
+          setTimeout(Duration(minutes: minutes));
+          fire();
+          expect(clock.lastDuration, Duration(minutes: minutes),
+              reason: 'event #$minutes did not rearm the idle timer');
+          minutes += 1;
+        }
+
+        expect(seen, [
+          'in:привет',
+          'out:здравствуй',
+          'vad:true',
+          'vad:false',
+          'speak-start',
+          'speak-end',
+          'tool:ask_claude',
+          'turn-done',
+        ]);
+      });
+
+      test('an event the host does not listen to still rearms the clock', () async {
+        final (mode, events, setTimeout) = await wired(const HubControllerEvents());
+
+        setTimeout(const Duration(minutes: 7));
+        events.onInputTranscript!('слышно?', false, null);
+
+        expect(clock.lastDuration, const Duration(minutes: 7));
+        expect(mode.isRunning, isTrue);
+      });
+
+      // A socket that reconnects itself in an empty room must still time out —
+      // otherwise the auto-off never fires on an abandoned session, which is
+      // the whole point of the timeout (it is billed per minute of input).
+      test('connect/error/cascade are NOT activity: passed through, clock untouched', () async {
+        var connected = 0;
+        var errors = 0;
+        final (_, events, setTimeout) = await wired(HubControllerEvents(
+          onConnected: (_) => connected += 1,
+          onError: (_) => errors += 1,
+        ));
+
+        setTimeout(const Duration(minutes: 9));
+        events.onConnected!('sess-2');
+        events.onError!(const HubControllerError(reason: 'socket died', retryable: true, aliveForMs: 1200));
+
+        expect(connected, 1);
+        expect(errors, 1);
+        expect(clock.lastDuration, const Duration(minutes: 3), reason: 'clock was rearmed by a non-content event');
+      });
     });
   });
 }

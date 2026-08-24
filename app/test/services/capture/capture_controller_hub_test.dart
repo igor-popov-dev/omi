@@ -65,6 +65,7 @@ class _TestEnvFields implements EnvFields {
 class _CountingHubTurnDriver extends VoiceHubTurnDriver {
   int beginCalls = 0;
   int endCalls = 0;
+  int teardownCalls = 0;
 
   _CountingHubTurnDriver()
       : super(VoiceHubTurnDriverDeps(
@@ -93,6 +94,12 @@ class _CountingHubTurnDriver extends VoiceHubTurnDriver {
   void end() {
     endCalls++;
     super.end();
+  }
+
+  @override
+  void teardown() {
+    teardownCalls++;
+    super.teardown();
   }
 }
 
@@ -215,15 +222,51 @@ void main() {
     expect(driver.endCalls, 1);
   });
 
+  test('free-form mode running: a tap must NOT open a second hub socket', () {
+    // Regression, measured 24.08: the two voice paths own separate
+    // `HubController`s, and a second Gemini Live socket on the same key gets
+    // the OLDER one closed with 1011 "Resource has been exhausted" — the tap
+    // would hang up the conversation in progress. See the comment at the
+    // `begin()` call site.
+    SharedPreferencesUtil().pttHubEnabled = true;
+    final provider = CaptureProvider();
+    final driver = _CountingHubTurnDriver();
+    provider.hubTurnDriver = driver;
+    provider.freeFormModeActive.value = true;
+
+    provider.handleSingleTapButtonEvent('device-1'); // start
+    expect(driver.beginCalls, 0, reason: 'второй сокет поверх идущего разговора не поднимаем');
+
+    provider.handleSingleTapButtonEvent('device-1'); // end
+    expect(driver.beginCalls, 0);
+  });
+
+  test('free-form mode switched on mid-turn: end() still closes the turn the tap began', () {
+    // The gate is on `begin()` only. A turn started before the mode came up
+    // must still be closed, or it would sit in the driver forever.
+    SharedPreferencesUtil().pttHubEnabled = true;
+    final provider = CaptureProvider();
+    final driver = _CountingHubTurnDriver();
+    provider.hubTurnDriver = driver;
+
+    provider.handleSingleTapButtonEvent('device-1'); // start — mode still off
+    expect(driver.beginCalls, 1);
+
+    provider.freeFormModeActive.value = true;
+    provider.handleSingleTapButtonEvent('device-1'); // end
+    expect(driver.endCalls, 1, reason: 'начатый ход обязан закрыться, гейт только на begin()');
+  });
+
   group('FreeFormVoiceMode wiring (startFreeFormVoiceMode/stopFreeFormVoiceMode)', () {
     late _FakeHubSession session;
+    late HubController hub;
     late _FakeHubCapture capture;
     int captureCalls = 0;
     Object? captureError;
     int idleTimeoutCalls = 0;
 
     FreeFormVoiceMode buildMode() {
-      final hub = HubController(
+      hub = HubController(
         buildInstructions: () => 'INSTRUCTIONS',
         mintToken: () async => 'ek_token',
         createSession: (spec) {
@@ -243,7 +286,7 @@ void main() {
         // No idle-timeout test in this group exercises real time — kept
         // off (null) so a stray timer never fires against a disposed
         // provider between tests.
-        idleTimeout: null,
+        resolveIdleTimeout: () => null,
         onIdleTimeout: () => idleTimeoutCalls += 1,
       );
     }
@@ -252,6 +295,23 @@ void main() {
       captureCalls = 0;
       captureError = null;
       idleTimeoutCalls = 0;
+    });
+
+    test('startFreeFormVoiceMode: releases the PTT hub socket first', () async {
+      // The mirror of the tap gate: the PTT hub stays warm for 90s after a
+      // turn, so a pendant question asked half a minute ago still holds a
+      // socket. Opening a second one on the same key gets one of them closed
+      // with 1011 (measured 24.08) — and here the loser would be the socket
+      // this call is opening, so the mode would come up and immediately die.
+      final provider = CaptureProvider();
+      final driver = _CountingHubTurnDriver();
+      provider.hubTurnDriver = driver;
+      provider.freeFormVoiceMode = buildMode();
+
+      await provider.startFreeFormVoiceMode();
+
+      expect(driver.teardownCalls, 1, reason: 'тёплый PTT-сокет отпущен до открытия нового');
+      expect(provider.freeFormModeActive.value, isTrue);
     });
 
     test('startFreeFormVoiceMode: flips freeFormModeActive and starts the mode', () async {
@@ -317,6 +377,23 @@ void main() {
       expect(session.userTexts.single, contains('Связь прервалась'));
     });
 
+    // The recovery used to go through the public stop(), which since the
+    // conversation-resumption work means "the USER ended the conversation" —
+    // so the reconnected model was handed a blank session and the recovery
+    // line ("продолжай с того места, где мы остановились") asked it to
+    // continue something it had never heard.
+    test('recoverFreeFormVoiceMode: keeps the conversation, so the model really can continue it', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      session.events.onResumptionHandle?.call('H1');
+      expect(hub.canResumeConversation, isTrue);
+
+      await provider.recoverFreeFormVoiceMode(StateError('socket closed 1011'));
+
+      expect(hub.canResumeConversation, isTrue);
+    });
+
     test('recoverFreeFormVoiceMode: gives up after repeated drops rather than looping', () async {
       final provider = CaptureProvider();
       provider.freeFormVoiceMode = buildMode();
@@ -341,6 +418,51 @@ void main() {
 
       await provider.recoverFreeFormVoiceMode(StateError('socket closed'));
 
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.hubProjection.value, idleVoiceTurnProjection);
+    });
+
+    // goAway: the provider warns ~9 minutes in with 50 seconds of notice
+    // (measured 24.08, `marathon/probes/lane5-goaway.py`). Spending it beats
+    // taking the drop — nothing is lost and nothing is said out loud.
+    test('rebuildFreeFormVoiceModeSocket: rebuilds silently, keeping the mode and the conversation', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      session.events.onResumptionHandle?.call('H1');
+
+      await provider.rebuildFreeFormVoiceModeSocket();
+
+      expect(provider.freeFormModeActive.value, isTrue);
+      expect(provider.freeFormVoiceMode!.isRunning, isTrue);
+      expect(captureCalls, 2, reason: 'сокет и захват пересобраны');
+      expect(hub.canResumeConversation, isTrue);
+      // Unlike a recovered drop, nothing is announced: the user never lost
+      // anything, so there is nothing to apologise for.
+      expect(session.userTexts, isEmpty);
+    });
+
+    test('rebuildFreeFormVoiceModeSocket: no-op when the mode is not running', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+
+      await provider.rebuildFreeFormVoiceModeSocket();
+
+      expect(captureCalls, 0);
+      expect(provider.freeFormModeActive.value, isFalse);
+    });
+
+    test('rebuildFreeFormVoiceModeSocket: a failed rebuild falls back to the drop recovery', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      await provider.startFreeFormVoiceMode();
+      captureError = StateError('mic gone');
+
+      await provider.rebuildFreeFormVoiceModeSocket();
+
+      // The recovery path owns the retry budget and the give-up decision;
+      // this one must not invent a second policy. Here recovery itself
+      // cannot restart either, so it stops the mode cleanly.
       expect(provider.freeFormModeActive.value, isFalse);
       expect(provider.hubProjection.value, idleVoiceTurnProjection);
     });

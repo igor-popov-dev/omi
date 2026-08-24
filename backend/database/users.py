@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Optional, TypedDict
+from typing import Any, Callable, Literal, Optional, TypedDict
 
 from google.api_core.exceptions import NotFound
 from google.cloud import firestore
@@ -317,15 +317,25 @@ def set_user_deletion_feedback(uid: str, reason: Optional[str], reason_details: 
     )
 
 
-def get_user_deletion_wipe_status(uid: str, *, firestore_client: Any | None = None) -> str | None:
+def get_user_deletion_wipe_status(
+    uid: str,
+    *,
+    firestore_client: Any | None = None,
+    read: Callable[[Any], Any] | None = None,
+) -> str | None:
     """Return the authoritative deletion lifecycle state for an authenticated UID.
 
     This intentionally bypasses caches: an accepted deletion must become an
     access barrier on the very next request, and a cached pre-delete miss would
     reopen the exact half-deleted-account window this marker closes.
+
+    ``read`` lets a caller supply its own document read, which is how a
+    request-gating path bounds this lookup's Firestore deadline; the default
+    keeps the client's own retry behaviour.
     """
     client = firestore_client or get_firestore_client()
-    snapshot = client.collection('account_deletions').document(uid).get()
+    reference = client.collection('account_deletions').document(uid)
+    snapshot = read(reference) if read is not None else reference.get()
     if not snapshot.exists:
         return None
     status = (snapshot.to_dict() or {}).get('wipe_status')

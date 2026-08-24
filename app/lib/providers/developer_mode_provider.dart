@@ -5,6 +5,7 @@ import 'package:omi/backend/http/api/users.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/app_globals.dart';
 import 'package:omi/providers/base_provider.dart';
+import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
@@ -44,6 +45,12 @@ class DeveloperModeProvider extends BaseProvider {
 
   // Free-form Voice Mode — hands-free voice-mode button in chat (experimental)
   bool freeFormMode = false;
+
+  // Minutes of silence before free-form voice mode switches itself off
+  // (0 = never). Mirrors `SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes`
+  // so the settings row can repaint; the live mode re-reads the preference
+  // itself on every arm (`main.dart`'s `resolveIdleTimeout`), not this copy.
+  int freeFormVoiceIdleTimeoutMinutes = kDefaultFreeFormVoiceIdleTimeoutMinutes;
 
   void onConversationEventsToggled(bool value) {
     conversationEventsToggled = value;
@@ -121,6 +128,7 @@ class DeveloperModeProvider extends BaseProvider {
     vadGateEnabled = SharedPreferencesUtil().vadGateEnabled;
     pttHubEnabled = SharedPreferencesUtil().pttHubEnabled;
     freeFormMode = SharedPreferencesUtil().freeFormMode;
+    freeFormVoiceIdleTimeoutMinutes = SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes;
     conversationEventsToggled = SharedPreferencesUtil().conversationEventsToggled;
     transcriptsToggled = SharedPreferencesUtil().transcriptsToggled;
     audioBytesToggled = SharedPreferencesUtil().audioBytesToggled;
@@ -297,6 +305,12 @@ class DeveloperModeProvider extends BaseProvider {
   void onFreeFormModeChanged(bool value) {
     freeFormMode = value;
     SharedPreferencesUtil().freeFormMode = value;
+    notifyListeners();
+  }
+
+  void onFreeFormVoiceIdleTimeoutChanged(int minutes) {
+    freeFormVoiceIdleTimeoutMinutes = minutes;
+    SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes = minutes;
     notifyListeners();
   }
 }

@@ -61,8 +61,13 @@ class HubVoiceStatusIndicator extends StatelessWidget {
   /// `null` means idle — nothing to show. Order matters: a turn can be
   /// listening AND have a stale `isResponseActive` from the prior turn for
   /// one frame, so listening wins.
+  ///
+  /// "Слышу…" is the free-form mode's server-VAD state (`isHearingUser`):
+  /// same listening phase, but the provider is picking the user's voice up
+  /// right now. It answers the question a silent screen cannot — whether the
+  /// phone hears you at all — and the PTT path never sets it.
   String? _labelFor(VoiceTurnUiProjection projection) {
-    if (projection.isListening) return 'Слушаю…';
+    if (projection.isListening) return projection.isHearingUser ? 'Слышу…' : 'Слушаю…';
     if (projection.isThinking || projection.isResponseWaiting) return 'Думаю…';
     if (projection.isResponseActive) return 'Говорю…';
     return null;

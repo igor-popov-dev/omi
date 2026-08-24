@@ -22,24 +22,34 @@
 //     which `GeminiHubSession.freeFormMode` already re-interprets as "turn
 //     the mode off" (tick 28: stops accepting input, no `activityEnd` frame
 //     sent — there is no manual window to close).
-//   * The silence-timeout auto-stop: `idleTimeout` (default 3 minutes, `null`
-//     disables it) restarts every time `noteActivity()` is called and calls
-//     `stop()` plus `onIdleTimeout` when it elapses untouched.
+//   * The silence-timeout auto-stop: `resolveIdleTimeout` (default 3 minutes,
+//     `null` disables it) restarts every time `noteActivity()` is called and
+//     calls `stop()` plus `onIdleTimeout` when it elapses untouched. It is a
+//     RESOLVER, not a fixed `Duration`, because the setting behind it is
+//     user-editable at runtime (`freeFormVoiceIdleTimeoutMinutes`, Developer →
+//     Experimental) while this object is built once at app bootstrap
+//     (`main.dart`) and never rebuilt — reading it per arm is what makes a
+//     changed setting apply to the next session instead of the next launch.
 //
-// Deliberately NOT owned here (open, tracked in the lane journal):
-//   * WHO calls `noteActivity()`. The natural driver is every
-//     `HubController` content event (input transcript, speaking start/end,
-//     turn done) — but `HubController` takes a single `HubControllerEvents`
-//     at construction, owned by the not-yet-written per-turn driver /
-//     mode host (design doc §8 step 5). Wiring that fan-out is that host's
-//     job, not this file's; `noteActivity()` is the seam it will call.
-//   * Android audio focus (`AudioManager.requestAudioFocus`) — no Dart seam
-//     exists for it yet; native foreground-service work, not this file.
-//   * The UI toggle / notification (priority-22.08 step 5) and the
-//     `ask_claude` tool (step 3, blocked on lane2's bridge contract) —
-//     both out of scope here.
+// WHO calls `noteActivity()` — answered at the bottom of this file by
+// `freeFormActivityEvents`, which wraps the `HubControllerEvents` the mode's
+// host hands to `HubController` so every content event rearms the clock.
+// Until that existed nothing called `noteActivity()` in production at all, so
+// the mode auto-stopped a fixed interval after `start()` no matter how much
+// the user was talking (see that function's own doc comment).
+//
+// Deliberately NOT owned here — all three now exist elsewhere, this file just
+// isn't where they live:
+//   * Android audio focus and the mic's foreground service — native, on the
+//     other side of the platform channels this file never touches
+//     (`AudioFocusCoordinator.kt`; `PhoneMicController` starts
+//     `PhoneMicForegroundService` for every capture, so the continuous capture
+//     `start()` opens is background-safe without anything extra here).
+//   * The UI toggle (`free_form_voice_mode_button.dart`) and the `ask_claude`
+//     tool (`ask_claude_tool.dart`, wired in `voice_hub_production.dart`).
 import 'dart:async';
 
+import 'free_form_voice_timeout.dart';
 import 'hub_controller.dart';
 import 'hub_ptt_capture.dart';
 import 'hub_session.dart' show HubClock, DefaultHubClock;
@@ -53,9 +63,10 @@ class FreeFormVoiceMode {
   final int Function() now;
 
   /// How long the mode may run with no [noteActivity] call before it
-  /// auto-stops. `null` disables the timer entirely (the mode then only
-  /// stops via an explicit [stop] call).
-  final Duration? idleTimeout;
+  /// auto-stops, re-read every time the timer is armed. Returning `null`
+  /// disables the timer entirely (the mode then only stops via an explicit
+  /// [stop] call).
+  final Duration? Function() resolveIdleTimeout;
 
   /// Fired right before the idle-timeout auto-[stop] runs, so a host can
   /// e.g. surface a notification. NOT fired on an explicit [stop] call.
@@ -67,10 +78,13 @@ class FreeFormVoiceMode {
     required this.mintTurnId,
     HubClock? clock,
     int Function()? now,
-    this.idleTimeout = const Duration(minutes: 3),
+    Duration? Function()? resolveIdleTimeout,
     this.onIdleTimeout,
   })  : clock = clock ?? const DefaultHubClock(),
-        now = now ?? _defaultNow;
+        now = now ?? _defaultNow,
+        resolveIdleTimeout = resolveIdleTimeout ?? _defaultIdleTimeout;
+
+  static Duration? _defaultIdleTimeout() => freeFormIdleTimeoutFromMinutes(kDefaultFreeFormVoiceIdleTimeoutMinutes);
 
   static int _defaultNow() => DateTime.now().millisecondsSinceEpoch;
 
@@ -104,7 +118,18 @@ class FreeFormVoiceMode {
 
   /// Idempotent: a [stop] while not running is a no-op. Does NOT fire
   /// [onIdleTimeout] — that only fires when the timer itself elapses.
-  void stop() {
+  ///
+  /// An explicit stop also ENDS THE CONVERSATION
+  /// ([HubController.forgetConversation]), while the silence auto-stop does
+  /// not. The hub can now resume a conversation across sockets (design doc
+  /// §10), so the two stops stopped being the same thing: switching the mode
+  /// off by hand reads as "we're done", whereas falling out on silence is the
+  /// mode saving money on an abandoned session — coming back to that within
+  /// the handle's lifetime should pick the conversation up, not open a blank
+  /// one the user has to re-explain themselves to.
+  void stop() => _stop(endsConversation: true);
+
+  void _stop({required bool endsConversation}) {
     final turnId = _turnId;
     if (turnId == null) return;
     _cancelIdleTimer();
@@ -112,6 +137,45 @@ class FreeFormVoiceMode {
     _capture = null;
     _turnId = null;
     hub.cancelTurn(turnId);
+    if (endsConversation) hub.forgetConversation();
+  }
+
+  /// Rebuilds the socket WITHOUT ending the conversation: stop capture, drop
+  /// the turn, start again. The hub keeps its resumption handle across the
+  /// two, so the new socket picks the conversation up where the old one left
+  /// it (design doc §10).
+  ///
+  /// Two callers, one shape. A recovered drop
+  /// (`CaptureController.recoverFreeFormVoiceMode`) — which used to call the
+  /// public [stop], i.e. told the hub the USER had ended the conversation, so
+  /// the "continue where we left off" line it then spoke was a lie: the
+  /// reconnected model had been handed a blank session. And a `goAway`
+  /// warning ([HubControllerEvents.onGoAway]), where the point is to spend the
+  /// notice on a rebuild BEFORE the socket dies, so nothing is lost at all.
+  ///
+  /// Ends with the mode RUNNING even if it was not running when called — the
+  /// recovery path leans on that: by the time it runs, a failed rebuild may
+  /// already have left the mode stopped, and a polite no-op there would leave
+  /// the user looking at a live "voice mode on" button with no session behind
+  /// it. Callers that only want to rebuild something already live check
+  /// [isRunning] first (`CaptureController.rebuildFreeFormVoiceModeSocket`).
+  Future<void> restart() async {
+    _stop(endsConversation: false);
+    // The socket itself, not just the turn: [_stop] only cancels the turn, so
+    // without this the "rebuild" would restart mic capture around the very
+    // socket it was called to replace — invisible from the outside and
+    // useless. `teardownSession` deliberately KEEPS the resumption handle
+    // (design doc §10), which is what makes the next socket a continuation.
+    // On the recovery path the session is already gone and this is a no-op.
+    hub.teardownSession();
+    // Wait for the replacement socket BEFORE capture resumes. `start()` alone
+    // does not: it fires the warm and returns, leaving the reducer's
+    // warm-wait buffer to cover the latency. That is right for a cold start
+    // and wrong here — the callers of this method speak into the session
+    // immediately afterwards (the recovery line), and text handed to a hub
+    // with no socket is dropped, not queued.
+    await hub.ensureWarm();
+    await start();
   }
 
   /// Self-host patch, not for upstream: hand the live session a line of text as
@@ -135,12 +199,12 @@ class FreeFormVoiceMode {
 
   void _armIdleTimer() {
     _cancelIdleTimer();
-    final timeout = idleTimeout;
+    final timeout = resolveIdleTimeout();
     if (timeout == null) return;
     _idleHandle = clock.setTimer(timeout, () {
       _idleHandle = null;
       onIdleTimeout?.call();
-      stop();
+      _stop(endsConversation: false);
     });
   }
 
@@ -151,4 +215,67 @@ class FreeFormVoiceMode {
       _idleHandle = null;
     }
   }
+}
+
+/// Wraps [inner] so every hub CONTENT event also restarts the silence-timeout
+/// clock through [note] (i.e. [FreeFormVoiceMode.noteActivity]).
+///
+/// This closes the "WHO calls noteActivity()" hole this file's header opened:
+/// until it was wired, nothing in production called it at all, so the mode
+/// auto-stopped exactly [FreeFormVoiceMode.resolveIdleTimeout] after `start()`
+/// — mid-conversation, however much the user was actually talking. The timeout
+/// exists to stop billing for an ABANDONED session (priority-22.08 step 6), not
+/// to cap a live one.
+///
+/// "Content" is the set that can only happen because someone is talking:
+/// transcripts either way, the reply's speaking start/end, a tool request, and
+/// the turn's completion. Connect/error/cascade-handoff are deliberately NOT
+/// activity — a socket that reconnects itself in an empty room must still time
+/// out. Live wire evidence for the set (lane5 harness against real Gemini Live,
+/// 23.08): server VAD reports `speechState: SPEECH` ~0.2s after speech onset
+/// and streams `inputTranscription` for it, so a talking user rearms the clock
+/// well inside any sane timeout; `turnComplete` trails the reply's last audio
+/// chunk by ~2.5s, which is why the arm is not left to it alone.
+///
+/// Callbacks that are null on [inner] are still armed here — [note] must fire
+/// whether or not the host happens to listen to that particular event.
+HubControllerEvents freeFormActivityEvents(HubControllerEvents inner, void Function() note) {
+  return HubControllerEvents(
+    onConnected: inner.onConnected,
+    onError: inner.onError,
+    onCascadeHandoff: inner.onCascadeHandoff,
+    onInputTranscript: (text, isFinal, identity) {
+      note();
+      inner.onInputTranscript?.call(text, isFinal, identity);
+    },
+    onAssistantText: (text, isFinal, identity) {
+      note();
+      inner.onAssistantText?.call(text, isFinal, identity);
+    },
+    // The earliest activity signal there is: the server VAD calls speech
+    // 0.24s after the first syllable, whereas the transcript of the same
+    // utterance only lands ~1.2s after the user stops (measured 23.08,
+    // design doc §9). Someone mid-sentence when the idle timer is about to
+    // fire is exactly who must not be cut off.
+    onUserSpeechState: (isSpeaking) {
+      note();
+      inner.onUserSpeechState?.call(isSpeaking);
+    },
+    onSpeakingStart: () {
+      note();
+      inner.onSpeakingStart?.call();
+    },
+    onSpeakingEnd: () {
+      note();
+      inner.onSpeakingEnd?.call();
+    },
+    onToolRequest: (call, identity) {
+      note();
+      inner.onToolRequest?.call(call, identity);
+    },
+    onTurnDone: (identity) {
+      note();
+      inner.onTurnDone?.call(identity);
+    },
+  );
 }

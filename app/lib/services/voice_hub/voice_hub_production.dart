@@ -161,7 +161,14 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     // the problem, the turn count was).
     client: AskClaudeBridgeClient(
       httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
+      // Ten, not six: six cut the agent off mid tool call
+      // (`stop_reason=tool_use`), the bridge returned empty text, and from
+      // outside that was indistinguishable from an assistant gone silent.
       maxTurns: 10,
+      // This IS the voice channel — see `AskClaudeBridgeClient.voice`: it buys
+      // the spoken-answer style (two sentences, no markdown) and the bridge's
+      // warm path, and skipping it was measured as 38.6s and an empty answer.
+      voice: true,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
     // Non-blocking delivery: the model is released the moment it asks and keeps
@@ -234,10 +241,14 @@ bool _defaultFreeFormModeOff() => false;
 FreeFormVoiceMode createProductionFreeFormVoiceMode({
   required HubControllerEvents events,
   http.Client? bridgeHttpClient,
-  Duration? idleTimeout = const Duration(minutes: 3),
+  Duration? Function()? resolveIdleTimeout,
   void Function()? onIdleTimeout,
 }) {
   late final HubController hub;
+  // Same `late final` idiom as `hub` above and in
+  // `createProductionVoiceHubTurnDriver`: assigned below before this function
+  // returns, and only ever read from a callback the live socket fires later.
+  late final FreeFormVoiceMode mode;
 
   final askClaudeExecutor = AskClaudeToolExecutor(
     // Voice asks for a BOUNDED agent, unlike chat — but deliberately does NOT
@@ -251,7 +262,14 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     // the problem, the turn count was).
     client: AskClaudeBridgeClient(
       httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
+      // Ten, not six: six cut the agent off mid tool call
+      // (`stop_reason=tool_use`), the bridge returned empty text, and from
+      // outside that was indistinguishable from an assistant gone silent.
       maxTurns: 10,
+      // This IS the voice channel — see `AskClaudeBridgeClient.voice`: it buys
+      // the spoken-answer style (two sentences, no markdown) and the bridge's
+      // warm path, and skipping it was measured as 38.6s and an empty answer.
+      voice: true,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
     // Non-blocking delivery: the model is released the moment it asks and keeps
@@ -261,17 +279,19 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     announce: (text) => hub.sendUserText(text),
   );
 
+  // Wrapped so every content event rearms the silence-timeout clock: the
+  // timeout is there to stop billing for an ABANDONED session, and without
+  // this wrapper nothing called `noteActivity()` in production at all, so a
+  // live conversation was cut off a fixed interval after `start()` (see
+  // `freeFormActivityEvents`).
   hub = HubController(
-    events: HubControllerEvents(
-      onConnected: events.onConnected,
-      onError: events.onError,
-      onInputTranscript: events.onInputTranscript,
-      onAssistantText: events.onAssistantText,
-      onSpeakingStart: events.onSpeakingStart,
-      onSpeakingEnd: events.onSpeakingEnd,
-      onToolRequest: (call, identity) => askClaudeExecutor.handle(call),
-      onTurnDone: events.onTurnDone,
-      onCascadeHandoff: events.onCascadeHandoff,
+    events: freeFormActivityEvents(
+      // copyWith, not a hand-listed copy: the only event this wiring owns is
+      // the tool call (it goes to the `ask_claude` executor instead of the
+      // host); everything else must reach the host untouched, including
+      // events added after this line was written.
+      events.copyWith(onToolRequest: (call, identity) => askClaudeExecutor.handle(call)),
+      () => mode.noteActivity(),
     ),
     buildInstructions: buildProductionHubInstructions,
     mintToken: mintGeminiHubToken,
@@ -286,11 +306,12 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     fetchTools: fetchHubTools,
   );
 
-  return FreeFormVoiceMode(
+  mode = FreeFormVoiceMode(
     hub: hub,
     startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
     mintTurnId: () => const Uuid().v4(),
-    idleTimeout: idleTimeout,
+    resolveIdleTimeout: resolveIdleTimeout,
     onIdleTimeout: onIdleTimeout,
   );
+  return mode;
 }

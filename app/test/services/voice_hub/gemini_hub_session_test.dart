@@ -120,10 +120,24 @@ class _Harness {
   final _FakeVoicePlayer player;
   final List<({String message, bool retryable, int? closeCode})> errors = [];
   final List<String> connected = [];
+  final List<bool> speechStates = [];
+
+  /// Every value the session offered via `onResumptionHandle`, nulls
+  /// included — the nulls are the safety half of the contract.
+  final List<String?> resumptionHandles = [];
+
+  /// Every `goAway` warning, with the deadline the server named (null when
+  /// it named none).
+  final List<Duration?> goAways = [];
 
   _Harness._(this.session, this.socketFactory, this.player);
 
-  factory _Harness({HubClock? clock, bool freeFormMode = false, List<VoiceToolDeclaration> tools = const []}) {
+  factory _Harness({
+    HubClock? clock,
+    bool freeFormMode = false,
+    List<VoiceToolDeclaration> tools = const [],
+    String? resumptionHandle,
+  }) {
     final socketFactory = _RecordingSocketFactory();
     final player = _FakeVoicePlayer();
     late final _Harness h;
@@ -136,8 +150,12 @@ class _Harness {
       mintSessionId: () => 'sess-1',
       freeFormMode: freeFormMode,
       tools: tools,
+      resumptionHandle: resumptionHandle,
       events: HubSessionEvents(
         onConnected: (sid) => h.connected.add(sid),
+        onUserSpeechState: (isSpeaking) => h.speechStates.add(isSpeaking),
+        onResumptionHandle: (handle) => h.resumptionHandles.add(handle),
+        onGoAway: (timeLeft) => h.goAways.add(timeLeft),
         onError: (message, retryable, closeCode) =>
             h.errors.add((message: message, retryable: retryable, closeCode: closeCode)),
       ),
@@ -394,6 +412,62 @@ void main() {
       expect(h.socket.riKinds(), ['audio', 'audio']); // still just audio, streaming never toggled off
     });
 
+    // Wire shape + timing measured against live Gemini 23.08 (design doc §9):
+    // SPEECH lands 0.24s after speech onset, NON_SPEECH 1.2s after it stops,
+    // and neither repeats during idle silence.
+    test('serverContent.speechState surfaces as onUserSpeechState', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+
+      h.socketFactory.message(jsonEncode(_serverContent({'speechState': 'SPEECH'})));
+      h.socketFactory.message(jsonEncode(_serverContent({'speechState': 'NON_SPEECH'})));
+
+      expect(h.speechStates, [true, false]);
+    });
+
+    test('an unknown speechState value is ignored, not guessed at as "stopped talking"', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+
+      h.socketFactory.message(jsonEncode(_serverContent({'speechState': 'SPEECH_STATE_UNSPECIFIED'})));
+      h.socketFactory.message(jsonEncode(_serverContent({'modelTurn': <String, dynamic>{}})));
+
+      expect(h.speechStates, isEmpty);
+    });
+
+    test('speechState riding along with a transcript emits both, in wire order', () async {
+      final h = _Harness(freeFormMode: true);
+      var transcripts = <String>[];
+      final session = GeminiHubSession(
+        token: 'auth_tokens/x',
+        instructions: 'INSTR',
+        socketFactory: h.socketFactory.factory,
+        playerFactory: (spec) async => h.player,
+        mintSessionId: () => 'sess-1',
+        freeFormMode: true,
+        events: HubSessionEvents(
+          onUserSpeechState: (isSpeaking) => h.speechStates.add(isSpeaking),
+          onInputTranscript: (text, isFinal, _) => transcripts.add(text),
+        ),
+      );
+      final warm = session.ensureWarm();
+      await Future<void>.value();
+      await Future<void>.value();
+      h.socketFactory.open();
+      h.socketFactory.message(jsonEncode({'setupComplete': <String, dynamic>{}}));
+      await warm;
+
+      // The live wire delivers the end-of-utterance verdict and the final
+      // transcript in the same frame, 10ms apart from the reply's first audio.
+      h.socketFactory.message(jsonEncode(_serverContent({
+        'speechState': 'NON_SPEECH',
+        'inputTranscription': {'text': 'привет'},
+      })));
+
+      expect(h.speechStates, [false]);
+      expect(transcripts, ['привет']);
+    });
+
     test('commitTurn() is a no-op — no activityEnd frame, server ends the turn on its own', () async {
       final h = _Harness(freeFormMode: true);
       await _connect(h);
@@ -461,6 +535,208 @@ void main() {
       expect(h.socket.riKinds(), isEmpty);
       h.session.appendAudio(Uint8List.fromList([9]));
       expect(h.socket.riKinds(), isEmpty); // buffered, not sent — canAcceptInput() is false again
+    });
+  });
+
+  // Session resumption — every assertion below mirrors a measurement from
+  // `marathon/probes/lane5-session-resumption.py` /
+  // `marathon/probes/lane5-resumption-bargein.py` (design doc §10), NOT the
+  // API docs.
+  group('sessionResumption', () {
+    Map<String, dynamic> setupOf(_Harness h) => (h.socket.frames().first['setup'] as Map<String, dynamic>);
+
+    Map<String, dynamic> resumptionUpdate(String handle, {bool? resumable}) => {
+          'sessionResumptionUpdate': {
+            'newHandle': handle,
+            if (resumable != null) 'resumable': resumable,
+          }
+        };
+
+    test('setup frame asks for handles even with nothing to resume (empty map, not absent)', () async {
+      final h = _Harness();
+      await _armConnection(h);
+      h.socketFactory.open();
+      expect(setupOf(h)['sessionResumption'], <String, dynamic>{});
+    });
+
+    test('a supplied handle rides the setup frame', () async {
+      final h = _Harness(resumptionHandle: 'HANDLE-7');
+      await _armConnection(h);
+      h.socketFactory.open();
+      expect(setupOf(h)['sessionResumption'], {'handle': 'HANDLE-7'});
+    });
+
+    test('an offered handle reaches the host', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1', resumable: true)));
+      expect(h.resumptionHandles, ['H1']);
+    });
+
+    test('resumable:false is ignored — the previous good handle is kept, not downgraded', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1', resumable: true)));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H2', resumable: false)));
+      expect(h.resumptionHandles, ['H1']);
+    });
+
+    test('a reply starting withdraws the handle (null), and turnComplete re-offers it', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      expect(h.resumptionHandles, ['H1']);
+      // The model starts speaking: resuming from here would replay this very
+      // reply on the next socket (measured 24.08 — 102 chunks of an
+      // abandoned monologue glued in front of the next answer).
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('a1'))));
+      expect(h.resumptionHandles, ['H1', null]);
+      // Still speaking — a handle that arrives mid-reply is stored but not offered.
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H2')));
+      expect(h.resumptionHandles, ['H1', null]);
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(h.resumptionHandles, ['H1', null, 'H2']);
+    });
+
+    test('withdrawal fires once per generation, not once per audio chunk', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      for (var i = 0; i < 5; i++) {
+        h.socketFactory.message(jsonEncode(_serverContent(_audioPart('a$i'))));
+      }
+      expect(h.resumptionHandles, ['H1', null]);
+    });
+
+    test('a reply we ignore locally still withdraws the handle — the SERVER is the one replaying it', () async {
+      // Manual mode, no committed turn: `_responsePending` is false, so this
+      // audio is dropped on the floor locally. The server does not know that,
+      // and would replay the generation on resume.
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('ghost'))));
+      expect(h.player.enqueued, isEmpty); // not played...
+      expect(h.resumptionHandles, ['H1', null]); // ...but still unsafe to resume
+    });
+
+    test('interrupted does not re-offer on its own; its own turnComplete does (no latch)', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('a1'))));
+      expect(h.resumptionHandles, ['H1', null]);
+      h.socketFactory.message(jsonEncode(_serverContent({'interrupted': true})));
+      expect(h.resumptionHandles, ['H1', null]);
+      // ~0.1s later on the real wire (design doc §9) — this is what unlatches.
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(h.resumptionHandles, ['H1', null, 'H1']);
+    });
+
+    test('a turn deferred on tool results still re-offers the handle at turnComplete', () async {
+      final h = _Harness(freeFormMode: true, tools: const [
+        VoiceToolDeclaration(name: 'ask_claude', description: 'd', parameters: {'type': 'object'}),
+      ]);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(resumptionUpdate('H1')));
+      h.socketFactory.message(jsonEncode({
+        'toolCall': {
+          'functionCalls': [
+            {'id': 'c1', 'name': 'ask_claude', 'args': <String, dynamic>{}}
+          ]
+        }
+      }));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('filler'))));
+      expect(h.resumptionHandles, ['H1', null]);
+      // turnComplete arrives while a tool call is still pending: the reply
+      // bookkeeping defers, but the SERVER closed the generation, so the
+      // handle must come back regardless.
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(h.resumptionHandles, ['H1', null, 'H1']);
+    });
+
+    test('no handle is invented when the server never offered one', () async {
+      final h = _Harness(freeFormMode: true);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('a1'))));
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      // The withdrawal still fires (safety), but nothing is offered back.
+      expect(h.resumptionHandles, [null]);
+    });
+  });
+
+  // goAway — the server's warning that it is about to hang up. Measured
+  // 24.08 (`marathon/probes/lane5-goaway.py`, design doc §11): a socket
+  // carrying no traffic is closed outright at ~151s with 1008 and NO
+  // warning, so this path only ever runs for a socket in use. The parsing
+  // is deliberately shape-tolerant: the warning is worth more than the
+  // deadline, and losing the whole frame to an unexpected encoding of a
+  // protobuf Duration would be the expensive half of the trade.
+  group('goAway', () {
+    test('a named deadline reaches the host as a Duration', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {'timeLeft': '10s'}
+      }));
+      expect(h.goAways, [const Duration(seconds: 10)]);
+    });
+
+    test('fractional seconds survive (protobuf writes "1.5s", not milliseconds)', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {'timeLeft': '1.5s'}
+      }));
+      expect(h.goAways, [const Duration(milliseconds: 1500)]);
+    });
+
+    test('the object form of a Duration is understood too', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {
+          'timeLeft': {'seconds': 3, 'nanos': 500000000}
+        }
+      }));
+      expect(h.goAways, [const Duration(milliseconds: 3500)]);
+    });
+
+    test('a deadline-less warning is still reported (null, not dropped)', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({'goAway': <String, dynamic>{}}));
+      expect(h.goAways, [null]);
+    });
+
+    test('an unparseable deadline degrades to null instead of losing the warning', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {'timeLeft': 'soon'}
+      }));
+      expect(h.goAways, [null]);
+    });
+
+    test('the warning is not an error and does not end the session', () async {
+      final h = _Harness();
+      await _connect(h);
+      h.socketFactory.message(jsonEncode({
+        'goAway': {'timeLeft': '5s'}
+      }));
+      expect(h.errors, isEmpty);
+      expect(h.session.isWarm(), isTrue);
+      // The socket still works: a handle offered after the warning is still
+      // passed on — that handle is exactly what the rebuild will use.
+      h.socketFactory.message(jsonEncode({
+        'sessionResumptionUpdate': {'newHandle': 'H1'}
+      }));
+      expect(h.resumptionHandles, ['H1']);
     });
   });
 }

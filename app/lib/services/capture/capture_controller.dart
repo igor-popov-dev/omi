@@ -127,6 +127,17 @@ class CaptureController extends ChangeNotifier
   Future<void> startFreeFormVoiceMode() async {
     final mode = freeFormVoiceMode;
     if (mode == null || freeFormModeActive.value) return;
+    // The mirror of the gate in `handleSingleTapButtonEvent`: the PTT hub
+    // keeps its socket WARM for 90s after a turn (`hubIdleReleaseDuration`),
+    // so a question asked with the pendant half a minute ago still holds one
+    // when the user opens this mode. Sockets on one key do coexist — measured
+    // 24.08, both idle and both mid-conversation — so this is not about a
+    // server-side ceiling. It is the same reasoning as the tap gate above:
+    // two live sockets are two microphones on one room, and the warm one the
+    // user is walking away from bills for nothing. Releasing it is also just correct: the user
+    // is switching voice paths, and a warm socket nobody will press costs
+    // money for nothing.
+    hubTurnDriver?.teardown();
     freeFormModeActive.value = true;
     try {
       await mode.start();
@@ -144,6 +155,28 @@ class CaptureController extends ChangeNotifier
     // goes away, otherwise the last few turns never reach chat history.
     unawaited(voiceChatLog.flush());
     resetFreeFormVoiceModeUi();
+  }
+
+  /// The provider warned that the socket is about to close (`goAway` —
+  /// measured 24.08: ~9 minutes into a live session, 50 seconds of notice,
+  /// design doc §11). Rebuilds it NOW, while the old one still works, so the
+  /// drop never lands in the middle of the conversation. The conversation
+  /// itself carries over on the resumption handle, and nothing is said out
+  /// loud: unlike a recovered drop, there is nothing to apologise for.
+  ///
+  /// A rebuild that fails is handed to the ordinary drop recovery — that path
+  /// owns the retry budget and the "give up and stop" decision, so failing
+  /// here must not invent a second policy.
+  Future<void> rebuildFreeFormVoiceModeSocket() async {
+    final mode = freeFormVoiceMode;
+    if (mode == null || !freeFormModeActive.value || !mode.isRunning) return;
+    Logger.debug('[VoiceMode] сервер предупредил о закрытии сокета — пересобираю заранее');
+    try {
+      await mode.restart();
+    } catch (e) {
+      Logger.error('[VoiceMode] упреждающая пересборка не удалась: $e');
+      await recoverFreeFormVoiceMode(e);
+    }
   }
 
   /// Resets [freeFormModeActive]/[hubProjection] to idle WITHOUT calling
@@ -206,9 +239,13 @@ class CaptureController extends ChangeNotifier
       isResponseActive: false,
     );
 
-    mode.stop();
     try {
-      await mode.start();
+      // restart(), not stop()+start(): the public stop() means "the USER
+      // ended the conversation" and makes the hub forget it (design doc §10),
+      // so recovering through it handed the new socket a blank session — and
+      // the line below, which asks the model to pick up where it left off,
+      // was then a lie it could not act on.
+      await mode.restart();
       Logger.debug('[VoiceMode] сессия восстановлена, попытка ${_voiceRecoveries.length}');
       mode.announce(_voiceRecoveryPrompt);
     } catch (e) {
@@ -1090,7 +1127,32 @@ class CaptureController extends ChangeNotifier
       _voiceSessionStartedByLegacyLongPress = false; // New toggle mode
       _startVoiceCommandTimeout(deviceId);
       _playSpeakerHaptic(deviceId, 1);
-      if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null) {
+      // NOT while the free-form voice mode is running. The two paths own
+      // SEPARATE `HubController`s (see `hubTurnDriver`/`freeFormVoiceMode`
+      // above), so starting a hub turn here would open a SECOND Gemini Live
+      // socket on top of the conversation already in progress. Two sockets
+      // are two microphones and two brains hearing the same room, answering
+      // over each other, and billed twice — that alone is reason enough, and
+      // it is the whole reason. The gate does NOT rest on the server killing
+      // one of them.
+      //
+      // Worth stating because the first version of this comment said it did.
+      // On 24.08 a second socket twice appeared on this key by accident and
+      // the server closed the longer-lived one with 1011 "Resource has been
+      // exhausted", which read like a rule. It is not one: the probe written
+      // to check it (`marathon/probes/lane5-concurrent-sockets.py`) ran two
+      // sockets on one key both idle (540s) and both holding a real spoken
+      // conversation with server VAD (360s, the model answering 8 and 7 times
+      // respectively) — nothing was evicted either time. Whatever the two
+      // accidents were, they are not "a second socket hangs up the first". Even where both survive, it is two
+      // microphones and two brains hearing the same room, billed twice.
+      //
+      // The tap is not swallowed: the legacy voice-command session above
+      // still starts, exactly as it does when the hub route is off. Only the
+      // second socket is withheld. `end()` below stays unconditional — a turn
+      // begun BEFORE the mode was switched on must still be closed, and
+      // `VoiceHubTurnDriver.end()` is a no-op with no turn in flight.
+      if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null && !freeFormModeActive.value) {
         hubTurnDriver!.begin();
       }
     } else if (!_voiceSessionStartedByLegacyLongPress) {

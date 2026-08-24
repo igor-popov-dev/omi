@@ -91,7 +91,7 @@ class _ControllableSocketFactory {
 }
 
 /// A fake clock that records each armed timer with its delay so a test can
-/// fire a specific one (the ~10s warm timeout vs. the 180s idle release)
+/// fire a specific one (the ~10s warm timeout vs. the 120s idle release)
 /// without waiting real time — same injected-clock seam as the TS source's
 /// `HubClock`.
 class _FakeHubClock implements HubClock {
@@ -301,7 +301,7 @@ void main() {
       s.sockFactory.open(); // socket OPEN + setup frame sent, but no readiness frame ever arrives
       expect(s.session.isWarm(), isFalse);
 
-      // The ~10s warm timeout fires (NOT the 180s idle release) → a clean fast failure.
+      // The ~10s warm timeout fires (NOT the 120s idle release) → a clean fast failure.
       s.clock.fireDuration(hubWarmTimeoutDuration);
       expect(s.session.isWarm(), isFalse);
       // Surfaced through onError as retryable so the controller's strike
@@ -314,7 +314,7 @@ void main() {
       s.sockFactory.open();
       s.sockFactory.message('{"type":"ready"}'); // provider ready within the bound → markReady
       expect(s.session.isWarm(), isTrue);
-      // The warm timeout was cleared on markReady; only the 180s idle release remains.
+      // The warm timeout was cleared on markReady; only the 120s idle release remains.
       expect(s.clock.pendingFor(hubWarmTimeoutDuration), isFalse);
       expect(s.clock.pendingFor(hubIdleReleaseDuration), isTrue);
     });
@@ -346,7 +346,20 @@ void main() {
   });
 
   group('BaseHubSession — idle release (D4)', () {
-    test('teardown() after the 180s idle timer fires releases the warm socket', () {
+    // Measured 24.08: Gemini closes a socket with no traffic at ~151s
+    // (`marathon/probes/lane5-goaway.py`) and one that HAS been used as little
+    // as 100s after its last frame (`lane5-idle-window.py`, three sockets).
+    // Our own release only ever runs if it wins that race — the ported 180s
+    // never did, and 120s lost the used-socket race by 20s — so an untouched
+    // hub cycled forever on the proactive re-warm an expected idle close
+    // triggers.
+    test('the client release fires before the server would hang up on its own', () {
+      expect(hubIdleReleaseDuration.inMilliseconds, lessThan(geminiIdleCloseMs));
+      // The binding one: a hub that was used once and then left alone.
+      expect(hubIdleReleaseDuration.inMilliseconds, lessThan(geminiIdleCloseAfterUseMs));
+    });
+
+    test('teardown() after the idle timer fires releases the warm socket', () {
       fakeAsync((async) {
         final sockFactory = _ControllableSocketFactory();
         final session = _TestHubSession(
@@ -365,6 +378,76 @@ void main() {
         async.elapse(hubIdleReleaseDuration + const Duration(seconds: 1));
         expect(session.isWarm(), isFalse);
       });
+    });
+  });
+
+  // Closing a WebSocket does NOT cancel its incoming subscription: the stream
+  // still delivers `onDone` (and any frame already in flight) a round-trip
+  // later. Every deliberate teardown we do — the idle release, the goAway
+  // rebuild, the stale-session drop inside a re-warm — therefore ends with a
+  // callback from a socket the session has already replaced or dropped. The
+  // test fakes never modelled that, which is why it stayed invisible.
+  group('BaseHubSession — callbacks from a socket we already dropped', () {
+    Future<({_TestHubSession session, _ControllableSocketFactory sock, List<String> errors})> warmSession() async {
+      final sockFactory = _ControllableSocketFactory();
+      final errors = <String>[];
+      final session = _TestHubSession(
+        token: 'tok',
+        instructions: 'instr',
+        socketFactory: sockFactory.factory,
+        playerFactory: _noopPlayerFactory,
+        events: HubSessionEvents(onError: (message, retryable, closeCode) => errors.add(message)),
+      );
+      unawaited(session.ensureWarm().catchError((_) {}));
+      // _openConnection awaits the player factory before creating the socket.
+      await Future<void>.value();
+      await Future<void>.value();
+      sockFactory.open();
+      sockFactory.message('{"type":"ready"}');
+      expect(session.isWarm(), isTrue);
+      return (session: session, sock: sockFactory, errors: errors);
+    }
+
+    test('the onClose that every deliberate teardown produces is NOT reported as an error', () async {
+      final h = await warmSession();
+
+      h.session.teardown();
+      // The close handshake completes and the stream ends — what the real
+      // socket does a round-trip after `close()`.
+      h.sock.spec!.onClose(1000, '');
+
+      expect(h.errors, isEmpty, reason: 'намеренное закрытие — не ошибка; иначе хаб тут же прогреется обратно');
+    });
+
+    test('a transport error on the dropped socket is not reported either', () async {
+      final h = await warmSession();
+
+      h.session.teardown();
+      h.sock.spec!.onError('connection reset');
+
+      expect(h.errors, isEmpty);
+    });
+
+    test('a frame still in flight when we dropped the socket does not reach the session', () async {
+      final h = await warmSession();
+      h.session.teardown();
+      expect(h.session.isWarm(), isFalse);
+
+      // A readiness frame is the sharpest case: ungated it would call
+      // markReady() and resurrect a session nobody asked for.
+      h.sock.spec!.onMessage('{"type":"ready"}');
+
+      expect(h.session.isWarm(), isFalse, reason: 'сессия остаётся закрытой');
+      expect(h.errors, isEmpty);
+    });
+
+    test('a genuine close on the LIVE socket is still reported', () async {
+      final h = await warmSession();
+
+      h.sock.spec!.onClose(1011, 'internal error');
+
+      expect(h.errors, hasLength(1));
+      expect(h.errors.single, contains('1011'));
     });
   });
 
