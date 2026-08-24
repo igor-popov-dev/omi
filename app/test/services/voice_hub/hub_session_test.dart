@@ -346,16 +346,20 @@ void main() {
   });
 
   group('BaseHubSession — idle release (D4)', () {
-    // Measured 24.08 (`marathon/probes/lane5-goaway.py`): Gemini closes a
-    // socket with no traffic at ~151s, unannounced. Our own release only ever
-    // runs if it wins that race — the ported 180s value never did, so an
-    // untouched hub cycled forever on the proactive re-warm that an expected
-    // idle close triggers.
+    // Measured 24.08: Gemini closes a socket with no traffic at ~151s
+    // (`marathon/probes/lane5-goaway.py`) and one that HAS been used as little
+    // as 100s after its last frame (`lane5-idle-window.py`, three sockets).
+    // Our own release only ever runs if it wins that race — the ported 180s
+    // never did, and 120s lost the used-socket race by 20s — so an untouched
+    // hub cycled forever on the proactive re-warm an expected idle close
+    // triggers.
     test('the client release fires before the server would hang up on its own', () {
       expect(hubIdleReleaseDuration.inMilliseconds, lessThan(geminiIdleCloseMs));
+      // The binding one: a hub that was used once and then left alone.
+      expect(hubIdleReleaseDuration.inMilliseconds, lessThan(geminiIdleCloseAfterUseMs));
     });
 
-    test('teardown() after the 120s idle timer fires releases the warm socket', () {
+    test('teardown() after the idle timer fires releases the warm socket', () {
       fakeAsync((async) {
         final sockFactory = _ControllableSocketFactory();
         final session = _TestHubSession(

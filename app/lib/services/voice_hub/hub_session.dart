@@ -335,17 +335,34 @@ class DefaultHubClock implements HubClock {
 /// warning is only for sessions in use, design doc §11).
 const int geminiIdleCloseMs = 151000;
 
+/// The same close, but on a socket that HAS been used — measured 24.08,
+/// five sockets across two runs (`marathon/probes/lane5-idle-window.py`).
+/// The window is counted from the last traffic, not from setup, so an idle
+/// socket does outlive [geminiIdleCloseMs] if something happened on it; what
+/// it does NOT get is the full 151s of grace a second time. Observed windows
+/// after a completed turn: 150.1s and 151.1s for a turn at 5s/30s, but 100.1s
+/// (three times, turns at 60s and 90s) for later ones. The rule behind the
+/// two clusters is not established; 100s is the shortest thing measured and
+/// is therefore what the release has to beat.
+const int geminiIdleCloseAfterUseMs = 100000;
+
 /// D4: release a warm socket after this much idle time.
 ///
-/// Must stay below [geminiIdleCloseMs] — the ported value (180s) could never
-/// fire, because the server always hung up first at ~151s. That close is
-/// classified as an expected idle teardown and PROACTIVELY re-warmed
-/// (`hub_close.dart`, and the A7c policy in `hub_controller.dart`), so an
-/// untouched warm hub sat in an endless 2.5-minute cycle of mint, connect,
-/// get closed, re-warm — on a phone, and with a database row per mint. The
-/// release exists precisely to end that cycle by going cold; it only can if
-/// it wins the race.
-const Duration hubIdleReleaseDuration = Duration(milliseconds: 120000);
+/// Must stay below [geminiIdleCloseAfterUseMs] — a hub that was used once and
+/// then left warm is exactly the case that matters, and both our timer and
+/// the server's run from the last traffic ([touchIdle] is called on every
+/// frame). The server's close is classified as an expected idle teardown and
+/// PROACTIVELY re-warmed (`hub_close.dart`, and the A7c policy in
+/// `hub_controller.dart`), so losing this race leaves an untouched warm hub
+/// in an endless cycle of mint, connect, get closed, re-warm — on a phone,
+/// and with a database row per mint. The release exists precisely to end that
+/// cycle by going cold; it only can if it fires first.
+///
+/// History: the ported 180s never fired (the server hung up at ~151s); 120s
+/// was set against [geminiIdleCloseMs] before the used-socket window was
+/// measured, and lost the same race by 20s. The cost of going lower is one
+/// cold start after a long pause, which the warm-wait buffer already covers.
+const Duration hubIdleReleaseDuration = Duration(milliseconds: 90000);
 
 /// Bound on a single warm attempt (see file header `markReady` port note for
 /// why this exists independently of the idle release).
