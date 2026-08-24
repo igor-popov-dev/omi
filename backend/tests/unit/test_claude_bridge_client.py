@@ -7,6 +7,7 @@ import pytest
 
 from utils.llm.claude_bridge_client import (
     ClaudeBridgeChatModel,
+    ClaudeBridgeUpstreamError,
     _extract_json_blob,
     _messages_to_question_and_context,
     get_claude_bridge_timeout_seconds,
@@ -263,3 +264,51 @@ def test_structured_output_rejects_include_raw():
 )
 def test_extract_json_blob(text, expected):
     assert _extract_json_blob(text) == expected
+
+
+def test_invoke_raises_when_the_bridge_reports_a_usage_limit():
+    """A spent subscription window must not come back as the model's answer.
+
+    Live incident 2026-08-24: the notice text reached conversation structuring,
+    failed to parse as JSON, and left the conversation stuck in `in_progress`.
+    """
+    events = [
+        {'type': 'error', 'code': 'usage_limit', 'message': "You've hit your session limit", 'resets_at': 1787541000}
+    ]
+    model = ClaudeBridgeChatModel(base_url='http://bridge.test', model_name='sonnet', transport=_fake_bridge(events))
+
+    with pytest.raises(ClaudeBridgeUpstreamError) as excinfo:
+        model.invoke([HumanMessage(content='hi')])
+
+    assert excinfo.value.code == 'usage_limit'
+    assert excinfo.value.resets_at == 1787541000
+
+
+def test_invoke_drops_partial_deltas_that_precede_an_error():
+    """Half an answer is not an answer — the caller gets the error, not the fragment."""
+    events = [
+        {'type': 'delta', 'text': 'Title: '},
+        {'type': 'error', 'code': 'upstream_error', 'message': 'claude CLI failed'},
+    ]
+    model = ClaudeBridgeChatModel(base_url='http://bridge.test', model_name='sonnet', transport=_fake_bridge(events))
+
+    with pytest.raises(ClaudeBridgeUpstreamError):
+        model.invoke([HumanMessage(content='hi')])
+
+
+def test_structured_output_does_not_burn_a_retry_on_an_upstream_error():
+    """The JSON-only retry is for unparseable answers, not for an exhausted window."""
+
+    class _Shape(BaseModel):
+        title: str = Field(description='title')
+
+    calls: list[httpx.Request] = []
+    events = [{'type': 'error', 'code': 'usage_limit', 'message': 'limit'}]
+    model = ClaudeBridgeChatModel(
+        base_url='http://bridge.test', model_name='sonnet', transport=_fake_bridge(events, calls)
+    )
+
+    with pytest.raises(ClaudeBridgeUpstreamError):
+        model.with_structured_output(_Shape).invoke('give me a title')
+
+    assert len(calls) == 1

@@ -11,6 +11,9 @@ Bridge contract:
     -> text/event-stream, "data: <json>\\n\\n" lines:
          {"type": "delta", "text": "..."}  (may arrive as a single chunk today)
          {"type": "done", "text": "<full response>"}
+         {"type": "error", "code": "usage_limit", "message": "...", "resets_at": 1787541000}
+             -> no "done" follows; the answer does not exist. Raised here as
+                ClaudeBridgeUpstreamError so a provider outage looks like one.
     GET {base_url}/health -> {"status": "ok", "backend": "fake"|"real"}
 """
 
@@ -40,6 +43,26 @@ from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+class ClaudeBridgeUpstreamError(RuntimeError):
+    """The bridge refused to answer — the personal Claude subscription window is spent.
+
+    Why this is an exception and not just text: the bridge used to stream the CLI's
+    "You've hit your session limit · resets 6:10am" notice as if it were the model's
+    answer, HTTP 200. Conversation structuring then tried to parse that sentence as
+    JSON, blew up with OutputParserException, and the conversation was rolled back to
+    `in_progress` forever — invisible to the user with no error anywhere they could
+    see (two conversations lost that way on 2026-08-24, see ~/omi-jarvis lane2 log).
+    A provider outage has to surface as a provider outage.
+    """
+
+    def __init__(self, message: str, code: str = 'upstream_error', resets_at: Optional[int] = None):
+        super().__init__(message)
+        self.message = message
+        self.code = code
+        self.resets_at = resets_at
+
 
 CLAUDE_BRIDGE_URL_ENV_VAR = 'CLAUDE_BRIDGE_URL'
 CLAUDE_BRIDGE_TIMEOUT_ENV_VAR = 'CLAUDE_BRIDGE_TIMEOUT_SECONDS'
@@ -134,6 +157,14 @@ class ClaudeBridgeChatModel(BaseChatModel):
                         text_parts.append(delta)
                         if run_manager:
                             run_manager.on_llm_new_token(delta)
+                    elif event_type == 'error':
+                        # No answer exists: whatever deltas arrived before this are a
+                        # truncated fragment at best, so they are dropped, not returned.
+                        raise ClaudeBridgeUpstreamError(
+                            event.get('message') or 'claude bridge upstream error',
+                            code=event.get('code') or 'upstream_error',
+                            resets_at=event.get('resets_at'),
+                        )
                     elif event_type == 'done':
                         # The bridge currently emits one delta covering the whole answer
                         # (no --include-partial-messages yet — see ask-claude-bridge.md),
