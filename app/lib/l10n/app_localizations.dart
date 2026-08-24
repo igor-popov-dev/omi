@@ -18434,6 +18434,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Glass (beta)'**
   String get appearanceGlassBeta;
+
+  /// Shown when a voice recording was transcribed but contained no recognizable speech
+  ///
+  /// In en, this message translates to:
+  /// **'No speech detected — record again'**
+  String get voiceNoSpeechDetected;
+
+  /// No description provided for @sttOfflineBuffering.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline — buffering audio ({duration})'**
+  String sttOfflineBuffering(String duration);
+
+  /// No description provided for @sttLiveTranscribing.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribing speech…'**
+  String get sttLiveTranscribing;
+
+  /// No description provided for @sttWaitingForSpeech.
+  ///
+  /// In en, this message translates to:
+  /// **'Listening — waiting for speech'**
+  String get sttWaitingForSpeech;
+
+  /// No description provided for @sttReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription connection lost — reconnecting…'**
+  String get sttReconnecting;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

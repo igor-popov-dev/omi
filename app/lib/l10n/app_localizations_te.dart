@@ -9946,4 +9946,21 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get appearanceGlassBeta => 'Glass (beta)';
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
+
+  @override
+  String sttOfflineBuffering(String duration) {
+    return 'Offline — buffering audio ($duration)';
+  }
+
+  @override
+  String get sttLiveTranscribing => 'Transcribing speech…';
+
+  @override
+  String get sttWaitingForSpeech => 'Listening — waiting for speech';
+
+  @override
+  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
 }
