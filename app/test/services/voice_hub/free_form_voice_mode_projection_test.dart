@@ -111,6 +111,28 @@ void main() {
       expect(posted.map((t) => t.sender), ['human', 'ai']);
     });
 
+    // Регресс 24.08: метка = момент НАЧАЛА речи, не коммита. onTurnDone
+    // коммитит пользователя перед ассистентом — следующая реплика
+    // пользователя, начатая во время ответа, получала метку раньше самого
+    // ответа, и чат (сортировка по created_at) показывал их не по порядку.
+    test('метки реплик хронологичны даже при коммите парами', () async {
+      events.onInputTranscript!('первый вопрос', false, null); // user1 начал
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      events.onSpeakingStart!(); // ассистент начал, user1 закоммичен
+      events.onAssistantText!('длинный ответ', false, null);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      // Пользователь заговорил, пока ассистент ещё отвечает.
+      events.onInputTranscript!('второй вопрос', false, null);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      events.onTurnDone!(null); // коммитит user2 ПЕРЕД assistant1
+      await log.flush();
+
+      expect(posted.map((t) => t.text), ['первый вопрос', 'второй вопрос', 'длинный ответ']);
+      final byTime = [...posted]..sort((a, b) => a.spokenAt.compareTo(b.spokenAt));
+      expect(byTime.map((t) => t.text), ['первый вопрос', 'длинный ответ', 'второй вопрос'],
+          reason: 'хронология по меткам обязана совпадать с реальным порядком речи');
+    });
+
     test('перебивание помечает реплику как недоговорённую', () async {
       events.onSpeakingStart!();
       events.onAssistantText!('вчера была паста и ещё', false, null);
