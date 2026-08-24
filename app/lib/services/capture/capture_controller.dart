@@ -125,11 +125,11 @@ class CaptureController extends ChangeNotifier
     // The mirror of the gate in `handleSingleTapButtonEvent`: the PTT hub
     // keeps its socket WARM for 90s after a turn (`hubIdleReleaseDuration`),
     // so a question asked with the pendant half a minute ago still holds one
-    // when the user opens this mode. Two idle sockets do coexist (measured
-    // 24.08: 540s side by side), so this is not about a hard one-socket
-    // ceiling — it is the same reasoning as the tap gate above: two live
-    // sockets on one key are two microphones on one room and, under real
-    // traffic, the pair that got one of them closed with 1011. Releasing it is also just correct: the user
+    // when the user opens this mode. Sockets on one key do coexist — measured
+    // 24.08, both idle and both mid-conversation — so this is not about a
+    // server-side ceiling. It is the same reasoning as the tap gate above:
+    // two live sockets are two microphones on one room, and the warm one the
+    // user is walking away from bills for nothing. Releasing it is also just correct: the user
     // is switching voice paths, and a warm socket nobody will press costs
     // money for nothing.
     hubTurnDriver?.teardown();
@@ -1122,24 +1122,21 @@ class CaptureController extends ChangeNotifier
       // NOT while the free-form voice mode is running. The two paths own
       // SEPARATE `HubController`s (see `hubTurnDriver`/`freeFormVoiceMode`
       // above), so starting a hub turn here would open a SECOND Gemini Live
-      // socket on top of the conversation already in progress, and that is
-      // worth avoiding on two counts.
+      // socket on top of the conversation already in progress. Two sockets
+      // are two microphones and two brains hearing the same room, answering
+      // over each other, and billed twice — that alone is reason enough, and
+      // it is the whole reason. The gate does NOT rest on the server killing
+      // one of them.
       //
-      // The plain one first: two sockets are two microphones and two brains
-      // hearing the same room, answering over each other, billed twice.
-      //
-      // The other one is measured but NOT fully pinned down, so take it for
-      // what it is. Twice on 24.08 a second socket appeared on this key by
-      // accident (a short probe run beside a long measurement) and the server
-      // closed the LONGER-LIVED one with 1011 "Resource has been exhausted" —
-      // i.e. it hung up the conversation that was actually in progress. The
-      // follow-up probe (`marathon/probes/lane5-concurrent-sockets.py`, same
-      // day) then showed the opposite in the calm case: two sockets opened a
-      // minute apart both survived the full 540s side by side. The difference
-      // between the two runs was traffic — the accident had both sockets
-      // pushing audio, the probe had one turn each and then keepalive. So the
-      // ceiling is not "one socket"; it is something load- or quota-shaped
-      // that we have not measured yet. Do not lean on who wins. Even where both survive, it is two
+      // Worth stating because the first version of this comment said it did.
+      // On 24.08 a second socket twice appeared on this key by accident and
+      // the server closed the longer-lived one with 1011 "Resource has been
+      // exhausted", which read like a rule. It is not one: the probe written
+      // to check it (`marathon/probes/lane5-concurrent-sockets.py`) ran two
+      // sockets on one key both idle (540s) and both holding a real spoken
+      // conversation with server VAD (360s, the model answering 8 and 7 times
+      // respectively) — nothing was evicted either time. Whatever the two
+      // accidents were, they are not "a second socket hangs up the first". Even where both survive, it is two
       // microphones and two brains hearing the same room, billed twice.
       //
       // The tap is not swallowed: the legacy voice-command session above
