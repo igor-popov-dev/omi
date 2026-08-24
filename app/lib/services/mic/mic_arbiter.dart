@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:omi/services/services.dart';
+import 'package:omi/utils/logger.dart';
 
 /// Single-owner token shared by every microphone stack (flutter_sound and the
 /// native iOS recorder), so two stacks can never hold the mic — and fight over
@@ -12,6 +13,7 @@ import 'package:omi/services/services.dart';
 class MicArbiter {
   String? _owner;
   bool _callHold = false;
+  final List<void Function()> _evictions = [];
 
   String? get owner => _owner;
 
@@ -31,7 +33,42 @@ class MicArbiter {
   ///
   /// Idempotent, and independent of [_owner]: a recorder releasing its token mid-call
   /// (which is exactly what the ambient-capture pause does) must not lift the veto.
-  void holdForCall() => _callHold = true;
+  ///
+  /// The veto alone is only half the job: it refuses the NEXT claim, and says nothing to a
+  /// recorder that was already running when the call began. So this also EVICTS — see
+  /// [onEvictedByCall]. The reason is the call, not the recording: on Android the
+  /// microphone goes to one owner, and a flutter_sound session still holding it when the
+  /// call SDK opens its own is how the other party hears nothing for the whole call. The
+  /// silent voice memo is the cheaper half of the same bug.
+  void holdForCall() {
+    if (_callHold) return;
+    _callHold = true;
+    // Copied before iterating: an eviction may unregister itself as it unwinds.
+    for (final evict in List<void Function()>.of(_evictions)) {
+      // Never let a listener fail a call. Losing an eviction costs a wasted recording;
+      // letting it throw here would abort the state transition that pauses ambient
+      // capture and hands the microphone over — that costs the call itself.
+      try {
+        evict();
+      } catch (e, st) {
+        Logger.error('MicArbiter: eviction failed: $e\n$st');
+      }
+    }
+  }
+
+  /// Register [evict], to be run the moment an in-app call takes the microphone.
+  ///
+  /// Registration is deliberately open rather than a fixed list of stacks: a recorder
+  /// added later has to opt IN to being evicted, but nothing has to remember to add it to
+  /// a list kept somewhere else — the failure mode that keeps producing missed exits here.
+  ///
+  /// Returns a function that unregisters it. Callers whose lifetime is shorter than the
+  /// arbiter's (a provider, a screen) must call it: the arbiter outlives every screen, and
+  /// a listener left behind would unwind a session that ended long ago.
+  void Function() onEvictedByCall(void Function() evict) {
+    _evictions.add(evict);
+    return () => _evictions.remove(evict);
+  }
 
   /// Give the microphone back after the call. Must run on EVERY exit of a call, which is
   /// why the only caller derives it from the call state rather than from the exit paths
@@ -61,10 +98,37 @@ class ArbitratedMic implements IMicRecorderService {
   final MicArbiter _arbiter;
   final String _owner;
 
-  ArbitratedMic({required IMicRecorderService inner, required MicArbiter arbiter, required String owner})
-      : _inner = inner,
+  /// Whether an in-app call stops this stack outright when it takes the microphone.
+  ///
+  /// True for the flutter_sound stack (chat voice memos, the speech profile): nothing else
+  /// stops it, and a session left running would hold the microphone the call SDK is opening.
+  ///
+  /// FALSE for conversation capture, and not as an oversight. That stack is stopped by
+  /// [CaptureController.pauseForInAppCall], which does more than stop: it marks the capture
+  /// interrupted, keeps the socket and the segments already captured, and puts the
+  /// recording back when the call ends. A blind stop here would run first, fire that
+  /// controller's own stop callback, clear its active source — and the resume after the
+  /// call would find nothing left to resume.
+  ArbitratedMic({
+    required IMicRecorderService inner,
+    required MicArbiter arbiter,
+    required String owner,
+    bool evictedByCall = false,
+  })  : _inner = inner,
         _arbiter = arbiter,
-        _owner = owner;
+        _owner = owner {
+    if (evictedByCall) arbiter.onEvictedByCall(_onCallTookMic);
+  }
+
+  void _onCallTookMic() {
+    if (_arbiter.owner != _owner) return;
+    // Token released BEFORE the stop, not after: if the stop throws, the token must not
+    // stay held. The veto keeps others out for the length of the call anyway, and a token
+    // still held after it lifts would refuse every later recording for the rest of the
+    // session — deaf, and with nothing on screen to explain it.
+    _arbiter.release(_owner);
+    _inner.stop();
+  }
 
   @override
   Future<void> start({

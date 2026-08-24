@@ -130,6 +130,101 @@ void main() {
       arbiter.tryAcquire('conversation');
       expect(arbiter.holder, 'conversation');
     });
+
+    test('the hold evicts whoever registered for it', () {
+      final arbiter = MicArbiter();
+      var evicted = 0;
+      arbiter.onEvictedByCall(() => evicted++);
+      arbiter.holdForCall();
+      expect(evicted, 1);
+    });
+
+    // Same reason the veto is idempotent: one call reports its state more than once, and
+    // a second eviction would unwind a recording the user legitimately started after the
+    // first one — while the call is still running, which is when they cannot see it.
+    test('a repeated hold does not evict twice', () {
+      final arbiter = MicArbiter();
+      var evicted = 0;
+      arbiter.onEvictedByCall(() => evicted++);
+      arbiter.holdForCall();
+      arbiter.holdForCall();
+      expect(evicted, 1);
+    });
+
+    // The arbiter outlives every screen. A provider that forgot to unregister would have
+    // its unwind run against a memo that ended long ago.
+    test('unregistering stops the eviction from running', () {
+      final arbiter = MicArbiter();
+      var evicted = 0;
+      final drop = arbiter.onEvictedByCall(() => evicted++);
+      drop();
+      arbiter.holdForCall();
+      expect(evicted, 0);
+    });
+
+    // Losing an eviction costs a wasted recording; letting it throw here would abort the
+    // state transition that hands the microphone to the call — that costs the call.
+    test('an eviction that throws neither stops the veto nor the other evictions', () {
+      final arbiter = MicArbiter();
+      var second = 0;
+      arbiter.onEvictedByCall(() => throw StateError('unwind blew up'));
+      arbiter.onEvictedByCall(() => second++);
+      arbiter.holdForCall();
+      expect(second, 1);
+      expect(arbiter.callHolds, isTrue);
+      expect(arbiter.tryAcquire('mic'), isFalse);
+    });
+  });
+
+  // The veto answers the NEXT claimant and says nothing to the one already holding the
+  // microphone. On Android that one is the reason the other party hears nothing: the mic
+  // goes to a single owner, and a live flutter_sound session still has it when the call
+  // SDK opens its own.
+  group('ArbitratedMic — a call takes the microphone from a live recorder', () {
+    late MicArbiter arbiter;
+    late FakeMic memoMic;
+    late FakeMic captureMic;
+    late ArbitratedMic memo;
+    late ArbitratedMic capture;
+
+    setUp(() {
+      arbiter = MicArbiter();
+      memoMic = FakeMic();
+      captureMic = FakeMic();
+      memo = ArbitratedMic(inner: memoMic, arbiter: arbiter, owner: 'mic', evictedByCall: true);
+      capture = ArbitratedMic(inner: captureMic, arbiter: arbiter, owner: 'conversation');
+    });
+
+    test('a memo already recording is stopped when the call starts', () async {
+      await memo.start(onByteReceived: (_) {});
+      arbiter.holdForCall();
+      expect(memoMic.stopCalls, 1, reason: 'the call must not share the mic with a live memo');
+    });
+
+    test('the evicted stack lets go of the token, and the veto still refuses', () async {
+      await memo.start(onByteReceived: (_) {});
+      arbiter.holdForCall();
+      expect(arbiter.owner, isNull);
+      expect(arbiter.tryAcquire('conversation'), isFalse, reason: 'the call still holds the mic');
+      arbiter.releaseCall();
+      await memo.start(onByteReceived: (_) {});
+      expect(memoMic.startCalls, 2, reason: 'after the call the memo stack works again');
+    });
+
+    // Not an oversight: conversation capture is stopped by CaptureController's own pause,
+    // which keeps the socket, the captured segments and the resume. A blind stop here
+    // would run first, clear its active source, and leave nothing to resume afterwards.
+    test('conversation capture is left to its own pause', () async {
+      await capture.start(onByteReceived: (_) {});
+      arbiter.holdForCall();
+      expect(captureMic.stopCalls, 0);
+    });
+
+    test('an idle evictable stack is not stopped', () async {
+      await capture.start(onByteReceived: (_) {});
+      arbiter.holdForCall();
+      expect(memoMic.stopCalls, 0, reason: 'nothing to evict — the memo was not recording');
+    });
   });
 
   group('ArbitratedMic', () {

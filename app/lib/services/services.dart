@@ -31,6 +31,11 @@ class ServiceManager {
       inner: MicRecorderBackgroundService(runner: BackgroundService()),
       arbiter: micArbiter,
       owner: 'mic',
+      // Stopped outright when an in-app call takes the microphone: nothing else stops
+      // this stack, and a memo or a speech profile still holding the mic natively is how
+      // the other party ends up hearing nothing. Conversation capture below opts out —
+      // it has a richer pause of its own (see ArbitratedMic.evictedByCall).
+      evictedByCall: true,
     );
     // Conversation capture uses the native recorder on iOS (AVAudioEngine) and
     // Android (AudioRecord); chat voice memos and the speech profile stay on the
