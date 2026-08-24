@@ -216,15 +216,25 @@ async def finalize_persisted_conversation(
             raise ConversationFinalizationError('fanout_completion_conflict')
         return ConversationFinalizationDisposition.completed
     except Exception as error:
-        # Provider and validation exceptions can contain transcript excerpts.
-        # The job stores and logs only a bounded failure code.
+        # Provider and validation exceptions can contain transcript excerpts, so the job stores
+        # and logs a bounded failure code instead of the message. The exception TYPE carries no
+        # transcript and is the one thing that tells an operator where to look — provider,
+        # schema or datastore. Without it the code alone is unactionable: a dead-lettered
+        # conversation reports the same nine characters whatever went wrong. The warning fifteen
+        # lines up already logs `type(error).__name__` under the same constraint.
+        #
+        # Self-host patch: у нас код отказа не всегда `processing_failed` — недоступность
+        # провайдера (мост Claude лежит) выделена в отдельный код, потому что она НЕ повод
+        # хоронить разговор в dead letter. Поэтому в сообщение подставляется вычисленный
+        # failure_code, а не константа: строкой ниже он же уходит в исключение.
         failure_code = (
             PROVIDER_UNAVAILABLE_FAILURE_CODE if is_provider_unavailable_error(error) else 'processing_failed'
         )
         logger.error(
-            'persisted conversation finalization failed uid=%s conversation=%s failure=%s',
+            'persisted conversation finalization failed uid=%s conversation=%s failure=%s error=%s',
             uid,
             conversation_id,
             failure_code,
+            type(error).__name__,
         )
         raise ConversationFinalizationError(failure_code) from error

@@ -7373,9 +7373,6 @@ class AppLocalizationsTh extends AppLocalizations {
   String get voiceFailedToTranscribe => 'ไม่สามารถถอดเสียงได้';
 
   @override
-  String get voiceNoSpeechDetected => 'No speech detected — record again';
-
-  @override
   String get pdfTranscriptExport => 'ส่งออกบทถอดเสียง';
 
   @override
@@ -9800,6 +9797,40 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'ไม่สามารถแชร์ข้อมูลวินิจฉัยได้ โปรดลองใหม่';
+
+  @override
+  String get appDisabledTitle => 'แอปนี้ถูกปิดใช้งานและไม่สามารถติดตั้งได้';
+
+  @override
+  String get appDisabledWebhookFailures => 'ปลายทางล้มเหลวติดต่อกัน 72 ชั่วโมง จึงหยุดการส่งข้อมูล';
+
+  @override
+  String get appDisabledGeneric => 'ถูกปิดใช้งานโดย Omi';
+
+  @override
+  String get appDisabledOwnerHint => 'แก้ไขปลายทางก่อน — การเปิดใช้งานอีกครั้งจะตรวจสอบทุก URL ที่ตั้งค่าไว้ใหม่';
+
+  @override
+  String get appReEnable => 'เปิดใช้งานอีกครั้ง';
+
+  @override
+  String get appReEnableFailedTitle => 'เปิดใช้งานอีกครั้งไม่สำเร็จ';
+
+  @override
+  String get appReEnableFailedBody => 'ไม่สามารถเปิดใช้งานแอปนี้อีกครั้งได้ โปรดลองใหม่';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'ปิดใช้งานเมื่อ $date';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'ข้อผิดพลาดล่าสุด: $error';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
 
   @override
   String sttOfflineBuffering(String duration) {

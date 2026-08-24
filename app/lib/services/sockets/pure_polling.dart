@@ -16,7 +16,7 @@ class AudioPollingConfig {
   final int minBufferSizeBytes;
   final String? serviceId;
   final IAudioTranscoder? transcoder;
-  // Self-host patch: ceiling on how much unflushed audio we hold in memory
+  // Ceiling on how much unflushed audio we hold in memory
   // while the custom STT endpoint is unreachable. ~10 minutes of 16kHz/16-bit
   // mono PCM (32000 B/s); oldest frames are dropped past this to keep memory
   // bounded during a long outage instead of buffering forever.
@@ -85,7 +85,7 @@ class PurePollingSocket implements IPureSocket {
   bool _isProcessing = false;
   double _audioOffsetSeconds = 0;
 
-  // Self-host patch: local buffering state, exposed so the recording UI can
+  // Local buffering state, exposed so the recording UI can
   // show "offline, buffering" instead of silently sitting on "Listening"
   // while transcribe() keeps failing. Set on the first failed flush after a
   // success, cleared on the next successful one.
@@ -255,7 +255,7 @@ class PurePollingSocket implements IPureSocket {
       _bufferingSince ??= DateTime.now();
       _shrinkFlushWindow(flushBytes);
       _requeueFrames(frames);
-      // Self-host patch: do NOT call onError()/propagate this as a fatal
+      // Do NOT call onError()/propagate this as a fatal
       // socket error here. sttProvider.transcribe() already retries
       // transient failures internally; a failure this far up means the STT
       // endpoint is genuinely unreachable right now. The old behavior

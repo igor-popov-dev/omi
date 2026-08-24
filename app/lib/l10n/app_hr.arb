@@ -9187,7 +9187,6 @@
     "@voiceFailedToTranscribe": {
         "description": "Error message when voice transcription fails"
     },
-    "voiceNoSpeechDetected": "No speech detected — record again",
     "pdfTranscriptExport": "Izvoz Transkripcije",
     "@pdfTranscriptExport": {
         "description": "Title for PDF transcript export document"
@@ -10786,6 +10785,16 @@
     "sendRawAudioToOmiDescription": "Isključite kako biste spriječili slanje neobrađenog zvuka u Omi. Transkripti i podaci potrebni za funkcije u oblaku i dalje se mogu slati u Omi.",
     "findDevice": "Pronađi",
     "diagnosticsShareFailed": "Dijagnostiku nije bilo moguće podijeliti. Pokušaj ponovno.",
+    "appDisabledTitle": "Ova je aplikacija onemogućena i ne može se instalirati.",
+    "appDisabledWebhookFailures": "Njezina krajnja točka nije radila 72 sata zaredom pa je isporuka zaustavljena.",
+    "appDisabledGeneric": "Onemogućila ju je Omi.",
+    "appDisabledOwnerHint": "Najprije popravi krajnju točku — ponovno omogućivanje iznova provjerava svaki konfigurirani URL.",
+    "appReEnable": "Ponovno omogući",
+    "appReEnableFailedTitle": "Ponovno omogućivanje nije uspjelo",
+    "appReEnableFailedBody": "Ovu aplikaciju nije bilo moguće ponovno omogućiti. Pokušaj ponovno.",
+    "appDisabledOn": "Onemogućeno {date}.",
+    "appDisabledLastError": "Posljednja pogreška: {error}.",
+    "voiceNoSpeechDetected": "No speech detected — record again",
     "sttOfflineBuffering": "Offline — buffering audio ({duration})",
     "@sttOfflineBuffering": {
         "placeholders": {

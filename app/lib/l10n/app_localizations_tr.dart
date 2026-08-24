@@ -7422,9 +7422,6 @@ class AppLocalizationsTr extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Ses metne dönüştürülemedi';
 
   @override
-  String get voiceNoSpeechDetected => 'No speech detected — record again';
-
-  @override
   String get pdfTranscriptExport => 'Döküm Dışa Aktar';
 
   @override
@@ -9867,6 +9864,42 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Tanılama paylaşılamadı. Lütfen tekrar deneyin.';
+
+  @override
+  String get appDisabledTitle => 'Bu uygulama devre dışı bırakıldı ve yüklenemiyor.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'Uç noktası 72 saat boyunca üst üste başarısız oldu, bu yüzden gönderimler durduruldu.';
+
+  @override
+  String get appDisabledGeneric => 'Omi tarafından devre dışı bırakıldı.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Önce uç noktayı düzeltin — yeniden etkinleştirme, yapılandırılmış her URL\'yi tekrar kontrol eder.';
+
+  @override
+  String get appReEnable => 'Yeniden etkinleştir';
+
+  @override
+  String get appReEnableFailedTitle => 'Yeniden etkinleştirilemedi';
+
+  @override
+  String get appReEnableFailedBody => 'Bu uygulama yeniden etkinleştirilemedi. Lütfen tekrar deneyin.';
+
+  @override
+  String appDisabledOn(String date) {
+    return '$date tarihinde devre dışı bırakıldı.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Son hata: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
 
   @override
   String sttOfflineBuffering(String duration) {
