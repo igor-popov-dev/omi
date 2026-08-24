@@ -38,6 +38,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/widgets/bottom_nav_bar.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 enum _ChatScrollMode { followingBottom, freeScrolling }
 
@@ -198,6 +199,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     super.build(context);
 
     return Consumer2<MessageProvider, ConnectivityProvider>(
@@ -228,19 +230,18 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                       ? Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                            CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
                             const SizedBox(height: 16),
-                            Text(provider.firstTimeLoadingText, style: const TextStyle(color: Colors.white)),
+                            Text(provider.firstTimeLoadingText, style: TextStyle(color: t.textPrimary)),
                           ],
                         )
                       : provider.isClearingChat
                           ? Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                                CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
                                 const SizedBox(height: 16),
-                                Text(context.l10n.deletingMessages, style: const TextStyle(color: Colors.white)),
+                                Text(context.l10n.deletingMessages, style: TextStyle(color: t.textPrimary)),
                               ],
                             )
                           : (provider.messages.isEmpty)
@@ -252,7 +253,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                           ? context.l10n.noMessagesYet
                                           : context.l10n.noInternetConnection,
                                       textAlign: TextAlign.center,
-                                      style: const TextStyle(color: Colors.white),
+                                      style: TextStyle(color: t.textPrimary),
                                     ),
                                   ),
                                 )
@@ -261,7 +262,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                     return Theme(
                                       data: Theme.of(context).copyWith(
                                         textSelectionTheme: TextSelectionThemeData(
-                                          selectionColor: Colors.white.withValues(alpha: 0.3),
+                                          selectionColor: t.textPrimary.withValues(alpha: 0.3),
                                           selectionHandleColor: Colors.blue,
                                         ),
                                       ),
@@ -391,8 +392,8 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                         width: 60,
                                         height: 60,
                                         decoration: BoxDecoration(
-                                          color: Colors.grey[800],
-                                          borderRadius: BorderRadius.circular(16),
+                                          color: t.textTertiary,
+                                          borderRadius: BorderRadius.circular(t.cardRadius),
                                           image: provider.selectedFileTypes[idx] == 'image'
                                               ? DecorationImage(
                                                   image: FileImage(provider.selectedFiles[idx]),
@@ -404,23 +405,24 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                           children: [
                                             // File icon for non-images
                                             if (provider.selectedFileTypes[idx] != 'image')
-                                              const Center(
-                                                child: Icon(Icons.insert_drive_file, color: Colors.white, size: 24),
+                                              Center(
+                                                child: Icon(Icons.insert_drive_file, color: t.textPrimary, size: 24),
                                               ),
                                             // Loading indicator
                                             if (provider.isFileUploading(provider.selectedFiles[idx].path))
                                               Container(
                                                 decoration: BoxDecoration(
-                                                  color: Colors.black.withValues(alpha: 0.5),
-                                                  borderRadius: BorderRadius.circular(16),
+                                                  color: t.bgPrimary.withValues(alpha: 0.5),
+                                                  borderRadius: BorderRadius.circular(t.cardRadius),
                                                 ),
-                                                child: const Center(
+                                                child: Center(
                                                   child: SizedBox(
                                                     width: 16,
                                                     height: 16,
                                                     child: CircularProgressIndicator(
                                                       strokeWidth: 2,
-                                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                                          t.textPrimary.withValues(alpha: 0.7)),
                                                     ),
                                                   ),
                                                 ),
@@ -438,13 +440,13 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                   height: 16,
                                                   alignment: Alignment.center,
                                                   decoration: BoxDecoration(
-                                                    color: Colors.white,
+                                                    color: t.textPrimary,
                                                     borderRadius: BorderRadius.circular(10),
                                                   ),
-                                                  child: const FaIcon(
+                                                  child: FaIcon(
                                                     FontAwesomeIcons.xmark,
                                                     size: 10,
-                                                    color: Colors.black,
+                                                    color: t.bgPrimary,
                                                   ),
                                                 ),
                                               ),
@@ -495,28 +497,34 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                         child: Container(
                                           padding: const EdgeInsets.only(left: 14, right: 8, top: 7, bottom: 7),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF1F1F25),
+                                            color: t.bgSecondary,
                                             borderRadius: BorderRadius.circular(32),
-                                            border: Border.all(color: const Color(0xFF35343B), width: 1),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.65),
-                                                blurRadius: 60,
-                                                spreadRadius: 14,
-                                                offset: const Offset(0, -16),
-                                              ),
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.45),
-                                                blurRadius: 32,
-                                                spreadRadius: 6,
-                                                offset: const Offset(0, -8),
-                                              ),
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.25),
-                                                blurRadius: 10,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
+                                            border: Border.all(color: t.bgTertiary, width: 1),
+                                            // Glass allows a single ambient shadow; Classic keeps its three-layer lift.
+                                            boxShadow: t.isGlass
+                                                ? const [
+                                                    BoxShadow(
+                                                        color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, -2))
+                                                  ]
+                                                : [
+                                                    BoxShadow(
+                                                      color: t.bgPrimary.withValues(alpha: 0.65),
+                                                      blurRadius: 60,
+                                                      spreadRadius: 14,
+                                                      offset: const Offset(0, -16),
+                                                    ),
+                                                    BoxShadow(
+                                                      color: t.bgPrimary.withValues(alpha: 0.45),
+                                                      blurRadius: 32,
+                                                      spreadRadius: 6,
+                                                      offset: const Offset(0, -8),
+                                                    ),
+                                                    BoxShadow(
+                                                      color: t.bgPrimary.withValues(alpha: 0.25),
+                                                      blurRadius: 10,
+                                                      offset: const Offset(0, 2),
+                                                    ),
+                                                  ],
                                           ),
                                           child: Row(
                                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -531,8 +539,8 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                         padding: const EdgeInsets.only(bottom: 4, top: 4, left: 2),
                                                         child: Container(
                                                           decoration: BoxDecoration(
-                                                            color: const Color(0xFF1f1f25),
-                                                            borderRadius: BorderRadius.circular(16),
+                                                            color: t.bgSecondary,
+                                                            borderRadius: BorderRadius.circular(t.cardRadius),
                                                           ),
                                                           padding: const EdgeInsets.symmetric(
                                                             horizontal: 12,
@@ -600,8 +608,8 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                         : Theme(
                                                             data: Theme.of(context).copyWith(
                                                               textSelectionTheme: TextSelectionThemeData(
-                                                                selectionColor: Colors.grey.withValues(alpha: 0.4),
-                                                                selectionHandleColor: Colors.white,
+                                                                selectionColor: t.textSecondary.withValues(alpha: 0.4),
+                                                                selectionHandleColor: t.textPrimary,
                                                               ),
                                                             ),
                                                             child: TextField(
@@ -616,9 +624,9 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                               textAlignVertical: const TextAlignVertical(y: -0.35),
                                                               decoration: InputDecoration(
                                                                 hintText: context.l10n.askAnything,
-                                                                hintStyle: const TextStyle(
+                                                                hintStyle: TextStyle(
                                                                   fontSize: 16.0,
-                                                                  color: Colors.grey,
+                                                                  color: t.textSecondary,
                                                                 ),
                                                                 focusedBorder: InputBorder.none,
                                                                 enabledBorder: InputBorder.none,
@@ -632,9 +640,9 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                               maxLines: 10,
                                                               keyboardType: TextInputType.multiline,
                                                               textCapitalization: TextCapitalization.sentences,
-                                                              style: const TextStyle(
+                                                              style: TextStyle(
                                                                 fontSize: 16.0,
-                                                                color: Colors.white,
+                                                                color: t.textPrimary,
                                                                 height: 1.2,
                                                               ),
                                                             ),
@@ -659,8 +667,8 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                     width: 38,
                                                     decoration: BoxDecoration(
                                                       color: voiceRecorderProvider.state == VoiceRecorderState.recording
-                                                          ? Colors.white
-                                                          : const Color(0xFF4A4A4F),
+                                                          ? t.textPrimary
+                                                          : t.divider,
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Center(
@@ -668,8 +676,8 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                         FontAwesomeIcons.arrowUp,
                                                         color:
                                                             voiceRecorderProvider.state == VoiceRecorderState.recording
-                                                                ? const Color(0xFF1f1f25)
-                                                                : Colors.grey.shade400,
+                                                                ? t.bgSecondary
+                                                                : t.textSecondary,
                                                         size: 16,
                                                       ),
                                                     ),
@@ -688,14 +696,14 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                   child: Container(
                                                     height: 38,
                                                     width: 38,
-                                                    decoration: const BoxDecoration(
-                                                      color: Colors.white,
+                                                    decoration: BoxDecoration(
+                                                      color: t.textPrimary,
                                                       shape: BoxShape.circle,
                                                     ),
-                                                    child: const Center(
+                                                    child: Center(
                                                       child: FaIcon(
                                                         FontAwesomeIcons.microphone,
-                                                        color: Color(0xFF1f1f25),
+                                                        color: t.bgSecondary,
                                                         size: 16,
                                                       ),
                                                     ),
@@ -726,14 +734,14 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                       child: Container(
                                                         height: 38,
                                                         width: 38,
-                                                        decoration: const BoxDecoration(
-                                                          color: Colors.white,
+                                                        decoration: BoxDecoration(
+                                                          color: t.textPrimary,
                                                           shape: BoxShape.circle,
                                                         ),
-                                                        child: const Center(
+                                                        child: Center(
                                                           child: FaIcon(
                                                             FontAwesomeIcons.arrowUp,
-                                                            color: Color(0xFF1f1f25),
+                                                            color: t.bgSecondary,
                                                             size: 16,
                                                           ),
                                                         ),
@@ -765,30 +773,38 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                             height: 48,
                                             width: 48,
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFF1F1F25),
+                                              color: t.bgSecondary,
                                               shape: BoxShape.circle,
-                                              border: Border.all(color: const Color(0xFF35343B), width: 1),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black.withValues(alpha: 0.65),
-                                                  blurRadius: 60,
-                                                  spreadRadius: 14,
-                                                  offset: const Offset(0, -16),
-                                                ),
-                                                BoxShadow(
-                                                  color: Colors.black.withValues(alpha: 0.45),
-                                                  blurRadius: 32,
-                                                  spreadRadius: 6,
-                                                  offset: const Offset(0, -8),
-                                                ),
-                                                BoxShadow(
-                                                  color: Colors.black.withValues(alpha: 0.25),
-                                                  blurRadius: 10,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
+                                              border: Border.all(color: t.bgTertiary, width: 1),
+                                              // Glass allows a single ambient shadow; Classic keeps its three-layer lift.
+                                              boxShadow: t.isGlass
+                                                  ? const [
+                                                      BoxShadow(
+                                                          color: Color(0x1A000000),
+                                                          blurRadius: 8,
+                                                          offset: Offset(0, -2))
+                                                    ]
+                                                  : [
+                                                      BoxShadow(
+                                                        color: t.bgPrimary.withValues(alpha: 0.65),
+                                                        blurRadius: 60,
+                                                        spreadRadius: 14,
+                                                        offset: const Offset(0, -16),
+                                                      ),
+                                                      BoxShadow(
+                                                        color: t.bgPrimary.withValues(alpha: 0.45),
+                                                        blurRadius: 32,
+                                                        spreadRadius: 6,
+                                                        offset: const Offset(0, -8),
+                                                      ),
+                                                      BoxShadow(
+                                                        color: t.bgPrimary.withValues(alpha: 0.25),
+                                                        blurRadius: 10,
+                                                        offset: const Offset(0, 2),
+                                                      ),
+                                                    ],
                                             ),
-                                            child: const Center(child: Icon(Icons.stop, color: Colors.white, size: 18)),
+                                            child: Center(child: Icon(Icons.stop, color: t.textPrimary, size: 18)),
                                           ),
                                         ),
                                       ),
@@ -856,33 +872,43 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                               height: 48,
                                               width: 48,
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFF1F1F25),
+                                                color: t.bgSecondary,
                                                 shape: BoxShape.circle,
-                                                border: Border.all(color: const Color(0xFF35343B), width: 1),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.65),
-                                                    blurRadius: 60,
-                                                    spreadRadius: 14,
-                                                    offset: const Offset(0, -16),
-                                                  ),
-                                                  BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.45),
-                                                    blurRadius: 32,
-                                                    spreadRadius: 6,
-                                                    offset: const Offset(0, -8),
-                                                  ),
-                                                  BoxShadow(
-                                                    color: Colors.black.withValues(alpha: 0.25),
-                                                    blurRadius: 10,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ],
+                                                border: Border.all(color: t.bgTertiary, width: 1),
+                                                // Glass allows a single ambient shadow; Classic keeps its three-layer lift.
+                                                boxShadow: t.isGlass
+                                                    ? const [
+                                                        BoxShadow(
+                                                            color: Color(0x1A000000),
+                                                            blurRadius: 8,
+                                                            offset: Offset(0, -2))
+                                                      ]
+                                                    : [
+                                                        BoxShadow(
+                                                          color: t.bgPrimary.withValues(alpha: 0.65),
+                                                          blurRadius: 60,
+                                                          spreadRadius: 14,
+                                                          offset: const Offset(0, -16),
+                                                        ),
+                                                        BoxShadow(
+                                                          color: t.bgPrimary.withValues(alpha: 0.45),
+                                                          blurRadius: 32,
+                                                          spreadRadius: 6,
+                                                          offset: const Offset(0, -8),
+                                                        ),
+                                                        BoxShadow(
+                                                          color: t.bgPrimary.withValues(alpha: 0.25),
+                                                          blurRadius: 10,
+                                                          offset: const Offset(0, 2),
+                                                        ),
+                                                      ],
                                               ),
                                               child: Center(
                                                 child: FaIcon(
                                                   FontAwesomeIcons.plus,
-                                                  color: provider.selectedFiles.length > 3 ? Colors.grey : Colors.white,
+                                                  color: provider.selectedFiles.length > 3
+                                                      ? t.textSecondary
+                                                      : t.textPrimary,
                                                   size: 18,
                                                 ),
                                               ),
@@ -1034,6 +1060,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _buildJumpToLatestButton() {
+    final t = context.omi;
     return Positioned(
       left: 0,
       right: 0,
@@ -1052,13 +1079,14 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1F1F25).withValues(alpha: 0.95),
+                    color: t.bgSecondary.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1),
+                    border: Border.all(color: t.rowFillHover, width: 1),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.28),
-                        blurRadius: 12,
+                        // Glass uses the ambient shadow; Classic keeps its black drop.
+                        color: t.isGlass ? const Color(0x1A000000) : t.bgPrimary.withValues(alpha: 0.28),
+                        blurRadius: t.isGlass ? 8 : 12,
                         offset: const Offset(0, 4),
                       ),
                     ],
@@ -1066,11 +1094,11 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 22),
+                      Icon(Icons.keyboard_arrow_down_rounded, color: t.textPrimary, size: 22),
                       const SizedBox(width: 6),
                       Text(
                         context.l10n.latest,
-                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: t.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -1273,6 +1301,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context, MessageProvider provider) {
+    final t = context.omi;
     return AppBar(
       backgroundColor: Theme.of(context).colorScheme.surface,
       elevation: 0,
@@ -1280,10 +1309,10 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
         width: 36,
         height: 36,
         margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
+        decoration: BoxDecoration(color: t.textSecondary.withValues(alpha: 0.3), shape: BoxShape.circle),
         child: IconButton(
           padding: EdgeInsets.zero,
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+          icon: Icon(Icons.arrow_back_ios_new, color: t.textPrimary, size: 18),
           onPressed: () {
             HapticFeedback.mediumImpact();
             Navigator.of(context).pop();
@@ -1301,10 +1330,10 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
           width: 36,
           height: 36,
           margin: const EdgeInsets.only(right: 8),
-          decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
+          decoration: BoxDecoration(color: t.textSecondary.withValues(alpha: 0.3), shape: BoxShape.circle),
           child: IconButton(
             padding: EdgeInsets.zero,
-            icon: const Icon(Icons.extension, color: Colors.white, size: 18),
+            icon: Icon(Icons.extension, color: t.textPrimary, size: 18),
             onPressed: () {
               HapticFeedback.mediumImpact();
               // Dismiss keyboard before opening drawer
@@ -1323,9 +1352,9 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
               child: Container(
                 width: double.infinity,
                 height: 32,
-                color: Colors.green,
+                color: t.success,
                 child: Center(
-                  child: Text(context.l10n.syncingMessages, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  child: Text(context.l10n.syncingMessages, style: TextStyle(color: t.textPrimary, fontSize: 12)),
                 ),
               ),
             )
@@ -1334,6 +1363,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _buildSelectedAppDisplay(BuildContext context, AppProvider provider) {
+    final t = context.omi;
     final messageProvider = Provider.of<MessageProvider>(context, listen: false);
     var selectedApp = messageProvider.chatApps.firstWhereOrNull((app) => app.id == provider.selectedChatAppId);
 
@@ -1348,7 +1378,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
           constraints: const BoxConstraints(maxWidth: 140),
           child: Text(
             selectedApp != null ? selectedApp.getName() : context.l10n.omiAppName,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: t.textPrimary, fontSize: 16),
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -1357,8 +1387,9 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _buildChatAppsEndDrawer(BuildContext context) {
+    final t = context.omi;
     return Drawer(
-      backgroundColor: const Color(0xFF1F1F25),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(topLeft: Radius.circular(20), bottomLeft: Radius.circular(20)),
       ),
@@ -1380,52 +1411,54 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                     children: [
                       Text(
                         context.l10n.chatAppsTitle,
-                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
                       ),
                       IconButton(
-                        icon: const Padding(
-                          padding: EdgeInsets.only(left: 2, top: 1),
-                          child: FaIcon(FontAwesomeIcons.xmark, color: Colors.white60, size: 18),
+                        icon: Padding(
+                          padding: const EdgeInsets.only(left: 2, top: 1),
+                          child: FaIcon(FontAwesomeIcons.xmark, color: t.textPrimary.withValues(alpha: 0.6), size: 18),
                         ),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
                   ),
                 ),
-                const Divider(color: Colors.white12, height: 1),
+                Divider(color: t.textPrimary.withValues(alpha: 0.12), height: 1),
                 // Actions
                 ListTile(
-                  leading: const Padding(
-                    padding: EdgeInsets.only(left: 2, top: 1),
-                    child: FaIcon(FontAwesomeIcons.solidTrashCan, color: Colors.redAccent, size: 20),
+                  leading: Padding(
+                    padding: const EdgeInsets.only(left: 2, top: 1),
+                    child: FaIcon(FontAwesomeIcons.solidTrashCan, color: t.error, size: 20),
                   ),
-                  title: Text(context.l10n.clearChat, style: const TextStyle(color: Colors.redAccent, fontSize: 16)),
+                  title: Text(context.l10n.clearChat, style: TextStyle(color: t.error, fontSize: 16)),
                   onTap: () {
                     Navigator.of(context).pop();
                     _handleAppSelection('clear_chat', appProvider);
                   },
                 ),
                 ListTile(
-                  leading: const Padding(
-                    padding: EdgeInsets.only(left: 2, top: 1),
-                    child: FaIcon(FontAwesomeIcons.circlePlus, color: Colors.white, size: 20),
+                  leading: Padding(
+                    padding: const EdgeInsets.only(left: 2, top: 1),
+                    child: FaIcon(FontAwesomeIcons.circlePlus, color: t.textPrimary, size: 20),
                   ),
-                  title: Text(context.l10n.enableApps, style: const TextStyle(color: Colors.white, fontSize: 16)),
-                  trailing: const Padding(
-                    padding: EdgeInsets.only(left: 2, top: 1),
-                    child: FaIcon(FontAwesomeIcons.chevronRight, color: Colors.white38, size: 14),
+                  title: Text(context.l10n.enableApps, style: TextStyle(color: t.textPrimary, fontSize: 16)),
+                  trailing: Padding(
+                    padding: const EdgeInsets.only(left: 2, top: 1),
+                    child:
+                        FaIcon(FontAwesomeIcons.chevronRight, color: t.textPrimary.withValues(alpha: 0.38), size: 14),
                   ),
                   onTap: () {
                     Navigator.of(context).pop();
                     _navigateToChatAppsPage();
                   },
                 ),
-                const Divider(color: Colors.white12, height: 1),
+                Divider(color: t.textPrimary.withValues(alpha: 0.12), height: 1),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 20, 8),
                   child: Text(
                     context.l10n.selectApp,
-                    style: const TextStyle(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                        color: t.textPrimary.withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.w500),
                   ),
                 ),
                 // App list
@@ -1464,7 +1497,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                           padding: const EdgeInsets.all(20),
                           child: Text(
                             context.l10n.noChatAppsEnabled,
-                            style: const TextStyle(color: Colors.white38, fontSize: 14),
+                            style: TextStyle(color: t.textPrimary.withValues(alpha: 0.38), fontSize: 14),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -1487,6 +1520,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
     String? appId,
     VoidCallback? onConfirmDelete,
   }) {
+    final t = context.omi;
     final bool isPendingDelete = appId != null && _pendingDeleteAppId == appId;
 
     if (isPendingDelete) {
@@ -1501,7 +1535,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
             Expanded(
               child: Text(
                 name,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+                style: TextStyle(color: t.textPrimary, fontSize: 16),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1515,10 +1549,10 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(color: t.textPrimary, borderRadius: BorderRadius.circular(t.cardRadius)),
                 child: Text(
                   context.l10n.cancel,
-                  style: const TextStyle(color: Colors.black, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.bgPrimary, fontSize: 13, fontWeight: FontWeight.w500),
                 ),
               ),
             ),
@@ -1533,10 +1567,10 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(color: t.error, borderRadius: BorderRadius.circular(t.cardRadius)),
                 child: Text(
                   context.l10n.disable,
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
                 ),
               ),
             ),
@@ -1549,13 +1583,13 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
       leading: avatar,
       title: Text(
         name,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
+        style: TextStyle(color: t.textPrimary, fontSize: 16),
         overflow: TextOverflow.ellipsis,
       ),
       trailing: isSelected
-          ? const Padding(
-              padding: EdgeInsets.only(left: 2, top: 1),
-              child: FaIcon(FontAwesomeIcons.solidCircleCheck, color: Colors.white, size: 18),
+          ? Padding(
+              padding: const EdgeInsets.only(left: 2, top: 1),
+              child: FaIcon(FontAwesomeIcons.solidCircleCheck, color: t.textPrimary, size: 18),
             )
           : appId != null && onConfirmDelete != null
               ? GestureDetector(
@@ -1564,33 +1598,35 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                       _pendingDeleteAppId = appId;
                     });
                   },
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: 2, top: 1),
-                    child: FaIcon(FontAwesomeIcons.solidTrashCan, color: Colors.white38, size: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 2, top: 1),
+                    child:
+                        FaIcon(FontAwesomeIcons.solidTrashCan, color: t.textPrimary.withValues(alpha: 0.38), size: 16),
                   ),
                 )
               : null,
       selected: isSelected,
-      selectedTileColor: Colors.white.withValues(alpha: 0.1),
+      selectedTileColor: t.rowFillHover,
       onTap: onTap,
     );
   }
 
   Widget _getAppAvatar(App app) {
+    final t = context.omi;
     return CachedNetworkImage(
       imageUrl: app.getImageUrl(),
       imageBuilder: (context, imageProvider) {
-        return CircleAvatar(backgroundColor: Colors.white, radius: 12, backgroundImage: imageProvider);
+        return CircleAvatar(backgroundColor: t.textPrimary, radius: 12, backgroundImage: imageProvider);
       },
       errorWidget: (context, url, error) {
-        return const CircleAvatar(backgroundColor: Colors.white, radius: 12, child: Icon(Icons.error_outline_rounded));
+        return CircleAvatar(backgroundColor: t.textPrimary, radius: 12, child: const Icon(Icons.error_outline_rounded));
       },
       progressIndicatorBuilder: (context, url, progress) => CircleAvatar(
-        backgroundColor: Colors.white,
+        backgroundColor: t.textPrimary,
         radius: 12,
         child: CircularProgressIndicator(
           value: progress.progress,
-          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
         ),
       ),
     );

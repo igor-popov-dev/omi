@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class TypingIndicator extends StatefulWidget {
   const TypingIndicator({super.key});
@@ -17,6 +18,7 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
 
   @override
   void initState() {
+    final t = context.omi;
     super.initState();
     _controller = AnimationController(duration: const Duration(milliseconds: 600), vsync: this)..repeat(reverse: true);
 
@@ -42,8 +44,8 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _colorAnimation = ColorTween(
-      begin: Colors.grey[400],
-      end: Colors.grey[600],
+      begin: t.textSecondary,
+      end: t.textTertiary,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
