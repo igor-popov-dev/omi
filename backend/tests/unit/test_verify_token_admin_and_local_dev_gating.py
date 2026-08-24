@@ -202,3 +202,32 @@ def test_local_development_flag_off_raises_regardless_of_credentials(monkeypatch
 
     with pytest.raises(InvalidIdTokenError):
         verify_token('any-invalid-token')
+
+
+# ---------------------------------------------------------------------------
+# Clock skew tolerance on the Firebase ID token
+# ---------------------------------------------------------------------------
+
+
+def test_id_token_verification_allows_a_small_clock_skew(monkeypatch):
+    """A token whose `iat` is a second ahead of this server's clock is a normal
+    occurrence, not an attack: it is minted by Google against Google's clock
+    and checked here against ours. With the library default (0) it produced a
+    live 401 on `/v2/realtime/session` — "Token used too early, N < N+1" — on a
+    host whose own drift was 0.11s. The voice mode simply refused to start.
+    """
+    import firebase_admin.auth as firebase_auth
+    import utils.other.endpoints as endpoints
+
+    _clear_admin_env(monkeypatch)
+    _clear_local_dev_env(monkeypatch)
+
+    previous = firebase_auth.verify_id_token
+    firebase_auth.verify_id_token = MagicMock(return_value={'uid': 'real-uid'})
+    try:
+        assert verify_token('a-real-looking-firebase-token') == 'real-uid'
+        _, kwargs = firebase_auth.verify_id_token.call_args
+        assert kwargs['clock_skew_seconds'] == endpoints.ID_TOKEN_CLOCK_SKEW_SECONDS
+        assert kwargs['clock_skew_seconds'] > 0
+    finally:
+        firebase_auth.verify_id_token = previous
