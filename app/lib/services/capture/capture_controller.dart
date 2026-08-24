@@ -1108,7 +1108,23 @@ class CaptureController extends ChangeNotifier
       _voiceSessionStartedByLegacyLongPress = false; // New toggle mode
       _startVoiceCommandTimeout(deviceId);
       _playSpeakerHaptic(deviceId, 1);
-      if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null) {
+      // NOT while the free-form voice mode is running. The two paths own
+      // SEPARATE `HubController`s (see `hubTurnDriver`/`freeFormVoiceMode`
+      // above), so starting a hub turn here would open a SECOND Gemini Live
+      // socket on top of the conversation already in progress. Measured
+      // 24.08 (`marathon/probes/lane5-concurrent-sockets.py`, and first seen
+      // as an accident that killed a running measurement): a second socket on
+      // the same key makes the server close the OLDER one with 1011
+      // "Resource has been exhausted" — i.e. the tap would hang up the very
+      // conversation the user is having. Even where both survive, it is two
+      // microphones and two brains hearing the same room, billed twice.
+      //
+      // The tap is not swallowed: the legacy voice-command session above
+      // still starts, exactly as it does when the hub route is off. Only the
+      // second socket is withheld. `end()` below stays unconditional — a turn
+      // begun BEFORE the mode was switched on must still be closed, and
+      // `VoiceHubTurnDriver.end()` is a no-op with no turn in flight.
+      if (SharedPreferencesUtil().pttHubEnabled && hubTurnDriver != null && !freeFormModeActive.value) {
         hubTurnDriver!.begin();
       }
     } else if (!_voiceSessionStartedByLegacyLongPress) {

@@ -215,6 +215,41 @@ void main() {
     expect(driver.endCalls, 1);
   });
 
+  test('free-form mode running: a tap must NOT open a second hub socket', () {
+    // Regression, measured 24.08: the two voice paths own separate
+    // `HubController`s, and a second Gemini Live socket on the same key gets
+    // the OLDER one closed with 1011 "Resource has been exhausted" — the tap
+    // would hang up the conversation in progress. See the comment at the
+    // `begin()` call site.
+    SharedPreferencesUtil().pttHubEnabled = true;
+    final provider = CaptureProvider();
+    final driver = _CountingHubTurnDriver();
+    provider.hubTurnDriver = driver;
+    provider.freeFormModeActive.value = true;
+
+    provider.handleSingleTapButtonEvent('device-1'); // start
+    expect(driver.beginCalls, 0, reason: 'второй сокет поверх идущего разговора не поднимаем');
+
+    provider.handleSingleTapButtonEvent('device-1'); // end
+    expect(driver.beginCalls, 0);
+  });
+
+  test('free-form mode switched on mid-turn: end() still closes the turn the tap began', () {
+    // The gate is on `begin()` only. A turn started before the mode came up
+    // must still be closed, or it would sit in the driver forever.
+    SharedPreferencesUtil().pttHubEnabled = true;
+    final provider = CaptureProvider();
+    final driver = _CountingHubTurnDriver();
+    provider.hubTurnDriver = driver;
+
+    provider.handleSingleTapButtonEvent('device-1'); // start — mode still off
+    expect(driver.beginCalls, 1);
+
+    provider.freeFormModeActive.value = true;
+    provider.handleSingleTapButtonEvent('device-1'); // end
+    expect(driver.endCalls, 1, reason: 'начатый ход обязан закрыться, гейт только на begin()');
+  });
+
   group('FreeFormVoiceMode wiring (startFreeFormVoiceMode/stopFreeFormVoiceMode)', () {
     late _FakeHubSession session;
     late HubController hub;
