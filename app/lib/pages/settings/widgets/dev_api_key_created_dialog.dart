@@ -54,12 +54,15 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF10B981).withValues(alpha: 0.2),
-                        const Color(0xFF10B981).withValues(alpha: 0.05),
-                      ],
-                    ),
+                    color: t.isGlass ? t.success.withValues(alpha: 0.12) : null,
+                    gradient: t.isGlass
+                        ? null
+                        : LinearGradient(
+                            colors: [
+                              const Color(0xFF10B981).withValues(alpha: 0.2),
+                              const Color(0xFF10B981).withValues(alpha: 0.05),
+                            ],
+                          ),
                     shape: BoxShape.circle,
                   ),
                   child: OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 40),

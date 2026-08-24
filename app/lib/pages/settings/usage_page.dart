@@ -1085,11 +1085,14 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2A2A2E), Color(0xFF1F1F25)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: t.isGlass ? t.bgSecondary : null,
+        gradient: t.isGlass
+            ? null
+            : const LinearGradient(
+                colors: [Color(0xFF2A2A2E), Color(0xFF1F1F25)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: t.rowFillHover),
         boxShadow: [
@@ -1150,11 +1153,14 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
     final numberFormatter = NumberFormat.decimalPattern('en_US');
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2A2A2E), Color(0xFF1F1F25)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: t.isGlass ? t.bgSecondary : null,
+        gradient: t.isGlass
+            ? null
+            : const LinearGradient(
+                colors: [Color(0xFF2A2A2E), Color(0xFF1F1F25)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: t.rowFillHover),
         boxShadow: [

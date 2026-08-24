@@ -634,17 +634,20 @@ class _PlansSheetState extends State<PlansSheet> {
 
             return Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.deepPurple.withValues(alpha: 0.5),
-                    Colors.deepPurple.withValues(alpha: 0.3),
-                    Colors.black.withValues(alpha: 0.8),
-                    Colors.black,
-                  ],
-                  stops: const [0.0, 0.2, 0.6, 1.0],
-                ),
+                color: t.isGlass ? t.bgSecondary : null,
+                gradient: t.isGlass
+                    ? null
+                    : LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.deepPurple.withValues(alpha: 0.5),
+                          Colors.deepPurple.withValues(alpha: 0.3),
+                          Colors.black.withValues(alpha: 0.8),
+                          Colors.black,
+                        ],
+                        stops: const [0.0, 0.2, 0.6, 1.0],
+                      ),
                 borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
               ),
               child: ListView(

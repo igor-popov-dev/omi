@@ -290,7 +290,9 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                          color: t.isGlass ? t.accent : null,
+                          gradient:
+                              t.isGlass ? null : const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: OmiIconWidget(icon: OmiIcon.key, color: t.textPrimary, size: 22),

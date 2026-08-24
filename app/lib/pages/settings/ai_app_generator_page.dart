@@ -672,7 +672,8 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)]),
+                      color: t.isGlass ? t.warning : null,
+                      gradient: t.isGlass ? null : const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)]),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

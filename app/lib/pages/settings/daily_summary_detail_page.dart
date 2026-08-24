@@ -433,15 +433,18 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
       ],
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF2D1F5B), // Deep purple at top
-                Color(0xFF000000), // Almost black at bottom
-              ],
-            ),
+          decoration: BoxDecoration(
+            color: t.isGlass ? t.bgSecondary : null,
+            gradient: t.isGlass
+                ? null
+                : const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF2D1F5B), // Deep purple at top
+                      Color(0xFF000000), // Almost black at bottom
+                    ],
+                  ),
           ),
           child: SafeArea(
             bottom: false,

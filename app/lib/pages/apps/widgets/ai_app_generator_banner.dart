@@ -27,11 +27,17 @@ class AiAppGeneratorBanner extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [const Color(0xFF6366F1).withValues(alpha: 0.3), const Color(0xFF4F46E5).withValues(alpha: 0.3)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: t.isGlass ? t.accent.withValues(alpha: 0.08) : null,
+          gradient: t.isGlass
+              ? null
+              : LinearGradient(
+                  colors: [
+                    const Color(0xFF6366F1).withValues(alpha: 0.3),
+                    const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
           borderRadius: BorderRadius.circular(18.0),
           border: Border.all(color: t.accent.withValues(alpha: 0.3), width: 1),
         ),
@@ -42,7 +48,8 @@ class AiAppGeneratorBanner extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+                color: t.isGlass ? t.accent : null,
+                gradient: t.isGlass ? null : const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(child: FaIcon(FontAwesomeIcons.wandMagicSparkles, color: t.textPrimary, size: 16)),
@@ -62,7 +69,8 @@ class AiAppGeneratorBanner extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)]),
+                color: t.isGlass ? t.warning : null,
+                gradient: t.isGlass ? null : const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)]),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(

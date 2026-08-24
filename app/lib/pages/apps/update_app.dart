@@ -462,7 +462,9 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                       borderRadius: BorderRadius.circular(12.0),
                       color: t.bgSecondary,
                       gradient: LinearGradient(
-                        colors: [Colors.black, Colors.black.withValues(alpha: 0)],
+                        colors: t.isGlass
+                            ? [t.bgSecondary, t.bgSecondary.withValues(alpha: 0)]
+                            : [Colors.black, Colors.black.withValues(alpha: 0)],
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                       ),
