@@ -156,6 +156,31 @@ class _FakeHubCapture implements HubPttCapture {
   void dispose() => disposeCalls += 1;
 }
 
+/// Ручные часы для теста тишины: настоящий таймер в этой группе не заводится
+/// намеренно (см. `resolveIdleTimeout: () => null` в `buildMode`).
+class _FakeClock implements HubClock {
+  final Map<int, void Function()> _timers = {};
+  int _seq = 0;
+
+  @override
+  Object setTimer(Duration duration, void Function() fire) {
+    final id = ++_seq;
+    _timers[id] = fire;
+    return id;
+  }
+
+  @override
+  void clearTimer(Object handle) => _timers.remove(handle);
+
+  void fire() {
+    final pending = List<void Function()>.from(_timers.values);
+    _timers.clear();
+    for (final f in pending) {
+      f();
+    }
+  }
+}
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -265,7 +290,7 @@ void main() {
     Object? captureError;
     int idleTimeoutCalls = 0;
 
-    FreeFormVoiceMode buildMode() {
+    FreeFormVoiceMode buildMode({HubClock? clock, Duration? Function()? idleTimeout, void Function()? onIdle}) {
       hub = HubController(
         buildInstructions: () => 'INSTRUCTIONS',
         mintToken: () async => 'ek_token',
@@ -283,11 +308,12 @@ void main() {
           return capture;
         },
         mintTurnId: () => 'turn-1',
-        // No idle-timeout test in this group exercises real time — kept
-        // off (null) so a stray timer never fires against a disposed
-        // provider between tests.
-        resolveIdleTimeout: () => null,
-        onIdleTimeout: () => idleTimeoutCalls += 1,
+        clock: clock,
+        // Off (null) by default so a stray real timer never fires against a
+        // disposed provider between tests; the one test that DOES exercise
+        // the silence timeout passes both a duration and hand-wound [clock].
+        resolveIdleTimeout: idleTimeout ?? () => null,
+        onIdleTimeout: onIdle ?? () => idleTimeoutCalls += 1,
       );
     }
 
@@ -465,6 +491,38 @@ void main() {
       // cannot restart either, so it stops the mode cleanly.
       expect(provider.freeFormModeActive.value, isFalse);
       expect(provider.hubProjection.value, idleVoiceTurnProjection);
+    });
+
+    test('silence auto-off: a socket that dies afterwards must NOT turn the mic back on', () async {
+      // The silence timeout exists to stop paying for an abandoned session
+      // (~$0.002 per minute of speech in). It cuts the mic but deliberately
+      // LEAVES THE SOCKET OPEN, so coming back picks the conversation up —
+      // which means the two paths that rebuild a dying socket run while
+      // nobody is there. Both are gated on `freeFormModeActive`, and this
+      // test is what keeps them gated: without it a later refactor could
+      // reconnect an abandoned session and stream the mic until the battery
+      // ran out, with the button reading "off" the whole time.
+      final provider = CaptureProvider();
+      final clock = _FakeClock();
+      provider.freeFormVoiceMode = buildMode(
+        clock: clock,
+        idleTimeout: () => const Duration(minutes: 3),
+        // Exactly `main.dart`'s wiring, which is what makes the gates shut.
+        onIdle: provider.resetFreeFormVoiceModeUi,
+      );
+      await provider.startFreeFormVoiceMode();
+      expect(captureCalls, 1);
+
+      clock.fire(); // три минуты тишины
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(capture.disposeCalls, 1, reason: 'микрофон отпущен, а не только погашен UI');
+
+      await provider.recoverFreeFormVoiceMode(StateError('socket dropped'));
+      await provider.rebuildFreeFormVoiceModeSocket();
+
+      expect(captureCalls, 1, reason: 'без человека микрофон не оживает — платим за поток');
+      expect(provider.freeFormModeActive.value, isFalse);
     });
 
     test('resetFreeFormVoiceModeUi: resets UI state without calling stop() on the mode', () async {
