@@ -845,16 +845,26 @@ class HubController {
   /// error strings in `ask_claude_tool.dart` are written the same way and
   /// were measured 24.08 not to leak into speech.
   ///
+  /// The "do NOT call it again" is not decoration — it is the whole
+  /// difference between speaking and re-asking. The wording was picked by
+  /// measurement (`marathon/probes/lane5-orphan-wording.py`, live Gemini
+  /// 24.08): handed the answer WITHOUT that clause, the model said
+  /// "секунду, уточню" and called `ask_claude` a second time — another 7-40s
+  /// of waiting and another charge against the subscription for an answer
+  /// already in hand. With it, both a Russian and an English phrasing had it
+  /// relay the answer, no second call.
+  ///
   /// With no socket at all (the gap between teardown and the replacement),
   /// the result waits for the next connect rather than being dropped.
   void _deliverOrphanedToolResult(String name, String output) {
     final failed = output.startsWith('Error:');
     final text = failed
-        ? '(system) The $name lookup came back only after the connection was rebuilt, and it '
-            'failed: $output'
-        : '(system) The $name answer came back only after the connection was rebuilt, so the '
-            'original tool call is gone. Here is the answer — tell it to the user now, briefly, '
-            'in the language they were speaking: $output';
+        ? '(system) The $name lookup for the user\'s last question failed and no answer is '
+            'coming. Do NOT call $name again for it. Tell the user briefly that the lookup '
+            'failed, then answer from what you already know if you can. Details: $output'
+        : '(system) $name has ALREADY answered the user\'s last question and the answer is '
+            'below. Do NOT call $name again for it. Say this answer out loud to the user now, '
+            'briefly, in the language they were speaking: $output';
     final s = session;
     if (s != null) {
       s.sendUserText(text);

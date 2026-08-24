@@ -1446,7 +1446,10 @@ void main() {
       expect(h.session.toolResults, isEmpty, reason: 'сокет принял бы его и промолчал');
       expect(old.toolResults, isEmpty);
       expect(h.session.userTexts.single, contains('kadrio — это SaaS для найма'));
-      expect(h.session.userTexts.single, contains('tell it to the user'));
+      expect(h.session.userTexts.single, contains('Say this answer out loud'));
+      // The clause that keeps the model from asking the bridge all over
+      // again — measured, see `_deliverOrphanedToolResult`.
+      expect(h.session.userTexts.single, contains('Do NOT call ask_claude again'));
     });
 
     test('a failed lookup that arrives late is relayed as the failure it is', () async {
@@ -1461,7 +1464,8 @@ void main() {
 
       h.controller.sendToolResult('c1', 'ask_claude', 'Error: ask_claude did not answer within 60 seconds.');
       expect(h.session.userTexts.single, contains('failed'));
-      expect(h.session.userTexts.single, isNot(contains('tell it to the user')));
+      expect(h.session.userTexts.single, contains('Do NOT call ask_claude again'));
+      expect(h.session.userTexts.single, isNot(contains('Say this answer out loud')));
     });
 
     test('an answer that lands with no socket at all waits for the next one', () async {
