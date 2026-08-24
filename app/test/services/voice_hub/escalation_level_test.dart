@@ -5,6 +5,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/ask_claude_tool.dart';
+import 'package:omi/services/voice_hub/end_conversation_tool.dart';
 import 'package:omi/services/voice_hub/escalation_level.dart';
 
 void main() {
@@ -43,8 +44,10 @@ void main() {
   });
 
   group('geminiOnly (крайний левый)', () {
-    test('is enforced structurally: the session gets NO tools at all', () {
-      expect(hubToolsForLevel(ClaudeEscalationLevel.geminiOnly), isEmpty);
+    test('is enforced structurally: no ask_claude in the catalog (only end_conversation)', () {
+      final tools = hubToolsForLevel(ClaudeEscalationLevel.geminiOnly);
+      expect(tools.map((t) => t.name), isNot(contains(askClaudeToolName)));
+      expect(tools.map((t) => t.name), contains(endConversationToolName));
     });
 
     test('instructions never mention the tool the session does not have', () {
@@ -52,6 +55,15 @@ void main() {
       // его вслепую или вслух рассуждать о «другой модели».
       expect(hubInstructionsForLevel(ClaudeEscalationLevel.geminiOnly), isNot(contains('ask_claude')));
     });
+  });
+
+  test('every level can end the conversation: tool in catalog, rule in instructions', () {
+    // Умение закончить разговор — не эскалация (просьба Игоря 24.08): модель
+    // прощается вслух и сама выключает режим на любом положении ползунка.
+    for (final level in ClaudeEscalationLevel.values) {
+      expect(hubToolsForLevel(level).map((t) => t.name), contains(endConversationToolName), reason: '$level');
+      expect(hubInstructionsForLevel(level), contains('end_conversation'), reason: '$level');
+    }
   });
 
   group('уровни с инструментом', () {
@@ -62,14 +74,14 @@ void main() {
       ClaudeEscalationLevel.fullProxy,
     ];
 
-    test('catalog is exactly one ask_claude with the canonical parameter schema', () {
+    test('catalog carries one ask_claude with the canonical parameter schema (+ end_conversation)', () {
       for (final level in withTool) {
         final tools = hubToolsForLevel(level);
-        expect(tools, hasLength(1), reason: '$level');
-        expect(tools.single.name, askClaudeToolName, reason: '$level');
+        final askClaude = tools.where((t) => t.name == askClaudeToolName);
+        expect(askClaude, hasLength(1), reason: '$level');
         // Схема аргументов — общая: и setup-фрейм, и AskClaudeToolExecutor
         // договорились именно о ней; уровень меняет только description.
-        expect(tools.single.parameters, same(askClaudeToolDeclaration.parameters), reason: '$level');
+        expect(askClaude.single.parameters, same(askClaudeToolDeclaration.parameters), reason: '$level');
       }
     });
 
@@ -91,16 +103,18 @@ void main() {
         final instructions = hubInstructionsForLevel(level);
         expect(instructions, isNot(contains('FIRST say a short filler')), reason: '$level');
         expect(instructions, contains('chime'), reason: '$level');
-        final description = hubToolsForLevel(level).single.description;
+        final description = hubToolsForLevel(level).firstWhere((t) => t.name == askClaudeToolName).description;
         expect(description, contains('звуковой сигнал'), reason: '$level');
         expect(description, isNot(contains('СНАЧАЛА вслух')), reason: '$level');
       }
     });
 
     test('tool description policy escalates with the slider', () {
-      expect(hubToolsForLevel(ClaudeEscalationLevel.onRequest).single.description, contains('ТОЛЬКО по явной просьбе'));
-      expect(hubToolsForLevel(ClaudeEscalationLevel.aggressive).single.description, contains('ЛЮБОГО'));
-      expect(hubToolsForLevel(ClaudeEscalationLevel.fullProxy).single.description, contains('КАЖДУЮ'));
+      String askClaudeDescription(ClaudeEscalationLevel level) =>
+          hubToolsForLevel(level).firstWhere((t) => t.name == askClaudeToolName).description;
+      expect(askClaudeDescription(ClaudeEscalationLevel.onRequest), contains('ТОЛЬКО по явной просьбе'));
+      expect(askClaudeDescription(ClaudeEscalationLevel.aggressive), contains('ЛЮБОГО'));
+      expect(askClaudeDescription(ClaudeEscalationLevel.fullProxy), contains('КАЖДУЮ'));
     });
   });
 

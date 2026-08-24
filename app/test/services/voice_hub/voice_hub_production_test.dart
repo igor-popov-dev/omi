@@ -56,14 +56,14 @@ void main() {
   });
 
   group('fetchHubTools', () {
-    test('returns the ask_claude tool at the default escalation level', () async {
+    test('returns ask_claude (and end_conversation) at the default escalation level', () async {
       // С появлением ползунка (escalation_level.dart) description зависит от
       // уровня, поэтому сверяем имя и схему, а не идентичность декларации.
       // Дефолт (prefs не инициализированы) — balanced, инструмент есть.
       final tools = await fetchHubTools();
-      expect(tools, hasLength(1));
-      expect(tools.single.name, askClaudeToolDeclaration.name);
-      expect(tools.single.parameters, same(askClaudeToolDeclaration.parameters));
+      final askClaude = tools.where((t) => t.name == askClaudeToolDeclaration.name);
+      expect(askClaude, hasLength(1));
+      expect(askClaude.single.parameters, same(askClaudeToolDeclaration.parameters));
     });
   });
 }

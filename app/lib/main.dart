@@ -404,6 +404,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 chatLog: capture.voiceChatLog,
               ),
               onIdleTimeout: capture.resetFreeFormVoiceModeUi,
+              // Модель сама закончила разговор (end_conversation): гасим режим
+              // штатно — стоп, сброс UI, досылка диалога в чат, перечитка.
+              onConversationEnd: capture.stopFreeFormVoiceMode,
             );
             return capture;
           },

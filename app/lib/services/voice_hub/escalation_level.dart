@@ -23,6 +23,7 @@
 import 'package:omi/backend/preferences.dart';
 
 import 'ask_claude_tool.dart';
+import 'end_conversation_tool.dart';
 import 'hub_session.dart' show VoiceToolDeclaration;
 
 /// Пять положений ползунка, слева направо. Индексы стабильны — они лежат в
@@ -110,6 +111,14 @@ const String _kFillerRule = 'ORDER MATTERS: FIRST say a short filler out loud �
     'so a filler spoken after the result lands is useless — the user has already sat through '
     'the wait wondering whether you heard them at all.';
 
+// Завершение разговора — на ВСЕХ уровнях (просьба Игоря 24.08): когда по
+// контексту разговор закончен, модель прощается вслух и сама выключает режим
+// инструментом end_conversation (end_conversation_tool.dart).
+const String _kEndRule = 'When the conversation is clearly over — the user says goodbye («пока», «до '
+    'связи»), says «всё» / «спасибо, хватит», or asks to stop — say a short warm goodbye out loud '
+    'and THEN call the end_conversation tool to switch the voice mode off. Never call it '
+    'mid-conversation, and never treat mere silence as a goodbye.';
+
 // Блокирующие уровни: филлер ЗАПРЕЩЁН — слышать «секунду, уточню» перед каждым
 // ответом невыносимо (жалоба Игоря 24.08). Подтверждение «услышал» даёт сам
 // телефон коротким звуковым сигналом в момент вызова (earcon.dart), модели
@@ -122,28 +131,29 @@ const String _kChimeRule = 'Do NOT announce the call and do NOT say filler phras
 /// Инструкции сессии для уровня. Чистая функция — тестируется без prefs.
 String hubInstructionsForLevel(ClaudeEscalationLevel level) => switch (level) {
       ClaudeEscalationLevel.geminiOnly => '$_kPersona'
-          'Answer everything yourself from the conversation and general knowledge. You have no '
-          'tools this session — never mention consulting another model, and if the user asks for '
-          "something that clearly needs their personal data you don't have, say so honestly in one "
-          'short sentence.',
+          'Answer everything yourself from the conversation and general knowledge. Your ONLY tool '
+          'is end_conversation — you cannot consult another model or look anything up, and if the '
+          "user asks for something that clearly needs their personal data you don't have, say so "
+          'honestly in one short sentence. $_kEndRule',
       ClaudeEscalationLevel.onRequest => '$_kPersona'
           'Handle the whole conversation yourself. Call the ask_claude tool ONLY when the user '
           'explicitly asks to consult Claude / the smart model in that same turn (e.g. «спроси '
-          'Клода», «уточни у умной модели»). Never call it on your own initiative. $_kFillerRule',
+          'Клода», «уточни у умной модели»). Never call it on your own initiative. $_kFillerRule '
+          '$_kEndRule',
       ClaudeEscalationLevel.balanced => '$_kPersona'
           'For anything that needs real reasoning, remembered context, or looking something up — '
           "rather than a quick reply you're confident in — use the ask_claude tool instead of "
-          'guessing. $_kFillerRule',
+          'guessing. $_kFillerRule $_kEndRule',
       ClaudeEscalationLevel.aggressive => '$_kPersona'
           'You personally answer ONLY small talk and instant conversational replies. For anything '
           "factual, personal (the user's memory, health, food, calendar, mail), computational, or "
           'multi-step — call the ask_claude tool instead of answering yourself. When in doubt, '
-          'call it. $_kChimeRule',
+          'call it. $_kChimeRule $_kEndRule',
       ClaudeEscalationLevel.fullProxy => '$_kPersona'
           'You are the voice and ears of this conversation, NOT its brain. For EVERY substantive '
           'user message call the ask_claude tool and then speak its answer in your own natural '
           'voice. Do not compose substantive answers yourself — only greetings, acknowledgements '
-          'and clarifying questions may be answered directly. $_kChimeRule',
+          'and clarifying questions may be answered directly. $_kChimeRule $_kEndRule',
     };
 
 // Описание инструмента тоже меняется по уровню: Gemini решает, звать ли тул,
@@ -177,11 +187,12 @@ String _toolPolicyForLevel(ClaudeEscalationLevel level) => switch (level) {
 
 /// Каталог инструментов сессии для уровня. Чистая функция.
 ///
-/// [geminiOnly] возвращает пустой список — это и есть структурная гарантия
+/// `end_conversation` есть на КАЖДОМ уровне — умение закончить разговор не
+/// эскалация. [geminiOnly] не получает ask_claude — это структурная гарантия
 /// левого края ползунка. Остальные уровни отдают ask_claude с политикой
 /// вызова, согласованной с инструкциями сессии того же уровня.
 List<VoiceToolDeclaration> hubToolsForLevel(ClaudeEscalationLevel level) {
-  if (level == ClaudeEscalationLevel.geminiOnly) return const [];
+  if (level == ClaudeEscalationLevel.geminiOnly) return const [endConversationToolDeclaration];
   final tail = level.blockingDelivery ? _kToolDescriptionTailChime : _kToolDescriptionTail;
   return [
     VoiceToolDeclaration(
@@ -189,5 +200,6 @@ List<VoiceToolDeclaration> hubToolsForLevel(ClaudeEscalationLevel level) {
       description: '$_kToolDescriptionHead${_toolPolicyForLevel(level)}$tail',
       parameters: askClaudeToolDeclaration.parameters,
     ),
+    endConversationToolDeclaration,
   ];
 }

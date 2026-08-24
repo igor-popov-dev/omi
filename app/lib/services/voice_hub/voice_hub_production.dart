@@ -65,6 +65,7 @@ import 'package:omi/services/mic/native_mic_recorder_service.dart';
 import 'ask_claude_tool.dart';
 import 'cf_access_http_client.dart';
 import 'earcon.dart';
+import 'end_conversation_tool.dart';
 import 'escalation_level.dart';
 import 'free_form_voice_mode.dart';
 import 'gemini_hub_session.dart';
@@ -199,7 +200,15 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
     applyProjection: applyProjection,
     pttHubEnabled: pttHubEnabled,
-    toolExecutor: askClaudeExecutor.handle,
+    toolExecutor: (call) {
+      if (call.name == endConversationToolName) {
+        // PTT-режим поход-ходовой: «разговора», который можно закончить, тут
+        // нет, но незакрытый вызов подвесил бы ход модели — отвечаем no-op.
+        hub.sendToolResult(call.callId, call.name, 'В этом режиме нечего выключать — продолжай.');
+        return;
+      }
+      askClaudeExecutor.handle(call);
+    },
   ));
 }
 
@@ -243,6 +252,10 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   http.Client? bridgeHttpClient,
   Duration? idleTimeout = const Duration(minutes: 3),
   void Function()? onIdleTimeout,
+  // Модель сама заканчивает разговор инструментом end_conversation (просьба
+  // Игоря 24.08). В production сюда приходит CaptureController.stopFreeFormVoiceMode
+  // (стоп + сброс UI + досылка диалога в чат); без него гасим только сам режим.
+  void Function()? onConversationEnd,
 }) {
   late final HubController hub;
   late final FreeFormVoiceMode mode;
@@ -254,6 +267,7 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   // пользователя, речь модели, вызов инструмента, конец хода — сбрасывает
   // отсчёт; выключение случается только после 3 минут НАСТОЯЩЕЙ тишины.
   void alive() => mode.noteActivity();
+  late final EndConversationToolHandler endHandler;
 
   final askClaudeExecutor = AskClaudeToolExecutor(
     // Voice asks for a BOUNDED agent, unlike chat — but deliberately does NOT
@@ -312,6 +326,7 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
       },
       onToolRequest: (call, identity) {
         alive();
+        if (endHandler.handle(call)) return;
         askClaudeExecutor.handle(call);
       },
       onTurnDone: (identity) {
@@ -331,6 +346,12 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
       freeFormMode: true,
     ),
     fetchTools: fetchHubTools,
+  );
+
+  endHandler = EndConversationToolHandler(
+    sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
+    stopMode: () => (onConversationEnd ?? mode.stop)(),
+    schedule: (delay, run) => Timer(delay, run),
   );
 
   mode = FreeFormVoiceMode(
