@@ -42,9 +42,13 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
         onResume = { player?.setVolume(FULL_VOLUME) },
     )
 
-    // Self-host patch: same session granularity as [audioFocus] — a voice session
-    // talks through the user's headset, ambient capture never does.
-    private val voiceRoute = VoiceRouteCoordinator(context)
+    // NOTE: the manual VoiceRouteCoordinator (MODE_IN_COMMUNICATION +
+    // setCommunicationDevice) is GONE — step 2 of voice-call-mode-design.md.
+    // The session now runs inside a self-managed telecom call, and a manual
+    // route coordinator fights the telecom stack for the same knobs: on
+    // 24.08 it pinned live sessions to a connected-but-not-worn Shokz
+    // headset and left MODE_IN_COMMUNICATION toggling with no call active.
+    // Routing (speaker default, headsets, SCO) is OmiVoiceConnection's job.
 
     fun bindFlutterApi(api: StreamingPcmPlayerFlutterApi) = emitter.bind(api)
     fun unbindFlutterApi() = emitter.unbind()
@@ -72,7 +76,6 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
             )
             activeSessionId = sessionId
             audioFocus.request()
-            voiceRoute.engage()
             callback(Result.success(Unit))
         } catch (e: Exception) {
             Log.e(TAG, "start($sessionId) failed", e)
@@ -92,7 +95,6 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
         player = null
         activeSessionId = null
         audioFocus.abandon()
-        voiceRoute.release()
         emitter.emitAudioFocusLost(sessionId)
     }
 
@@ -120,7 +122,6 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
             player = null
             activeSessionId = null
             audioFocus.abandon()
-            voiceRoute.release()
         }
         callback(Result.success(Unit))
     }
@@ -133,7 +134,6 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
         player = null
         activeSessionId = null
         audioFocus.abandon()
-        voiceRoute.release()
     }
 
     private fun isActive(sessionId: Long, caller: String): Boolean {

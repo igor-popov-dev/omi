@@ -51,7 +51,10 @@ class AudioFocusCoordinator(
     fun request() {
         abandon()
         val attributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+            // Matches the AudioTrack's own usage (see StreamingPcmPlayer):
+            // the session is a self-managed call, so the focus request must
+            // describe call audio too.
+            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
         // GAIN_TRANSIENT_EXCLUSIVE, НЕ GAIN (баг Игоря 24.08 ~11:54, логкат):

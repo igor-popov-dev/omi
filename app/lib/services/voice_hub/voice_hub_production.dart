@@ -346,6 +346,12 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
       freeFormMode: true,
     ),
     fetchTools: fetchHubTools,
+    // Анти-зомби 24.08: хаб сам себя пересоздавал через цикл «idle-close 1008
+    // → re-warm» ещё полчаса после выключения режима — жёг поминутный биллинг
+    // и перехватывал нативный плеер у новых сессий (повторные запуски играли
+    // в закрытый трек = тишина). Тёплый сокет свободного режима имеет смысл
+    // ТОЛЬКО пока сам режим работает.
+    shouldStayWarm: () => mode.isRunning,
   );
 
   endHandler = EndConversationToolHandler(
