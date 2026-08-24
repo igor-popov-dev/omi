@@ -9,6 +9,7 @@
 //
 // Fail-open: сигнал — вежливость, а не функция. Любая ошибка проигрывания
 // логируется и глотается — живой разговор важнее звука.
+import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 
 import 'package:omi/utils/logger.dart';
@@ -32,6 +33,16 @@ class Earcon {
       // ask_claude (логкат 24.08 03:31:45.528 запрос -> .619 обрыв). Сигнал
       // должен ПОДМЕШИВАТЬСЯ к сессии, а не отбирать у неё звук.
       final player = _player ??= AudioPlayer(handleAudioSessionActivation: false);
+      // Атрибуты РАЗГОВОРНОГО потока, не медиа (баг Игоря 24.08: «слышал один
+      // раз в начале, после похода в Claude — тишина навсегда»). Медиа-звук
+      // посреди живой сессии переключал Bluetooth с разговорного профиля (SCO)
+      // на музыкальный (A2DP) — разговорный маршрут к гарнитуре рушился, и
+      // весь дальнейший голос ассистента уходил в никуда. Сигнал обязан играть
+      // тем же трактом, что и голос.
+      await player.setAndroidAudioAttributes(const AndroidAudioAttributes(
+        usage: AndroidAudioUsage.voiceCommunication,
+        contentType: AndroidAudioContentType.sonification,
+      ));
       // setAsset на каждый вызов вместо seek(0): плеер мог быть в любом
       // состоянии (доигрывает прошлый сигнал, ошибка декодера) — свежая
       // загрузка короткого файла надёжнее и стоит десятки миллисекунд.

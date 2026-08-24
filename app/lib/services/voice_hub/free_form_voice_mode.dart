@@ -91,9 +91,18 @@ class FreeFormVoiceMode {
     hub.clearPlayback();
     hub.beginTurn(turnId);
     try {
-      _capture = await startCapture(HubPttCaptureOptions(
+      final capture = await startCapture(HubPttCaptureOptions(
         onChunk: (pcm) => hub.appendAudio(turnId, pcm),
       ));
+      // Гонка «стоп во время старта» (баг Игоря 24.08: микрофон висит после
+      // остановки): stop() мог отработать, пока capture строился — тогда
+      // готовый захват никому не принадлежит и держит микрофон вечно.
+      // Осиротевший капчер гасим на месте.
+      if (_turnId != turnId) {
+        capture.dispose();
+        return;
+      }
+      _capture = capture;
     } catch (_) {
       hub.cancelTurn(turnId);
       _turnId = null;
