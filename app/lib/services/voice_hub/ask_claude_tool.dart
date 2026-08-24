@@ -339,8 +339,22 @@ class AskClaudeToolExecutor {
   /// trip; the result reaches the model later via [sendToolResult], same as
   /// every other async tool-execution path in this app
   /// (`voiceToolExecute`'s TS analogue never throws either).
+  ///
+  /// A call this executor does not own is ANSWERED, not dropped. Measured on
+  /// live Gemini 24.08 (`marathon/probes/lane5-toolresult-stall.py`): the
+  /// server issues several `functionCalls` in ONE `toolCall` frame and then
+  /// waits for ALL of their responses — with one missing it says nothing at
+  /// all, forever, no error and no close, until the socket's own lifetime
+  /// runs out ~100s later. So a single unknown name in a batch would take
+  /// the whole turn down silently, which is the one failure mode the user
+  /// cannot tell apart from "still thinking". `voice_turn_driver.dart`
+  /// answers the same way when no executor is wired at all, and for the same
+  /// reason; this closes the gap for the wired case.
   void handle(HubToolCallRequest call) {
-    if (call.name != askClaudeToolName) return;
+    if (call.name != askClaudeToolName) {
+      sendToolResult(call.callId, call.name, 'Error: ${call.name} is not a tool this device can run.');
+      return;
+    }
     unawaited(_run(call));
   }
 
