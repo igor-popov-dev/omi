@@ -18,7 +18,12 @@ class AckEarcon {
 
   Future<void> play() async {
     try {
-      final player = _player ??= AudioPlayer();
+      // handleAudioSessionActivation: false — КРИТИЧНО. Дефолтный AudioPlayer
+      // при play() захватывает аудиофокус, и живой голосовой сокет умирает:
+      // на телефоне обрыв сессии наступал через ~90 мс после старта вызова
+      // ask_claude (логкат 24.08 03:31:45.528 запрос -> .619 обрыв). Сигнал
+      // должен ПОДМЕШИВАТЬСЯ к сессии, а не отбирать у неё звук.
+      final player = _player ??= AudioPlayer(handleAudioSessionActivation: false);
       // setAsset на каждый вызов вместо seek(0): плеер мог быть в любом
       // состоянии (доигрывает прошлый сигнал, ошибка декодера) — свежая
       // загрузка короткого файла надёжнее и стоит десятки миллисекунд.

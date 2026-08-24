@@ -83,6 +83,12 @@ class HubControllerError {
   final bool retryable;
   final int aliveForMs;
   const HubControllerError({required this.reason, required this.retryable, required this.aliveForMs});
+
+  // Без toString() каждый лог обрыва печатал бесполезное
+  // «Instance of 'HubControllerError'» — причину первого обрыва 24.08 так и
+  // не узнали (логкат 03:31:28). Причина обязана быть видна в логе.
+  @override
+  String toString() => 'HubControllerError(reason: $reason, retryable: $retryable, aliveForMs: $aliveForMs)';
 }
 
 /// Everything the controller surfaces to its host (the per-turn driver,
