@@ -198,7 +198,7 @@ void main() {
       // 403 — Access redirects to its login page, the client follows, and the
       // app sees an HTML 404 from a host that works fine seconds later.
       final client = AskClaudeBridgeClient(
-        httpClient: MockClient((request) async => http.Response('<html>' + 'x' * 5000 + '</html>', 404,
+        httpClient: MockClient((request) async => http.Response('<html>${'x' * 5000}</html>', 404,
             headers: {'content-type': 'text/html; charset=UTF-8'})),
       );
       await expectLater(

@@ -207,6 +207,9 @@ class _Harness {
 
   /// Handle each built session was handed, in build order (nulls included).
   final List<String?> specHandles = [];
+  /// Give every built session its own id, as the real one does (a uuid per
+  /// socket). Off by default so the existing tests keep asserting [sid].
+  bool distinctSessionIds = false;
   final _now = _NowBox(1000);
   final _FakeReconnectClock clock = _FakeReconnectClock();
   Future<String> Function() mintTokenImpl = () async => 'ek_token';
@@ -223,7 +226,7 @@ class _Harness {
         createCalls += 1;
         lastSpecTools = spec.tools;
         specHandles.add(spec.resumptionHandle);
-        _session = _FakeSession(sid, spec.events);
+        _session = _FakeSession(distinctSessionIds ? 'sess-$createCalls' : sid, spec.events);
         return _session!;
       },
       clock: clock,
@@ -1350,6 +1353,150 @@ void main() {
       expect(h.createCalls, 2);
       expect(h.session.toreDown, 0);
       expect(h.log.goAways, isEmpty);
+    });
+  });
+
+  // An `ask_claude` round trip is the longest thing that happens inside a
+  // turn — 7-40s, measured against the live bridge 24.08 — and for all of it
+  // the provider looks idle: it hands out a resumption handle 0.3s after the
+  // `toolCall` frame, which is what `_replyGenerating` is derived from
+  // (`marathon/probes/lane5-toolcall-seam.py`). So the rebuild a goAway pays
+  // for lands mid-lookup unless something holds it back, and the same probe
+  // showed what that costs: the replacement socket takes the `toolResponse`
+  // for a call it never made without complaint and then says NOTHING.
+  group('HubController — a tool call across a rebuild', () {
+    Future<void> settleRewarm(_Harness h) async {
+      await _tick();
+      h.session.connect();
+      await _tick();
+    }
+
+    void askTool(_Harness h, String callId) {
+      h.session.events.onToolRequest?.call(
+        HubToolCallRequest(name: 'ask_claude', callId: callId, argumentsJson: '{}'),
+        null,
+      );
+    }
+
+    test('the ordinary path is unchanged: same socket, result goes as a tool result', () async {
+      final h = _Harness();
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.sendToolResult('c1', 'ask_claude', 'ANSWER');
+
+      expect(h.session.toolResults, [(callId: 'c1', output: 'ANSWER')]);
+      expect(h.session.userTexts, isEmpty);
+    });
+
+    test('a goAway waits for the lookup, and the result is the safe moment it was waiting for', () async {
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      askTool(h, 'c1');
+      // The handle the provider offers WHILE the call is out (measured) would
+      // otherwise read as "the reply is over, rebuild now".
+      h.session.events.onResumptionHandle?.call('H2');
+
+      h.session.events.onGoAway?.call(const Duration(seconds: 30));
+      await _tick();
+      expect(h.createCalls, 1, reason: 'пересборка посреди похода к Claude съела бы ответ');
+      expect(h.log.goAways, isEmpty);
+
+      h.controller.sendToolResult('c1', 'ask_claude', 'ANSWER');
+      expect(h.session.toolResults.single.output, 'ANSWER');
+      await settleRewarm(h);
+      expect(h.createCalls, 2);
+      expect(h.specHandles, [null, 'H2']);
+      expect(h.log.goAways, [const Duration(seconds: 30)]);
+    });
+
+    test('a lookup that never comes back does not park the warning forever', () async {
+      // The deadline is the whole reason the wait above is safe: the socket
+      // dies at the end of the runway whether or not the bridge answers, and
+      // a rebuild we chose beats a drop we did not.
+      final h = _Harness();
+      await _warmed(h);
+      h.session.events.onResumptionHandle?.call('H1');
+      askTool(h, 'c1');
+      h.session.events.onGoAway?.call(const Duration(seconds: 30));
+      await _tick();
+      expect(h.createCalls, 1);
+
+      h.clock.fire(); // the goAway deadline
+      await settleRewarm(h);
+      expect(h.createCalls, 2);
+      expect(h.log.goAways, [const Duration(seconds: 30)]);
+    });
+
+    test('an answer that arrives after the rebuild is SPOKEN, not swallowed', () async {
+      final h = _Harness()..distinctSessionIds = true;
+      await _warmed(h);
+      final old = h.session;
+      askTool(h, 'c1');
+      // The rebuild happened anyway (deadline, or a drop): new socket, and it
+      // knows nothing about call c1.
+      h.controller.teardownSession();
+      final p = h.controller.ensureWarm();
+      await _tick();
+      h.session.connect();
+      await p;
+
+      h.controller.sendToolResult('c1', 'ask_claude', 'kadrio — это SaaS для найма');
+
+      expect(h.session.toolResults, isEmpty, reason: 'сокет принял бы его и промолчал');
+      expect(old.toolResults, isEmpty);
+      expect(h.session.userTexts.single, contains('kadrio — это SaaS для найма'));
+      expect(h.session.userTexts.single, contains('tell it to the user'));
+    });
+
+    test('a failed lookup that arrives late is relayed as the failure it is', () async {
+      final h = _Harness()..distinctSessionIds = true;
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.teardownSession();
+      final p = h.controller.ensureWarm();
+      await _tick();
+      h.session.connect();
+      await p;
+
+      h.controller.sendToolResult('c1', 'ask_claude', 'Error: ask_claude did not answer within 60 seconds.');
+      expect(h.session.userTexts.single, contains('failed'));
+      expect(h.session.userTexts.single, isNot(contains('tell it to the user')));
+    });
+
+    test('an answer that lands with no socket at all waits for the next one', () async {
+      // The gap `FreeFormVoiceMode.restart` opens: teardown, then a mint and
+      // a handshake before anything can be said. Dropping the answer here
+      // would be the same silence by a different route.
+      final h = _Harness()..distinctSessionIds = true;
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.teardownSession();
+
+      h.controller.sendToolResult('c1', 'ask_claude', 'ANSWER');
+
+      final p = h.controller.ensureWarm();
+      await _tick();
+      h.session.connect();
+      await p;
+      expect(h.session.userTexts.single, contains('ANSWER'));
+    });
+
+    test('a forgotten conversation drops the answers it was waiting on', () async {
+      // The user ended the mode. An answer to a question nobody remembers
+      // asking would arrive as a non sequitur on the next start.
+      final h = _Harness()..distinctSessionIds = true;
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.teardownSession();
+      h.controller.sendToolResult('c1', 'ask_claude', 'ANSWER');
+      h.controller.forgetConversation();
+
+      final p = h.controller.ensureWarm();
+      await _tick();
+      h.session.connect();
+      await p;
+      expect(h.session.userTexts, isEmpty);
     });
   });
 }

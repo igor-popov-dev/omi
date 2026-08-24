@@ -316,6 +316,35 @@ class HubController {
   /// window gets the very drop the warning existed to avoid.
   Object? _goAwayDeadlineHandle;
 
+  /// The `goAway` runway ran out. Only [_toolCallInFlight] yields to it: the
+  /// socket is about to be closed by the server either way, and a rebuild we
+  /// chose (handle in hand, conversation carried over, the late answer
+  /// relayed by [_deliverOrphanedToolResult]) beats the drop we did not.
+  /// A withdrawn handle — [_replyGenerating] — is NOT overridden here: there
+  /// the rebuild would resume from nothing, so it stays the worse trade.
+  bool _goAwayDeadlineExpired = false;
+
+  /// Tool calls the model has asked for and nobody has answered yet, mapped
+  /// to the socket that asked (`callId` -> [sessionId] at request time).
+  ///
+  /// Measured against live Gemini 24.08 (`marathon/probes/lane5-toolcall-seam.py`),
+  /// and the reason this map exists at all: the server hands out a resumption
+  /// handle 0.3s AFTER the `toolCall` frame, while the call is still
+  /// unanswered. [_replyGenerating] is derived from exactly that handle, so
+  /// without this the whole `ask_claude` round trip — 7-40s of it, measured —
+  /// looks to [_actOnGoAwayIfSafe] like a quiet moment, and the rebuild lands
+  /// in the middle of it. See [_toolCallInFlight].
+  final Map<String, VoiceSessionId?> _toolCallOrigin = {};
+
+  /// A tool result that came back for a socket that no longer exists, waiting
+  /// for the next one to speak it. See [_deliverOrphanedToolResult].
+  final List<String> _orphanedToolResults = [];
+
+  /// Cap on both of the above. A tool result always arrives (the executor
+  /// turns a timeout into an error string), so these drain on their own; the
+  /// cap is only so a pathological host cannot grow them without bound.
+  static const int _toolBookkeepingCap = 8;
+
   /// The handle handed to the session currently being built. Lets a session
   /// that dies BEFORE ever connecting blame — and discard — the handle it was
   /// built with. Measured 24.08: a handle the server no longer knows does not
@@ -519,6 +548,10 @@ class HubController {
     _resumptionHandle = null;
     _resumptionHandleAt = null;
     _handleInFlight = null;
+    // The conversation these belonged to is over — an answer to a question
+    // nobody remembers asking would arrive as a non sequitur.
+    _toolCallOrigin.clear();
+    _orphanedToolResults.clear();
   }
 
   bool isWarm() => session?.isWarm() ?? false;
@@ -626,6 +659,7 @@ class HubController {
     final wait = runway - goAwayRebuildReserve;
     _goAwayDeadlineHandle = clock.setTimer(wait.isNegative ? Duration.zero : wait, () {
       _goAwayDeadlineHandle = null;
+      _goAwayDeadlineExpired = true;
       // Past the point of politeness: cutting a sentence short beats the
       // provider hanging up on it, which costs the same words PLUS the
       // spoken apology the drop recovery makes.
@@ -661,6 +695,14 @@ class HubController {
       return;
     }
     if (_replyGenerating) return;
+    // A tool call is out. Rebuilding here silently eats its answer: the
+    // replacement socket accepts the `toolResponse` for a call it never made
+    // WITHOUT an error and then says nothing at all (measured 24.08 — the
+    // user hears "секунду, уточню" and then silence until the idle timeout).
+    // The deadline armed in [_handleGoAway] still forces the rebuild if the
+    // call never comes back, and [_deliverOrphanedToolResult] catches the
+    // answer that lands after it.
+    if (_toolCallInFlight && !_goAwayDeadlineExpired) return;
     // The user is mid-sentence. The rebuild disposes mic capture along with
     // the socket (`FreeFormVoiceMode.restart`), so acting here would swallow
     // the rest of what they are saying. Handles arrive about once a second
@@ -688,6 +730,7 @@ class HubController {
   void _clearGoAway() {
     _goAwayPending = false;
     _goAwayTimeLeft = null;
+    _goAwayDeadlineExpired = false;
     _cancelGoAwayDeadline();
   }
 
@@ -767,7 +810,60 @@ class HubController {
   void sendUserText(String text) => session?.sendUserText(text);
 
   void sendToolResult(String callId, String name, String output) {
-    session?.sendToolResult(callId, name, output);
+    final origin = _toolCallOrigin.remove(callId);
+    final s = session;
+    // The socket that asked is still the one listening — the ordinary path.
+    if (s != null && origin == sessionId) {
+      s.sendToolResult(callId, name, output);
+      // The call was the last thing holding a `goAway` back; this is a safe
+      // moment now.
+      _actOnGoAwayIfSafe();
+      return;
+    }
+    // It is not. A `toolResponse` carrying a callId this socket never issued
+    // is accepted and then ignored (measured 24.08), so the answer has to
+    // reach the model as something it will actually read.
+    _deliverOrphanedToolResult(name, output);
+    _actOnGoAwayIfSafe();
+  }
+
+  /// Whether any tool call is still waiting on an answer FROM THIS SOCKET.
+  /// Calls left over from an earlier socket do not hold a rebuild back —
+  /// their answers take the orphan path either way.
+  bool get _toolCallInFlight => _toolCallOrigin.values.any((origin) => origin == sessionId);
+
+  void _noteToolCallOut(String callId) {
+    if (_toolCallOrigin.length >= _toolBookkeepingCap) {
+      _toolCallOrigin.remove(_toolCallOrigin.keys.first);
+    }
+    _toolCallOrigin[callId] = sessionId;
+  }
+
+  /// Speaks a tool result whose socket is gone, as user text — the same seam
+  /// the drop recovery uses ([sendUserText]). Phrased as an instruction
+  /// because that is what the model reads before it opens its mouth; the
+  /// error strings in `ask_claude_tool.dart` are written the same way and
+  /// were measured 24.08 not to leak into speech.
+  ///
+  /// With no socket at all (the gap between teardown and the replacement),
+  /// the result waits for the next connect rather than being dropped.
+  void _deliverOrphanedToolResult(String name, String output) {
+    final failed = output.startsWith('Error:');
+    final text = failed
+        ? '(system) The $name lookup came back only after the connection was rebuilt, and it '
+            'failed: $output'
+        : '(system) The $name answer came back only after the connection was rebuilt, so the '
+            'original tool call is gone. Here is the answer — tell it to the user now, briefly, '
+            'in the language they were speaking: $output';
+    final s = session;
+    if (s != null) {
+      s.sendUserText(text);
+      return;
+    }
+    if (_orphanedToolResults.length >= _toolBookkeepingCap) {
+      _orphanedToolResults.removeAt(0);
+    }
+    _orphanedToolResults.add(text);
   }
 
   /// Barge-in seam (design doc §6 step 1, `voice_turn_driver.dart`):
@@ -839,7 +935,10 @@ class HubController {
       },
       onSpeakingStart: () => events.onSpeakingStart?.call(),
       onSpeakingEnd: () => events.onSpeakingEnd?.call(),
-      onToolRequest: (call, identity) => events.onToolRequest?.call(call, identity),
+      onToolRequest: (call, identity) {
+        _noteToolCallOut(call.callId);
+        events.onToolRequest?.call(call, identity);
+      },
       onGoAway: (timeLeft) => _handleGoAway(timeLeft),
       onResumptionHandle: (handle) {
         _resumptionHandle = handle;
@@ -889,6 +988,15 @@ class HubController {
       if (_warmCommitted) {
         _warmCommitted = false;
         s.commitTurn();
+      }
+    }
+    // A tool answer that came back while there was no socket to say it on
+    // (the gap a rebuild opens). Speaking it late beats swallowing it.
+    if (_orphanedToolResults.isNotEmpty) {
+      final pending = List<String>.from(_orphanedToolResults);
+      _orphanedToolResults.clear();
+      for (final text in pending) {
+        session?.sendUserText(text);
       }
     }
     events.onConnected?.call(sid);
