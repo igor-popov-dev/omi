@@ -129,6 +129,20 @@ class PhoneCallProvider extends ChangeNotifier {
   int _sessionGeneration = 0;
   bool _sessionEnabled = true;
 
+  /// Bumped by every dial, so the teardown of one call cannot write into the next.
+  ///
+  /// A call reports its end more than once — we hang up locally and the SDK confirms a
+  /// signalling round-trip later — and the teardown ends in a DELAYED write of the
+  /// screen's state. Two teardowns meant two of those writes, scheduled a round trip
+  /// apart: the first gives the screen back, and the second lands two seconds after that,
+  /// on whatever is on screen by then. See [_onCallEnded].
+  int _callGeneration = 0;
+
+  /// The generation whose teardown has already run. Not a bool: a bool would have to be
+  /// cleared somewhere, and the path that forgets to clear it is the path that loses the
+  /// teardown of a real call.
+  int? _endedGeneration;
+
   PhoneCallProvider() {
     _nativeService.onCallStateChanged = _onCallStateChanged;
     _nativeService.onAudioData = _onAudioData;
@@ -244,6 +258,7 @@ class PhoneCallProvider extends ChangeNotifier {
 
     _error = null;
     _lastError = null;
+    _callGeneration++;
     _setCallState(PhoneCallState.connecting);
     _remoteNumber = phoneNumber;
     final callId = DateTime.now().millisecondsSinceEpoch.toString();
@@ -417,6 +432,12 @@ class PhoneCallProvider extends ChangeNotifier {
   // *********** PRIVATE HELPERS ********************
   // ************************************************
 
+  /// The single door both call SDKs report state through. Not private only so a test can
+  /// drive the state machine without an SDK — the same seam, and for the same reason, as
+  /// [VoximplantCallService.emitState].
+  @visibleForTesting
+  void reportCallState(PhoneCallState state) => _onCallStateChanged(state);
+
   void _onCallStateChanged(PhoneCallState state) {
     if (!_sessionEnabled) return;
     _setCallState(state);
@@ -475,6 +496,15 @@ class PhoneCallProvider extends ChangeNotifier {
   }
 
   void _onCallEnded() {
+    // Once per call, whoever reports the end first. Both reporters are legitimate — the
+    // user's hang-up runs this directly, and the SDK's confirmation arrives through
+    // [_onCallStateChanged] — and neither can be dropped, because either can be the only
+    // one (a call that drops on its own is never reported by us). So the guard is on the
+    // call, not on the caller. Without it the second reporter also charges the analytics
+    // a second 'Phone Call Ended' and, worse, schedules a second delayed reset.
+    if (_endedGeneration == _callGeneration) return;
+    _endedGeneration = _callGeneration;
+    final generation = _callGeneration;
     PlatformManager.instance.analytics.phoneCallEnded(durationSeconds: _callDuration.inSeconds);
     _setCallState(PhoneCallState.ended);
     _stopDurationTimer();
@@ -503,6 +533,11 @@ class PhoneCallProvider extends ChangeNotifier {
     // call that took the longest to get onto the screen. Nothing leaks: a new call
     // clears the list before it dials, and so does `clearUserData`.
     Future.delayed(const Duration(seconds: 2), () {
+      // Belongs to the call that scheduled it. `clearUserData` can also give the screen
+      // back before this lands, and a dial right after that would meet this write
+      // otherwise — a reset landing mid-call takes the state to `idle`, and `idle` is
+      // what un-pauses the phone's own always-on recording on top of a live call.
+      if (generation != _callGeneration) return;
       _setCallState(PhoneCallState.idle);
       _currentCallId = null;
       _remoteNumber = null;
@@ -798,6 +833,10 @@ class PhoneCallProvider extends ChangeNotifier {
 
   void clearUserData() {
     _sessionGeneration++;
+    // Signing out gives the screen back too, and it does it without waiting the two
+    // seconds a teardown waits — so a reset still in flight belongs to nobody from here
+    // on, exactly as it does after a dial.
+    _callGeneration++;
     _sessionEnabled = false;
     if (_callState != PhoneCallState.idle) unawaited(_endCallOnTransport());
     _stopDurationTimer();
