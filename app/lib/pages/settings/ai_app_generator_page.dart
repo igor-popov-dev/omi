@@ -476,7 +476,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
       width: 260,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -526,7 +526,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
         width: 260,
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

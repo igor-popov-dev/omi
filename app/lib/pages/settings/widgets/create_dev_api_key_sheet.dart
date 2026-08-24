@@ -150,7 +150,7 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: t.bgSecondary),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(t.cardRadius), color: t.bgSecondary),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(

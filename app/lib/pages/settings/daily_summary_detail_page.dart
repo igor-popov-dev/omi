@@ -519,7 +519,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -655,7 +655,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             child: Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -726,7 +726,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Row(
           children: [
             // Checkbox indicator
@@ -774,7 +774,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             child: Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
               child: Row(
                 children: [
                   Expanded(
@@ -805,7 +805,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             child: Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
               child: Row(
                 children: [
                   Expanded(
@@ -836,7 +836,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             child: Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
               child: Row(
                 children: [
                   Expanded(
@@ -888,7 +888,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
           key: ValueKey('daily_summary_location_row_$index'),
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
           child: Row(
             children: [
               Expanded(

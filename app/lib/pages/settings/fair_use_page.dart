@@ -209,7 +209,7 @@ class _FairUsePageState extends State<FairUsePage> {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

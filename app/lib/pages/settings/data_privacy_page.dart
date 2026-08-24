@@ -35,7 +35,7 @@ class _DataPrivacyPageState extends State<DataPrivacyPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: t.bgSecondary,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(t.cardRadius),
         border: Border.all(color: t.bgTertiary, width: 1),
       ),
       child: Row(

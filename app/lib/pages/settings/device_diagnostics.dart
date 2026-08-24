@@ -303,7 +303,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -342,7 +342,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
         Container(
           height: 200,
           padding: const EdgeInsets.only(top: 16, right: 16, bottom: 8),
-          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
           child: _rssiPoints.length < 2
               ? Center(
                   child: Text(
@@ -490,7 +490,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
         Container(
           height: 200,
           padding: const EdgeInsets.only(top: 16, right: 16, bottom: 8),
-          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
           child: points.length < 2
               ? Center(
                   child: Text(
@@ -643,7 +643,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
         if (history.isEmpty)
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
             child: Center(
               child: Column(
                 children: [
@@ -656,7 +656,7 @@ class _DeviceDiagnosticsState extends State<DeviceDiagnostics> {
           )
         else
           Container(
-            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
             child: Column(
               children: [
                 for (int i = history.length - 1; i >= 0; i--) ...[

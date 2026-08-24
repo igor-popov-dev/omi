@@ -75,7 +75,7 @@ class _ShimmerListItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Row(
           children: [
             Container(

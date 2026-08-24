@@ -451,7 +451,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: t.bgSecondary,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(t.cardRadius),
         border: Border.all(color: t.rowFillHover),
       ),
       child: Column(
@@ -988,7 +988,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
           padding: const EdgeInsets.only(top: 16, right: 16),
           decoration: BoxDecoration(
             color: t.bgSecondary,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(t.cardRadius),
             border: Border.all(color: t.rowFillHover),
           ),
           child: LineChart(lineChartData, duration: const Duration(milliseconds: 250)),
@@ -1093,7 +1093,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(t.cardRadius),
         border: Border.all(color: t.rowFillHover),
         boxShadow: [
           BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 2)),
@@ -1161,7 +1161,7 @@ class _UsagePageState extends State<UsagePage> with TickerProviderStateMixin {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(t.cardRadius),
         border: Border.all(color: t.rowFillHover),
         boxShadow: [
           BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1, offset: const Offset(0, 2)),
