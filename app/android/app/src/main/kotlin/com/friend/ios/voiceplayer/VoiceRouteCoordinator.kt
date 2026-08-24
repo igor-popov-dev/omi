@@ -51,16 +51,21 @@ class VoiceRouteCoordinator(context: Context) {
     private var startedSco = false
 
     /**
-     * Switch to the communication route and, when a headset is present, pin the session
-     * to it. Idempotent: a second call while engaged is a no-op rather than a second
-     * mode save (which would lose the user's original mode).
+     * When a headset with a mic is present, switch to the communication route and pin
+     * the session to it. Without a headset this is a NO-OP: the session stays on the
+     * default media route. Entering `MODE_IN_COMMUNICATION` with only the phone's own
+     * speaker (the pre-24.08 behavior here) made the assistant near-inaudible outdoors —
+     * the loudspeaker is then driven by the *call* volume curve and tuning, which is
+     * far quieter than media and governed by a volume slider the user never touches.
+     * The communication route buys us nothing on the phone route anyway: the built-in
+     * mic works fine in media mode.
+     *
+     * Idempotent: a second call while engaged is a no-op rather than a second mode
+     * save (which would lose the user's original mode).
      */
     fun engage() {
         if (engaged) return
         try {
-            previousMode = audioManager.mode
-            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            engaged = true
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 engageModern()
             } else {
@@ -70,6 +75,14 @@ class VoiceRouteCoordinator(context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "engage failed; continuing on the default route: ${e.message}")
         }
+    }
+
+    /** Saves the current audio mode and enters the communication mode. Only called
+     *  once a headset worth routing to is actually present (see [engage]'s doc). */
+    private fun enterCommunicationMode() {
+        previousMode = audioManager.mode
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        engaged = true
     }
 
     /** Idempotent. Safe when [engage] was never called or already released. */
@@ -113,9 +126,10 @@ class VoiceRouteCoordinator(context: Context) {
             available.firstOrNull { it.type == type }
         }
         if (headset == null) {
-            Log.i(TAG, "no headset among ${available.map { it.type }}; staying on the phone route")
+            Log.i(TAG, "no headset among ${available.map { it.type }}; staying on the media route")
             return
         }
+        enterCommunicationMode()
         val ok = audioManager.setCommunicationDevice(headset)
         Log.i(TAG, "routing voice session to ${headset.productName} (type=${headset.type}) ok=$ok")
     }
@@ -126,9 +140,10 @@ class VoiceRouteCoordinator(context: Context) {
             .getDevices(AudioManager.GET_DEVICES_INPUTS)
             .any { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
         if (!hasBluetoothHeadset || !audioManager.isBluetoothScoAvailableOffCall) {
-            Log.i(TAG, "no SCO headset available off-call; staying on the phone route")
+            Log.i(TAG, "no SCO headset available off-call; staying on the media route")
             return
         }
+        enterCommunicationMode()
         audioManager.startBluetoothSco()
         audioManager.isBluetoothScoOn = true
         startedSco = true
