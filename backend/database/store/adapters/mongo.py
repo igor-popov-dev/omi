@@ -183,6 +183,42 @@ def _build_merge_update_ops(data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     return ops
 
 
+def _map_ancestors(ops: Dict[str, Dict[str, Any]]) -> List[str]:
+    """Промежуточные узлы, СКВОЗЬ которые пишет dotted-merge, от внешнего к внутреннему.
+
+    Firestore при ``set(merge=True)`` заменяет непод­ходящее значение на map: было
+    ``geolocation: null`` — стало ``geolocation: {address: ...}``. Mongo так не умеет и
+    отвечает ``WriteError`` code 28 ``Cannot create field 'address' in element {geolocation: null}``
+    — именно на этом молча падала финализация каждого разговора (полоса 2, 24.08).
+
+    Корень ``d`` намеренно не возвращаем: плоский merge (только ``d.<поле>``) не пишет ни
+    сквозь один узел, и лишней записи у него быть не должно.
+    """
+    seen: Dict[str, None] = {}
+    for by_field in ops.values():
+        for field in by_field:
+            parts = field.split(".")
+            for depth in range(2, len(parts)):
+                seen.setdefault(".".join(parts[:depth]), None)
+    return sorted(seen, key=lambda path: (path.count("."), path))
+
+
+def _coerce_map_ancestors(ops: Dict[str, Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+    """Pipeline-обновление, приводящее такие узлы к объекту; ``None``, если сквозь узлы не пишем.
+
+    По стадии на узел, снаружи внутрь: стадии выполняются подряд, поэтому родитель уже объект,
+    когда очередь доходит до ребёнка. Существующий объект остаётся как есть — стадия его не
+    трогает, так что соседние поля переживают merge (в этом весь смысл deep-merge).
+    """
+    ancestors = _map_ancestors(ops)
+    if not ancestors:
+        return None
+    return [
+        {"$set": {path: {"$cond": [{"$eq": [{"$type": "$" + path}, "object"]}, "$" + path, {}]}}}
+        for path in ancestors
+    ]
+
+
 def _to_record(doc: Dict[str, Any], path: str) -> StoredDocument:
     return StoredDocument(
         id=doc.get("_key", path.split("/")[-1]),
@@ -249,6 +285,16 @@ class _MongoBatch:
             # Operator-based merge can't compute a monotonic _updated_at inline -> stamp via a bump op.
             update: Dict[str, Any] = _build_merge_update_ops(data)  # deep-merge nested maps (cubic mongo.py:389)
             update.setdefault("$setOnInsert", {}).update({"_parent": parent, "_key": key, "_created_at": now})
+            # То же, что в MongoDocumentStore._set: привести промежуточные узлы к объекту ПЕРЕД
+            # merge'ем. Очередь внутри коллекции упорядочена (ordered=True), поэтому подготовка
+            # гарантированно применится раньше самого merge'а.
+            coerce = _coerce_map_ancestors(update)
+            if coerce is not None:
+                self._append(
+                    collection_name,
+                    UpdateOne({"_id": path}, coerce),
+                    lambda coll, session=None, _c=coerce: coll.update_one({"_id": path}, _c, session=session),
+                )
             self._append(
                 collection_name,
                 UpdateOne({"_id": path}, update, upsert=True),
@@ -314,6 +360,8 @@ class _MongoBatch:
         collection_name, _, _ = _doc_meta(path)
         now = _now()
         update = _build_update_ops(data)
+        # Как в MongoDocumentStore._update: подготовить узлы, сквозь которые пишет dotted-update.
+        coerce = _coerce_map_ancestors(update)
         if if_updated_at is not None:
             # OCC: precondition + strictly-greater revision (``_rev_stamp``) in one atomic op — already
             # monotonic vs the matched token, so no bump. A no-match means the precondition can't hold
@@ -323,6 +371,10 @@ class _MongoBatch:
             query = {"_id": path, "_updated_at": if_updated_at}
 
             def run_occ(coll: Any, session: Any = None) -> None:
+                # Подготовка идёт под тем же предусловием — провалившийся по ревизии update не
+                # должен оставлять за собой подменённое значение.
+                if coerce is not None:
+                    coll.update_one(query, coerce, session=session)
                 if coll.update_one(query, update, session=session).matched_count == 0:
                     raise PreconditionFailed(path)
 
@@ -335,6 +387,8 @@ class _MongoBatch:
         bump = [{"$set": {"_updated_at": _monotonic_updated_at(now)}}]
 
         def run(coll: Any, session: Any = None) -> None:
+            if coerce is not None:
+                coll.update_one({"_id": path}, coerce, session=session)
             if update:
                 coll.update_one({"_id": path}, update, session=session)
             if coll.update_one({"_id": path}, bump, session=session).matched_count == 0:
@@ -405,6 +459,19 @@ class _MongoBatch:
                 session.with_transaction(lambda active: self._apply(by_collection, active))
         except OperationFailure as exc:
             if not _is_transactions_unsupported(exc):
+                # Диагностика (полоса 2, 24.08): исключение уходило наверх молча, а вызывающий
+                # finalizer печатает только имя класса — `WriteError` без единой подробности.
+                # Логируем КОДЫ ошибок и коллекции, и намеренно НЕ сообщение: у BulkWriteError
+                # внутри лежит сам failing op, то есть кусок документа (для разговора — транскрипт).
+                # Код называет правило (28 = PathNotViable, 11000 = дубликат ключа) и этого хватает.
+                details = getattr(exc, "details", None) or {}
+                codes = sorted({e.get("code") for e in details.get("writeErrors", [])} - {None})
+                logger.error(
+                    "mongo batch write failed code=%s write_error_codes=%s collections=%s",
+                    getattr(exc, "code", None),
+                    codes,
+                    sorted(by_collection),
+                )
                 raise
             record_fallback(
                 component='document_store',
@@ -509,6 +576,13 @@ class MongoDocumentStore:
             # in one update, so stamp it via a second pipeline bump (below) rather than a colliding raw now.
             update: Dict[str, Any] = _build_merge_update_ops(data)  # deep-merge nested maps (cubic mongo.py:389)
             update.setdefault("$setOnInsert", {}).update({"_parent": parent, "_key": key, "_created_at": now})
+            # Узлы, сквозь которые пойдёт dotted-merge, сперва привести к объекту — иначе Mongo
+            # откажется создавать поле внутри скаляра, а Firestore на его месте просто заменил бы
+            # значение map'ом (см. _coerce_map_ancestors). upsert здесь не нужен: когда документа
+            # нет, следом идущий merge создаст всю вложенность сам.
+            coerce = _coerce_map_ancestors(update)
+            if coerce is not None:
+                collection.update_one({"_id": path}, coerce, session=session)
             with _as_already_exists(path):
                 collection.update_one({"_id": path}, update, upsert=True, session=session)
             self._bump_updated_at(collection, path, now, session)
@@ -547,6 +621,11 @@ class MongoDocumentStore:
         collection = self._db[collection_name]
         now = _now()
         update = _build_update_ops(data)
+        # Тот же зазор между базами, что и у merge (см. _coerce_map_ancestors): Firestore при
+        # update по полевому пути ``a.b`` заменяет map'ом всё, что лежало на ``a`` — null, скаляр,
+        # список (проверено на эмуляторе); Mongo на dotted-$set отвечает WriteError 28. Узлы
+        # готовим тем же способом, что и merge-путь.
+        coerce = _coerce_map_ancestors(update)
         # ``update`` requires an existing document (the Firestore reference adapter raises NotFound
         # otherwise). Mongo's update_one silently no-ops on no match, so translate matched_count==0
         # into the neutral NotFound to preserve parity across backends.
@@ -558,13 +637,23 @@ class MongoDocumentStore:
             # document is missing — and Firestore raises FailedPrecondition for a last-update-time precondition
             # on a MISSING doc too (verified against the emulator), superseding ADR-0045's existence-probe.
             update.setdefault("$set", {})["_updated_at"] = _rev_stamp(if_updated_at)
-            result = collection.update_one({"_id": path, "_updated_at": if_updated_at}, update, session=session)
+            query = {"_id": path, "_updated_at": if_updated_at}
+            # Подготовку узлов ставим под ТО ЖЕ предусловие: иначе провалившийся по ревизии update
+            # оставил бы за собой подменённое значение (было null — стало {}), тогда как Firestore
+            # при непрошедшем предусловии не меняет ничего.
+            if coerce is not None:
+                collection.update_one(query, coerce, session=session)
+            result = collection.update_one(query, update, session=session)
             if result.matched_count == 0:
                 raise PreconditionFailed(path)
             return
         # Non-OCC update: the operator write can't compute a monotonic _updated_at inline, so apply the field
         # ops (when any), then bump _updated_at to max(now, prev+1ms) via a pipeline (cubic 10887 mongo.py:161).
         # The bump also enforces existence: on a missing doc both the ops and the bump no-op -> NotFound.
+        if coerce is not None:
+            # upsert=False: на отсутствующем документе no-op, и существование по-прежнему
+            # проверяет идущий следом bump (-> NotFound).
+            collection.update_one({"_id": path}, coerce, session=session)
         if update:
             collection.update_one({"_id": path}, update, session=session)
         result = collection.update_one(

@@ -20,6 +20,7 @@ from utils.conversations.meeting_receipt import record_and_persist_finalized_mee
 from utils.conversations.process_conversation import extract_memories, process_conversation
 from utils.conversations import lifecycle as lifecycle_service
 from utils.executors import db_executor, postprocess_executor, run_blocking
+from utils.llm.gateway_error_contract import PROVIDER_UNAVAILABLE_FAILURE_CODE, is_provider_unavailable_error
 from utils.log_sanitizer import sanitize_pii
 from utils.task_intelligence.proactive_engine import persist_capture_arrival_intent
 
@@ -27,7 +28,17 @@ logger = logging.getLogger(__name__)
 
 
 class ConversationFinalizationError(RuntimeError):
-    """A retryable persisted-conversation finalization failure."""
+    """A retryable persisted-conversation finalization failure.
+
+    The single argument is a bounded failure code, never provider text: callers
+    persist and log it. ``provider_unavailable`` is the one code that says the
+    work itself was never rejected, so the attempt must not count against the
+    job's budget.
+    """
+
+    @property
+    def failure_code(self) -> str:
+        return str(self.args[0]) if self.args else 'processing_failed'
 
 
 class ConversationFinalizationDisposition(str, Enum):
@@ -207,9 +218,13 @@ async def finalize_persisted_conversation(
     except Exception as error:
         # Provider and validation exceptions can contain transcript excerpts.
         # The job stores and logs only a bounded failure code.
+        failure_code = (
+            PROVIDER_UNAVAILABLE_FAILURE_CODE if is_provider_unavailable_error(error) else 'processing_failed'
+        )
         logger.error(
-            'persisted conversation finalization failed uid=%s conversation=%s failure=processing_failed',
+            'persisted conversation finalization failed uid=%s conversation=%s failure=%s',
             uid,
             conversation_id,
+            failure_code,
         )
-        raise ConversationFinalizationError('processing_failed') from error
+        raise ConversationFinalizationError(failure_code) from error

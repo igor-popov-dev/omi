@@ -9,6 +9,9 @@ import typesense
 
 from utils.share_links import accepted_share_hosts, share_base_url
 
+# Self-host patch (see utils/selfhost_retrieval.py and docs/selfhost-patches.md).
+from utils.selfhost_retrieval import local_conversation_search_page, typesense_index_missing
+
 logger = logging.getLogger(__name__)
 
 
@@ -320,6 +323,27 @@ def search_conversations(
                 e,
             )
             raise ConversationSearchUnavailableError('Typesense search temporarily unavailable') from e
+        # Self-host patch (see utils/selfhost_retrieval.py and docs/selfhost-patches.md): this
+        # deployment has no Typesense collection, so `conversations` has never been created and
+        # every search from the app came back 404 -> 500. Answer from the database instead of
+        # failing. Narrow on purpose: only a missing index reroutes. A transient refusal was
+        # already handled above (503), and any other error -- a malformed query, a client bug --
+        # must still surface, because answering it locally would hide a real defect behind
+        # plausible-looking results.
+        if not typesense_index_missing(e):
+            raise Exception(f"Failed to search conversations: {str(e)}") from e
+        fallback = local_conversation_search_page(
+            uid=uid,
+            query=query,
+            page=page,
+            per_page=per_page,
+            include_discarded=include_discarded,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if fallback is not None:
+            logger.warning("search_conversations falling back to the local scan uid=%s: %s", uid, e)
+            return fallback
         raise Exception(f"Failed to search conversations: {str(e)}") from e
 
 

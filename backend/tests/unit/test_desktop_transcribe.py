@@ -617,7 +617,7 @@ class TestTranscribePcmBytes:
     @patch('utils.chat.prerecorded_from_bytes')
     @patch('utils.chat.get_prerecorded_service')
     def test_empty_words_after_audio_is_unexpected(self, mock_get_model, mock_dg):
-        """Non-silent audio with an empty provider result is retryable failure."""
+        """Non-silent audio with an empty provider result is a terminal failure."""
         from utils.chat import transcribe_pcm_bytes
         from utils.stt.outcomes import TranscriptionFailure, TranscriptionOutcome
 
@@ -627,7 +627,9 @@ class TestTranscribePcmBytes:
         with pytest.raises(TranscriptionFailure) as exc_info:
             transcribe_pcm_bytes(b'\x01' * 100, 'test-uid', language='en')
         assert exc_info.value.outcome == TranscriptionOutcome.EMPTY_UNEXPECTED
-        assert exc_info.value.retryable is True
+        # Not retryable: the caller holds fixed bytes, so a retry asks the same
+        # provider the same question and gets the same nothing back.
+        assert exc_info.value.retryable is False
 
     @patch('utils.chat.linear16_pcm_is_silent', return_value=True)
     @patch('utils.chat.prerecorded_from_bytes')
@@ -732,7 +734,7 @@ class TestTranscribePcmBytes:
     @patch('utils.chat.prerecorded_from_bytes')
     @patch('utils.chat.get_prerecorded_service')
     def test_postprocess_empty_is_unexpected(self, mock_get_model, mock_dg):
-        """An empty postprocessed result stays a retryable provider failure."""
+        """An empty postprocessed result stays a terminal provider failure."""
         from utils.chat import transcribe_pcm_bytes
         from utils.stt.outcomes import TranscriptionFailure, TranscriptionOutcome
 
@@ -1110,7 +1112,8 @@ class TestVoiceMessageTranscribeEndpoint:
             )
             assert resp.status_code == 502
             assert resp.json()['detail']['outcome'] == 'empty_unexpected'
-            assert resp.json()['detail']['retryable'] is True
+            # A client that retries this uploads the identical body forever.
+            assert resp.json()['detail']['retryable'] is False
         finally:
             _cleanup_chat_client(saved)
 
@@ -1923,7 +1926,8 @@ class TestVoiceMessagesBudgetHappyPath:
             assert resp.status_code == 200
             assert resp.text.startswith('error: {')
             assert '"outcome":"empty_unexpected"' in resp.text
-            assert '"retryable":true' in resp.text
+            # Terminal for fixed audio: re-uploading it cannot produce words.
+            assert '"retryable":false' in resp.text
             assert 'not-user-data' not in resp.text
         finally:
             _cleanup_chat_client(saved)

@@ -226,6 +226,52 @@ async def test_chat_router_passes_metadata_to_every_interactive_path():
     assert seen == [metadata, metadata, metadata]
 
 
+async def test_chat_router_routes_claude_bridge_profile_to_qa_rag():
+    """The claude_bridge QoS profile has no tool-calling support — route around agentic."""
+    message = SimpleNamespace(sender='human', text='hello', files_id=[])
+    seen = []
+
+    async def qa_rag_stub(*_args, **_kwargs):
+        seen.append('qa_rag')
+        yield None
+
+    async def agentic_stub(*_args, **_kwargs):
+        seen.append('agentic')
+        yield None
+
+    with patch.object(graph, '_current_prompt_metadata', AsyncMock(return_value=('<dt/>', 'UTC'))), patch.object(
+        graph, 'get_active_profile_name', lambda: 'claude_bridge'
+    ), patch.object(graph, 'execute_qa_rag_chat_stream', qa_rag_stub), patch.object(
+        graph, 'execute_agentic_chat_stream', agentic_stub
+    ):
+        assert [chunk async for chunk in graph.execute_chat_stream('uid1', [message])] == [None]
+
+    assert seen == ['qa_rag']
+
+
+async def test_chat_router_routes_non_bridge_profiles_to_agentic():
+    """Shipped profiles (premium/max/byok) must keep going through the agentic tool-calling path."""
+    message = SimpleNamespace(sender='human', text='hello', files_id=[])
+    seen = []
+
+    async def qa_rag_stub(*_args, **_kwargs):
+        seen.append('qa_rag')
+        yield None
+
+    async def agentic_stub(*_args, **_kwargs):
+        seen.append('agentic')
+        yield None
+
+    with patch.object(graph, '_current_prompt_metadata', AsyncMock(return_value=('<dt/>', 'UTC'))), patch.object(
+        graph, 'get_active_profile_name', lambda: 'premium'
+    ), patch.object(graph, 'execute_qa_rag_chat_stream', qa_rag_stub), patch.object(
+        graph, 'execute_agentic_chat_stream', agentic_stub
+    ):
+        assert [chunk async for chunk in graph.execute_chat_stream('uid1', [message])] == [None]
+
+    assert seen == ['agentic']
+
+
 async def test_chat_router_and_agentic_share_one_setup_deadline():
     """Router metadata must not stack a second full setup budget onto agentic setup."""
     message = SimpleNamespace(sender='human', text='hello', files_id=[])
@@ -483,6 +529,34 @@ async def test_persona_stream_forwards_langchain_callbacks_and_terminates():
 
     assert chunks == ['data: hello', None]
     assert callback_data['answer'] == 'hello'
+
+
+async def test_qa_rag_stream_forwards_bridge_callbacks_and_terminates():
+    """qa_rag chat (claude_bridge profile) must yield tokens + terminal sentinel.
+
+    qa_rag_stream's underlying call is synchronous (unlike persona's agenerate), so the
+    fake below mimics ClaudeBridgeChatModel._generate calling run_manager.on_llm_new_token
+    from a worker thread — exercising the same nowait-only callback contract as production.
+    """
+
+    def fake_qa_rag_stream(_uid, _question, _context, _plugin, _cited, _messages, _tz, callbacks):
+        callbacks[0].on_llm_new_token('hello')
+        callbacks[0].on_llm_end(None)
+        return 'hello'
+
+    callback_data = {}
+    message = SimpleNamespace(sender='human', text='what happened yesterday?', files_id=[])
+    with patch.object(graph, 'qa_rag_stream', fake_qa_rag_stream), patch.object(
+        graph, '_retrieve_conversation_context', lambda *_args, **_kwargs: ('', [])
+    ):
+        chunks = [
+            chunk async for chunk in graph.execute_qa_rag_chat_stream('uid1', [message], callback_data=callback_data)
+        ]
+
+    assert chunks == ['data: hello', None]
+    assert callback_data['answer'] == 'hello'
+    assert callback_data['route'] == 'qa_rag'
+    assert callback_data['memories_found'] == []
 
 
 async def test_persona_callback_drain_cancels_a_silent_producer():

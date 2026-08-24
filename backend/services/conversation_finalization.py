@@ -10,18 +10,22 @@ from __future__ import annotations
 
 import logging
 import os
+from functools import partial
 from typing import Any
 
 from google.api_core.exceptions import InvalidArgument
 
 from database import conversation_finalization_jobs as jobs_db
+from database import users as users_db
 from database._client import is_document_size_limit_error
+from utils.executors import db_executor, run_blocking
 from utils.cloud_tasks import (
     enqueue_listen_finalization_job,
     get_listen_finalization_tasks_max_attempts,
     is_listen_finalization_dispatch_enabled,
 )
 from utils.metrics import (
+    LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL,
     LISTEN_FINALIZATION_DEAD_LETTER_TOTAL,
     LISTEN_FINALIZATION_DURABLE_JOBS,
     LISTEN_FINALIZATION_JOB_STATUS,
@@ -29,6 +33,8 @@ from utils.metrics import (
     LISTEN_FINALIZATION_RETRIES_TOTAL,
     LISTEN_FINALIZATION_STALE_PROCESSING_RECONCILIATIONS_TOTAL,
 )
+from utils.account_cutover.access import should_skip_background_account_mutation
+from utils.conversations import lifecycle as lifecycle_service
 from utils.observability.fallback import record_fallback
 from utils.conversations.meeting_receipt import (
     record_and_persist_finalized_meeting_receipt,
@@ -153,6 +159,241 @@ def reconcile_listen_finalization_jobs(limit: int = 100, *, firestore_client: An
 
     _publish_job_metrics(firestore_client=firestore_client)
     return result
+
+
+async def _run_finalization_job(job_id: str, dispatch_generation: int) -> Any:
+    """Seam over the shared executor, imported late to break the module cycle.
+
+    The executor imports this module for its retry budget, so it cannot be
+    imported at module scope here.
+    """
+    from services.listen_finalization_worker import execute_finalization_job
+
+    return await execute_finalization_job(job_id, dispatch_generation)
+
+
+async def recover_stale_finalization_jobs(limit: int = 100, *, firestore_client: Any = None) -> dict[str, int]:
+    """Run stale platform-key jobs here, for deployments with no durable queue.
+
+    ``reconcile_listen_finalization_jobs`` replays a stale lease by enqueueing a
+    Cloud Task, so it can only run where Cloud Tasks is configured. Below that,
+    finalization is executed by the live pusher session (``route='pusher'``), and
+    a session lost to a crash or deploy leaves its job ``leased`` with nobody to
+    reclaim it once the lease expires. ``reconcile_stale_processing_conversations``
+    does not cover those rows -- by construction it only sweeps conversations with
+    no job at all -- so without this sweep the conversation never finalizes and the
+    user simply never gets a title, summary or action items.
+
+    This is the same replay, executed in-process instead of enqueued. It runs only
+    where the durable queue does not, so the two can never double-drive a job.
+
+    BYOK jobs are excluded before they reach here: the data layer withholds
+    ``reconcile_after_at`` from them precisely so a credential-free reconciler
+    cannot pick them up, and ``claim_finalization_job`` fences them a second time.
+    """
+    result: dict[str, int] = {'recovered': 0, 'skipped': 0, 'failed': 0}
+    if is_listen_finalization_dispatch_enabled():
+        return result
+
+    stale_after = jobs_db.get_finalization_reconcile_stale_after()
+    try:
+        candidates = await run_blocking(
+            db_executor,
+            partial(jobs_db.get_finalization_replay_candidates, limit=limit, firestore_client=firestore_client),
+        )
+    except Exception:
+        logger.exception('in-process finalization recovery query failed')
+        _publish_job_metrics(firestore_client=firestore_client)
+        return result | {'error': 1}
+
+    for candidate in candidates:
+        job_id = candidate.get('job_id')
+        if not isinstance(job_id, str) or not job_id:
+            result['skipped'] += 1
+            continue
+        try:
+            claimed = await run_blocking(
+                db_executor,
+                partial(
+                    jobs_db.claim_finalization_replay,
+                    job_id,
+                    stale_after=stale_after,
+                    firestore_client=firestore_client,
+                ),
+            )
+        except Exception:
+            logger.exception('in-process finalization recovery claim failed job=%s', job_id)
+            result['skipped'] += 1
+            continue
+        # Losing the replay CAS means the job is owned again; re-running it here
+        # would duplicate the work the current owner is already doing.
+        if claimed['status'] != 'queued' or claimed['dispatch_generation'] is None:
+            result['skipped'] += 1
+            continue
+
+        record_capture_finalization_reconciliation('requeued')
+        LISTEN_FINALIZATION_RETRIES_TOTAL.inc()
+        try:
+            run = await _run_finalization_job(job_id, int(claimed['dispatch_generation']))
+        except Exception:
+            # One unrecoverable job must not stop the sweep from freeing the rest.
+            logger.exception('in-process finalization recovery run failed job=%s', job_id)
+            result['failed'] += 1
+            continue
+        if run.status in {'done', 'acked', 'dead_letter', 'skipped', 'dropped'}:
+            result['recovered'] += 1
+        else:
+            # 'retry', 'locked' and the fencing outcomes leave the job actionable;
+            # counting them recovered would hide a backlog that is still stuck.
+            result['failed'] += 1
+
+    _publish_job_metrics(firestore_client=firestore_client)
+    return result
+
+
+def reconcile_abandoned_in_progress_conversations(limit: int = 100, *, firestore_client: Any = None) -> dict[str, int]:
+    """Re-admit finished recordings that no producer ever retried.
+
+    A synchronous processing failure rolls the admission back to ``in_progress``
+    on the assumption that the producer retries. The mobile client retries a few
+    times and then gives up, so a failure that outlives those attempts (a
+    provider outage, an exhausted upstream quota) leaves the recording finished,
+    whole and permanently unprocessed: no job, so ``reconcile_listen_finalization_jobs``
+    never replays it; not ``processing``, so ``reconcile_stale_processing_conversations``
+    never sweeps it. The user is left with a conversation that has no title,
+    summary or action items and no path back into the pipeline except a manual
+    reprocess.
+
+    This sweep re-admits exactly those rows through the ordinary durable
+    admission (``request_finalization``), so everything downstream -- the
+    generation fence, the bounded retry budget, dead-lettering -- is the path
+    that already exists. Admission is what bounds repetition: the accepted row
+    carries a ``finalization_job_id`` from then on, and this sweep skips rows
+    that have one, so a conversation can be re-admitted at most once per
+    generation no matter how often the sweep runs.
+
+    Two users are deliberately left alone: an account mid-cutover (no background
+    mutation may touch it) and a BYOK user, whose keys exist only inside a live
+    request -- admitting one here would silently finalize their recording on
+    platform credentials.
+
+    An abandoned row that turns out to be *empty* cannot be re-admitted at all
+    (admission answers ``no_content``), so it is finished the way the live path
+    finishes it -- deleted through ``delete_empty_recording_conversation``.
+    Without that it would stay a permanent candidate: re-scanned and refused on
+    every sweep, and shown to the user as a conversation nothing can complete.
+    """
+    result: dict[str, int] = {'requested': 0, 'deleted': 0, 'skipped': 0, 'error': 0}
+    stale_after = jobs_db.get_abandoned_in_progress_finalize_after()
+    try:
+        cursor = jobs_db.get_abandoned_in_progress_sweep_cursor(firestore_client=firestore_client)
+    except Exception:
+        logger.exception('abandoned in_progress sweep cursor read failed; sweeping from the top')
+        cursor = {'resume_after_path': None, 'generation': 0}
+    _path = cursor.get('resume_after_path')
+    resume_after_path: str | None = _path if isinstance(_path, str) else None
+    expected_generation: int = int(cursor.get('generation') or 0)
+    try:
+        sweep = jobs_db.get_abandoned_in_progress_candidates(
+            stale_after=stale_after, limit=limit, resume_after_path=resume_after_path, firestore_client=firestore_client
+        )
+    except Exception:
+        logger.exception('abandoned in_progress conversation reconciliation query failed')
+        LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='error').inc()
+        return result | {'error': 1}
+    next_cursor = None if sweep['exhausted'] else sweep['resume_after_path']
+    try:
+        jobs_db.advance_abandoned_in_progress_sweep_cursor(
+            expected_generation, next_cursor, firestore_client=firestore_client
+        )
+    except Exception:
+        logger.exception('abandoned in_progress sweep cursor advance failed; coverage is still guaranteed')
+
+    for candidate in sweep['candidates']:
+        uid = candidate.get('uid')
+        conversation_id = candidate.get('conversation_id')
+        if not isinstance(uid, str) or not isinstance(conversation_id, str):
+            result['skipped'] += 1
+            LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='skipped').inc()
+            continue
+        try:
+            if should_skip_background_account_mutation(uid):
+                result['skipped'] += 1
+                LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='skipped').inc()
+                continue
+            if users_db.is_byok_active(uid, firestore_client=firestore_client):
+                # Their keys live in a live request; only a live session can finalize.
+                result['skipped'] += 1
+                LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='byok').inc()
+                continue
+            finalization = lifecycle_service.request_finalization(
+                uid,
+                conversation_id,
+                has_byok_keys=False,
+                firestore_client=firestore_client,
+            )
+        except lifecycle_service.FinalizationDispatchUnavailable:
+            # A contended or unconfigured handoff is a clean boundary: nothing was
+            # persisted, and the next sweep re-scans this window.
+            result['skipped'] += 1
+            LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='skipped').inc()
+            continue
+        except Exception:
+            logger.exception('abandoned in_progress conversation reconciliation failed for one row')
+            result['error'] += 1
+            LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='error').inc()
+            continue
+        # 'noop' means the transaction refused admission (the row moved on, was
+        # discarded, or has nothing to finalize) -- an expected fencing, not work.
+        if finalization.get('route') == 'noop':
+            if finalization.get('status') == 'no_content':
+                try:
+                    deleted = _delete_abandoned_empty_recording(uid, conversation_id)
+                except Exception:
+                    logger.exception('abandoned in_progress empty-recording cleanup failed for one row')
+                    result['error'] += 1
+                    LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='error').inc()
+                    continue
+                if deleted:
+                    result['deleted'] += 1
+                    LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='deleted').inc()
+                    continue
+                # The transaction refused: the row gained content or moved on
+                # between admission and cleanup. Leaving it is correct.
+            result['skipped'] += 1
+            LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='skipped').inc()
+            continue
+        result['requested'] += 1
+        LISTEN_FINALIZATION_ABANDONED_IN_PROGRESS_RECONCILIATIONS_TOTAL.labels(outcome='requested').inc()
+    if result['requested'] or result['deleted']:
+        logger.info('abandoned in_progress conversation reconciliation: %s', result)
+    return result
+
+
+def _delete_abandoned_empty_recording(uid: str, conversation_id: str) -> bool:
+    """Finish the empty-generation cleanup the vanished producer owed.
+
+    The live path deletes an empty generation itself: ``process_conversation``
+    sees neither segments nor photos and calls
+    ``delete_empty_recording_conversation``. A producer that disappeared before
+    reaching that branch leaves the empty row behind, and admission answers
+    ``no_content`` for it on every sweep -- so re-driving admission alone would
+    re-scan the same dead row forever while the user keeps an empty conversation
+    that nothing can ever finish.
+
+    Safety is the live path's own, not this sweep's: the deletion transaction
+    re-reads the row and refuses anything that is no longer ``in_progress``,
+    already discarded, or holding content, and undecodable segments count as
+    content there ("never delete data we cannot read"). Firestore retries the
+    transaction when a late segment write wins the race, so a recording that
+    turns out non-empty is never deleted.
+
+    The recording-session id is unknowable here (the conversation does not carry
+    it and sessions are keyed the other way), so the session tombstone is
+    skipped; ``open_live_recording_session`` already treats a binding whose
+    conversation is gone as a tombstone rather than an authority to recreate it.
+    """
+    return lifecycle_service.delete_empty_recording_conversation(uid, conversation_id, None)
 
 
 def reconcile_stale_processing_conversations(limit: int = 100, *, firestore_client: Any = None) -> dict[str, int]:

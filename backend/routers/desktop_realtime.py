@@ -24,7 +24,7 @@ _OPENAI_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client_secrets"
 # not the $1k/day Flash text bill. See backend/docs/vertex-pt-flash.md.
 _GEMINI_AUTH_TOKENS_URL = "https://generativelanguage.googleapis.com/v1alpha/auth_tokens"
 _OPENAI_REALTIME_MODEL = "gpt-realtime-2"
-_GEMINI_LIVE_MODEL = "models/gemini-3.1-flash-live-preview"
+_GEMINI_LIVE_MODEL = "models/gemini-2.5-flash-native-audio-latest"
 _SESSION_START_WINDOW_MIN = 2
 _SESSION_MAX_MIN = 30
 
@@ -97,11 +97,11 @@ def _upstream_error(provider: str, status_code: int, body: str) -> JSONResponse:
 
 
 async def _post_json(
-    url: str, provider: str, headers: dict[str, str], body: dict[str, Any], params: dict[str, str] | None = None
+    url: str, provider: str, headers: dict[str, str], body: dict[str, Any]
 ) -> tuple[dict[str, Any] | None, JSONResponse | None]:
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=10.0)) as client:
-            response = await client.post(url, headers=headers, json=body, params=params)
+            response = await client.post(url, headers=headers, json=body)
     except httpx.HTTPError as error:
         return None, _error(502, "provider_mint_transport_error", str(error), retryable=True)
     if not response.is_success:
@@ -174,9 +174,12 @@ async def mint_session(request: MintRequest, uid: str = Depends(get_current_user
         data, error = await _post_json(
             _GEMINI_AUTH_TOKENS_URL,
             "gemini",
-            {},
+            # The key travels in a header, never the query string: httpx logs every request URL
+            # at INFO (main.py sets basicConfig(level=INFO)), so ``?key=...`` writes the platform
+            # Gemini key into the request log in plaintext on every mint. ``x-goog-api-key`` is
+            # the same credential, and is what the embedding client already sends (clients.py).
+            {"x-goog-api-key": key},
             {"uses": 1, "expireTime": expires_at, "newSessionExpireTime": start},
-            {"key": key},
         )
         if error:
             return error

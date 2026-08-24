@@ -35,15 +35,21 @@ WS_AUTH_CODE_ACCOUNT_DELETION = 4005
 WS_AUTH_CODE_ACCOUNT_CUTOVER = 4006
 
 
-def get_user_deletion_wipe_status(uid: str) -> str | None:
+_DeletionStatusReader = Callable[..., "str | None"]
+
+
+def get_user_deletion_wipe_status(uid: str, *, read: Callable[[Any], Any] | None = None) -> str | None:
     """Read the durable deletion authority without a cache or fail-open shim."""
-    return cast(Callable[[str], str | None], users_db.get_user_deletion_wipe_status)(uid)
+    reader = cast(_DeletionStatusReader, users_db.get_user_deletion_wipe_status)
+    return reader(uid) if read is None else reader(uid, read=read)
 
 
-def _account_deletion_status(uid: str) -> str | None:
+def _account_deletion_status(uid: str, *, read: Callable[[Any], Any] | None = None) -> str | None:
     """Read the uncached deletion authority, failing closed if it is unavailable."""
     try:
-        return get_user_deletion_wipe_status(uid)
+        # Called without ``read=`` unless a bounded read was actually requested,
+        # so the default path keeps the plain single-argument call shape.
+        return get_user_deletion_wipe_status(uid) if read is None else get_user_deletion_wipe_status(uid, read=read)
     except Exception as error:
         logger.error(
             'Account-deletion auth fence unavailable for uid=%s error_type=%s',
@@ -56,8 +62,14 @@ def _account_deletion_status(uid: str) -> str | None:
         ) from error
 
 
-def enforce_account_deletion_http_access(uid: str) -> None:
-    status = _account_deletion_status(uid)
+def enforce_account_deletion_http_access(uid: str, *, read: Callable[[Any], Any] | None = None) -> None:
+    """Fence HTTP access for a deleting account.
+
+    ``read`` is for callers that gate every request on this gate and cannot
+    afford the Firestore client's default 300-second retry deadline: they pass a
+    bounded read so an outage fails fast instead of parking a pool worker.
+    """
+    status = _account_deletion_status(uid, read=read)
     if account_deletion_blocks_access(status):
         raise HTTPException(
             status_code=403,

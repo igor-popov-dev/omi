@@ -1056,3 +1056,53 @@ def test_validation_result_model():
         reasoning="This would genuinely help the user.",
     )
     assert result.approved is True
+
+
+# ── Per-step deadline (self-host, lane7) ──
+
+
+def test_pipeline_steps_pass_a_request_timeout(monkeypatch):
+    """Each mentor step must ask get_llm for a bounded deadline.
+
+    The chain resolves to the claude-bridge route, whose default deadline is 120s per
+    call because the bridge shells out to `claude -p`. It runs on the live transcript
+    path, so an unbounded step parks a worker thread there for minutes.
+    """
+    seen_kwargs = []
+
+    def fake_get_llm(feature, **kwargs):
+        seen_kwargs.append((feature, kwargs))
+        return mock_llm_mini
+
+    monkeypatch.setattr(pn_mod, 'get_llm', fake_get_llm)
+
+    mock_parser = MagicMock()
+    mock_parser.invoke = MagicMock(
+        return_value=RelevanceResult(
+            is_relevant=False, relevance_score=0.1, reasoning="nothing", context_summary="small talk"
+        )
+    )
+    mock_llm_mini.with_structured_output = MagicMock(return_value=mock_parser)
+
+    evaluate_relevance(
+        user_name="TestUser",
+        user_facts="",
+        goals=[],
+        current_messages=[{"text": "hi", "is_user": True}],
+        recent_notifications=[],
+    )
+
+    assert seen_kwargs, "evaluate_relevance did not call get_llm"
+    feature, kwargs = seen_kwargs[0]
+    assert feature == 'proactive_notification'
+    assert kwargs.get('request_timeout') == 45.0
+
+
+def test_step_timeout_is_overridable_by_env(monkeypatch):
+    monkeypatch.setenv('PROACTIVE_NOTIFICATION_STEP_TIMEOUT_SECONDS', '20')
+    assert pn_mod._step_timeout_seconds() == 20.0
+    # A garbage value must not take the mentor chain down — fall back to the default.
+    monkeypatch.setenv('PROACTIVE_NOTIFICATION_STEP_TIMEOUT_SECONDS', 'soon')
+    assert pn_mod._step_timeout_seconds() == 45.0
+    monkeypatch.delenv('PROACTIVE_NOTIFICATION_STEP_TIMEOUT_SECONDS')
+    assert pn_mod._step_timeout_seconds() == 45.0

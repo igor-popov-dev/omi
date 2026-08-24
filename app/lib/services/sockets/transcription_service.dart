@@ -59,8 +59,13 @@ class ConversationTranscriptSegmentSocketService extends TranscriptSegmentSocket
 }
 
 class CustomSttTranscriptSegmentSocketService extends TranscriptSegmentSocketService {
-  CustomSttTranscriptSegmentSocketService.create(super.sampleRate, super.codec, super.language, {super.source})
-      : super.create(includeSpeechProfile: true, customSttMode: true);
+  CustomSttTranscriptSegmentSocketService.create(
+    super.sampleRate,
+    super.codec,
+    super.language, {
+    super.source,
+    super.onboardingMode,
+  }) : super.create(includeSpeechProfile: true, customSttMode: true);
 }
 
 enum SocketServiceState { connected, disconnected }
@@ -345,6 +350,7 @@ class TranscriptSocketServiceFactory {
     String language,
     CustomSttConfig config, {
     String? source,
+    bool onboardingMode = false,
   }) {
     if (!config.isEnabled) {
       return createDefault(sampleRate, codec, language, source: source);
@@ -372,6 +378,7 @@ class TranscriptSocketServiceFactory {
       sttConfigId: sttConfigId,
       sttProvider: config.provider.name,
       forwardRawAudioToSecondary: config.sendRawAudioToOmi,
+      onboardingMode: onboardingMode,
     );
   }
 
@@ -499,12 +506,14 @@ class TranscriptSocketServiceFactory {
     String? sttConfigId,
     String? sttProvider,
     required bool forwardRawAudioToSecondary,
+    bool onboardingMode = false,
   }) {
     final secondaryService = CustomSttTranscriptSegmentSocketService.create(
       sampleRate,
       codec,
       language,
       source: source,
+      onboardingMode: onboardingMode,
     );
     final compositeSocket = CompositeTranscriptionSocket(
       primarySocket: primarySocket,
@@ -520,6 +529,7 @@ class TranscriptSocketServiceFactory {
       source: source,
       customSttMode: true,
       sttConfigId: sttConfigId,
+      onboardingMode: onboardingMode,
     );
   }
 }

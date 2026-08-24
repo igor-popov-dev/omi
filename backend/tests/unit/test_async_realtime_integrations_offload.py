@@ -484,3 +484,34 @@ class TestRealtimeIntegrationsOffload:
         ):
             with pytest.raises(RuntimeError, match="mentor failed"):
                 await app_integrations.trigger_realtime_integrations("uid-1", [{"text": "hi"}], "conv-1")
+
+    @pytest.mark.asyncio
+    async def test_mentor_pipeline_timeout_releases_the_transcript_path(self):
+        """A mentor chain that outlives MENTOR_PIPELINE_TIMEOUT_SECONDS must not hold up
+        realtime integrations (self-host, lane7).
+
+        The chain runs over the claude-bridge (a `claude -p` subprocess) and is awaited by
+        the pusher's per-connection transcript task, whose queue drops the oldest items when
+        it overflows. So the wait is bounded: the coroutine gives up, logs, and lets the rest
+        of the dispatch proceed while the worker thread finishes on its own.
+        """
+        stuck_mentor = MagicMock(return_value="should never be delivered")
+
+        async def never_finishing_run_blocking(executor, fn, *args, **kwargs):
+            if fn is stuck_mentor:
+                await _asyncio.sleep(30)
+            return fn(*args, **kwargs)
+
+        with patch.object(app_integrations, "run_blocking", never_finishing_run_blocking), patch.object(
+            app_integrations, "MENTOR_PIPELINE_TIMEOUT_SECONDS", 0.05
+        ), patch.object(app_integrations, "process_mentor_notification", return_value=[{"text": "hi"}]), patch.object(
+            app_integrations, "get_available_apps", return_value=[]
+        ), patch.object(
+            app_integrations, "_process_mentor_proactive_notification", stuck_mentor
+        ):
+            result = await _asyncio.wait_for(
+                app_integrations.trigger_realtime_integrations("uid-1", [{"text": "hi"}], "conv-1"),
+                timeout=5,
+            )
+
+        assert "mentor" not in result, "a timed-out mentor chain must not produce a notification"

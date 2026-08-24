@@ -7,6 +7,7 @@ from utils.observability.transcription import LiveSTTAttempt, TranscriptionAttem
 from utils.stt.outcomes import (
     TranscriptionFailure,
     TranscriptionOutcome,
+    empty_unexpected_failure,
     failure_from_exception,
 )
 
@@ -49,6 +50,19 @@ def test_wrapped_timeout_is_safe_and_retryable():
     assert failure.status_code == 504
     assert failure.retryable is True
     assert 'raw response body' not in str(failure.as_detail())
+
+
+def test_empty_transcript_of_fixed_audio_is_not_advertised_as_retryable():
+    """The same bytes always transcribe to the same nothing — do not invite a loop."""
+
+    failure = empty_unexpected_failure('deepgram')
+
+    assert failure.outcome == TranscriptionOutcome.EMPTY_UNEXPECTED
+    assert failure.status_code == 502
+    assert failure.retryable is False
+    assert failure.as_detail()['retryable'] is False
+    # Callers that know better can still opt in explicitly.
+    assert TranscriptionFailure(TranscriptionOutcome.EMPTY_UNEXPECTED, retryable=True).retryable is True
 
 
 def test_unknown_provider_is_bounded_in_public_failure():

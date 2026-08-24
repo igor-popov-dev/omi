@@ -103,6 +103,8 @@ from utils.executors import (
 from utils.executors import start_background_task
 from utils.cloud_tasks import validate_account_deletion_dispatch_configuration
 from services.conversation_finalization import reconcile_listen_finalization_jobs
+from services.conversation_finalization import recover_stale_finalization_jobs
+from services.conversation_finalization import reconcile_abandoned_in_progress_conversations
 from services.conversation_finalization import reconcile_meeting_receipts
 from services.conversation_finalization import reconcile_stale_processing_conversations
 from services.users.account_deletion import reconcile_pending_deletion_wipes
@@ -171,6 +173,12 @@ app.include_router(integrations.router)
 app.include_router(x_connector.router)
 app.include_router(memories.router)
 app.include_router(chat.router)
+# Self-host patch (routers/selfhost_voice_log.py, docs/selfhost-patches.md):
+# records the free-form voice dialogue into chat so the two assistants share
+# one history instead of pretending the other does not exist.
+from routers import selfhost_voice_log  # noqa: E402
+
+app.include_router(selfhost_voice_log.router)
 app.include_router(speech_profile.router)
 # app.include_router(screenpipe.router)
 app.include_router(notifications.router)
@@ -279,9 +287,20 @@ async def startup_event():
         run_blocking(db_executor, _drain_listen_finalization_jobs),
         name='startup_listen_finalization_reconcile',
     )
+    # A restart is exactly what strands an in-process finalization: the session
+    # that owned the lease is gone. On deployments without a durable queue this
+    # is the only thing that reclaims it (no-op where Cloud Tasks replays).
+    start_background_task(
+        _drain_in_process_finalization_jobs(),
+        name='startup_in_process_finalization_recovery',
+    )
     start_background_task(
         run_blocking(db_executor, _drain_stale_processing_conversations),
         name='startup_stale_processing_reconcile',
+    )
+    start_background_task(
+        run_blocking(db_executor, _drain_abandoned_in_progress_conversations),
+        name='startup_abandoned_in_progress_reconcile',
     )
     start_background_task(
         run_blocking(db_executor, _drain_meeting_receipts),
@@ -326,6 +345,16 @@ def _drain_listen_finalization_jobs():
         logger.error(f"Startup listen-finalization reconciliation failed: {e}")
 
 
+async def _drain_in_process_finalization_jobs():
+    """Best-effort in-process replay of leases stranded by the previous run."""
+    try:
+        result = await recover_stale_finalization_jobs()
+        if result.get('recovered') or result.get('failed'):
+            logger.info(f"Startup in-process finalization recovery: {result}")
+    except Exception as e:
+        logger.error(f"Startup in-process finalization recovery failed: {e}")
+
+
 def _drain_stale_processing_conversations():
     """Best-effort recovery of bare-`processing` conversations orphaned by a sync-route crash."""
     try:
@@ -334,6 +363,16 @@ def _drain_stale_processing_conversations():
             logger.info(f"Startup stale-processing reconciliation: {result}")
     except Exception as e:
         logger.error(f"Startup stale-processing reconciliation failed: {e}")
+
+
+def _drain_abandoned_in_progress_conversations():
+    """Best-effort re-admission of finished conversations no producer retried."""
+    try:
+        result = reconcile_abandoned_in_progress_conversations()
+        if result.get('requested') or result.get('deleted'):
+            logger.info(f"Startup abandoned in_progress reconciliation: {result}")
+    except Exception as e:
+        logger.error(f"Startup abandoned in_progress reconciliation failed: {e}")
 
 
 def _drain_meeting_receipts():
@@ -368,11 +407,23 @@ async def _periodic_listen_finalization_reconcile(interval_seconds: int | None =
         except Exception as e:
             logger.error(f"Periodic listen-finalization reconciliation failed: {e}")
         try:
+            recovered = await recover_stale_finalization_jobs()
+            if recovered.get('recovered') or recovered.get('failed'):
+                logger.info(f"Periodic in-process finalization recovery: {recovered}")
+        except Exception as e:
+            logger.error(f"Periodic in-process finalization recovery failed: {e}")
+        try:
             stale_result = await run_blocking(db_executor, reconcile_stale_processing_conversations)
             if stale_result.get('completed') or stale_result.get('migrated'):
                 logger.info(f"Periodic stale-processing reconciliation: {stale_result}")
         except Exception as e:
             logger.error(f"Periodic stale-processing reconciliation failed: {e}")
+        try:
+            abandoned_result = await run_blocking(db_executor, reconcile_abandoned_in_progress_conversations)
+            if abandoned_result.get('requested') or abandoned_result.get('deleted'):
+                logger.info(f"Periodic abandoned in_progress reconciliation: {abandoned_result}")
+        except Exception as e:
+            logger.error(f"Periodic abandoned in_progress reconciliation failed: {e}")
         try:
             receipt_result = await run_blocking(db_executor, reconcile_meeting_receipts)
             if receipt_result.get('repaired') or receipt_result.get('backfilled'):

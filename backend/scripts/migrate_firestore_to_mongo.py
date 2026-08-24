@@ -42,12 +42,23 @@ class Budget(Exception):
 
 
 class Migrator:
-    def __init__(self, source: Any, target: Optional[Any], *, max_reads: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        source: Any,
+        target: Optional[Any],
+        *,
+        max_reads: Optional[int] = None,
+        skip_existing: bool = False,
+    ) -> None:
         self._source = source
         self._target = target  # None => сухой прогон
         self._max_reads = max_reads
+        # Долив поверх живой базы: документ, который уже есть справа, НЕ трогаем — там
+        # версия свежее той, что замерла в Firestore в момент переезда.
+        self._skip_existing = skip_existing
         self.reads = 0
         self.writes = 0
+        self.kept = 0
         self.per_collection: Counter = Counter()
         self.skipped: List[str] = []
 
@@ -77,10 +88,17 @@ class Migrator:
         for record in records:
             doc_path = f"{collection_path}/{record.id}"
             if self._target is not None:
-                self._target.set(doc_path, dict(record.data or {}))
-                self.writes += 1
+                self._write(doc_path, dict(record.data or {}))
             for sub in self._subcollections(doc_path):
                 self.walk_collection(f"{doc_path}/{sub}", depth + 1)
+
+    def _write(self, doc_path: str, data: Dict[str, Any]) -> None:
+        """Записать документ, уважая режим долива."""
+        if self._skip_existing and self._target.get(doc_path).exists:
+            self.kept += 1
+            return
+        self._target.set(doc_path, data)
+        self.writes += 1
 
     def _subcollections(self, doc_path: str) -> Iterable[str]:
         try:
@@ -105,6 +123,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--collections", help="перенести только эти корневые коллекции (через запятую)")
     parser.add_argument("--users", help="только эти uid внутри users (через запятую)")
     parser.add_argument("--max-reads", type=int, help="остановиться после N прочитанных документов (щадит квоту)")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="долив: не трогать документы, которые в Mongo уже есть (там версия свежее)",
+    )
     parser.add_argument("--mongo-db", default=os.environ.get("MONGO_DB", "omi"), help="база назначения")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
@@ -143,7 +166,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     roots = _root_collections(client, args.collections.split(",") if args.collections else None)
     logger.info("корневых коллекций: %d — %s", len(roots), ", ".join(roots))
 
-    migrator = Migrator(source, target, max_reads=args.max_reads)
+    migrator = Migrator(source, target, max_reads=args.max_reads, skip_existing=args.skip_existing)
+    if args.skip_existing:
+        logger.info("РЕЖИМ ДОЛИВА: существующие в Mongo документы не перезаписываются")
     started = time.time()
     try:
         for root in roots:
@@ -154,8 +179,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     migrator._spend()
                     if record.exists:
                         if target is not None:
-                            target.set(f"users/{uid}", dict(record.data or {}))
-                            migrator.writes += 1
+                            migrator._write(f"users/{uid}", dict(record.data or {}))
                         migrator.per_collection["users"] += 1
                         for sub in migrator._subcollections(f"users/{uid}"):
                             migrator.walk_collection(f"users/{uid}/{sub}", 1)
@@ -177,6 +201,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     logger.info("--- итог за %.1f с ---", elapsed)
     logger.info("прочитано документов: %d", migrator.reads)
     logger.info("записано документов:  %d", migrator.writes)
+    if args.skip_existing:
+        logger.info("сохранено как было:   %d", migrator.kept)
     for name, count in migrator.per_collection.most_common():
         logger.info("   %-32s %d", name, count)
     if migrator.skipped:

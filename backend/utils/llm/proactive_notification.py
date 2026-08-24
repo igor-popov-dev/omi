@@ -13,12 +13,59 @@ logger = logging.getLogger(__name__)
 Record = Mapping[str, object]
 
 
+# Per-step deadline for the mentor's LLM calls (self-host, lane7).
+#
+# This chain runs on the live transcript path: the pusher's per-connection transcript
+# task awaits it, and while it is in flight new transcript items pile into a bounded
+# deque that drops the oldest. The default deadline of the claude-bridge route is 120s
+# (the bridge shells out to `claude -p`), which is far too long to hold that path —
+# a measured healthy run of the whole three-step chain is ~15s. 45s per step keeps a
+# wide margin over the healthy case while bounding a stuck bridge.
+#
+# Overridable so a slow host can raise it without a redeploy.
+def _step_timeout_seconds() -> float:
+    raw = (os.environ.get('PROACTIVE_NOTIFICATION_STEP_TIMEOUT_SECONDS') or '').strip()
+    if not raw:
+        return 45.0
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning('PROACTIVE_NOTIFICATION_STEP_TIMEOUT_SECONDS=%r is not a number, using 45s', raw)
+        return 45.0
+
+
 # ---------------------------------------------------------------------------
 # Step 1: Relevance Gate — is this conversation worth evaluating?
 # ---------------------------------------------------------------------------
 
 
 class RelevanceResult(BaseModel):
+    """Field order is load-bearing: the reasoning is declared BEFORE the verdict.
+
+    Structured output makes the model emit the fields in declaration order, so with the
+    verdict first it has to answer before it has worked anything out — and the prompt tells
+    it the default answer is false. Measured on the self-host bridge with one conversation
+    where the user agrees to a meeting that collides with a known flight
+    (marathon/deploy/lane7-critic-series.py, --mode gate-only):
+
+        verdict first (was):  4/10 passed the gate, and 1/14 in an earlier series
+        reasoning first:      10/10 passed
+
+    with a control conversation carrying no collision at 0/10 in both, so this is not the
+    gate merely growing looser. Scores were bimodal, never near the threshold: the same
+    conversation scored 0.05 or 0.95, and rejected runs routinely spelled out the collision
+    in `reasoning` and then set is_relevant=false next to it — one run said "this is a
+    direct collision... a classic case worth interrupting" and scored it 0.05.
+
+    Keep the reasoning first; reordering these fields for tidiness silently brings the coin
+    flip back, and its failure mode is the mentor saying nothing, which looks exactly like
+    having nothing to say.
+    """
+
+    reasoning: str = Field(
+        description="What specific thing in the conversation warrants a notification. Must cite a concrete detail."
+    )
+    context_summary: str = Field(description="Brief summary of what user is discussing (1 sentence).")
     is_relevant: bool = Field(
         description=(
             "True ONLY if there is a specific, concrete insight the user would genuinely "
@@ -35,10 +82,6 @@ class RelevanceResult(BaseModel):
             "Below 0.60: not worth interrupting."
         ),
     )
-    reasoning: str = Field(
-        description="What specific thing in the conversation warrants a notification. Must cite a concrete detail."
-    )
-    context_summary: str = Field(description="Brief summary of what user is discussing (1 sentence).")
 
 
 GATE_PROMPT = """You decide whether {user_name}'s current conversation contains something worth interrupting them about.
@@ -67,11 +110,25 @@ IMPORTANT: Most conversations do NOT warrant a notification. Your default answer
 == {user_name}'S GOALS ==
 {goals_text}
 
+== {user_name}'S RECENT CONVERSATIONS ==
+{past_conversations}
+
 == CURRENT CONVERSATION ==
 {current_conversation}
 
 == RECENT NOTIFICATIONS (do not flag similar topics) ==
-{recent_notifications}"""
+{recent_notifications}
+
+Before you answer, run this check explicitly and mention its outcome in `reasoning`:
+read {user_name}'S FACTS, {user_name}'S GOALS and {user_name}'S RECENT CONVERSATIONS above, and
+compare them against anything {user_name} is agreeing to, scheduling, or committing to in the
+CURRENT CONVERSATION. A commitment that collides with a known fact, goal, or something
+{user_name} already said in a recent conversation (same day, overlapping time, incompatible
+place, contradicted decision) is exactly the case worth interrupting — {user_name} usually does
+not notice these in the moment. A collision needs two KNOWN things that cannot both hold;
+a detail nobody has looked up yet is not one. If there is no such collision, say so — that
+alone does not settle the answer, the criteria above still do — and otherwise stay with
+is_relevant=false.{language_instruction}"""
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +137,27 @@ IMPORTANT: Most conversations do NOT warrant a notification. Your default answer
 
 
 class NotificationDraft(BaseModel):
+    """Unlike :class:`RelevanceResult` and :class:`ValidationResult`, the field order here
+    is NOT load-bearing — measured, not assumed.
+
+    Both siblings above carry loud "keep the reasoning first" docstrings, so reordering this
+    one to match looks like tidying up. It was tried on the same harness
+    (marathon/deploy/lane7-critic-series.py, --mode draft-only, 10 runs per input, a
+    conversation colliding with a known flight against a control conversation with no
+    collision at all):
+
+        as-is (this order):  collision 10/10 over the threshold, control 0/10
+                             confidence 0.95-0.97 against 0.62-0.65
+        reasoning first:     collision 10/10,                    control 1/10
+                             confidence 0.95-0.97 against 0.62-0.78
+
+    Nothing to gain, and the control drifts up. The reason the siblings suffer and this one
+    does not: their output is a binary verdict under a prompt whose stated default is "no",
+    so a verdict written before the reasoning inherits that default. This stage has no
+    default to inherit, its first field is the notification text itself — which is the
+    reasoning, in effect — and `confidence` is written after it either way.
+    """
+
     notification_text: str = Field(
         description="The notification. Max 100 chars. Specific and actionable. Like a text from a sharp friend."
     )
@@ -116,7 +194,12 @@ Rules:
 - Write it like a sharp friend texting, not a corporate advisor
 - NEVER start with: Confirm, Ensure, Clarify, Consider, Prioritize, Remember, Review, Align, Make sure, Don't forget
 - Under 100 characters
-- The notification must contain information {user_name} does NOT already have, or a connection they can't see{language_instruction}
+- The notification must contain information {user_name} does NOT already have, or a connection they can't see
+- Every concrete figure you state — a duration, price, deadline, count, date — must already appear
+  in the CURRENT CONVERSATION, FACTS, GOALS or PAST CONVERSATIONS below. You are looking at one
+  person's day, not at the world: you do not know how long an office takes, what something costs,
+  or how far away a place is unless it is written below. When the useful point is that such a
+  figure is missing, say it is unknown and worth checking — never supply a plausible one{language_instruction}
 
 == {user_name}'S FACTS ==
 {user_facts}
@@ -143,10 +226,22 @@ Rules:
 
 
 class ValidationResult(BaseModel):
+    """Reasoning before verdict, for the same measured reason as :class:`RelevanceResult`.
+
+    Same harness, same fixed inputs — a strong draft naming a real collision, and an empty
+    reminder as the control that must stay rejected:
+
+        verdict first:    strong draft 7/10 approved, control 0/10
+        reasoning first:  strong draft 10/10 approved, control 0/10
+
+    The critic's prompt is built around "most notifications should be REJECTED", so a
+    verdict written before the reasoning inherits that default rather than the argument.
+    """
+
+    reasoning: str = Field(description="Why this should or should not be sent to the user's phone.")
     approved: bool = Field(
         description="True ONLY if you would genuinely want to receive this notification yourself. Most should be rejected."
     )
-    reasoning: str = Field(description="Why this should or should not be sent to the user's phone.")
 
 
 CRITIC_PROMPT = """You are the last gate before this notification hits {user_name}'s phone. Your job is to BLOCK bad notifications. Most notifications should be REJECTED.
@@ -161,6 +256,12 @@ THE CONVERSATION IT'S BASED ON:
 
 {user_name}'S GOALS:
 {goals_text}
+
+{user_name}'S FACTS (what is known about them OUTSIDE this conversation):
+{user_facts}
+
+{user_name}'S RECENT CONVERSATIONS (what they said BEFORE this one):
+{past_conversations}
 
 Imagine you are {user_name}. You're in the middle of a conversation. Your phone buzzes. You look down and see this notification. Do you think:
 A) "Oh shit, glad I saw this — this changes what I do next" → APPROVE
@@ -187,19 +288,34 @@ APPROVE only if ALL of these are true:
 _BCP47_LANGUAGE_RE = re.compile(r'[A-Za-z]{2,8}(-[A-Za-z0-9]{2,8})*')
 
 
-def _language_instruction(output_language: str, *, for_critic: bool = False) -> str:
+def _language_instruction(output_language: str, *, for_critic: bool = False, for_gate: bool = False) -> str:
     """Instruction telling the model to write (or, for the critic, reject if not written in) the
     user's language (#5214).
 
     Returns "" for English, an unset language, or any value that is not a clean BCP-47 token, so the
     model defaults to English and a user-controlled preference cannot inject prompt text. English
     family codes (en, en-US, ...) intentionally produce no instruction.
+
+    ``for_gate`` is a third wording because the gate writes no notification: it answers a verdict,
+    and its ``reasoning`` is handed to the generate step as ``gate_reasoning``. Left without an
+    instruction it answers in the prompt's language whenever the conversation gives it little
+    Russian to hold on to — measured on the live path, 6 of 9 gate answers on the user's own
+    conversations came back in English — and that English reasoning is then what the generate step
+    reads before writing the text the user sees. Telling the gate to "write the notification in the
+    user's language" would be an instruction about an output it does not have, so the wording names
+    the two fields it does produce and says outright that the verdict itself must not change.
     """
     lang = (output_language or 'en').strip()
     if not lang or lang.lower().startswith('en') or not _BCP47_LANGUAGE_RE.fullmatch(lang):
         return ""
     if for_critic:
         return f"\n- The notification is written in a language other than the user's (expected code: {lang})"
+    if for_gate:
+        return (
+            f"\n\nWrite `reasoning` and `context_summary` entirely in the user's language "
+            f"(language/locale code: {lang}). This does not change WHAT you decide — only the "
+            f"language you write the decision in.\n"
+        )
     return f"\n- Write the notification entirely in the user's language (language/locale code: {lang})"
 
 
@@ -348,8 +464,18 @@ def evaluate_relevance(
     current_messages: list[Record],
     recent_notifications: list[Record],
     current_date: Optional[str] = None,
+    past_conversations_str: str = '',
+    output_language: str = 'en',
 ) -> RelevanceResult:
-    """Cheap first pass: is this conversation worth generating a notification for?"""
+    """Cheap first pass: is this conversation worth generating a notification for?
+
+    ``past_conversations_str`` is the caller's cheap recent-by-time context. The gate is the only
+    step that decides whether anything happens at all, so a conflict it cannot see is a
+    notification that can never be sent — and the collision this chain is most valuable for
+    ("you just agreed to Thursday afternoon; yesterday you said you fly out Thursday at two")
+    lives in a past conversation, not in the last ten lines. Semantic retrieval stays after the
+    gate: that one needs an embedding provider, and this step must stay cheap.
+    """
     goals_text = _format_goals(goals)
     current_conversation = _format_current_conversation(current_messages, user_name)
     notifications_text = _format_recent_notifications(recent_notifications)
@@ -358,12 +484,16 @@ def evaluate_relevance(
         user_name=user_name,
         user_facts=user_facts,
         goals_text=goals_text,
+        past_conversations=past_conversations_str or 'None available.',
         current_conversation=current_conversation,
         recent_notifications=notifications_text,
         current_date=current_date or current_date_in_tz(None),
+        language_instruction=_language_instruction(output_language, for_gate=True),
     )
 
-    with_parser = get_llm('proactive_notification').with_structured_output(RelevanceResult)
+    with_parser = get_llm('proactive_notification', request_timeout=_step_timeout_seconds()).with_structured_output(
+        RelevanceResult
+    )
     result = cast(RelevanceResult, with_parser.invoke(prompt))
     return result
 
@@ -406,7 +536,9 @@ def generate_notification(
         current_date=current_date or current_date_in_tz(None),
     )
 
-    with_parser = get_llm('proactive_notification').with_structured_output(NotificationDraft)
+    with_parser = get_llm('proactive_notification', request_timeout=_step_timeout_seconds()).with_structured_output(
+        NotificationDraft
+    )
     result = cast(NotificationDraft, with_parser.invoke(prompt))
     return result
 
@@ -424,8 +556,49 @@ def validate_notification(
     goals: list[Record],
     output_language: str = 'en',
     current_date: Optional[str] = None,
+    user_facts: str = '',
+    past_conversations_str: str = '',
 ) -> ValidationResult:
-    """Final human-perspective check: would you actually want this on your phone?"""
+    """Final human-perspective check: would you actually want this on your phone?
+
+    The critic sees the user's facts because without them it cannot tell a real
+    cross-source collision from a rehash of the conversation. The gate and the
+    generate step are both given the facts; only the critic was not, and every
+    notification whose value comes from outside the conversation — the class this
+    whole chain exists for — reads to it as "the user just said this themselves".
+
+    Measured on the self-host bridge, 10 runs per cell, one fixed conversation where
+    the user agrees to a meeting that collides with a known flight
+    (marathon/deploy/lane7-critic-series.py):
+
+        without facts:      strong draft 0/10 approved, empty reminder 0/10
+        with facts (this):  strong draft 7/10 approved, empty reminder 0/10
+
+    Without the facts the critic did not merely reject too much — it could not
+    separate the two inputs at all, rejecting both with the same sentence. The
+    facts alone restore the separation.
+
+    The three remaining rejections all argue that the user should have noticed the
+    collision himself. An extra "a collision is not a rehash" instruction removes
+    exactly that argument and was measured in the same harness — it pulled the
+    strong draft to 10/10 but also the empty reminder to 6/10, i.e. it buys
+    approvals by destroying the control, so it is deliberately not here.
+
+    The past conversations are here for the same reason, and the facts alone do not
+    cover it: the gate reads the last conversations too, so it can pass on a collision
+    whose other half was simply said yesterday and never distilled into a fact. Measured
+    with the same harness, 8 runs per cell, facts deliberately holding no flight so the
+    only source is a past conversation (`--mode past`):
+
+        without past conversations: grounded collision 0/8 approved
+        with them (this):           grounded collision 8/8 approved
+        controls, with them:        invented collision 0/8, empty reminder 0/8
+
+    All eight rejections in the first cell say the same thing — "the conversation says
+    nothing about a flight to Petersburg" — which is true of the transcript and false of
+    the user's week. The controls are what make the fix a fix rather than a licence to
+    believe the draft's reasoning: a notification citing a report deadline nobody ever
+    mentioned is still rejected 8/8, and rejected for that reason."""
     current_conversation = _format_current_conversation(current_messages, user_name)
     goals_text = _format_goals(goals)
 
@@ -435,11 +608,15 @@ def validate_notification(
         draft_reasoning=draft_reasoning,
         current_conversation=current_conversation,
         goals_text=goals_text,
+        user_facts=user_facts or 'None available.',
+        past_conversations=past_conversations_str or 'None available.',
         language_instruction=_language_instruction(output_language, for_critic=True),
         current_date=current_date or current_date_in_tz(None),
     )
 
-    with_parser = get_llm('proactive_notification').with_structured_output(ValidationResult)
+    with_parser = get_llm('proactive_notification', request_timeout=_step_timeout_seconds()).with_structured_output(
+        ValidationResult
+    )
     result = cast(ValidationResult, with_parser.invoke(prompt))
     return result
 
@@ -546,6 +723,8 @@ def evaluate_proactive_notification(
         current_date=current_date or current_date_in_tz(None),
     )
 
-    with_parser = get_llm('proactive_notification').with_structured_output(ProactiveNotificationResult)
+    with_parser = get_llm('proactive_notification', request_timeout=_step_timeout_seconds()).with_structured_output(
+        ProactiveNotificationResult
+    )
     result = cast(ProactiveNotificationResult, with_parser.invoke(prompt))
     return result

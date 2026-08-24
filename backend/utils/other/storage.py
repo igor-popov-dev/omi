@@ -9,6 +9,7 @@ import time
 import wave
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from concurrent.futures import as_completed, wait, FIRST_COMPLETED
+from urllib.parse import quote
 
 from utils.executors import postprocess_executor, storage_executor
 
@@ -1519,9 +1520,20 @@ def _get_signed_url(blob: Any, minutes: int) -> str:
     if cached := get_cached_signed_url(blob.name):
         return cached
 
-    signed_url: str = blob.generate_signed_url(
-        version="v4", expiration=datetime.timedelta(minutes=minutes), method="GET"
-    )
+    # V4 signing needs a real service-account private key and always resolves to
+    # storage.googleapis.com; against STORAGE_EMULATOR_HOST (fake-gcs-server on a
+    # self-host deployment) that host is unreachable even when ADC creds can sign.
+    # The emulator serves plain unsigned GET on the object path, so hand that back
+    # directly instead of a signed URL nothing but real GCS would ever accept.
+    emulator_host = os.environ.get('STORAGE_EMULATOR_HOST', '').strip()
+    if emulator_host:
+        signed_url = (
+            f"{emulator_host.rstrip('/')}/storage/v1/b/{blob.bucket.name}/o/{quote(blob.name, safe='')}?alt=media"
+        )
+        cache_signed_url(blob.name, signed_url, minutes * 60)
+        return signed_url
+
+    signed_url = blob.generate_signed_url(version="v4", expiration=datetime.timedelta(minutes=minutes), method="GET")
     cache_signed_url(blob.name, signed_url, minutes * 60)
     return signed_url
 

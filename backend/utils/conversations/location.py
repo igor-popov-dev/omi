@@ -29,6 +29,13 @@ def get_google_maps_location(latitude: float, longitude: float) -> Optional[Geol
         logging.warning('Failed to read geocode cache for key %s: %s', cache_key, e)
 
     key = os.getenv('GOOGLE_MAPS_API_KEY')
+    if not key:
+        # Self-host: без ключа Google возвращал ошибку, адрес оставался пустым и в
+        # приложении на месте улицы стояло «Неизвестное местоположение». OpenStreetMap
+        # отвечает на обратный геокодинг без ключа и биллинга, поэтому берём его —
+        # координаты у нас уже есть, не хватало только человеческого адреса.
+        return _openstreetmap_location(latitude, longitude, cache_key)
+
     url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={latitude},{longitude}&key={key}"
     try:
         response = httpx.get(url, timeout=10.0)
@@ -58,6 +65,41 @@ def get_google_maps_location(latitude: float, longitude: float) -> Optional[Geol
     except Exception as e:
         logging.warning('Failed to cache geocode for key %s: %s', cache_key, e)
 
+    return geo
+
+
+def _openstreetmap_location(latitude: float, longitude: float, cache_key: str) -> Optional[Geolocation]:
+    """Обратный геокодинг через Nominatim — без ключа, с обязательным User-Agent
+    (сервис отклоняет запросы без него) и языком ответа по локали пользователя."""
+    url = (
+        "https://nominatim.openstreetmap.org/reverse"
+        f"?format=json&lat={latitude}&lon={longitude}&zoom=18&accept-language="
+        + os.getenv('OMI_GEOCODE_LANGUAGE', 'ru')
+    )
+    try:
+        response = httpx.get(url, timeout=10.0, headers={'User-Agent': 'omi-self-hosted/1.0'})
+        data = response.json()
+    except Exception as e:
+        logger.error(f'openstreetmap geocode error: {e}')
+        return None
+
+    address = data.get('display_name')
+    if not address:
+        return None
+
+    geo = Geolocation(
+        # Идентификатор места нужен вызывающему коду как признак «уже обогащено»;
+        # у OpenStreetMap своя нумерация, поэтому помечаем источник явно.
+        google_place_id=f"osm:{data.get('osm_type', 'node')}/{data.get('osm_id', '')}",
+        latitude=latitude,
+        longitude=longitude,
+        address=address,
+        location_type=data.get('type'),
+    )
+    try:
+        r.set(cache_key, json.dumps(geo.model_dump()), ex=172800)
+    except Exception as e:
+        logging.warning('Failed to cache geocode for key %s: %s', cache_key, e)
     return geo
 
 

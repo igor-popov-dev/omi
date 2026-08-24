@@ -148,7 +148,14 @@ DEFAULT_MODELS_BY_SURFACE: Final[Mapping[STTServingSurface, tuple[str, ...]]] = 
 # tied to the deployed model rather than to the provider token, so a model
 # change must update this policy and its regression coverage together.
 PARAKEET_MODEL_BY_SURFACE: Final[Mapping[STTServingSurface, str]] = {
-    STTServingSurface.STREAMING: 'nvidia/parakeet-rnnt-1.1b',
+    # ПРИВАТНАЯ ПРАВКА (полоса 6, 22.08): у upstream на STREAMING стоит англоязычная
+    # rnnt-1.1b, и селектор отвергает parakeet для ru/multi (capability_mismatch) —
+    # т.е. наш self-hosted STT никогда не выбирается. Подставляем ту же батчевую
+    # модель, что upstream уже использует на PRERECORDED: у неё в
+    # PARAKEET_SUPPORTED_LANGUAGES_BY_MODEL есть и 'ru', и 'multi'. Наружу не
+    # отправлять: у upstream за этим именем стоит реальная модель NVIDIA, у нас —
+    # шим на 8771 (GigaAM/whisper), имя модели для нас просто ярлык.
+    STTServingSurface.STREAMING: 'nvidia/parakeet-tdt-0.6b-v3',
     STTServingSurface.PTT: 'nvidia/parakeet-rnnt-1.1b',
     STTServingSurface.PRERECORDED: 'nvidia/parakeet-tdt-0.6b-v3',
 }

@@ -106,6 +106,91 @@ def test_set_merge_deep_merges_nested_maps(store, uid):
     }
 
 
+def test_set_merge_replaces_non_map_on_the_path(store, uid):
+    # Firestore's merge=True REPLACES whatever sits on the path with the map; Mongo's dotted $set
+    # refuses to create a field inside a scalar and answers WriteError 28 "Cannot create field
+    # 'address' in element {geolocation: null}". Live consequence: every conversation finalization
+    # wrote geolocation over a null placeholder (database/conversations.py:478), so each one died
+    # with a bare processing_failed and dead-lettered as failed+discarded.
+    # null, a scalar and a list all have to give way to the map, and a real map must still deep-merge.
+    base = f"users/{uid}/state/places"
+    store.set(base, {"geolocation": None, "scalar": 7, "listy": [1, 2], "mappy": {"keep": "me"}})
+    store.set(
+        base,
+        {
+            "geolocation": {"address": "Baker St"},
+            "scalar": {"address": "Baker St"},
+            "listy": {"address": "Baker St"},
+            "mappy": {"address": "Baker St"},
+        },
+        merge=True,
+    )
+    assert store.get(base).to_dict() == {
+        "geolocation": {"address": "Baker St"},
+        "scalar": {"address": "Baker St"},
+        "listy": {"address": "Baker St"},
+        "mappy": {"keep": "me", "address": "Baker St"},  # a real map still merges, siblings survive
+    }
+
+
+def test_batch_set_merge_replaces_non_map_on_the_path(store, uid):
+    # Same rule on the batch path, which builds its merge ops from the same helper.
+    base = f"users/{uid}/state/places-batch"
+    store.set(base, {"geolocation": None})
+    batch = store.batch()
+    batch.set(base, {"geolocation": {"address": "Baker St"}}, merge=True)
+    batch.commit()
+    assert store.get(base).to_dict() == {"geolocation": {"address": "Baker St"}}
+
+
+def test_update_replaces_non_map_on_the_path(store, uid):
+    # Same backend gap as set(merge=True) above, on the OTHER write path: an ``update`` field path
+    # (``geolocation.address``) also has to replace whatever sits on ``geolocation``. Firestore does
+    # (emulator-verified: null, a scalar and a list all give way to the map); Mongo's dotted $set
+    # refuses with the same WriteError 28, so the adapter must prepare the node here too.
+    base = f"users/{uid}/state/places-update"
+    store.set(base, {"geolocation": None, "scalar": 7, "listy": [1, 2], "mappy": {"keep": "me"}})
+    store.update(
+        base,
+        {
+            "geolocation.address": "Baker St",
+            "scalar.address": "Baker St",
+            "listy.address": "Baker St",
+            "mappy.address": "Baker St",
+        },
+    )
+    assert store.get(base).to_dict() == {
+        "geolocation": {"address": "Baker St"},
+        "scalar": {"address": "Baker St"},
+        "listy": {"address": "Baker St"},
+        "mappy": {"keep": "me", "address": "Baker St"},  # a real map keeps its siblings
+    }
+
+
+def test_batch_update_replaces_non_map_on_the_path(store, uid):
+    # Same rule on the batch update path.
+    base = f"users/{uid}/state/places-update-batch"
+    store.set(base, {"geolocation": None})
+    batch = store.batch()
+    batch.update(base, {"geolocation.address": "Baker St"})
+    batch.commit()
+    assert store.get(base).to_dict() == {"geolocation": {"address": "Baker St"}}
+
+
+def test_stale_precondition_update_does_not_prepare_the_path(store, uid):
+    # Preparing the node is part of the write, so it must obey the precondition: a refused
+    # conditional update leaves the document byte-for-byte as it was. Without this, a lost OCC race
+    # would still have turned ``geolocation: null`` into ``{}`` — a silent mutation the caller was
+    # explicitly told did NOT happen.
+    base = f"users/{uid}/state/places-occ"
+    store.set(base, {"geolocation": None, "v": 1})
+    stale = store.get(base).updated_at
+    store.update(base, {"v": 2})  # bumps the revision past ``stale``
+    with pytest.raises(PreconditionFailed):
+        store.update(base, {"geolocation.address": "Baker St"}, if_updated_at=stale)
+    assert store.get(base).to_dict() == {"geolocation": None, "v": 2}
+
+
 def test_query_group_excludes_docs_missing_ordered_field(store, uid):
     # cubic PR 10887 mongo.py:641: Firestore's order_by returns only docs that HAVE the ordered field; a
     # collection-group query on Mongo must add the same $exists so it doesn't include a doc missing it.

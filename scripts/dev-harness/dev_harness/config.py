@@ -315,7 +315,7 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
     # gateway-local stage, so FEATURE_MODE=gateway would make gateway_client reject
     # startup while still advertising gateway routing.
     gateway_feature_mode = "off" if cfg.provider_mode == "offline" else "gateway"
-    return {
+    extra = {
         "OMI_HARNESS_INSTANCE": cfg.instance,
         "OMI_HARNESS_STATE_ROOT": str(cfg.layout.state_root),
         "FIRESTORE_EMULATOR_HOST": cfg.firestore_host,
@@ -341,7 +341,40 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
         "OMI_LLM_GATEWAY_URL": cfg.llm_gateway_url,
         "OMI_LLM_GATEWAY_SERVICE_TOKEN": cfg.llm_gateway_service_token,
         "OMI_LLM_GATEWAY_FEATURE_MODE": gateway_feature_mode,
+        # WeSpeaker embedding HTTP service (marathon/wespeaker_server.py, lane1) deployed
+        # on mini at :8767; overridable so a non-mini harness instance can point elsewhere
+        # or unset it to fall back to the backend's built-in (unhosted) embedding path.
+        "HOSTED_SPEAKER_EMBEDDING_API_URL": os.environ.get(
+            "HOSTED_SPEAKER_EMBEDDING_API_URL", "http://192.168.1.33:8767"
+        ),
+        # fake-gcs-server (marathon/deploy, lane2) on mini loopback backs speech-profile
+        # blob storage — without it BUCKET_SPEECH_PROFILES stays unset and every profile
+        # screen 500s (backend/utils/other/storage.py raises when the bucket is missing).
+        "STORAGE_EMULATOR_HOST": os.environ.get("STORAGE_EMULATOR_HOST", "http://127.0.0.1:4443"),
+        "BUCKET_SPEECH_PROFILES": os.environ.get("BUCKET_SPEECH_PROFILES", "speech-profiles"),
+        "BUCKET_TEMPORAL_SYNC_LOCAL": os.environ.get("BUCKET_TEMPORAL_SYNC_LOCAL", "syncing-temporal-local"),
     }
+    # claude-bridge chat provider (backend/utils/llm/claude_bridge_client.py, PLAN.md §Этап 1):
+    # not in safety._ALLOWED_ENV_KEYS, so the wrapper script's `export MODEL_QOS=claude_bridge` /
+    # `export CLAUDE_BRIDGE_URL=...` were silently dropped when building the child env — the
+    # backend booted on the default premium profile instead. Opt-in only, unlike the vars above,
+    # so a harness instance that never sets these keeps model_config.py's own 'premium' default
+    # instead of a stray "not a valid profile" warning on every other user's startup.
+    if "MODEL_QOS" in os.environ:
+        extra["MODEL_QOS"] = os.environ["MODEL_QOS"]
+    if "CLAUDE_BRIDGE_URL" in os.environ:
+        extra["CLAUDE_BRIDGE_URL"] = os.environ["CLAUDE_BRIDGE_URL"]
+    # Те же грабли, второй раз (полоса 2, 24.08). Обёртка pusher-а экспортировала
+    # CLAUDE_BRIDGE_TIMEOUT_SECONDS=600 и LISTEN_FINALIZATION_TASKS_MAX_ATTEMPTS=8, чтобы
+    # постобработка переживала долгие ответы моста и полосу сетевых обрывов, — а сюда они
+    # не доехали и процесс молча работал на дефолтах (120 с / 5 попыток). Цена дефолтов
+    # высокая: исчерпав бюджет, воркер помечает разговор failed+discarded
+    # (database/conversation_finalization_jobs.py:881-899), и он исчезает из списка.
+    # Проброс opt-in, как выше: кто переменную не ставит, живёт на прежних дефолтах.
+    for _opt_in in ("CLAUDE_BRIDGE_TIMEOUT_SECONDS", "LISTEN_FINALIZATION_TASKS_MAX_ATTEMPTS"):
+        if _opt_in in os.environ:
+            extra[_opt_in] = os.environ[_opt_in]
+    return extra
 
 
 def child_env_for(cfg: HarnessConfig) -> dict[str, str]:
@@ -353,9 +386,70 @@ def child_env_for(cfg: HarnessConfig) -> dict[str, str]:
     }
     if cfg.provider_mode != "offline":
         extra.update(provider_secrets_from_file(cfg))
+    # Self-host patch (private branch, not for upstream): pass a real GEMINI_API_KEY through
+    # even in offline provider mode, so /v2/realtime/session can mint Gemini Live tokens for
+    # the hub port (docs/hub-port-design.md) while every other provider stays fake/offline.
+    real_gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if cfg.provider_mode == "offline" and real_gemini_key:
+        extra["GEMINI_API_KEY"] = real_gemini_key
+    # Self-host patch (private branch, not for upstream): the in-app phone dialer needs the
+    # five Twilio variables plus BASE_API_URL (used to rebuild the public URL the TwiML webhook
+    # signature was computed over, backend/routers/phone_calls.py). None of them are in
+    # safety._ALLOWED_ENV_KEYS, so they only reach the backend through this explicit hand-off.
+    for _key in (
+        "TWILIO_ACCOUNT_SID",
+        "TWILIO_AUTH_TOKEN",
+        "TWILIO_API_KEY_SID",
+        "TWILIO_API_KEY_SECRET",
+        "TWILIO_TWIML_APP_SID",
+        "BASE_API_URL",
+    ):
+        _value = os.environ.get(_key, "").strip()
+        if _value:
+            extra[_key] = _value
+    # Self-host patch (private branch, not for upstream): the Voximplant flavour of the dialer
+    # (backend/utils/voximplant_service.py). PHONE_CALL_PROVIDER picks the provider, the rest is
+    # what the login-hash endpoint needs; the application user's password stays out of here —
+    # only its md5 travels. None of these are in safety._ALLOWED_ENV_KEYS either, and none match
+    # _PROVIDER_SECRET_RE, so this hand-off is their only way in.
+    for _key in (
+        "PHONE_CALL_PROVIDER",
+        "VOX_NODE",
+        "VOX_ACCOUNT_NAME",
+        "VOX_APPLICATION",
+        "VOX_APP_USER",
+        "VOX_APP_USER_MD5",
+    ):
+        _value = os.environ.get(_key, "").strip()
+        if _value:
+            extra[_key] = _value
+    # Self-host patch (private branch, not for upstream): server-side STT. The backend reaches a
+    # self-hosted engine only through the `parakeet` provider (WS /v3/stream), which our shim on
+    # 8771 implements over GigaAM/whisper (marathon/stt_stream_shim.py, docs/phone-call-stt.md).
+    # HOSTED_PARAKEET_API_URL points at that shim and STT_SERVICE_MODELS pins the provider order
+    # to it — neither is in safety._ALLOWED_ENV_KEYS, so this hand-off is their only way in.
+    for _key in (
+        "HOSTED_PARAKEET_API_URL",
+        "STT_SERVICE_MODELS",
+    ):
+        _value = os.environ.get(_key, "").strip()
+        if _value:
+            extra[_key] = _value
+    # Self-host patch (private branch, not for upstream): post-processing. The listen socket does
+    # not finalize a conversation itself — it asks the pusher service, and without
+    # HOSTED_PUSHER_API_URL it logs "Pusher unavailable; finalization remains queued" and the
+    # conversation stays in_progress forever, invisible in GET /v1/conversations (lane6, 22.08).
+    # Our pusher runs on 127.0.0.1:8012 (bin/pusher-up.sh). Not in safety._ALLOWED_ENV_KEYS.
+    for _key in ("HOSTED_PUSHER_API_URL",):
+        _value = os.environ.get(_key, "").strip()
+        if _value:
+            extra[_key] = _value
     env = safety.build_child_env(provider_mode=cfg.provider_mode, extra=extra)
     if cfg.provider_mode == "offline":
-        env.update(safety.offline_provider_placeholders())
+        placeholders = safety.offline_provider_placeholders()
+        if real_gemini_key:
+            placeholders.pop("GEMINI_API_KEY", None)
+        env.update(placeholders)
     return env
 
 

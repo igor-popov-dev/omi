@@ -110,18 +110,99 @@ MODEL_QOS_PROFILES: Dict[str, Dict[str, Tuple[str, str]]] = {
 # Private/self-host profile (PLAN.md §Этап 1): routes plain chat replies through the
 # ask_claude_bridge HTTP service instead of a paid API key — reuses an existing Claude
 # Code subscription. Opt-in only via MODEL_QOS=claude_bridge; the shipped profiles
-# above are untouched. Only `chat_responses` (qa_rag/qa_rag_stream — the "context text
+# above are untouched. `chat_responses` (qa_rag/qa_rag_stream — the "context text
 # already retrieved, ask a question" path) is rerouted; `chat_agent` (tool-calling
 # agentic chat) still needs the real Anthropic Messages API and stays on 'anthropic'.
 #
+# Also rerouted: the four conversation-finalize features that turn a transcript into
+# a title/overview/action-items/app-result. All four call get_llm(feature).invoke(...)
+# and parse the plain-text reply with a PydanticOutputParser (see discard_parser.py,
+# conversation_processing.py) rather than .with_structured_output() — the one method
+# ClaudeBridgeChatModel doesn't implement — so they work over the bridge unchanged.
+# Without this, self-host conversations under offline OpenAI never leave in_progress
+# (conv_discard/conv_structure 401 → BLOCKERS.md, lane6 22.08). `conv_app_select`
+# stays on 'openai': it calls .with_structured_output() (conversation_processing.py),
+# which the bridge can't serve.
+#
+# Also rerouted: conv_folder (conversation_folder.py) — same shape again, a single
+# `prompt | get_llm('conv_folder') | folder_parser` chain over a PydanticOutputParser,
+# no .with_structured_output(). Under offline OpenAI this silently leaves every new
+# conversation in the default folder (assign_conversation_to_folder swallows the 401
+# into a plain error string, see validate_folder_assignment's fallback path).
+#
+# Also rerouted: the memory pipeline (memories.py, working_observations.py,
+# promotion_routes.py/promotion_proposals.py). Same reasoning as above — every one of
+# these six calls get_llm(feature).invoke(...) and parses the plain-text reply with a
+# PydanticOutputParser (or, for memory_category, a bare one-word text reply), never
+# .with_structured_output(). Without this, memory_l1 (canonical L1 archive extraction —
+# the actual "remembers things about you" feature) silently no-ops under offline OpenAI
+# (see BLOCKERS.md/lane2-log.md 22.08 ~21:15: `invoke_failed:AuthenticationError`).
+# The '_flex' siblings (memory_l2_flex, memory_conflict_flex, x_memory_extraction_flex)
+# are deliberately NOT overridden here (they keep the inherited two-tier 'openai'
+# default): their call sites route through get_or_create_omi_gateway_llm() directly
+# (utils/memory/promotion_flex.py), bypassing get_llm()/this profile entirely, so an
+# override here would be a no-op anyway.
+#
+# Also rerouted (lane7, 23.08): proactive_notification — the mentor's three-step
+# gate/generate/critic chain (utils/llm/proactive_notification.py). This one is the
+# exception to the "no .with_structured_output() over the bridge" rule stated above:
+# all three steps DO call it, so the reroute only became possible once
+# ClaudeBridgeChatModel grew a prompt-and-parse with_structured_output()
+# (claude_bridge_client.py). Under offline OpenAI the whole feature was dead — every
+# ambient conversation hit the gate, got an AuthenticationError, and
+# _process_mentor_proactive_notification swallowed it as `gate_failed`, so Igor never
+# saw a single proactive notification.
+#
+# It stays OUT of _BRIDGE_TOOLS_FEATURES on purpose (Igor's 22.08 decision, restated
+# for lane7): the proactive layer only *suggests* — it reads the ambient transcript
+# and writes a notification, and must never reach an MCP tool. Ambient audio the user
+# did not address to the assistant is exactly the input that must not be able to act.
+
 # Deliberately kept OUT of MODEL_QOS_PROFILES: that dict is the authorized
 # premium/max/byok enumeration guarded by test_omi_qos_tiers.py (exact key set,
 # every profile's OpenAI routes locked to the two-tier map) — this is an
 # opt-in-only private variant, not a shipped profile, so it must not be swept
 # into those invariant checks.
+#
+# IMPORTANT — MCP tool access gate (fixed 22.08, see lane2-log.md ~22:xx):
+# docs/ask-claude-bridge.md previously documented "the bridge boundary is the
+# feature name — only chat_responses ever resolves to provider=='claude-bridge'"
+# as the thing that keeps MCP tools out of background/ambient-transcript
+# processing. That was true when it was written (13:07) and became FALSE the
+# moment conv_discard/conv_folder/the memory pipeline were added below (20:47-
+# 21:35) — the bridge is a single undifferentiated HTTP endpoint
+# (ask_claude_bridge.py) that can't tell which feature is calling it, so every
+# feature routed to 'claude-bridge' got the SAME MCP tool access as
+# chat_responses. That silently violated Igor's 22.08 decision ("инструменты —
+# только из явного канала команд, фоновая транскрибция — только данные").
+# _BRIDGE_TOOLS_FEATURES below is the real gate now: get_route_options() sets
+# options['tools_enabled'] from it, threaded through
+# providers.get_or_create_claude_bridge_llm() -> ClaudeBridgeChatModel ->
+# the /ask payload -> ask_claude_bridge.py's build_claude_cmd(), which only
+# attaches --mcp-config/--allowedTools when tools_enabled is True. Every other
+# claude-bridge feature (all background transcript/memory postprocessing) gets
+# tools_enabled=False — no MCP servers loaded at all for that call.
+_BRIDGE_TOOLS_FEATURES = {'chat_responses'}
+
 CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     **_TWO_TIER_MODEL_PROFILE,
-    'chat_responses': ('sonnet', 'claude-bridge'),
+    'chat_responses': ('opus', 'claude-bridge'),
+    'conv_discard': ('opus', 'claude-bridge'),
+    # Решение Игоря 23.08: весь self-host работает на Opus — подписка Max ($200)
+    # должна выдержать. Если окно начнёт выгорать, дешевле всего вернуть на Sonnet
+    # служебные фичи (memory_*, conv_discard, conv_folder): их вызывают на КАЖДОМ
+    # разговоре, а результат пользователь глазами не читает.
+    'conv_structure': ('opus', 'claude-bridge'),
+    'conv_action_items': ('opus', 'claude-bridge'),
+    'conv_app_result': ('opus', 'claude-bridge'),
+    'conv_folder': ('opus', 'claude-bridge'),
+    'memories': ('opus', 'claude-bridge'),
+    'learnings': ('opus', 'claude-bridge'),
+    'memory_category': ('opus', 'claude-bridge'),
+    'memory_conflict': ('opus', 'claude-bridge'),
+    'memory_l1': ('opus', 'claude-bridge'),
+    'memory_l2': ('opus', 'claude-bridge'),
+    'proactive_notification': ('opus', 'claude-bridge'),
 }
 
 # Pinned features — (model, provider) fixed regardless of profile or env override.
@@ -249,6 +330,8 @@ def get_route_options(feature: str, model: str, provider: str) -> Dict[str, obje
         # Structured-output features use .with_structured_output(), which routes through
         # Completions.parse() and rejects thinking_budget (issue #7898).
         options['thinking_budget'] = 0
+    if provider == 'claude-bridge':
+        options['tools_enabled'] = feature_wants_bridge_tools(feature)
     return options
 
 
@@ -286,6 +369,16 @@ def supports_cache_retention(model: str) -> bool:
     # breakpoint) rather than the legacy prompt_cache_retention field. Sending
     # both contracts in the same request is rejected by the provider.
     return bool(model) and not model.startswith('gpt-5.6') and model.startswith(_CACHE_RETENTION_MODEL_PREFIXES)
+
+
+def feature_wants_bridge_tools(feature: str) -> bool:
+    """Whether this feature is allowed MCP tool access when routed over claude-bridge.
+
+    Only the explicit chat channel (chat_responses) qualifies — every other
+    claude-bridge feature is background/ambient transcript processing and must
+    stay tool-free. See the comment above CLAUDE_BRIDGE_PROFILE.
+    """
+    return feature in _BRIDGE_TOOLS_FEATURES
 
 
 def is_structured_output_feature(feature: str) -> bool:

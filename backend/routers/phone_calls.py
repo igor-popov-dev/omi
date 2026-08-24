@@ -11,7 +11,9 @@ from pydantic import BaseModel, Field
 from twilio.base.exceptions import TwilioRestException
 from twilio.twiml.voice_response import VoiceResponse, Dial
 
+import database.conversations as conversations_db
 import database.phone_calls as phone_calls_db
+from models.conversation import Conversation
 from utils.phone_calls import check_call_access, check_destination_allowed, get_quota_snapshot, reserve_phone_call_quota
 from utils.other import endpoints as auth
 from utils.other.endpoints import rate_limit_dependency
@@ -234,6 +236,27 @@ def remove_phone_number(phone_number_id: str, uid: str = Depends(auth.get_curren
 
     phone_calls_db.delete_phone_number(uid, phone_number_id)
     return {'success': True}
+
+
+# ************************************************
+# *********** CONVERSATION BY CALL ***************
+# ************************************************
+
+
+@router.get("/v1/phone/calls/{call_id}/conversation", tags=['phone-calls'])
+def get_conversation_for_call(call_id: str, uid: str = Depends(auth.get_current_user_uid)) -> Conversation:
+    """The last few seconds of a call never reach the app over its live transcript link
+    (socket or adapter poll): the backend finalises that tail only once the transport
+    closes, and by then nobody is still listening on it (lane 6, tick 37 measurement).
+    The call screen reads it back from here instead, keyed by the `call_id` it already
+    knows — it never learns the conversation's own id.
+    """
+    conversation = conversations_db.get_conversation_by_call_id(uid, call_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="No conversation found for this call")
+    if conversation.get('is_locked', False):
+        raise HTTPException(status_code=402, detail="A paid plan is required to access this conversation.")
+    return conversation
 
 
 # ************************************************

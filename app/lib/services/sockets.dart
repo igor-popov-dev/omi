@@ -28,6 +28,7 @@ abstract class ISocketService {
     required String language,
     bool force = false,
     String? source,
+    CustomSttConfig? customSttConfig,
   });
 }
 
@@ -136,21 +137,35 @@ class SocketServicePool extends ISocketService {
     required String language,
     bool force = false,
     String? source,
+    CustomSttConfig? customSttConfig,
   }) async {
-    Logger.debug("socket speech profile > $codec $sampleRate $force source: $source");
+    Logger.debug(
+      "socket speech profile > $codec $sampleRate $force source: $source customStt: ${customSttConfig?.provider}",
+    );
 
     await _mutex.acquire();
     try {
       // Use separate socket for speech profile to avoid conflicts with conversation socket
       await _speechProfileSocket?.stop();
 
-      _speechProfileSocket = SpeechProfileTranscriptSegmentSocketService.create(
-        sampleRate,
-        codec,
-        language,
-        source: source,
-        onboardingMode: true,
-      );
+      if (customSttConfig != null && customSttConfig.isEnabled) {
+        _speechProfileSocket = TranscriptSocketServiceFactory.createFromCustomConfig(
+          sampleRate,
+          codec,
+          language,
+          customSttConfig,
+          source: source,
+          onboardingMode: true,
+        );
+      } else {
+        _speechProfileSocket = SpeechProfileTranscriptSegmentSocketService.create(
+          sampleRate,
+          codec,
+          language,
+          source: source,
+          onboardingMode: true,
+        );
+      }
 
       await _speechProfileSocket?.start();
       if (_speechProfileSocket?.state != SocketServiceState.connected) {

@@ -26,7 +26,14 @@ def test_periodic_reconcile_invokes_the_stale_processing_sweep(monkeypatch):
         stale_calls.append(True)
         return {'completed': 0, 'migrated': 0, 'skipped': 0, 'error': 0}
 
+    abandoned_calls: list[bool] = []
+
     monkeypatch.setattr(main, 'reconcile_stale_processing_conversations', fake_stale)
+    monkeypatch.setattr(
+        main,
+        'reconcile_abandoned_in_progress_conversations',
+        lambda **kwargs: abandoned_calls.append(True) or {'requested': 0, 'skipped': 0, 'error': 0},
+    )
     monkeypatch.setattr(main, 'reconcile_listen_finalization_jobs', lambda **kwargs: {'requeued': 0})
     monkeypatch.setattr(
         main,
@@ -51,3 +58,6 @@ def test_periodic_reconcile_invokes_the_stale_processing_sweep(monkeypatch):
     # Exactly one full periodic cycle ran before the loop was stopped: the sweep ran once.
     assert stale_calls == [True]
     assert receipt_calls == [True]
+    # The abandoned-`in_progress` sweep shares this cadence: a recording whose
+    # producer stopped retrying is only ever recovered from here.
+    assert abandoned_calls == [True]

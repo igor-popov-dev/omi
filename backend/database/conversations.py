@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any, Callable
 
-from google.api_core.exceptions import AlreadyExists, Conflict, NotFound
+from google.api_core.exceptions import AlreadyExists, Conflict, FailedPrecondition, NotFound
 from google.cloud import firestore
 from google.cloud.firestore_v1 import FieldFilter
 
@@ -513,6 +513,20 @@ def get_conversation(uid, conversation_id):
     return conversation_data
 
 
+@prepare_for_read(decrypt_func=_prepare_conversation_for_read)
+@with_photos(get_conversation_photos)
+def get_conversation_by_call_id(uid: str, call_id: str) -> Optional[dict]:
+    """The phone-call screen only knows the client-minted `call_id`, not the
+    conversation's own id (a fresh uuid assigned when the recording session opens —
+    see routers/listen/conversations.py). A single equality filter needs no
+    composite index."""
+    conversations_ref = db.collection('users').document(uid).collection(conversations_collection)
+    docs = list(conversations_ref.where(filter=FieldFilter('call_id', '==', call_id)).limit(1).stream())
+    if not docs:
+        return None
+    return _document_data_with_revision(docs[0])
+
+
 def get_public_shared_conversation_bounded(
     uid: str,
     conversation_id: str,
@@ -568,6 +582,65 @@ def get_conversation_audio_stamp(uid: str, conversation_id: str) -> Optional[dic
     return (snapshot.to_dict() or {}).get('conversation_audio')
 
 
+# The plainest conversation list — `discarded == False` ordered by `created_at DESC` — needs a
+# composite index that `firestore.indexes.json` never declared; production only has it because
+# someone created it by hand. A fresh self-host deploy answers that query with a 400
+# FailedPrecondition, and every caller loses its history at once: the conversation list, and the
+# mentor's only past context that does not need an embedding provider.
+#
+# Firestore serves a single-field `ORDER BY created_at DESC` from the automatic index, so the same
+# rows are still reachable — the `discarded` filter just has to move to the client. Over-fetch to
+# cover the discarded rows the server would have skipped, and bound the scan so a user with a long
+# tail of discarded conversations cannot turn one list request into an unbounded read.
+INDEXLESS_CONVERSATIONS_SCAN_MULTIPLIER = 4
+INDEXLESS_CONVERSATIONS_SCAN_CAP = 200
+
+
+def _is_plain_recent_conversations_query(
+    include_discarded: bool,
+    statuses,
+    categories,
+    folder_id,
+    starred,
+    start_date,
+    end_date,
+    sources=None,
+) -> bool:
+    """True for the one query shape above — no filter but `discarded`, ordered by `created_at`."""
+    return (
+        not include_discarded
+        and not statuses
+        and not categories
+        and not folder_id
+        and not sources
+        and starred is None
+        and start_date is None
+        and end_date is None
+    )
+
+
+def _recent_conversations_without_composite_index(uid: str, limit: int, offset: int) -> List[Any]:
+    """Re-run the plain recent-conversations query without the filter that needs the index."""
+    wanted = limit + offset
+    scan = min(max(wanted * INDEXLESS_CONVERSATIONS_SCAN_MULTIPLIER, wanted), INDEXLESS_CONVERSATIONS_SCAN_CAP)
+    query = (
+        db.collection('users')
+        .document(uid)
+        .collection(conversations_collection)
+        .order_by('created_at', direction=firestore.Query.DESCENDING)
+        .limit(scan)
+    )
+    scanned = list(query.stream())
+    kept = [doc for doc in scanned if not (doc.to_dict() or {}).get('discarded')]
+    if len(kept) < wanted and len(scanned) >= scan:
+        # Say so rather than pass a short page off as the end of the history.
+        logger.warning(
+            f"get_conversations indexless_fallback_truncated uid={uid} wanted={wanted} "
+            f"kept={len(kept)} scanned={len(scanned)}"
+        )
+    return kept[offset : offset + limit]
+
+
 @prepare_for_read(decrypt_func=_prepare_conversation_for_read)
 @with_photos(get_conversation_photos)
 def get_conversations(
@@ -611,7 +684,19 @@ def get_conversations(
     # Limits
     conversations_ref = conversations_ref.limit(limit).offset(offset)
 
-    conversations = [_document_data_with_revision(doc) for doc in conversations_ref.stream()]
+    try:
+        documents = list(conversations_ref.stream())
+    except FailedPrecondition:
+        # Only the unfiltered recent-list shape is missing its index; every other filter
+        # combination here has one declared, so a 400 there is a real gap worth surfacing.
+        if not _is_plain_recent_conversations_query(
+            include_discarded, statuses, categories, folder_id, starred, start_date, end_date
+        ):
+            raise
+        logger.warning(f"get_conversations missing_composite_index uid={uid} falling back to client-side filter")
+        documents = _recent_conversations_without_composite_index(uid, limit, offset)
+
+    conversations = [_document_data_with_revision(doc) for doc in documents]
     conversations = [conversation for conversation in conversations if conversation is not None]
     return conversations
 
@@ -713,7 +798,19 @@ def get_conversations_without_photos(
     # Limits
     conversations_ref = conversations_ref.limit(limit).offset(offset)
 
-    conversations = [_document_data_with_revision(doc) for doc in conversations_ref.stream()]
+    try:
+        documents = list(conversations_ref.stream())
+    except FailedPrecondition:
+        # Only the unfiltered recent-list shape is missing its index; every other filter
+        # combination here has one declared, so a 400 there is a real gap worth surfacing.
+        if not _is_plain_recent_conversations_query(
+            include_discarded, statuses, categories, folder_id, starred, start_date, end_date, sources
+        ):
+            raise
+        logger.warning(f"get_conversations missing_composite_index uid={uid} falling back to client-side filter")
+        documents = _recent_conversations_without_composite_index(uid, limit, offset)
+
+    conversations = [_document_data_with_revision(doc) for doc in documents]
     conversations = [conversation for conversation in conversations if conversation is not None]
     return conversations
 

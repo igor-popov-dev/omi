@@ -180,6 +180,7 @@ def conversations_to_string(
     people: Optional[List[Person]] = None,
     user_name: Optional[str] = None,
     tz: Optional[str] = None,
+    transcript_fallback_chars: int = 0,
 ) -> str:
     """Format a sequence of Conversation objects into a human-readable string.
 
@@ -189,6 +190,13 @@ def conversations_to_string(
     When ``tz`` (an IANA timezone name like "America/Sao_Paulo") is provided, timestamps are
     rendered in that timezone and labelled accordingly; otherwise they default to UTC. Pass the
     user's timezone when this text is fed to the chat LLM so it reasons about times correctly.
+
+    ``transcript_fallback_chars`` covers conversations that have no structured summary yet — one
+    still in progress, or one whose post-processing failed. Their title and overview render as
+    blank lines, so a caller passing them as context hands the model a dated stub and nothing else,
+    which reads like "nothing was said" rather than "this has not been summarised". When set, such
+    a conversation falls back to the tail of its own transcript, bounded to this many characters.
+    The tail, not the head: that is where a conversation says what was decided.
     """
     result: List[str] = []
     people_map: Dict[str, Person] = {p.id: p for p in people} if people else {}
@@ -216,14 +224,27 @@ def conversations_to_string(
 
         conversation_str += f"{str(conversation.structured.title).capitalize()}\n"
 
-        if (
+        has_app_result = bool(
             conversation.apps_results
             and len(conversation.apps_results) > 0
             and conversation.apps_results[0].content.strip()
-        ):
+        )
+        if has_app_result:
             conversation_str += f"{conversation.apps_results[0].content}\n"
         else:
             conversation_str += f"{str(conversation.structured.overview).capitalize()}\n"
+
+        unsummarised = (
+            not has_app_result
+            and not str(conversation.structured.title).strip()
+            and not str(conversation.structured.overview).strip()
+        )
+        if transcript_fallback_chars > 0 and unsummarised and not use_transcript:
+            excerpt = conversation.get_transcript(
+                include_timestamps=include_timestamps, people=people, user_name=user_name
+            ).strip()[-transcript_fallback_chars:]
+            if excerpt:
+                conversation_str += f"(Not summarised yet.) Transcript excerpt:\n{excerpt}\n"
 
         # attendees
         if people_map:
