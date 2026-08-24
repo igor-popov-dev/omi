@@ -5,6 +5,7 @@ import 'package:timeago/timeago.dart' as timeago;
 
 import 'package:omi/backend/schema/app.dart';
 import 'package:omi/widgets/extensions/string.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class UserReviewCard extends StatelessWidget {
   final AppReview review;
@@ -13,11 +14,13 @@ class UserReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Container(
       width: MediaQuery.of(context).size.width * 0.78,
       padding: const EdgeInsets.all(16.0),
       margin: const EdgeInsets.only(left: 12.0, right: 12.0, top: 2, bottom: 6),
-      decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(16.0)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16.0)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -34,16 +37,16 @@ class UserReviewCard extends StatelessWidget {
                 itemSize: 20,
                 tapOnlyMode: false,
                 itemPadding: const EdgeInsets.symmetric(horizontal: 0),
-                itemBuilder: (context, _) => const Icon(Icons.star, color: Colors.white),
+                itemBuilder: (context, _) => Icon(Icons.star, color: t.textPrimary),
                 maxRating: 5.0,
                 onRatingUpdate: (rating) {},
               ),
               const SizedBox(width: 8),
-              Text(timeago.format(review.ratedAt), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text(timeago.format(review.ratedAt), style: TextStyle(color: t.textSecondary, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 8),
-          Text(review.review.decodeString, style: const TextStyle(color: Colors.white)),
+          Text(review.review.decodeString, style: TextStyle(color: t.textPrimary)),
           const SizedBox(height: 16),
           review.response.isNotEmpty
               ? Column(
@@ -53,18 +56,18 @@ class UserReviewCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Text(ownerName, style: const TextStyle(color: Colors.white)),
+                        Text(ownerName, style: TextStyle(color: t.textPrimary)),
                         const SizedBox(width: 8),
                         review.respondedAt != null
                             ? Text(
                                 timeago.format(review.respondedAt!),
-                                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                style: TextStyle(color: t.textSecondary, fontSize: 12),
                               )
                             : const SizedBox(),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(review.response, style: const TextStyle(color: Colors.white)),
+                    Text(review.response, style: TextStyle(color: t.textPrimary)),
                   ],
                 )
               : const SizedBox(),
