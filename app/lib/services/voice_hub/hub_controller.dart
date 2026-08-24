@@ -406,6 +406,20 @@ class HubController {
         stale.teardown();
       }
 
+      // Mint LATE and open SOON. An ephemeral Gemini token carries a
+      // `newSessionExpireTime`: past it the token can no longer OPEN a
+      // session, and the server does not refuse the handshake — it accepts
+      // the socket and closes it a beat later with `1011
+      // new_session_expire_time deadline exceeded`. Measured 24.08 on mini
+      // (`marathon/probes/lane5-concurrent-sockets.py`): a token used 62s
+      // after minting still opened, one used 122s later did not.
+      //
+      // Everything between this line and `ensureWarm()` below therefore eats
+      // into that window. Today it is safe — `fetchTools` is a constant list,
+      // not a request (`voice_hub_production.dart:126`). The day the catalog
+      // becomes a real fetch, move the mint below it (or bound the fetch well
+      // under a minute), or a slow backend will turn into a voice mode that
+      // connects and dies with no obvious cause.
       final token = await mintToken();
 
       // A teardownSession() straddled the mint. Bail BEFORE building a

@@ -125,11 +125,11 @@ class CaptureController extends ChangeNotifier
     // The mirror of the gate in `handleSingleTapButtonEvent`: the PTT hub
     // keeps its socket WARM for 90s after a turn (`hubIdleReleaseDuration`),
     // so a question asked with the pendant half a minute ago still holds one
-    // when the user opens this mode — and a second Live socket on the same
-    // key got the other one closed with 1011 both times it happened (24.08).
-    // The loser there was the LONGER-LIVED socket, which here is the pendant's
-    // — but the rule behind it is not pinned down yet, so do not lean on
-    // whose socket survives. Releasing it is also just correct: the user
+    // when the user opens this mode. Two idle sockets do coexist (measured
+    // 24.08: 540s side by side), so this is not about a hard one-socket
+    // ceiling — it is the same reasoning as the tap gate above: two live
+    // sockets on one key are two microphones on one room and, under real
+    // traffic, the pair that got one of them closed with 1011. Releasing it is also just correct: the user
     // is switching voice paths, and a warm socket nobody will press costs
     // money for nothing.
     hubTurnDriver?.teardown();
@@ -1122,16 +1122,24 @@ class CaptureController extends ChangeNotifier
       // NOT while the free-form voice mode is running. The two paths own
       // SEPARATE `HubController`s (see `hubTurnDriver`/`freeFormVoiceMode`
       // above), so starting a hub turn here would open a SECOND Gemini Live
-      // socket on top of the conversation already in progress. Seen 24.08,
-      // by accident rather than by design: a short probe raised a second
-      // socket beside a long-running measurement and the server closed the
-      // OLDER one with 1011 "Resource has been exhausted" — twice, both times
-      // the long-lived one. Whether the ceiling is one socket, eviction by
-      // age or a session-minute quota is NOT established yet
-      // (`marathon/probes/lane5-concurrent-sockets.py` exists to settle it);
-      // what is established is that the second socket cost the first its
-      // conversation — i.e. the tap would hang up the very conversation the
-      // user is having. Even where both survive, it is two
+      // socket on top of the conversation already in progress, and that is
+      // worth avoiding on two counts.
+      //
+      // The plain one first: two sockets are two microphones and two brains
+      // hearing the same room, answering over each other, billed twice.
+      //
+      // The other one is measured but NOT fully pinned down, so take it for
+      // what it is. Twice on 24.08 a second socket appeared on this key by
+      // accident (a short probe run beside a long measurement) and the server
+      // closed the LONGER-LIVED one with 1011 "Resource has been exhausted" —
+      // i.e. it hung up the conversation that was actually in progress. The
+      // follow-up probe (`marathon/probes/lane5-concurrent-sockets.py`, same
+      // day) then showed the opposite in the calm case: two sockets opened a
+      // minute apart both survived the full 540s side by side. The difference
+      // between the two runs was traffic — the accident had both sockets
+      // pushing audio, the probe had one turn each and then keepalive. So the
+      // ceiling is not "one socket"; it is something load- or quota-shaped
+      // that we have not measured yet. Do not lean on who wins. Even where both survive, it is two
       // microphones and two brains hearing the same room, billed twice.
       //
       // The tap is not swallowed: the legacy voice-command session above
