@@ -63,10 +63,15 @@ import 'package:omi/utils/logger.dart';
 import 'gemini_tool_schema.dart';
 import 'hub_session.dart';
 
-/// `desktop/windows/.../voice/tokenMint.ts` `GEMINI_LIVE_MODEL`, copied
-/// verbatim (not re-exported — that module pulls in the desktop token-mint
-/// graph this port does not have).
-const String geminiLiveModel = 'models/gemini-3.1-flash-live-preview';
+/// Was `desktop/windows/.../voice/tokenMint.ts`'s `GEMINI_LIVE_MODEL`
+/// (`gemini-3.1-flash-live-preview`) — self-host diverges deliberately
+/// (24.08): that preview started refusing every Live handshake with WS 1011
+/// "Internal error encountered." (reproduced from a desktop probe with the
+/// exact setup frame below; the key, quota, and mint were all healthy). The
+/// `-latest` alias tracks Google's current native-audio Live model, which is
+/// exactly the protection a pinned preview lacked. The ephemeral-token mint
+/// does not pin a model, so this constant is the single switch.
+const String geminiLiveModel = 'models/gemini-2.5-flash-native-audio-latest';
 
 class GeminiHubSession extends BaseHubSession {
   GeminiHubSession({
