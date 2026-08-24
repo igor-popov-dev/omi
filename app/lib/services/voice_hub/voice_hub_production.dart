@@ -162,6 +162,10 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     client: AskClaudeBridgeClient(
       httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
       maxTurns: 6,
+      // This IS the voice channel — see `AskClaudeBridgeClient.voice`: it buys
+      // the spoken-answer style (two sentences, no markdown) and the bridge's
+      // warm path, and skipping it was measured as 38.6s and an empty answer.
+      voice: true,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
   );
@@ -251,6 +255,10 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     client: AskClaudeBridgeClient(
       httpClient: bridgeHttpClient ?? CfAccessHttpClient(),
       maxTurns: 6,
+      // This IS the voice channel — see `AskClaudeBridgeClient.voice`: it buys
+      // the spoken-answer style (two sentences, no markdown) and the bridge's
+      // warm path, and skipping it was measured as 38.6s and an empty answer.
+      voice: true,
     ),
     sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
   );

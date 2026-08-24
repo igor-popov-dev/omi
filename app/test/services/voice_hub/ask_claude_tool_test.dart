@@ -95,7 +95,31 @@ void main() {
       final body = jsonDecode(captured!.body) as Map<String, dynamic>;
       expect(body.containsKey('context'), isFalse);
       expect(body.containsKey('model'), isFalse);
+      expect(body.containsKey('voice'), isFalse);
       expect(body['tools_enabled'], false);
+    });
+
+    test('declares the voice channel when asked — the bridge routes on this flag', () async {
+      // Not cosmetic: `voice` is what selects the bridge's warm path AND the
+      // spoken-answer style. Measured live 24.08 with the same question and
+      // context — with the flag 21.7s and 22 words, without it 38.6s and an
+      // empty answer.
+      http.Request? captured;
+      final client = AskClaudeBridgeClient(
+        voice: true,
+        httpClient: MockClient((request) async {
+          captured = request;
+          return http.Response(
+              _sse([
+                {'type': 'done', 'text': 'ok'}
+              ]),
+              200);
+        }),
+      );
+
+      await client.ask(question: 'q', toolsEnabled: true);
+
+      expect(jsonDecode(captured!.body)['voice'], true);
     });
 
     test('returns the final "done" text, ignoring interleaved "delta" events', () async {
@@ -128,6 +152,86 @@ void main() {
         }),
       );
       expect(await client.ask(question: 'q'), 'ab');
+    });
+
+    test('an "error" event with nothing spoken becomes a throw, not an empty answer', () async {
+      // Reproduced live 24.08: an agent that hits its turn cap makes the bridge
+      // answer 200 + {"type":"error","code":"cli_failed",...}. This loop used
+      // to skip that event for having no `text` and hand back "" — the model
+      // then spoke on top of a tool result that said nothing at all.
+      final client = AskClaudeBridgeClient(
+        httpClient: MockClient((request) async {
+          return http.Response(
+            _sse([
+              {'type': 'error', 'code': 'cli_failed', 'message': 'claude -p завершился с кодом 1'}
+            ]),
+            200,
+            headers: _utf8EventStreamHeaders,
+          );
+        }),
+      );
+      await expectLater(
+        client.ask(question: 'q'),
+        throwsA(isA<AskClaudeBridgeException>()
+            .having((e) => e.message, 'message', allOf(contains('cli_failed'), contains('код')))),
+      );
+    });
+
+    test('deltas already streamed survive a late "error" event — words beat the error', () async {
+      final client = AskClaudeBridgeClient(
+        httpClient: MockClient((request) async {
+          return http.Response(
+            _sse([
+              {'type': 'delta', 'text': 'Половина ответа'},
+              {'type': 'error', 'code': 'cli_failed', 'message': 'boom'},
+            ]),
+            200,
+            headers: _utf8EventStreamHeaders,
+          );
+        }),
+      );
+      expect(await client.ask(question: 'q'), 'Половина ответа');
+    });
+
+    test('an empty answer is a failure, not silence to pass along', () async {
+      final client = AskClaudeBridgeClient(
+        httpClient: MockClient((request) async {
+          return http.Response(
+              _sse([
+                {'type': 'done', 'text': ''}
+              ]),
+              200);
+        }),
+      );
+      await expectLater(
+        client.ask(question: 'q'),
+        throwsA(isA<AskClaudeBridgeException>().having((e) => e.message, 'message', contains('empty'))),
+      );
+    });
+
+    test('an empty bridge answer reaches the model as a speaking instruction', () async {
+      final client = AskClaudeBridgeClient(
+        httpClient: MockClient((request) async {
+          return http.Response(
+              _sse([
+                {'type': 'error', 'code': 'cli_failed', 'message': 'boom'}
+              ]),
+              200);
+        }),
+      );
+      final recorder = _toolResultRecorder();
+      final executor = AskClaudeToolExecutor(client: client, sendToolResult: recorder.callback);
+
+      executor.handle(HubToolCallRequest(
+        name: askClaudeToolName,
+        callId: 'c1',
+        argumentsJson: jsonEncode({'question': 'q'}),
+      ));
+      final result = await recorder.result;
+
+      expect(result.output, contains('Error'));
+      expect(result.output, contains('Tell the user'));
+      expect(result.output, contains('cli_failed'));
     });
 
     test('ignores non-"data: " lines and malformed JSON payloads', () async {
