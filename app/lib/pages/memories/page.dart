@@ -148,7 +148,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
         return PopScope(
           canPop: true,
           child: Scaffold(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             appBar: AppBar(
               backgroundColor: Theme.of(context).colorScheme.surface,
               automaticallyImplyLeading: true,

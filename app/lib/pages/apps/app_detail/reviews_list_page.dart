@@ -182,7 +182,7 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         elevation: 0,
         automaticallyImplyLeading: false,
         leading: Container(
@@ -201,7 +201,7 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
           style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       body: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -22,9 +22,9 @@ class CategoryMemoriesPage extends StatelessWidget {
     return Consumer<MemoriesProvider>(
       builder: (context, provider, child) {
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

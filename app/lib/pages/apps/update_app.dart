@@ -47,11 +47,11 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
             FocusScope.of(context).unfocus();
           },
           child: Scaffold(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             extendBody: true,
             appBar: AppBar(
               title: Text(context.l10n.manageYourApp),
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: context.omi.bgPrimary,
               actions: [
                 if (provider.selectedCapabilities.any((c) => c.id == 'external_integration') &&
                     provider.chatToolsManifestUrlController.text.isNotEmpty)

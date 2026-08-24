@@ -60,10 +60,10 @@ class _AddAppPageState extends State<AddAppPage> {
         final t = context.omi;
 
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
             title: Text(context.l10n.submitApp),
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             actions: [
               Center(
                 child: Padding(

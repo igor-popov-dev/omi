@@ -874,7 +874,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
           selector: (_, homeProvider) => homeProvider.selectedIndex,
           builder: (context, selectedIndex, _) {
             return Scaffold(
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              // bgPrimary, not colorScheme.primary: in Glass primary is the blue
+              // accent, and using it here floods the whole home screen with it.
+              backgroundColor: context.omi.bgPrimary,
               resizeToAvoidBottomInset: false,
               appBar: selectedIndex == 5 ? null : _buildAppBar(context),
               body: GestureDetector(

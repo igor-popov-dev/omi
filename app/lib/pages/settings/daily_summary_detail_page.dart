@@ -95,7 +95,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
     final t = context.omi;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: t.textPrimary))
           : _summary == null
@@ -383,7 +383,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
     return SliverAppBar(
       expandedHeight: 150,
       pinned: true,
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       leading: IconButton(
         icon: Container(
           padding: const EdgeInsets.all(8),

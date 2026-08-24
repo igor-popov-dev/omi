@@ -211,7 +211,7 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
 
         return Scaffold(
           key: scaffoldKey,
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: _buildAppBar(context, provider),
           endDrawer: _buildChatAppsEndDrawer(context),
           onEndDrawerChanged: (isOpened) {

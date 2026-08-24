@@ -185,9 +185,9 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
     final t = context.omi;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         title: Text(
           widget.capability.getLocalizedTitle(context),
           style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),

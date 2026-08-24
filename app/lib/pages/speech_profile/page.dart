@@ -22,6 +22,7 @@ import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/device_widget.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'percentage_bar_progress.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class SpeechProfilePage extends StatefulWidget {
   final bool onbording;
@@ -212,9 +213,9 @@ class _SpeechProfilePageState extends State<SpeechProfilePage> with TickerProvid
               }
             },
             child: Scaffold(
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: context.omi.bgPrimary,
               appBar: AppBar(
-                backgroundColor: Theme.of(context).colorScheme.primary,
+                backgroundColor: context.omi.bgPrimary,
                 automaticallyImplyLeading: true,
                 title: const Text('', style: TextStyle(color: Colors.white, fontSize: 20)),
                 actions: [

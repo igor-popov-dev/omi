@@ -147,10 +147,10 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
     final t = context.omi;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.permissions),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         elevation: 0,
       ),
       body: _isLoading

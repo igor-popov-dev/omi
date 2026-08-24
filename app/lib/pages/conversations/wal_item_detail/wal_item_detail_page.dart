@@ -111,7 +111,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
           ),
         ],
       ),
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       body: _needsTransfer ? _buildDeviceTransferUI() : _buildPlaybackUI(),
     );
   }

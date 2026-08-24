@@ -137,9 +137,9 @@ class _DeleteAccountState extends State<DeleteAccount> {
       child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios, size: 18),

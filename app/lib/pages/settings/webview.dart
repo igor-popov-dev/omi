@@ -52,8 +52,8 @@ class _PageWebViewState extends State<PageWebView> {
     final t = context.omi;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title), backgroundColor: Theme.of(context).colorScheme.primary),
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      appBar: AppBar(title: Text(widget.title), backgroundColor: context.omi.bgPrimary),
+      backgroundColor: context.omi.bgPrimary,
       body: progress != 100
           ? Center(child: CircularProgressIndicator(color: t.textPrimary))
           : WebViewWidget(controller: webViewController),

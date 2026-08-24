@@ -217,10 +217,10 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
         final t = context.omi;
 
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
             title: Text(context.l10n.people),
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             centerTitle: true,
             actions: [
               IconButton(icon: const Icon(Icons.add), onPressed: () => _showPersonDialog(context, provider)),

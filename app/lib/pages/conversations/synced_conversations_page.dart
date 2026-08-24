@@ -16,9 +16,9 @@ class SyncedConversationsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(context.l10n.processedConversations),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
       ),
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       body: Consumer<SyncProvider>(
         builder: (context, syncProvider, child) {
           return SingleChildScrollView(

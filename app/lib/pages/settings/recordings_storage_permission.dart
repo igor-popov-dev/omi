@@ -42,9 +42,9 @@ class _RecordingsStoragePermissionState extends State<RecordingsStoragePermissio
     final t = context.omi;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         title: Text(context.l10n.authorizeSavingRecordings),
       ),
       body: loading || _hasPermission == null

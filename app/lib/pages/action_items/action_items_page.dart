@@ -524,7 +524,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
         final categorizedItems = _categorizeItems(provider.actionItems, showCompleted);
 
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           body: Stack(
             children: [
               GestureDetector(

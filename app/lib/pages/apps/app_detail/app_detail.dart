@@ -581,7 +581,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
         bool hasAuthSteps = isIntegration && app.externalIntegration?.authSteps.isNotEmpty == true;
         return Scaffold(
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             elevation: 0,
             automaticallyImplyLeading: false,
             leading: Container(
@@ -748,7 +748,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                   : const SizedBox(width: 8),
             ],
           ),
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           body: SingleChildScrollView(
             controller: _scrollController,
             child: Skeletonizer(

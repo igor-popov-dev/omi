@@ -221,10 +221,10 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
     final t = context.omi;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.dailySummary),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         elevation: 0,
         actions: [
           PopupMenuButton<String>(

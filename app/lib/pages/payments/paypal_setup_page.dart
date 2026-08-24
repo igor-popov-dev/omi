@@ -8,6 +8,7 @@ import 'package:omi/pages/payments/payment_method_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/animated_loading_button.dart';
 import 'package:omi/utils/other/validators.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PaypalSetupPage extends StatefulWidget {
   const PaypalSetupPage({super.key});
@@ -73,9 +74,9 @@ class _PaypalSetupPageState extends State<PaypalSetupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         title: Text(
           _isComplete ? context.l10n.updatePayPal : context.l10n.setUpPayPal,
           style: const TextStyle(color: Colors.white, fontSize: 20),

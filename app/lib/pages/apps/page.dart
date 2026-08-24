@@ -58,10 +58,10 @@ class AppsPageState extends State<AppsPage> with AutomaticKeepAliveClientMixin {
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: widget.showAppBar
           ? AppBar(
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: context.omi.bgPrimary,
               automaticallyImplyLeading: true,
               title: Text(context.l10n.apps),
               centerTitle: true,

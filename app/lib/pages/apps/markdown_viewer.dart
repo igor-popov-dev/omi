@@ -21,8 +21,8 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
     final t = context.omi;
 
     return Scaffold(
-      appBar: AppBar(backgroundColor: Theme.of(context).colorScheme.primary, title: Text(widget.title)),
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      appBar: AppBar(backgroundColor: context.omi.bgPrimary, title: Text(widget.title)),
+      backgroundColor: context.omi.bgPrimary,
       body: ListView(
         children: [
           const SizedBox(height: 16),

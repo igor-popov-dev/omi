@@ -22,8 +22,8 @@ class _AboutOmiPageState extends State<AboutOmiPage> {
     final t = context.omi;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      appBar: AppBar(title: Text(context.l10n.aboutOmi), backgroundColor: Theme.of(context).colorScheme.primary),
+      backgroundColor: context.omi.bgPrimary,
+      appBar: AppBar(title: Text(context.l10n.aboutOmi), backgroundColor: context.omi.bgPrimary),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

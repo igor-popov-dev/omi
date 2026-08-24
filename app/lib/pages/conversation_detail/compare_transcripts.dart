@@ -32,10 +32,10 @@ class _CompareTranscriptsPageState extends State<CompareTranscriptsPage> {
   Widget build(BuildContext context) {
     final t = context.omi;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.compareTranscripts),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
       ),
       body: DefaultTabController(
         length: 4,

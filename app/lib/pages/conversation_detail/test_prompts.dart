@@ -28,10 +28,10 @@ class _TestPromptsPageState extends State<TestPromptsPage> {
   Widget build(BuildContext context) {
     final t = context.omi;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.testConversationPrompt),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         actions: [
           IconButton(
             onPressed: onTap,

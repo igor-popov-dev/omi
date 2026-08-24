@@ -676,7 +676,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
           }
         });
       }
-      return Scaffold(backgroundColor: Theme.of(context).colorScheme.primary);
+      return Scaffold(backgroundColor: context.omi.bgPrimary);
     }
 
     return PopScope(
@@ -693,10 +693,10 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
         child: Scaffold(
           key: scaffoldKey,
           extendBody: true,
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
             automaticallyImplyLeading: false,
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             leading: Container(
               width: 36,
               height: 36,
