@@ -562,6 +562,9 @@ class HubController {
     // nobody remembers asking would arrive as a non sequitur.
     _toolCallOrigin.clear();
     _orphanedToolResults.clear();
+    // Including the answer the stall watchdog is holding: firing it after the
+    // mode ended would speak into the next conversation instead.
+    _cancelToolStallWatchdog();
   }
 
   bool isWarm() => session?.isWarm() ?? false;

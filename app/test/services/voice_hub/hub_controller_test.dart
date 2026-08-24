@@ -1566,6 +1566,20 @@ void main() {
       expect(h.clock.pending, isFalse);
     });
 
+    test('forgetting the conversation disarms the watchdog too', () async {
+      // The user ended the mode while the model was still silent. A nudge
+      // fired after that would speak the answer into the NEXT conversation.
+      final h = _Harness();
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.sendToolResult('c1', 'ask_claude', 'ANSWER');
+      expect(h.clock.pending, isTrue);
+
+      h.controller.forgetConversation();
+      expect(h.clock.pending, isFalse);
+      expect(h.session.userTexts, isEmpty);
+    });
+
     test('a forgotten conversation drops the answers it was waiting on', () async {
       // The user ended the mode. An answer to a question nobody remembers
       // asking would arrive as a non sequitur on the next start.
