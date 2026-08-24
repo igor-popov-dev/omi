@@ -1038,7 +1038,6 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
     TaskCategory category,
     List<ActionItemWithMetadata> categoryItems,
   ) {
-    final t = context.omi;
     final order = categoryItems.map((i) => i.id).toList();
     order.remove(draggedItem.id);
     order.insert(0, draggedItem.id);
@@ -1684,7 +1683,7 @@ class _GoalCreateSheetState extends State<_GoalCreateSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: t.bgSecondary,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(24),
         child: SafeArea(
@@ -1862,7 +1861,7 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: t.bgSecondary,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(24),
         child: SafeArea(

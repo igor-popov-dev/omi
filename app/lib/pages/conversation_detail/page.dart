@@ -1324,7 +1324,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                                       Icons.keyboard_arrow_up,
                                                       color: _totalSearchResults > 0
                                                           ? t.textPrimary.withValues(alpha: 0.7)
-                                                          : Colors.white30,
+                                                          : t.textTertiary,
                                                       size: 22,
                                                     ),
                                                   ),
@@ -1343,7 +1343,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                                       Icons.keyboard_arrow_down,
                                                       color: _totalSearchResults > 0
                                                           ? t.textPrimary.withValues(alpha: 0.7)
-                                                          : Colors.white30,
+                                                          : t.textTertiary,
                                                       size: 22,
                                                     ),
                                                   ),
@@ -1721,7 +1721,7 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
       decoration: BoxDecoration(
         color: t.bgSecondary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1755,7 +1755,7 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
                 : _events.isEmpty
                     ? Center(
                         child: Padding(
-                          padding: EdgeInsets.all(40),
+                          padding: const EdgeInsets.all(40),
                           child: Text(
                             'No calendar events found around this time.',
                             style: TextStyle(color: t.textSecondary, fontSize: 15),
@@ -1997,7 +1997,7 @@ class _ActionItemDetailWidgetState extends State<ActionItemDetailWidget> {
           duration: const Duration(milliseconds: 300),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.grey[900],
+              color: t.bgSecondary,
               borderRadius: BorderRadius.circular(t.cardRadius),
               boxShadow: [
                 BoxShadow(color: t.bgPrimary.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
@@ -2186,8 +2186,7 @@ class ActionItemsTab extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
                   child: Container(
                     height: 52,
-                    decoration:
-                        BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(t.cardRadius)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
                     child: Center(
                       child: Text(
                         'No pending action items',
@@ -2252,8 +2251,7 @@ class ActionItemsTab extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
                   child: Container(
                     height: 52,
-                    decoration:
-                        BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(t.cardRadius)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
                     child: Center(
                       child: Text(
                         'No completed items yet',

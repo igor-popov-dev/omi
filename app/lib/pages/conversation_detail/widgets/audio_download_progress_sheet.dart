@@ -151,7 +151,7 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
               value: widget.state == AudioDownloadState.downloading ? widget.progress : null,
               strokeWidth: 3,
               valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
-              backgroundColor: const Color(0xFF3A3A3C),
+              backgroundColor: t.bgTertiary,
             ),
           ),
           if (widget.state == AudioDownloadState.downloading && widget.progress > 0)
@@ -215,7 +215,7 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
                 onPressed: () => Navigator.of(context).pop(),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: t.textSecondary,
-                  side: const BorderSide(color: Color(0xFF3A3A3C)),
+                  side: BorderSide(color: t.bgTertiary),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                 ),

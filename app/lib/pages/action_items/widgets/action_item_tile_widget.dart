@@ -128,12 +128,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
       textColor = t.error;
       dueDateText = _formatDueDate(context, dueDate);
     } else if (isToday) {
-      chipColor = Colors.yellow.withValues(alpha: 0.15);
-      textColor = Colors.yellow.shade300;
+      chipColor = t.warning.withValues(alpha: 0.15);
+      textColor = t.warning;
       dueDateText = context.l10n.today;
     } else if (isTomorrow) {
-      chipColor = Colors.blue.withValues(alpha: 0.15);
-      textColor = Colors.blue.shade300;
+      chipColor = t.accent.withValues(alpha: 0.15);
+      textColor = t.accent;
       dueDateText = context.l10n.tomorrow;
     } else if (isThisWeek) {
       chipColor = t.success.withValues(alpha: 0.15);
@@ -286,7 +286,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
                 width: 12,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: isExported ? t.success : Colors.blue,
+                  color: isExported ? t.success : t.accent,
                   shape: BoxShape.circle,
                   border: Border.all(color: t.bgSecondary, width: 1.5),
                 ),
@@ -395,7 +395,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
               Text(context.l10n.addingToService('Todoist')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -508,7 +508,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
               Text(context.l10n.addingToService('Asana')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -621,7 +621,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
               Text(context.l10n.addingToService('Google Tasks')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -723,7 +723,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
               Text(context.l10n.addingToService('ClickUp')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -845,7 +845,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
               Text(context.l10n.addingToService('Apple Reminders')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );

@@ -277,7 +277,7 @@ class _ActionItemFormSheetState extends State<ActionItemFormSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: t.bgSecondary,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         child: Column(
@@ -524,7 +524,7 @@ class _DateTimePickerSheetState extends State<DateTimePickerSheet> {
         height: MediaQuery.of(context).size.height * 0.65,
         decoration: BoxDecoration(
           color: t.bgSecondary,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [

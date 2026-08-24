@@ -1106,7 +1106,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.check_circle, size: 12, color: t.textSecondary),
-            SizedBox(width: 4),
+            const SizedBox(width: 4),
             Text(
               'translated by omi',
               style: TextStyle(fontSize: 12, color: t.textSecondary, fontStyle: FontStyle.italic),

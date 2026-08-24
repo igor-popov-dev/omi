@@ -54,7 +54,6 @@ CalendarDatePicker2Config getDefaultCalendarConfig({
 /// rather than the off-brand accent the two originals used, since this file
 /// already references that accent color for calendar highlighting.
 Future<void> showConversationDateRangePicker(BuildContext context) async {
-  final t = context.omi;
   final provider = Provider.of<ConversationProvider>(context, listen: false);
   final hasExistingFilter = provider.selectedStartDate != null;
   List<DateTime?> range = [
@@ -162,7 +161,6 @@ DateTime closedCalendarRangeEnd(DateTime start, DateTime? end) => end ?? start;
 /// re-runs the active search. Apply is a no-op when there is no search query
 /// so an empty search bar cannot show a misleading active-filter state.
 Future<void> showConversationSearchDateRangePicker(BuildContext context) async {
-  final t = context.omi;
   final provider = Provider.of<ConversationProvider>(context, listen: false);
   final hasExistingFilter = provider.searchStartDate != null;
   DateTime? startDate = provider.searchStartDate;

@@ -84,7 +84,7 @@ class MemoryItem extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (memory.isBaseline) ...[
-                      const Icon(Icons.flag, color: Colors.blue, size: 20),
+                      Icon(Icons.flag, color: t.accent, size: 20),
                       const SizedBox(width: 8.0),
                     ],
                     if (memory.conversationId != null) ...[

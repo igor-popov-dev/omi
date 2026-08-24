@@ -63,7 +63,7 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
       child: Container(
         decoration: BoxDecoration(
           color: t.bgSecondary,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         child: Column(
@@ -99,18 +99,18 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.2),
+                          color: t.accent.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(t.cardRadius),
-                          border: Border.all(color: Colors.blue.withValues(alpha: 0.5), width: 1),
+                          border: Border.all(color: t.accent.withValues(alpha: 0.5), width: 1),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.flag, size: 14, color: Colors.blue),
+                            Icon(Icons.flag, size: 14, color: t.accent),
                             const SizedBox(width: 4),
                             Text(
                               context.l10n.baselineMemory,
-                              style: const TextStyle(color: Colors.blue, fontSize: 14, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: t.accent, fontSize: 14, fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -123,7 +123,7 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
                     IconButton(
                       icon: Icon(
                         _isBaseline ? Icons.flag : Icons.flag_outlined,
-                        color: _isBaseline ? Colors.blue : t.textPrimary,
+                        color: _isBaseline ? t.accent : t.textPrimary,
                       ),
                       onPressed: _toggleBaseline,
                       tooltip: _isBaseline ? context.l10n.unpinAsBaseline : context.l10n.pinAsBaseline,

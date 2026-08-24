@@ -20,16 +20,16 @@ class MemoryManagementSheet extends StatelessWidget {
         return Container(
           decoration: BoxDecoration(
             color: t.bgSecondary,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: SafeArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildHeader(context),
-                const Divider(height: 1, color: Colors.white10),
+                Divider(height: 1, color: t.divider),
                 _buildFilterSection(context),
-                const Divider(height: 1, color: Colors.white10),
+                Divider(height: 1, color: t.divider),
                 _buildMemoryCount(context),
                 _buildActionButtons(context),
               ],
@@ -74,9 +74,9 @@ class MemoryManagementSheet extends StatelessWidget {
         _buildCategoryFilterOption(context, context.l10n.filterSystem, MemoryCategory.system),
         _buildCategoryFilterOption(context, context.l10n.filterInteresting, MemoryCategory.interesting),
         _buildCategoryFilterOption(context, context.l10n.filterManual, MemoryCategory.manual),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Divider(height: 1, color: Colors.white10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Divider(height: 1, color: t.divider),
         ),
         _buildFilterOption(
           context,
@@ -130,13 +130,13 @@ class MemoryManagementSheet extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.purpleAccent : t.textPrimary,
+                color: isSelected ? t.accent : t.textPrimary,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 16,
               ),
             ),
             const Spacer(),
-            if (isSelected) const Icon(Icons.check, color: Colors.purpleAccent, size: 20),
+            if (isSelected) Icon(Icons.check, color: t.accent, size: 20),
           ],
         ),
       ),
@@ -203,7 +203,7 @@ class MemoryManagementSheet extends StatelessWidget {
             () => _makeAllMemoriesPublic(context),
           ),
           const SizedBox(height: 24),
-          const Divider(height: 1, color: Colors.white10),
+          Divider(height: 1, color: t.divider),
           const SizedBox(height: 24),
           _buildActionButton(
             context,

@@ -702,7 +702,7 @@ class _AppListItemState extends State<_AppListItem> {
         return CircleAvatar(
           backgroundColor: t.textPrimary,
           radius: 16,
-          child: Icon(Icons.error_outline_rounded, size: 16),
+          child: const Icon(Icons.error_outline_rounded, size: 16),
         );
       },
       progressIndicatorBuilder: (context, url, progress) => CircleAvatar(

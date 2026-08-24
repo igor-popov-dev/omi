@@ -120,7 +120,7 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
       constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
       decoration: BoxDecoration(
         color: t.bgSecondary,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
       ),
       child: SafeArea(
         top: false,
@@ -166,7 +166,7 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
     final t = context.omi;
     if (_isLoading) {
       return Padding(
-        padding: EdgeInsets.all(40),
+        padding: const EdgeInsets.all(40),
         child: CircularProgressIndicator(color: t.textPrimary),
       );
     }

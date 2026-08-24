@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gradient_borders/box_borders/gradient_box_border.dart';
 import 'package:provider/provider.dart';
 import 'package:tuple/tuple.dart';
@@ -979,7 +978,7 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
                               return CircleAvatar(
                                 backgroundColor: t.textPrimary,
                                 radius: 12,
-                                child: Icon(Icons.error_outline_rounded, size: 12),
+                                child: const Icon(Icons.error_outline_rounded, size: 12),
                               );
                             },
                             progressIndicatorBuilder: (context, url, progress) => CircleAvatar(
@@ -1267,7 +1266,7 @@ class GetGeolocationWidgets extends StatelessWidget {
                               errorWidget: (context, url, error) {
                                 return Container(
                                   height: 200,
-                                  color: const Color(0xFF2A2A2A),
+                                  color: t.bgTertiary,
                                   child: Center(
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1313,7 +1312,7 @@ class GetGeolocationWidgets extends StatelessWidget {
                                   color: t.textPrimary,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
-                                  shadows: [Shadow(offset: Offset(0, 1), blurRadius: 2, color: t.bgPrimary)],
+                                  shadows: [Shadow(offset: const Offset(0, 1), blurRadius: 2, color: t.bgPrimary)],
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -1418,7 +1417,7 @@ extension _AppResultDetailWidgetSliver on _AppResultDetailWidgetState {
                       return CircleAvatar(
                         backgroundColor: t.textPrimary,
                         radius: 12,
-                        child: Icon(Icons.error_outline_rounded, size: 12),
+                        child: const Icon(Icons.error_outline_rounded, size: 12),
                       );
                     },
                     progressIndicatorBuilder: (context, url, progress) => CircleAvatar(
@@ -1660,7 +1659,7 @@ class _CalendarEventDetailsSheetState extends State<CalendarEventDetailsSheet> {
     return Container(
       decoration: BoxDecoration(
         color: t.bgSecondary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).padding.bottom + 24),
       child: Column(

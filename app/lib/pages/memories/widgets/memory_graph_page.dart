@@ -518,15 +518,16 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
     );
   }
 
+  /// Categorical palette: five node-type hues that must stay mutually
+  /// distinguishable, not five semantic roles. Left un-themed on purpose.
   Color _colorForType(String nodeType) {
-    final t = context.omi;
     switch (nodeType) {
       case 'person':
         return Colors.cyanAccent;
       case 'place':
         return const Color(0xFF00FF9D);
       case 'organization':
-        return t.warning;
+        return Colors.orangeAccent;
       case 'thing':
         return Colors.purpleAccent;
       default:
@@ -626,7 +627,7 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: Colors.purpleAccent),
+            CircularProgressIndicator(color: t.accent),
             const SizedBox(height: 16),
             Text(context.l10n.loadingKnowledgeGraph, style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7))),
           ],
@@ -683,7 +684,7 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.hub_outlined, color: Colors.white30, size: 64),
+                Icon(Icons.hub_outlined, color: t.textTertiary, size: 64),
                 const SizedBox(height: 16),
                 Text(context.l10n.noKnowledgeGraphYet,
                     style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7), fontSize: 18)),
@@ -700,8 +701,8 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
                   SizedBox(
                     width: 200,
                     child: LinearProgressIndicator(
-                      backgroundColor: Colors.white10,
-                      color: Colors.purpleAccent,
+                      backgroundColor: t.rowFill,
+                      color: t.accent,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   )
@@ -711,8 +712,8 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
                     icon: const Icon(Icons.auto_fix_high),
                     label: Text(context.l10n.buildGraphButton),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purpleAccent.withValues(alpha: 0.2),
-                      foregroundColor: Colors.purpleAccent,
+                      backgroundColor: t.accent.withValues(alpha: 0.2),
+                      foregroundColor: t.accent,
                     ),
                   ),
               ],

@@ -221,7 +221,6 @@ class _ConversationMarkdownWidgetState extends State<ConversationMarkdownWidget>
     String searchQuery = '',
     int currentResultIndex = -1,
   }) {
-    final t = context.omi;
     String processedContent = content;
 
     // If there's a search query, inject highlight tags

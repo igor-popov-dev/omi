@@ -381,7 +381,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
         width: 180,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A0B2E),
+          color: t.bgTertiary,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
@@ -483,7 +483,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF6B46C1),
+        color: t.accent,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
@@ -518,7 +518,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
       height: 56,
       width: 56,
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF6B46C1) : const Color(0xFF2D1B4E),
+        color: isSelected ? t.accent : t.bgTertiary,
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
@@ -604,7 +604,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF6B46C1),
+        color: t.accent,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
@@ -663,7 +663,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
           width: 32,
           height: 32,
           decoration: BoxDecoration(color: t.textPrimary, shape: BoxShape.circle),
-          child: const Icon(Icons.play_arrow, color: Color(0xFF6B46C1), size: 20),
+          child: Icon(Icons.play_arrow, color: t.accent, size: 20),
         ),
       );
     }
@@ -689,7 +689,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(color: t.textPrimary, shape: BoxShape.circle),
-            child: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: const Color(0xFF6B46C1), size: 20),
+            child: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: t.accent, size: 20),
           ),
         );
       },
@@ -858,7 +858,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
         height: 56,
         width: 56,
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6B46C1) : const Color(0xFF2D1B4E),
+          color: isSelected ? t.accent : t.bgTertiary,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(

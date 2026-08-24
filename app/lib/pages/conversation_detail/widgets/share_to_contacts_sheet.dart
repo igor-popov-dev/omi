@@ -240,7 +240,7 @@ class _ShareToContactsBottomSheetState extends State<ShareToContactsBottomSheet>
         return Container(
           decoration: BoxDecoration(
             color: t.bgSecondary,
-            borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
           ),
           child: Column(
             children: [
@@ -290,7 +290,7 @@ class _ShareToContactsBottomSheetState extends State<ShareToContactsBottomSheet>
                     hintStyle: TextStyle(color: t.textSecondary),
                     prefixIcon: Icon(Icons.search, color: t.textSecondary),
                     filled: true,
-                    fillColor: const Color(0xFF2A2A2A),
+                    fillColor: t.bgTertiary,
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(t.rowRadius), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

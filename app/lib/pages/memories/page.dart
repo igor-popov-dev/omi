@@ -92,7 +92,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                     ),
                     child: Text(
                       context.l10n.undo,
-                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: t.accent, fontWeight: FontWeight.w500),
                     ),
                   ),
                   IconButton(
@@ -183,7 +183,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                         child: SearchBar(
                                           hintText: context.l10n.searchMemories,
                                           leading: Padding(
-                                            padding: EdgeInsets.only(left: 6.0),
+                                            padding: const EdgeInsets.only(left: 6.0),
                                             child: FaIcon(
                                               FontAwesomeIcons.magnifyingGlass,
                                               color: t.textPrimary.withValues(alpha: 0.7),
@@ -237,7 +237,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                             child: SearchBar(
                                               hintText: context.l10n.searchMemories,
                                               leading: Padding(
-                                                padding: EdgeInsets.only(left: 6.0),
+                                                padding: const EdgeInsets.only(left: 6.0),
                                                 child: FaIcon(
                                                   FontAwesomeIcons.magnifyingGlass,
                                                   color: t.textPrimary.withValues(alpha: 0.7),

@@ -162,7 +162,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
             children: [
               loading
                   ? Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
+                      padding: const EdgeInsets.symmetric(vertical: 40),
                       child:
                           Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(t.textPrimary))),
                     )
@@ -255,7 +255,7 @@ class _NameSpeakerBottomSheetState extends State<NameSpeakerBottomSheet> {
             hintText: context.l10n.enterPersonsName,
             filled: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            fillColor: Colors.grey[900],
+            fillColor: t.bgSecondary,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             hintStyle: TextStyle(color: t.textSecondary),
             errorText: _duplicateNameError,
