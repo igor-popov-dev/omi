@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/backend/schema/phone_call.dart';
 import 'package:omi/services/capture/ambient_capture_hold.dart';
+import 'package:omi/services/mic/mic_arbiter.dart';
 
 /// Записывает, что гейт просили сделать, и (по требованию) даёт задержать ответ.
 class _RecordingGate {
@@ -189,6 +190,86 @@ void main() {
 
       hold.onCallState(PhoneCallState.ended);
       await hold.settled();
+      expect(hold.held, isFalse);
+    });
+  });
+
+  // Гейт выше глушит только фоновую запись. ВТОРОЙ микрофонный стек — голосовая заметка
+  // в чате и профиль голоса — про звонок не знает вовсе: запущенный посреди звонка, он
+  // получит микрофон, который SDK звонка уже держит нативно, запишет тишину и отчитается
+  // успехом. Отказ живёт в арбитре, и берётся он здесь.
+  group('микрофонный токен на время звонка', () {
+    test('вето поднято раньше, чем гейт успел хоть что-то сделать', () async {
+      final gate = _RecordingGate()..pending = Completer<void>();
+      final arbiter = MicArbiter();
+      final hold = _holdWith(gate)..arbiter = arbiter;
+
+      hold.onCallState(PhoneCallState.connecting);
+
+      // Ни одного await: набор ждёт settled(), а голосовая заметка не ждёт ничего —
+      // вето обязано стоять уже к возврату из onCallState.
+      expect(arbiter.callHolds, isTrue);
+      expect(arbiter.tryAcquire('mic'), isFalse);
+    });
+
+    // Возврат фоновой записи сам идёт через арбитра. Сними вето после гейта — и звонок
+    // откажет в микрофоне собственному возврату, то есть телефон останется глухим ровно
+    // от той строки, которая должна была его вернуть.
+    test('вето снято ДО возврата записи', () async {
+      final gate = _RecordingGate();
+      final arbiter = MicArbiter();
+      bool? heldWhenResuming;
+      final hold = AmbientCaptureHold()
+        ..arbiter = arbiter
+        ..gate = (paused) {
+          if (!paused) heldWhenResuming = arbiter.callHolds;
+          return gate.call(paused);
+        };
+
+      hold.onCallState(PhoneCallState.connecting);
+      await hold.settled();
+      hold.onCallState(PhoneCallState.idle);
+      await hold.settled();
+
+      expect(heldWhenResuming, isFalse, reason: 'возврат записи был бы отвергнут звонком');
+      expect(arbiter.tryAcquire('conversation'), isTrue);
+    });
+
+    test('каждый выход из звонка отпускает токен', () async {
+      for (final exit in [PhoneCallState.ended, PhoneCallState.failed, PhoneCallState.idle]) {
+        final arbiter = MicArbiter();
+        final hold = _holdWith(_RecordingGate())..arbiter = arbiter;
+
+        hold.onCallState(PhoneCallState.connecting);
+        hold.onCallState(exit);
+        await hold.settled();
+
+        expect(arbiter.callHolds, isFalse, reason: '$exit оставляет телефон глухим до конца сессии');
+      }
+    });
+
+    test('упавший гейт не оставляет токен захваченным', () async {
+      final gate = _RecordingGate();
+      final arbiter = MicArbiter();
+      final hold = _holdWith(gate)..arbiter = arbiter;
+
+      hold.onCallState(PhoneCallState.connecting);
+      await hold.settled();
+      gate.throwOnNext = StateError('capture is gone');
+      hold.onCallState(PhoneCallState.idle);
+      await hold.settled();
+
+      expect(arbiter.callHolds, isFalse);
+      expect(arbiter.tryAcquire('mic'), isTrue);
+    });
+
+    test('без арбитра ничего не падает', () async {
+      final hold = _holdWith(_RecordingGate());
+
+      hold.onCallState(PhoneCallState.active);
+      hold.onCallState(PhoneCallState.idle);
+      await hold.settled();
+
       expect(hold.held, isFalse);
     });
   });

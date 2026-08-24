@@ -241,8 +241,9 @@ class CaptureController extends ChangeNotifier
   /// marathon/tools/vox-dual-session-probe.py, case `ambient`). On Android the two
   /// captures also fight over the microphone, and the loser records silence.
   ///
-  /// The mic arbiter cannot cover this: it arbitrates the two Dart recorder stacks,
-  /// and the call SDK takes the microphone natively, without asking it.
+  /// The mic arbiter cannot do this part. It can refuse a NEW claim (a call takes its
+  /// veto — MicArbiter.holdForCall), but it cannot stop a capture already running, and
+  /// the call SDK takes the microphone natively without asking it either.
   Future<void> pauseForInAppCall() async {
     if (_inAppCallHoldsMic) return;
     // Nothing is capturing — take the flag anyway. The call may outlive this check
@@ -259,11 +260,27 @@ class CaptureController extends ChangeNotifier
     if (!_inAppCallHoldsMic) return;
     // Cleared first: the restart paths below refuse to run while it is set.
     _inAppCallHoldsMic = false;
-    if (_activeSource is PhoneMicSource) {
-      // Preserves the socket and the segments captured before the call.
-      await _resumeMicRecording();
-    } else if (_phoneMicBatchActive) {
-      await _restartPhoneMicBatchAfterCall();
+    try {
+      if (_activeSource is PhoneMicSource) {
+        // Preserves the socket and the segments captured before the call.
+        await _resumeMicRecording();
+      } else if (_phoneMicBatchActive) {
+        await _restartPhoneMicBatchAfterCall();
+      }
+    } catch (e, st) {
+      // The restart can be refused outright: a chat voice memo that was already recording
+      // when the call began still holds the mic arbiter, and its stack is not ours to
+      // stop. Without this the throw escapes past _onMicInterruption(false) and the
+      // capture card stays on `interrupted` with nothing running — the same deaf phone
+      // the hold exists to prevent, only quieter. Fail visibly instead.
+      Logger.error('[CaptureProvider] resume after in-app call failed: $e\n$st');
+      _activeSource = null;
+      _phoneMicWalActive = false;
+      _micInterrupted = false;
+      updateRecordingState(RecordingState.stop);
+      await _socket?.stop(reason: 'resume after in-app call failed');
+      notifyListeners();
+      return;
     }
     _onMicInterruption(false);
   }

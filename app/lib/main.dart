@@ -409,6 +409,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             final phoneCalls = previous ?? PhoneCallProvider();
             phoneCalls.ambientCapture.gate =
                 (paused) => paused ? capture.pauseForInAppCall() : capture.resumeAfterInAppCall();
+            // The gate above hushes the always-on capture only. The arbiter is the other
+            // half: it is what refuses a chat voice memo or a speech profile started
+            // mid-call, which would otherwise record silence beside the live call and
+            // report success.
+            phoneCalls.ambientCapture.arbiter = ServiceManager.instance().micArbiter;
             return phoneCalls;
           },
         ),

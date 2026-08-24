@@ -17,6 +17,7 @@ import 'package:omi/utils/logger.dart';
 class ServiceManager {
   late IMicRecorderService _mic;
   late IMicRecorderService _phoneMic;
+  late MicArbiter _micArbiter;
   late DeviceService _device;
   late ISocketService _socket;
   late IWalService _wal;
@@ -25,6 +26,7 @@ class ServiceManager {
   static ServiceManager _create() {
     ServiceManager sm = ServiceManager();
     final micArbiter = MicArbiter();
+    sm._micArbiter = micArbiter;
     sm._mic = ArbitratedMic(
       inner: MicRecorderBackgroundService(runner: BackgroundService()),
       arbiter: micArbiter,
@@ -53,6 +55,11 @@ class ServiceManager {
   }
 
   IMicRecorderService get mic => _mic;
+
+  /// The shared microphone token behind [mic] and [phoneMic]. Exposed for the one
+  /// contender that is not a recorder at all: an in-app call, whose SDK takes the
+  /// microphone natively and can only be recorded here as a veto (MicArbiter.holdForCall).
+  MicArbiter get micArbiter => _micArbiter;
 
   /// The recorder for conversation capture: native on iOS and Android,
   /// flutter_sound elsewhere. Chat voice memos and speech profile keep using [mic].

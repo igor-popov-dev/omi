@@ -1,4 +1,5 @@
 import 'package:omi/backend/schema/phone_call.dart';
+import 'package:omi/services/mic/mic_arbiter.dart';
 import 'package:omi/utils/logger.dart';
 
 /// Does a call in [state] still hold the phone's microphone?
@@ -39,6 +40,15 @@ class AmbientCaptureHold {
   /// with no gate is a no-op, never an error.
   Future<void> Function(bool paused)? gate;
 
+  /// The shared microphone token, installed by the app alongside [gate].
+  ///
+  /// The gate above only hushes the always-on capture. It says nothing to the OTHER
+  /// microphone stack — a chat voice memo or a speech profile — and that stack, started
+  /// mid-call, would be handed a microphone the call SDK already holds natively: it
+  /// records silence and reports success. The arbiter is where that gets refused out
+  /// loud. Nullable for the same reason as [gate]: no arbiter, no veto, never an error.
+  MicArbiter? arbiter;
+
   bool _held = false;
 
   /// True while ambient capture is hushed for a call.
@@ -59,6 +69,15 @@ class AmbientCaptureHold {
     final wanted = callOwnsMicrophone(state);
     if (_held == wanted) return;
     _held = wanted;
+    // Synchronously, and before the gate: the veto must be up by the time this method
+    // returns (the dialer only awaits the gate, and a memo started in between would win
+    // the race), and it must be down BEFORE the resume runs, or the resume — which does
+    // go through the arbiter — would be refused by the call it is resuming from.
+    if (wanted) {
+      arbiter?.holdForCall();
+    } else {
+      arbiter?.releaseCall();
+    }
     final gate = this.gate;
     if (gate == null) return;
     // Chained, not replaced: a call that ends while its own pause is still in flight

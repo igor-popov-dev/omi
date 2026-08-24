@@ -74,6 +74,64 @@ void main() {
     });
   });
 
+  // An in-app call is the third contender for the microphone and the only one that does
+  // not go through this arbiter at all: its SDK takes the mic natively. Left unrecorded,
+  // the arbiter keeps handing the mic to recorders that then capture silence next to a
+  // live call — and report success.
+  group('MicArbiter — an in-app call', () {
+    test('a call refuses the microphone even when no recorder holds it', () {
+      final arbiter = MicArbiter();
+      arbiter.holdForCall();
+      expect(arbiter.tryAcquire('mic'), isFalse);
+      expect(arbiter.owner, isNull, reason: 'a refused claim must not take the token');
+    });
+
+    test('a call refuses even the stack that already held the token', () {
+      final arbiter = MicArbiter();
+      expect(arbiter.tryAcquire('conversation'), isTrue);
+      arbiter.holdForCall();
+      expect(arbiter.tryAcquire('conversation'), isFalse,
+          reason: 'no stack gets to renew its hold while a call is running');
+    });
+
+    // Exactly what the ambient-capture pause does: it releases the token MID-call.
+    // Were the veto stored as ownership, that release would end it.
+    test("a paused recorder's release does not lift the veto", () {
+      final arbiter = MicArbiter();
+      arbiter.tryAcquire('conversation');
+      arbiter.holdForCall();
+      arbiter.release('conversation');
+      expect(arbiter.callHolds, isTrue);
+      expect(arbiter.tryAcquire('mic'), isFalse);
+    });
+
+    test('releasing the call hands the microphone back', () {
+      final arbiter = MicArbiter();
+      arbiter.holdForCall();
+      arbiter.releaseCall();
+      expect(arbiter.tryAcquire('conversation'), isTrue);
+    });
+
+    // One call reports its state more than once; a veto that counted them would need as
+    // many releases as it got holds, and the phone would stay deaf after the first call.
+    test('the hold is idempotent — one release is enough', () {
+      final arbiter = MicArbiter();
+      arbiter.holdForCall();
+      arbiter.holdForCall();
+      arbiter.releaseCall();
+      expect(arbiter.tryAcquire('mic'), isTrue);
+    });
+
+    test('the refusal names the call, and leaves the old wording alone', () {
+      final arbiter = MicArbiter();
+      arbiter.holdForCall();
+      expect(arbiter.holder, 'an in-app call');
+      arbiter.releaseCall();
+      arbiter.tryAcquire('conversation');
+      expect(arbiter.holder, 'conversation');
+    });
+  });
+
   group('ArbitratedMic', () {
     late MicArbiter arbiter;
     late FakeMic micA;
@@ -148,6 +206,31 @@ void main() {
       micA.capturedOnStop!.call();
       await startMic(b);
       expect(micB.startCalls, 1);
+    });
+
+    test('a voice memo started during a call is refused, not handed silence', () async {
+      arbiter.holdForCall();
+      await expectLater(startMic(b), throwsStateError);
+      expect(micB.startCalls, 0, reason: 'the recorder must not run beside a live call');
+      arbiter.releaseCall();
+      await startMic(b);
+      expect(micB.startCalls, 1);
+    });
+
+    test('batch capture is refused during a call too', () async {
+      arbiter.holdForCall();
+      await expectLater(a.startBatch(), throwsStateError);
+      expect(micA.startBatchCalls, 0);
+    });
+
+    // '(held by null)' is what this would read as otherwise, sending whoever reads the
+    // log looking for a recorder that never existed.
+    test('the contention message names the call', () async {
+      arbiter.holdForCall();
+      await expectLater(
+        startMic(b),
+        throwsA(isA<StateError>().having((e) => e.message, 'message', contains('an in-app call'))),
+      );
     });
   });
 }
