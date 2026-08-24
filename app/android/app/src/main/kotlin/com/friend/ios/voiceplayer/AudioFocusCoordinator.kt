@@ -32,6 +32,8 @@ class AudioFocusCoordinator(
     private var activeRequest: AudioFocusRequest? = null
 
     private val listener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        // Диагностика застрявшего duck (24.08): каждое изменение фокуса — в лог.
+        Log.i(TAG, "audio focus change: $focusChange -> ${AudioFocusPolicy.actionFor(focusChange)}")
         when (AudioFocusPolicy.actionFor(focusChange)) {
             AudioFocusAction.STOP -> onStop()
             AudioFocusAction.DUCK -> onDuck()

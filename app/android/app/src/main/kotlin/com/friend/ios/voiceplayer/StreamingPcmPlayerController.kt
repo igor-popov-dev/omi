@@ -20,7 +20,12 @@ import android.util.Log
 class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
     companion object {
         private const val TAG = "StreamingPcmPlayerCtrl"
-        private const val DUCK_VOLUME = 0.2f
+        // 0.5, не 0.2 (баг Игоря 24.08 «голос очень тихо при максимальной
+        // громкости»): duck до 20% при чужом звуке мог не откатываться (RESUME
+        // зависит от прихода AUDIOFOCUS_GAIN), и весь дальнейший голос сессии
+        // играл шёпотом. Мягче душим и жёстко возвращаем громкость на каждой
+        // реплике (см. onStarted ниже).
+        private const val DUCK_VOLUME = 0.5f
         private const val FULL_VOLUME = 1.0f
     }
 
@@ -57,7 +62,12 @@ class StreamingPcmPlayerController(mainHandler: Handler, context: Context) {
         try {
             player = StreamingPcmPlayer(
                 callbackHandler = callbackHandler,
-                onStarted = { emitter.emitStarted(sessionId) },
+                onStarted = {
+                    // Каждая реплика начинается на полной громкости: застрявший
+                    // duck (RESUME не пришёл) не должен шептать всю сессию.
+                    player?.setVolume(FULL_VOLUME)
+                    emitter.emitStarted(sessionId)
+                },
                 onDrained = { emitter.emitDrained(sessionId) },
             )
             activeSessionId = sessionId

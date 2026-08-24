@@ -116,7 +116,9 @@ const String _kFillerRule = 'ORDER MATTERS: FIRST say a short filler out loud �
 // инструментом end_conversation (end_conversation_tool.dart).
 const String _kEndRule = 'When the conversation is clearly over — the user says goodbye («пока», «до '
     'связи»), says «всё» / «спасибо, хватит», or asks to stop — say a short warm goodbye out loud '
-    'and THEN call the end_conversation tool to switch the voice mode off. Never call it '
+    'and THEN call the end_conversation tool to switch the voice mode off. Saying goodbye in words '
+    'WITHOUT calling end_conversation is a MISTAKE: the mode stays on and keeps listening to the '
+    'user against their wish. The tool call is mandatory, not optional. Never call it '
     'mid-conversation, and never treat mere silence as a goodbye.';
 
 // Блокирующие уровни: филлер ЗАПРЕЩЁН — слышать «секунду, уточню» перед каждым
