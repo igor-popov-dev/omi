@@ -385,10 +385,12 @@ class _DeviceSettingsState extends State<DeviceSettings> {
         return context.l10n.deviceOnboardingMuteUnmute;
       case 2:
         return context.l10n.starConversation;
-      // Self-host патч: строка нарочно НЕ в l10n — 99 .arb-файлов дают
+      // Self-host патч: строки нарочно НЕ в l10n — 99 .arb-файлов дают
       // регулярные конфликты при подтягивании upstream (см. WORKLOG).
       case 3:
         return 'Голосовой режим';
+      case 4:
+        return 'Завершить голосовой режим';
       default:
         return context.l10n.endConversation;
     }
@@ -526,6 +528,19 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                     trailing: currentAction == 3 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
                     onTap: () {
                       setState(() => SharedPreferencesUtil().doubleTapAction = 3);
+                      Navigator.pop(sheetContext);
+                    },
+                  ),
+                  // Аварийный вариант: только ВЫКЛЮЧИТЬ разговор, не прощаясь
+                  // с нейронкой (пара к singleTapAction=1, который запускает).
+                  ListTile(
+                    title: const Text(
+                      'Завершить голосовой режим (без прощания)',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                    ),
+                    trailing: currentAction == 4 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                    onTap: () {
+                      setState(() => SharedPreferencesUtil().doubleTapAction = 4);
                       Navigator.pop(sheetContext);
                     },
                   ),

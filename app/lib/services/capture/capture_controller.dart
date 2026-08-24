@@ -149,6 +149,12 @@ class CaptureController extends ChangeNotifier
   /// and resets the UI state.
   void stopFreeFormVoiceMode() {
     freeFormVoiceMode?.stop();
+    // ПОЛНЫЙ teardown, а не только отмена хода: тёплый сокет после остановки
+    // продолжал жить вместе со своим плеером и коммуникационным аудиорежимом —
+    // другие приложения не могли играть звук, а поздние события сессии
+    // перещёлкивали индикатор обратно в «слушаю» при выключенном режиме
+    // (баг Игоря 24.08). Цена — следующий старт платит переподключение ~1–2 с.
+    freeFormVoiceMode?.hub.teardownSession();
     resetFreeFormVoiceModeUi();
   }
 
@@ -214,6 +220,9 @@ class CaptureController extends ChangeNotifier
       Logger.error('[VoiceMode] ${_voiceRecoveries.length} обрывов подряд — выключаю режим');
       _voiceRecoveries.clear();
       mode.stop();
+      // Сдались — значит СОВСЕМ: без teardown тёплый огрызок сессии держал
+      // аудиорежим и слал события в индикатор (см. stopFreeFormVoiceMode).
+      mode.hub.teardownSession();
       resetFreeFormVoiceModeUi();
       return;
     }
@@ -1230,6 +1239,16 @@ class CaptureController extends ChangeNotifier
               startFreeFormVoiceMode().catchError((Object e) {
                 Logger.error('[VoiceMode] запуск с кулона не удался: $e');
               });
+            }
+          } else if (doubleTapAction == 4) {
+            // Self-host (просьба Игоря 24.08): аварийная кнопка «Завершить
+            // голосовой режим» — выключить разговор, НЕ прощаясь с нейронкой.
+            // Только стоп: если режим не активен, ничего не делает.
+            Logger.debug("Double tap: force-stopping free-form voice mode");
+            if (freeFormModeActive.value) {
+              HapticFeedback.mediumImpact();
+              PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_force_stop');
+              stopFreeFormVoiceMode();
             }
           } else {
             // End conversation and process (default)

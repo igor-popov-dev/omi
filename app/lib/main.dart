@@ -398,14 +398,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             capture.onVoiceModeStartSound = () => thinkingEarcon.play();
             capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
               events: freeFormModeProjectionEvents(
-                applyProjection: (projection) => capture.hubProjection.value = projection,
+                // Гейт по активности: поздние события уже остановленной сессии
+                // (хвост speaking-end и т.п.) перещёлкивали индикатор обратно в
+                // «слушаю» при выключенном режиме (баг Игоря 24.08).
+                applyProjection: (projection) {
+                  if (capture.freeFormModeActive.value) capture.hubProjection.value = projection;
+                },
                 onDisconnected: capture.recoverFreeFormVoiceMode,
                 // Self-host patch: the spoken exchange lands in chat history, so
                 // the voice and chat assistants share one conversation instead of
                 // each pretending the other never happened.
                 chatLog: capture.voiceChatLog,
               ),
-              onIdleTimeout: capture.resetFreeFormVoiceModeUi,
+              // Полный stop (не только сброс UI): выключение по тишине тоже
+              // обязано рвать тёплую сессию — иначе она держит аудиорежим.
+              onIdleTimeout: capture.stopFreeFormVoiceMode,
               // Модель сама закончила разговор (end_conversation): гасим режим
               // штатно — стоп, сброс UI, досылка диалога в чат, перечитка.
               onConversationEnd: capture.stopFreeFormVoiceMode,
