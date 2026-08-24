@@ -65,6 +65,7 @@ class _TestEnvFields implements EnvFields {
 class _CountingHubTurnDriver extends VoiceHubTurnDriver {
   int beginCalls = 0;
   int endCalls = 0;
+  int teardownCalls = 0;
 
   _CountingHubTurnDriver()
       : super(VoiceHubTurnDriverDeps(
@@ -93,6 +94,12 @@ class _CountingHubTurnDriver extends VoiceHubTurnDriver {
   void end() {
     endCalls++;
     super.end();
+  }
+
+  @override
+  void teardown() {
+    teardownCalls++;
+    super.teardown();
   }
 }
 
@@ -288,6 +295,23 @@ void main() {
       captureCalls = 0;
       captureError = null;
       idleTimeoutCalls = 0;
+    });
+
+    test('startFreeFormVoiceMode: releases the PTT hub socket first', () async {
+      // The mirror of the tap gate: the PTT hub stays warm for 90s after a
+      // turn, so a pendant question asked half a minute ago still holds a
+      // socket. Opening a second one on the same key gets one of them closed
+      // with 1011 (measured 24.08) — and here the loser would be the socket
+      // this call is opening, so the mode would come up and immediately die.
+      final provider = CaptureProvider();
+      final driver = _CountingHubTurnDriver();
+      provider.hubTurnDriver = driver;
+      provider.freeFormVoiceMode = buildMode();
+
+      await provider.startFreeFormVoiceMode();
+
+      expect(driver.teardownCalls, 1, reason: 'тёплый PTT-сокет отпущен до открытия нового');
+      expect(provider.freeFormModeActive.value, isTrue);
     });
 
     test('startFreeFormVoiceMode: flips freeFormModeActive and starts the mode', () async {
