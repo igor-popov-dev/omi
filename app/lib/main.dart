@@ -48,6 +48,7 @@ import 'package:omi/providers/announcement_provider.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/providers/auth_provider.dart';
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/services/voice_call/voice_call_session.dart';
 import 'package:omi/services/voice_hub/earcon.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart';
 import 'package:omi/services/voice_hub/voice_hub_production.dart';
@@ -396,6 +397,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             // `hubTurnDriver` above (no I/O until `startFreeFormVoiceMode`
             // actually calls `FreeFormVoiceMode.start()`).
             capture.onVoiceModeStartSound = () => voiceStartEarcon.play();
+            // Telecom call shell: the running voice session is a self-managed
+            // Android call (CallStyle notification, hang-up on the lock
+            // screen, background-mic legality) — voice-call-mode-design.md.
+            // Fail-open everywhere: on iOS or any telecom refusal the mode
+            // just runs without the shell.
+            final voiceCallSession = VoiceCallSession();
+            voiceCallSession.onEndedBySystem = capture.stopFreeFormVoiceMode;
+            capture.onVoiceModeCallStart = voiceCallSession.start;
+            capture.onVoiceModeCallEnd = voiceCallSession.end;
             capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
               events: freeFormModeProjectionEvents(
                 // Гейт по активности: поздние события уже остановленной сессии

@@ -119,6 +119,15 @@ class CaptureController extends ChangeNotifier
   /// (thinkingEarcon), в тестах остаётся null.
   void Function()? onVoiceModeStartSound;
 
+  /// Telecom call shell for the voice mode (self-managed call + CallStyle
+  /// notification, ~/omi-jarvis/docs/voice-call-mode-design.md). Wired in
+  /// main.dart to `VoiceCallSession.start`/`end`; null in tests and on
+  /// platforms without the native peer. Start is awaited BEFORE the mode's
+  /// own start so the call (and the mic legality it grants) exists before
+  /// capture opens; both are fail-open and never throw.
+  Future<void> Function()? onVoiceModeCallStart;
+  Future<void> Function()? onVoiceModeCallEnd;
+
   /// Self-host patch: records the spoken exchange into chat history, so voice
   /// and chat share one conversation (see `voice_chat_log.dart`).
   final VoiceChatLog voiceChatLog = VoiceChatLog();
@@ -133,6 +142,15 @@ class CaptureController extends ChangeNotifier
     if (mode == null || freeFormModeActive.value) return;
     freeFormModeActive.value = true;
     try {
+      // Call shell first: the mic must already be inside an active telecom
+      // call before capture opens, or a background/lock-screen start records
+      // silence (Android 12+ background-mic restriction).
+      await onVoiceModeCallStart?.call();
+      // Stop-during-start guard (the same race FreeFormVoiceMode.start guards
+      // for its capture): stopFreeFormVoiceMode during the await above already
+      // reset the UI and ended the call shell — starting the mode now would
+      // leave it running headless with the toggle showing off.
+      if (!freeFormModeActive.value) return;
       await mode.start();
       // Звук «голосовой режим включён» (просьба Игоря 24.08) — ПОСЛЕ удачного
       // старта, чтобы сигнал не звучал перед ошибкой. Колбэк, а не плеер:
@@ -166,6 +184,11 @@ class CaptureController extends ChangeNotifier
   void resetFreeFormVoiceModeUi() {
     freeFormModeActive.value = false;
     hubProjection.value = idleVoiceTurnProjection;
+    // Единая точка (см. ниже): сюда сходятся все пути завершения — значит,
+    // и звонок-оболочка гасится ровно здесь. Идемпотентно и fail-open на
+    // стороне VoiceCallSession; при завершении, начатом самим звонком
+    // (красная кнопка / настоящий вызов), native уже всё снёс — end() no-op.
+    unawaited(onVoiceModeCallEnd?.call() ?? Future<void>.value());
     // The tail of the conversation is still buffered — post it, THEN reload
     // chat history so the spoken dialogue shows up right away. Записи и
     // раньше долетали до сервера, но чат их не перечитывал — разговор

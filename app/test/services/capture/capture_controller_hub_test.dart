@@ -354,5 +354,61 @@ void main() {
       expect(provider.hubProjection.value, idleVoiceTurnProjection);
       expect(session.cancelled, 0);
     });
+
+    // Telecom call shell (voice-call-mode-design.md): the session runs inside
+    // a self-managed Android call. The provider only owns the ordering
+    // contract — shell up BEFORE capture opens (background-mic legality),
+    // shell down at the single reset point every teardown path funnels into.
+    test('call shell: starts before capture opens, ends on stop', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      var callStarts = 0;
+      var callEnds = 0;
+      provider.onVoiceModeCallStart = () async {
+        callStarts += 1;
+        // The contract that makes lock-screen starts legal: the call must be
+        // active before the mic capture is even attempted.
+        expect(captureCalls, 0, reason: 'call shell must start before capture opens');
+      };
+      provider.onVoiceModeCallEnd = () async => callEnds += 1;
+
+      await provider.startFreeFormVoiceMode();
+      expect(callStarts, 1);
+      expect(callEnds, 0);
+
+      provider.stopFreeFormVoiceMode();
+      expect(callEnds, 1);
+    });
+
+    test('call shell: stop during call setup aborts the start (no headless mode)', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      var callEnds = 0;
+      provider.onVoiceModeCallStart = () async {
+        // The user hits Stop while telecom is still building the call.
+        provider.stopFreeFormVoiceMode();
+      };
+      provider.onVoiceModeCallEnd = () async => callEnds += 1;
+
+      await provider.startFreeFormVoiceMode();
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.freeFormVoiceMode!.isRunning, isFalse, reason: 'the mode must not start headless');
+      expect(captureCalls, 0);
+      expect(callEnds, 1);
+    });
+
+    test('call shell: a capture failure still ends the shell', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      captureError = StateError('mic denied');
+      var callEnds = 0;
+      provider.onVoiceModeCallStart = () async {};
+      provider.onVoiceModeCallEnd = () async => callEnds += 1;
+
+      await expectLater(provider.startFreeFormVoiceMode(), throwsStateError);
+
+      expect(callEnds, 1, reason: 'a failed start must not leak a live call');
+    });
   });
 }
