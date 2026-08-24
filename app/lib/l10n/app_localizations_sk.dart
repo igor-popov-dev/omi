@@ -7400,9 +7400,6 @@ class AppLocalizationsSk extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Nepodarilo sa prepísať hlas';
 
   @override
-  String get voiceNoSpeechDetected => 'No speech detected — record again';
-
-  @override
   String get pdfTranscriptExport => 'Export prepisu';
 
   @override
@@ -9849,6 +9846,41 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Diagnostiku sa nepodarilo zdieľať. Skús to znova.';
+
+  @override
+  String get appDisabledTitle => 'Táto aplikácia je vypnutá a nedá sa nainštalovať.';
+
+  @override
+  String get appDisabledWebhookFailures => 'Jej endpoint zlyhával 72 hodín v kuse, preto bolo doručovanie zastavené.';
+
+  @override
+  String get appDisabledGeneric => 'Vypla ju Omi.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Najskôr oprav endpoint — pri opätovnom zapnutí sa znovu overí každá nastavená URL.';
+
+  @override
+  String get appReEnable => 'Znovu zapnúť';
+
+  @override
+  String get appReEnableFailedTitle => 'Nepodarilo sa znovu zapnúť';
+
+  @override
+  String get appReEnableFailedBody => 'Túto aplikáciu sa nepodarilo znovu zapnúť. Skús to znova.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Vypnuté $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Posledná chyba: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
 
   @override
   String sttOfflineBuffering(String duration) {

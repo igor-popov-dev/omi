@@ -747,53 +747,38 @@ def test_mentor_past_context_survives_embedding_failure():
     mock_convos_to_string.assert_called()
 
 
-def test_mentor_notification_survives_recent_conversations_failure():
-    """The mirror case: a failing conversations fetch must not abort the pipeline."""
+def test_mentor_vector_context_survives_recent_conversations_failure():
+    """The mirror case: a failing recent-by-time fetch must not discard the vector hits.
+
+    The rendering step runs after both sources, so under the shared try/except a
+    conversations-store error thrown by the second source also threw away the
+    semantically relevant conversations the first source had already collected.
+    """
     _setup_app_integrations_stubs()
     _pass_all_three_steps()
 
+    mock_query_vectors.return_value = ['conv-vector-1']
+    mock_get_convos_by_id.return_value = [{'id': 'conv-vector-1', 'is_locked': False}]
     mock_get_convos.reset_mock()
-    mock_get_convos.side_effect = RuntimeError("firestore unavailable")
+    mock_get_convos.side_effect = RuntimeError("conversations store unavailable")
+    mock_convos_to_string.reset_mock()
+    mock_convos_to_string.return_value = 'last week: user set a 3x/week gym goal'
 
     try:
         result = app_int._process_mentor_proactive_notification(
             "uid_convos_fail", [{"text": "I'll skip the gym today", "is_user": True}]
         )
     finally:
+        mock_query_vectors.return_value = []
+        mock_get_convos_by_id.return_value = []
         mock_get_convos.side_effect = None
+        mock_convos_to_string.return_value = ''
 
     assert result is not None
-
-
-def test_gate_prompt_asks_for_an_explicit_facts_collision_check():
-    """The gate must be told to cross-check facts/goals, not just offered the criterion.
-
-    Measured on the bridge (lane7, tick 3): with the criterion alone, a conversation where
-    Игорь agrees to a Thursday 21:00 meetup while his facts say he flies at 21:40 that day
-    scored 0.10 — the model read the fact and talked itself out of the conflict. With the
-    explicit check the same case scores 0.95, while a correct plan (0.20) and small talk
-    (0.05) stay untouched.
-    """
-    source = _read_proactive_source()
-    assert "collides with a known fact or goal" in source
-    # The instruction lives inside GATE_PROMPT, after the conversation sections, so the model
-    # reads it with the data in view rather than as one more bullet in the criteria list.
-    gate = pn_mod.GATE_PROMPT
-    assert gate.index("collides with a known fact or goal") > gate.index("== CURRENT CONVERSATION ==")
-
-
-def test_gate_prompt_still_formats_with_every_placeholder():
-    """Guards the added block: an unescaped brace here would raise at the first gate call."""
-    rendered = pn_mod.GATE_PROMPT.format(
-        user_name="Игорь",
-        user_facts="- lives in Tbilisi",
-        goals_text="- ship the thing",
-        current_conversation="[Игорь]: hello",
-        recent_notifications="No recent notifications sent.",
-        current_date="2026-08-23",
-    )
-    assert "{" not in rendered and "}" not in rendered
-    assert "Игорь'S FACTS" in rendered
+    # The vector-search hit was still rendered into the prompt context.
+    mock_deserialize_convos.assert_called()
+    assert mock_deserialize_convos.call_args[0][0] == [{'id': 'conv-vector-1', 'is_locked': False}]
+    mock_convos_to_string.assert_called()
 
 
 def test_process_mentor_proactive_notification_gate_rejects():
@@ -1166,7 +1151,53 @@ def test_validation_result_model():
     assert result.approved is True
 
 
-# ── Per-step deadline (self-host, lane7) ──
+def test_gate_prompt_asks_for_an_explicit_facts_collision_check():
+    """The gate must be told to cross-check facts/goals, not just offered the criterion.
+
+    Measured on the bridge (lane7, tick 3): with the criterion alone, a conversation where
+    Игорь agrees to a Thursday 21:00 meetup while his facts say he flies at 21:40 that day
+    scored 0.10 — the model read the fact and talked itself out of the conflict. With the
+    explicit check the same case scores 0.95, while a correct plan (0.20) and small talk
+    (0.05) stay untouched.
+    """
+    source = _read_proactive_source()
+    assert "collides with a known fact or goal" in source
+    # The instruction lives inside GATE_PROMPT, after the conversation sections, so the model
+    # reads it with the data in view rather than as one more bullet in the criteria list.
+    gate = pn_mod.GATE_PROMPT
+    assert gate.index("collides with a known fact or goal") > gate.index("== CURRENT CONVERSATION ==")
+
+
+def test_gate_prompt_still_formats_with_every_placeholder():
+    """Guards the added block: an unescaped brace here would raise at the first gate call."""
+    rendered = pn_mod.GATE_PROMPT.format(
+        user_name="Игорь",
+        user_facts="- lives in Tbilisi",
+        goals_text="- ship the thing",
+        current_conversation="[Игорь]: hello",
+        recent_notifications="No recent notifications sent.",
+        current_date="2026-08-23",
+    )
+    assert "{" not in rendered and "}" not in rendered
+    assert "Игорь'S FACTS" in rendered
+
+
+def test_mentor_notification_survives_recent_conversations_failure():
+    """The mirror case: a failing conversations fetch must not abort the pipeline."""
+    _setup_app_integrations_stubs()
+    _pass_all_three_steps()
+
+    mock_get_convos.reset_mock()
+    mock_get_convos.side_effect = RuntimeError("firestore unavailable")
+
+    try:
+        result = app_int._process_mentor_proactive_notification(
+            "uid_convos_fail", [{"text": "I'll skip the gym today", "is_user": True}]
+        )
+    finally:
+        mock_get_convos.side_effect = None
+
+    assert result is not None
 
 
 def test_pipeline_steps_pass_a_request_timeout(monkeypatch):

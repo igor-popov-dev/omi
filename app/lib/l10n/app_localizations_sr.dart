@@ -7421,9 +7421,6 @@ class AppLocalizationsSr extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Неуспешна транскрипција аудиа';
 
   @override
-  String get voiceNoSpeechDetected => 'No speech detected — record again';
-
-  @override
   String get pdfTranscriptExport => 'Извоз транскрипта';
 
   @override
@@ -9871,6 +9868,42 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Dijagnostiku nije bilo moguće podeliti. Pokušaj ponovo.';
+
+  @override
+  String get appDisabledTitle => 'Ova aplikacija je onemogućena i ne može da se instalira.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'Njena krajnja tačka nije radila 72 sata zaredom, pa je isporuka zaustavljena.';
+
+  @override
+  String get appDisabledGeneric => 'Onemogućila ju je Omi.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Prvo popravi krajnju tačku — ponovno omogućavanje iznova proverava svaki podešeni URL.';
+
+  @override
+  String get appReEnable => 'Ponovo omogući';
+
+  @override
+  String get appReEnableFailedTitle => 'Ponovno omogućavanje nije uspelo';
+
+  @override
+  String get appReEnableFailedBody => 'Ovu aplikaciju nije bilo moguće ponovo omogućiti. Pokušaj ponovo.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Onemogućeno $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Poslednja greška: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
 
   @override
   String sttOfflineBuffering(String duration) {

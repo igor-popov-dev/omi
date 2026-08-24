@@ -139,9 +139,10 @@ class _AppsListState extends State<_AppsList> {
     }
   }
 
-  // Загрузка закончилась — независимо от того, что пришло. Без этого флага «пусто»
-  // и «ещё грузится» неразличимы: обе ветки давали пустые списки, и лист навсегда
-  // застревал в скелете (у пользователя без единого установленного шаблона — всегда).
+  // The fetch is done, whatever it came back with. Without this flag "empty" and
+  // "still loading" are indistinguishable: both fetches swallow their errors into
+  // empty lists, so the sheet stayed in the skeleton forever for anyone without a
+  // single installed template.
   bool _loaded = false;
 
   Future<void> _fetchApps() async {

@@ -7410,9 +7410,6 @@ class AppLocalizationsVi extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Không thể phiên âm giọng nói';
 
   @override
-  String get voiceNoSpeechDetected => 'No speech detected — record again';
-
-  @override
   String get pdfTranscriptExport => 'Xuất Bản ghi';
 
   @override
@@ -9852,6 +9849,40 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Không thể chia sẻ chẩn đoán. Vui lòng thử lại.';
+
+  @override
+  String get appDisabledTitle => 'Ứng dụng này đã bị vô hiệu hoá và không thể cài đặt.';
+
+  @override
+  String get appDisabledWebhookFailures => 'Endpoint của nó lỗi liên tục trong 72 giờ nên việc gửi dữ liệu đã bị dừng.';
+
+  @override
+  String get appDisabledGeneric => 'Ứng dụng đã bị Omi vô hiệu hoá.';
+
+  @override
+  String get appDisabledOwnerHint => 'Hãy sửa endpoint trước — khi bật lại, mọi URL đã cấu hình sẽ được kiểm tra lại.';
+
+  @override
+  String get appReEnable => 'Bật lại';
+
+  @override
+  String get appReEnableFailedTitle => 'Không thể bật lại';
+
+  @override
+  String get appReEnableFailedBody => 'Không thể bật lại ứng dụng này. Vui lòng thử lại.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Đã vô hiệu hoá vào $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Lỗi gần nhất: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
 
   @override
   String sttOfflineBuffering(String duration) {
