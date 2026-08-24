@@ -17,6 +17,7 @@ import 'widgets/external_trigger_fields_widget.dart';
 import 'widgets/payment_details_widget.dart';
 import 'widgets/prompt_text_field.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class UpdateAppPage extends StatefulWidget {
   final App app;
@@ -256,7 +257,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                                     color: Colors.black.withValues(alpha: 0.6),
                                                     shape: BoxShape.circle,
                                                   ),
-                                                  child: const Icon(Icons.close, size: 16),
+                                                  child: const OmiIconWidget(icon: OmiIcon.close, size: 16),
                                                 ),
                                               ),
                                             ),

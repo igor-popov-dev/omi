@@ -9,6 +9,7 @@ import 'package:omi/backend/schema/app.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 // Custom notification class to communicate with parent widgets
 class SelectAppNotification extends Notification {
@@ -58,7 +59,7 @@ class PopularAppsSection extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(Icons.chevron_right, color: t.textSecondary, size: 16),
+                  OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 16),
                 ],
               ),
             ],

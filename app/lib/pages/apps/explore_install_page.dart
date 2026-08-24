@@ -23,6 +23,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/debouncer.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 String filterValueToString(dynamic value) {
   if (value is String) {
@@ -496,7 +497,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               }
                                               provider.applyFilters();
                                             },
-                                            icon: Icon(Icons.search, color: t.textSecondary, size: 20),
+                                            icon: OmiIconWidget(icon: OmiIcon.search, color: t.textSecondary, size: 20),
                                             padding: EdgeInsets.zero,
                                           ),
                                         ),
@@ -510,7 +511,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                                 hintText: context.l10n.searchAppsPlaceholder,
                                                 leading: Padding(
                                                   padding: const EdgeInsets.only(left: 6.0),
-                                                  child: Icon(Icons.search, color: t.textSecondary, size: 20),
+                                                  child: OmiIconWidget(
+                                                      icon: OmiIcon.search, color: t.textSecondary, size: 20),
                                                 ),
                                                 backgroundColor: WidgetStateProperty.all(
                                                   t.bgSecondary,
@@ -524,11 +526,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                                 trailing: state.isSearchActive
                                                     ? [
                                                         IconButton(
-                                                          icon: Icon(
-                                                            Icons.close,
-                                                            color: t.textSecondary,
-                                                            size: 16,
-                                                          ),
+                                                          icon: OmiIconWidget(
+                                                              icon: OmiIcon.close, color: t.textSecondary, size: 16),
                                                           padding: EdgeInsets.zero,
                                                           constraints: const BoxConstraints(
                                                             minHeight: 36,
@@ -589,11 +588,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               !wasSelected,
                                             );
                                           },
-                                          icon: FaIcon(
-                                            FontAwesomeIcons.solidUser,
-                                            size: 16,
-                                            color: t.textPrimary,
-                                          ),
+                                          icon: OmiIconWidget(icon: OmiIcon.user, size: 16, color: t.textPrimary),
                                           label: Text(
                                             context.l10n.myApps,
                                             style: TextStyle(
@@ -630,11 +625,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               !wasSelected,
                                             );
                                           },
-                                          icon: FaIcon(
-                                            FontAwesomeIcons.solidUser,
-                                            size: 16,
-                                            color: t.textPrimary,
-                                          ),
+                                          icon: OmiIconWidget(icon: OmiIcon.user, size: 16, color: t.textPrimary),
                                           padding: EdgeInsets.zero,
                                         ),
                                       ),
@@ -665,11 +656,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               !wasSelected,
                                             );
                                           },
-                                          icon: FaIcon(
-                                            FontAwesomeIcons.download,
-                                            size: 16,
-                                            color: t.textPrimary,
-                                          ),
+                                          icon: OmiIconWidget(icon: OmiIcon.download, size: 16, color: t.textPrimary),
                                           label: Text(
                                             (state.visibleFilterCount > 0 && !state.isSearchActive)
                                                 ? context.l10n.installed
@@ -708,11 +695,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               !wasSelected,
                                             );
                                           },
-                                          icon: FaIcon(
-                                            FontAwesomeIcons.download,
-                                            size: 16,
-                                            color: t.textPrimary,
-                                          ),
+                                          icon: OmiIconWidget(icon: OmiIcon.download, size: 16, color: t.textPrimary),
                                           padding: EdgeInsets.zero,
                                         ),
                                       ),

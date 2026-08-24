@@ -40,6 +40,7 @@ import 'package:omi/pages/apps/widgets/show_app_options_sheet.dart';
 import 'widgets/capabilities_card.dart';
 import 'widgets/info_card_widget.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AppDetailPage extends StatefulWidget {
   final App app;
@@ -671,7 +672,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                   decoration: BoxDecoration(color: t.textTertiary, shape: BoxShape.circle),
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: FaIcon(FontAwesomeIcons.gear, size: 16.0, color: t.textPrimary),
+                    icon: OmiIconWidget(icon: OmiIcon.settings, size: 16.0, color: t.textPrimary),
                     onPressed: () {
                       HapticFeedback.mediumImpact();
                       Navigator.push(context, MaterialPageRoute(builder: (context) => AppHomeWebPage(app: app)));
@@ -827,7 +828,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                     child: Row(
                                       children: [
                                         if (app.ratingCount > 0) ...[
-                                          FaIcon(FontAwesomeIcons.solidStar, size: 11, color: t.textPrimary),
+                                          OmiIconWidget(icon: OmiIcon.star, size: 11, color: t.textPrimary),
                                           const SizedBox(width: 4),
                                           Text(
                                             '${app.getRatingAvg()} (${app.ratingCount})',
@@ -1408,7 +1409,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                         ),
                                         const Spacer(),
                                         app.reviews.isNotEmpty
-                                            ? const Icon(Icons.arrow_forward, size: 20)
+                                            ? const OmiIconWidget(icon: OmiIcon.arrowRight, size: 20)
                                             : const SizedBox.shrink(),
                                       ],
                                     ),
@@ -1721,8 +1722,8 @@ class RatingDistributionWidget extends StatelessWidget {
               children: List.generate(5, (index) {
                 return Padding(
                   padding: EdgeInsets.only(right: index < 4 ? 4 : 0),
-                  child: FaIcon(
-                    FontAwesomeIcons.solidStar,
+                  child: OmiIconWidget(
+                    icon: OmiIcon.star,
                     size: 14,
                     color: index < ratingAvg.round() ? t.textPrimary : t.textSecondary,
                   ),
@@ -1950,8 +1951,8 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: FaIcon(
-                    FontAwesomeIcons.solidStar,
+                  child: OmiIconWidget(
+                    icon: OmiIcon.star,
                     size: 24,
                     color: index < editRating ? t.textPrimary : t.textSecondary,
                   ),
@@ -2065,8 +2066,8 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
                       children: List.generate(5, (index) {
                         return Padding(
                           padding: const EdgeInsets.only(right: 4),
-                          child: FaIcon(
-                            FontAwesomeIcons.solidStar,
+                          child: OmiIconWidget(
+                            icon: OmiIcon.star,
                             size: 14,
                             color: index < review.score.round() ? t.textPrimary : t.textSecondary,
                           ),

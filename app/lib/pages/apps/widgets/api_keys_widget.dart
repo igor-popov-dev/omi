@@ -9,6 +9,7 @@ import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class ApiKeysWidget extends StatefulWidget {
   final String appId;
@@ -156,7 +157,7 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
                     Text(context.l10n.apiKeys, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: Icon(Icons.info_outline, size: 20, color: t.textSecondary),
+                      icon: OmiIconWidget(icon: OmiIcon.info, size: 20, color: t.textSecondary),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () {
@@ -191,7 +192,7 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
                           height: 16,
                           child: CircularProgressIndicator(color: t.textPrimary, strokeWidth: 2),
                         )
-                      : const Icon(Icons.add, size: 16),
+                      : const OmiIconWidget(icon: OmiIcon.plus, size: 16),
                   label: Text(_isCreatingKey ? context.l10n.creating : context.l10n.createKey),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.secondary,
@@ -253,7 +254,7 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.copy, size: 18),
+                icon: const OmiIconWidget(icon: OmiIcon.copy, size: 18),
                 onPressed: () => _copyToClipboard(_newKey!.secret!),
                 tooltip: context.l10n.copyToClipboard,
                 padding: EdgeInsets.zero,

@@ -13,6 +13,7 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/widgets/extensions/string.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class ReviewsListPage extends StatefulWidget {
   final App app;
@@ -343,8 +344,8 @@ class _ReviewsListPageState extends State<ReviewsListPage> {
                       children: List.generate(5, (index) {
                         return Padding(
                           padding: const EdgeInsets.only(right: 4),
-                          child: FaIcon(
-                            FontAwesomeIcons.solidStar,
+                          child: OmiIconWidget(
+                            icon: OmiIcon.star,
                             size: 14,
                             color: index < review.score.round() ? t.textPrimary : t.textSecondary,
                           ),

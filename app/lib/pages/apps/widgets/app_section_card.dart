@@ -12,6 +12,7 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/extensions/string.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AppSectionCard extends StatelessWidget {
   final String title;
@@ -128,7 +129,7 @@ class SectionAppItemCard extends StatelessWidget {
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
-                    child: Icon(Icons.error_outline, color: t.textSecondary, size: 24),
+                    child: OmiIconWidget(icon: OmiIcon.errorCircle, color: t.textSecondary, size: 24),
                   ),
                 ),
                 const SizedBox(width: 12),

@@ -4,7 +4,6 @@ import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/backend/schema/app.dart';
@@ -14,6 +13,7 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 /// A category section widget with unlimited horizontal scrolling for capability pages.
 /// Unlike CategorySection which shows max 9 items, this shows all apps in the category.
@@ -171,7 +171,7 @@ class CapabilitySectionAppItemCard extends StatelessWidget {
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
-                    child: Icon(Icons.error_outline, color: t.textSecondary, size: 24),
+                    child: OmiIconWidget(icon: OmiIcon.errorCircle, color: t.textSecondary, size: 24),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -200,7 +200,7 @@ class CapabilitySectionAppItemCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            FaIcon(FontAwesomeIcons.solidStar, color: t.textPrimary, size: 9),
+                            OmiIconWidget(icon: OmiIcon.star, color: t.textPrimary, size: 9),
                             const SizedBox(width: 4),
                             Text(
                               app.getRatingAvg()!,

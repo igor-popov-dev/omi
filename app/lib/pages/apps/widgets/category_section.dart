@@ -13,6 +13,7 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class CategorySection extends StatelessWidget {
   final String categoryName;
@@ -89,7 +90,7 @@ class CategorySection extends StatelessWidget {
                           ),
                         ),
                         // const SizedBox(width: 8),
-                        Icon(Icons.chevron_right, color: t.textSecondary, size: 16),
+                        OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 16),
                       ],
                     ),
                   ),
@@ -176,7 +177,7 @@ class SectionAppItemCard extends StatelessWidget {
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
-                    child: Icon(Icons.error_outline, color: t.textSecondary, size: 24),
+                    child: OmiIconWidget(icon: OmiIcon.errorCircle, color: t.textSecondary, size: 24),
                   ),
                 ),
                 const SizedBox(width: 12),

@@ -15,6 +15,7 @@ import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AppMetadataWidget extends StatelessWidget {
   final File? imageFile;
@@ -169,7 +170,7 @@ class AppMetadataWidget extends StatelessWidget {
                                 child: Container(
                                   padding: const EdgeInsets.all(6.0),
                                   decoration: BoxDecoration(color: t.bgTertiary, shape: BoxShape.circle),
-                                  child: FaIcon(FontAwesomeIcons.pen, color: t.textPrimary, size: 12),
+                                  child: OmiIconWidget(icon: OmiIcon.edit, color: t.textPrimary, size: 12),
                                 ),
                               ),
                             ),

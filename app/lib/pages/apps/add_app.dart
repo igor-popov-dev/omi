@@ -26,6 +26,7 @@ import 'package:omi/widgets/confirmation_dialog.dart';
 import 'widgets/capabilities_chips_widget.dart';
 import 'widgets/prompt_text_field.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AddAppPage extends StatefulWidget {
   final bool presetForConversationAnalysis;
@@ -589,11 +590,8 @@ class _AddAppPageState extends State<AddAppPage> {
                                             borderRadius: BorderRadius.circular(10),
                                           ),
                                           child: Center(
-                                            child: FaIcon(
-                                              FontAwesomeIcons.dollarSign,
-                                              color: t.textSecondary,
-                                              size: 16,
-                                            ),
+                                            child:
+                                                OmiIconWidget(icon: OmiIcon.dollar, color: t.textSecondary, size: 16),
                                           ),
                                         ),
                                         const SizedBox(width: 14),

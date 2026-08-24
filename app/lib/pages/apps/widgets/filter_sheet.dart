@@ -7,6 +7,7 @@ import 'package:omi/l10n/app_localizations.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class FilterBottomSheet extends StatelessWidget {
   const FilterBottomSheet({super.key});
@@ -52,7 +53,7 @@ class FilterBottomSheet extends StatelessWidget {
                     IconButton(
                       key: const ValueKey('filter_sheet_close_button'),
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(Icons.close, color: t.textPrimary, size: 24),
+                      icon: OmiIconWidget(icon: OmiIcon.close, color: t.textPrimary, size: 24),
                     ),
                   ],
                 ),
@@ -288,7 +289,7 @@ class FilterBottomSheet extends StatelessWidget {
                       color: isSelected ? Colors.white : Colors.transparent,
                       border: Border.all(color: isSelected ? t.textPrimary : t.textSecondary, width: 2),
                     ),
-                    child: isSelected ? const Icon(Icons.check, size: 12, color: Colors.black) : null,
+                    child: isSelected ? const OmiIconWidget(icon: OmiIcon.check, size: 12, color: Colors.black) : null,
                   ),
                   const SizedBox(width: 12),
                   Text(

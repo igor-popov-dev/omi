@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omi/widgets/extensions/string.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class InfoCardWidget extends StatelessWidget {
   final VoidCallback onTap;
@@ -52,7 +53,7 @@ class InfoCardWidget extends StatelessWidget {
                 ),
                 const Spacer(),
                 (maxLines != null || description.decodeString.characters.length > 200)
-                    ? const Icon(Icons.arrow_forward, size: 20)
+                    ? const OmiIconWidget(icon: OmiIcon.arrowRight, size: 20)
                     : const SizedBox.shrink(),
               ],
             ),
