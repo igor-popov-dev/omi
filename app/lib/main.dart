@@ -398,7 +398,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (context) => VoiceRecorderProvider()..checkPendingRecording()),
         ChangeNotifierProvider(create: (context) => LocaleProvider()),
         ChangeNotifierProvider(create: (context) => AnnouncementProvider()),
-        ChangeNotifierProvider(lazy: true, create: (context) => PhoneCallProvider()),
+        // A call must hush the phone's own always-on recording, or one call becomes two
+        // conversations and the two captures fight over the microphone (lane 6 tick 22).
+        // Wired here rather than inside the provider so calls keep knowing nothing about
+        // the capture stack.
+        ChangeNotifierProxyProvider<CaptureProvider, PhoneCallProvider>(
+          lazy: true,
+          create: (context) => PhoneCallProvider(),
+          update: (BuildContext context, capture, PhoneCallProvider? previous) {
+            final phoneCalls = previous ?? PhoneCallProvider();
+            phoneCalls.ambientCapture.gate =
+                (paused) => paused ? capture.pauseForInAppCall() : capture.resumeAfterInAppCall();
+            return phoneCalls;
+          },
+        ),
       ],
       builder: (context, child) {
         return WithForegroundTask(

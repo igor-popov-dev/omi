@@ -223,11 +223,74 @@ class CaptureController extends ChangeNotifier
     notifyListeners();
   }
 
+  // True while THIS app's own call owns the microphone. Deliberately separate from
+  // [_micInterrupted]: that one mirrors an interruption the OS reported and the OS will
+  // end, while this one is ours to end. Keeping them apart matters on the resume side —
+  // a real interruption can begin and end inside our call, and its `end` must not be
+  // mistaken for permission to put ambient capture back while the call is still running.
+  bool _inAppCallHoldsMic = false;
+
+  bool get inAppCallHoldsMic => _inAppCallHoldsMic;
+
+  /// Hush ambient phone-mic capture for the duration of an in-app call.
+  ///
+  /// Without this the phone keeps streaming the same conversation into `v4/listen`
+  /// while the cloud streams both legs of the call under its own call_id, and the
+  /// backend de-duplicates nothing: one call becomes TWO conversations, one holding
+  /// our side and one the other party's (measured, lane 6 tick 22,
+  /// marathon/tools/vox-dual-session-probe.py, case `ambient`). On Android the two
+  /// captures also fight over the microphone, and the loser records silence.
+  ///
+  /// The mic arbiter cannot cover this: it arbitrates the two Dart recorder stacks,
+  /// and the call SDK takes the microphone natively, without asking it.
+  Future<void> pauseForInAppCall() async {
+    if (_inAppCallHoldsMic) return;
+    // Nothing is capturing — take the flag anyway. The call may outlive this check
+    // (the user can start recording mid-call), and the flag is what refuses that.
+    _inAppCallHoldsMic = true;
+    if (_activeSource is! PhoneMicSource && !_phoneMicBatchActive) return;
+    _onMicInterruption(true);
+    ServiceManager.instance().phoneMic.stop();
+  }
+
+  /// Give the microphone back after the call. Idempotent: several exits report the end
+  /// of one call, and a second resume must not start a session the user never asked for.
+  Future<void> resumeAfterInAppCall() async {
+    if (!_inAppCallHoldsMic) return;
+    // Cleared first: the restart paths below refuse to run while it is set.
+    _inAppCallHoldsMic = false;
+    if (_activeSource is PhoneMicSource) {
+      // Preserves the socket and the segments captured before the call.
+      await _resumeMicRecording();
+    } else if (_phoneMicBatchActive) {
+      await _restartPhoneMicBatchAfterCall();
+    }
+    _onMicInterruption(false);
+  }
+
+  /// Batch has no resume — a session is a run of files, and the watchdog restarts it the
+  /// same way. Kept separate from [_onBatchStalled] only because that one refuses to run
+  /// while a restart is in flight, which is exactly the state a call leaves behind.
+  Future<void> _restartPhoneMicBatchAfterCall() async {
+    if (_phoneMicBatchRestartInFlight) return;
+    _phoneMicBatchRestartInFlight = true;
+    try {
+      await _startPhoneMicBatch(auto: SharedPreferencesUtil().phoneBatchAuto);
+    } catch (e, st) {
+      Logger.error('[CaptureProvider] batch restart after in-app call failed: $e\n$st');
+    } finally {
+      _phoneMicBatchRestartInFlight = false;
+    }
+  }
+
   bool _phoneMicRestartInFlight = false;
   bool _phoneMicBatchRestartInFlight = false;
 
   Future<void> _restartPhoneMicRecording() async {
     if (_phoneMicRestartInFlight) return;
+    // A restart already in flight when the call started would otherwise hand the mic
+    // straight back — the pause would hold for exactly as long as this await.
+    if (_inAppCallHoldsMic) return;
     _phoneMicRestartInFlight = true;
     try {
       ServiceManager.instance().phoneMic.stop();
@@ -1638,6 +1701,8 @@ class CaptureController extends ChangeNotifier
   /// restart path (_restartPhoneMicRecording), which assumes a socket/WAL.
   Future<void> _onBatchStalled() async {
     if (!_phoneMicBatchActive || _phoneMicBatchRestartInFlight) return;
+    // Silence during our own call is not a stall — it is the pause working.
+    if (_inAppCallHoldsMic) return;
     _phoneMicBatchRestartInFlight = true;
     try {
       ServiceManager.instance().phoneMic.stop();
