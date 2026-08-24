@@ -795,6 +795,55 @@ class TestPhase4RuntimeBehavior:
 
         assert extract_memory_ids([]) == []
 
+    def test_to_message_conversations_from_dicts(self):
+        """The agentic route collects plain dicts (conversation_tools.py)."""
+        from utils.conversation_helpers import to_message_conversations
+
+        now = datetime.now(timezone.utc)
+        memories = [{'id': 'conv-1', 'created_at': now, 'structured': {'title': 'Standup', 'emoji': '\U0001f4cc'}}]
+        cited = to_message_conversations(memories)
+        assert [c.id for c in cited] == ['conv-1']
+        assert cited[0].structured.title == 'Standup'
+        assert cited[0].structured.emoji == '\U0001f4cc'
+
+    def test_to_message_conversations_from_objects(self):
+        """The qa_rag route hands back Conversation objects; ``**m`` raised TypeError on them,
+        which demoted a delivered answer to a persistence failure."""
+        from models.conversation import Conversation
+        from models.structured import Structured
+        from utils.conversation_helpers import to_message_conversations
+
+        now = datetime.now(timezone.utc)
+        conv = Conversation(
+            id='conv-obj',
+            created_at=now,
+            started_at=now,
+            finished_at=now,
+            structured=Structured(title='Standup', emoji='\U0001f4cc'),
+        )
+        cited = to_message_conversations([conv])
+        assert [c.id for c in cited] == ['conv-obj']
+        assert cited[0].structured.title == 'Standup'
+        assert cited[0].created_at == now
+
+    def test_to_message_conversations_mixed_and_limit(self):
+        from models.conversation import Conversation
+        from models.structured import Structured
+        from utils.conversation_helpers import to_message_conversations
+
+        now = datetime.now(timezone.utc)
+        conv = Conversation(
+            id='conv-obj',
+            created_at=now,
+            started_at=now,
+            finished_at=now,
+            structured=Structured(title='Object'),
+        )
+        memories = [{'id': 'conv-dict', 'created_at': now, 'structured': {'title': 'Dict'}}, conv]
+        assert [c.id for c in to_message_conversations(memories)] == ['conv-dict', 'conv-obj']
+        assert len(to_message_conversations(memories * 5, limit=3)) == 3
+        assert to_message_conversations([]) == []
+
     def test_call_sites_use_extract_memory_ids(self):
         """Verify routers/chat.py and utils/chat.py use the shared helper."""
         import pathlib

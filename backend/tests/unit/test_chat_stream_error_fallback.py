@@ -12,11 +12,13 @@ import asyncio
 import base64
 import json
 import sys
+from datetime import datetime, timezone
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 
 from tests.unit import _chat_router_test_harness as harness
 from tests.unit._chat_router_test_harness import BACKEND_DIR
@@ -185,6 +187,100 @@ def test_v2_messages_normal_answer_still_emits_single_done_frame():
         # No fallback text leaks into a successful turn.
         assert chat_utils.CHAT_STREAM_ERROR_TEXT not in response.text
         # A successful turn is not a fallback -- the emitter must not fire.
+        chat_utils.record_fallback.assert_not_called()
+    finally:
+        _cleanup(saved)
+
+
+class _CitedStructured(BaseModel):
+    title: str
+    emoji: str = '\U0001f4cc'
+
+
+class _CitedConversation(BaseModel):
+    """Shape-faithful stand-in for what the qa_rag route puts in ``memories_found``:
+    a deserialized Conversation *object*, not a mapping. The agentic route collects
+    dicts, so the two shapes coexist and only one of them survived ``**m``."""
+
+    id: str
+    created_at: datetime
+    structured: _CitedStructured
+
+
+def _cited_conversation() -> _CitedConversation:
+    return _CitedConversation(
+        id='conv-1',
+        created_at=datetime.now(timezone.utc),
+        structured=_CitedStructured(title='Standup'),
+    )
+
+
+def _ai_writes(chat_db):
+    return [call.args[1] for call in chat_db.add_message.call_args_list if call.args[1].get('sender') == 'ai']
+
+
+def test_v2_messages_keeps_persisted_id_when_citations_are_objects():
+    """Regression: object-shaped citations raised TypeError *after* the reply was written,
+    so the client got a different message id than the database held and a delivered answer
+    was recorded as an exhausted fallback."""
+    client, router_module, chat_utils, chat_db, saved = _make_client()
+    try:
+        conversation = _cited_conversation()
+
+        async def ok_stream(*args, **kwargs):
+            callback_data = kwargs['callback_data']
+            # The citation marker is what makes the router keep the memory at all.
+            callback_data['answer'] = 'you agreed to call back [1]'
+            callback_data['memories_found'] = [conversation]
+            yield None
+
+        router_module.execute_chat_stream = ok_stream
+
+        response = client.post(
+            '/v2/messages',
+            json={'text': 'hello', 'file_ids': []},
+            headers={'X-App-Platform': 'ios'},
+        )
+
+        assert response.status_code == 200
+        payload = _decode_done_frame(response.text)
+        writes = _ai_writes(chat_db)
+        assert len(writes) == 1
+        # What the client renders must be the row that was persisted.
+        assert payload['id'] == writes[0]['id']
+        assert writes[0]['memories_id'] == ['conv-1']
+        assert payload['memories'][0]['structured']['title'] == 'Standup'
+        # A delivered answer is not a fallback.
+        chat_utils.record_fallback.assert_not_called()
+    finally:
+        _cleanup(saved)
+
+
+def test_voice_stream_keeps_persisted_id_when_citations_are_objects():
+    """Same regression on the voice path, which cites every retrieved conversation."""
+    client, router_module, chat_utils, chat_db, saved = _make_client()
+    try:
+        conversation = _cited_conversation()
+        stub_calls = []
+
+        async def ok_graph_stream(*args, **kwargs):
+            stub_calls.append(1)
+            callback_data = kwargs['callback_data']
+            callback_data['answer'] = 'here is your answer'
+            callback_data['memories_found'] = [conversation]
+            yield None
+
+        chat_utils.execute_graph_chat_stream = ok_graph_stream
+
+        frames = _collect_voice_frames(chat_utils)
+
+        assert stub_calls, 'ok_graph_stream was never called (binding was stale)'
+        payload = _decode_done_frame(''.join(frames))
+        writes = _ai_writes(chat_db)
+        assert len(writes) == 1
+        assert payload['id'] == writes[0]['id']
+        assert payload['text'] == 'here is your answer'
+        assert payload['memories'][0]['structured']['title'] == 'Standup'
         chat_utils.record_fallback.assert_not_called()
     finally:
         _cleanup(saved)

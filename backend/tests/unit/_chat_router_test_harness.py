@@ -111,8 +111,10 @@ def wire_common_stubs(install) -> SimpleNamespace:
 
     utils_apps = install('utils.apps', ModuleType('utils.apps'))
     utils_apps.get_available_app_by_id = MagicMock(return_value=None)
-    helpers = install('utils.conversation_helpers', ModuleType('utils.conversation_helpers'))
-    helpers.extract_memory_ids = MagicMock(return_value=[])
+    # Real, not stubbed: it is dependency-free (models.chat only, loaded above) and it is
+    # what decides whether a delivered answer survives citation rendering -- a stub here
+    # made every chat suite blind to the shape of memories the retrieval routes produce.
+    load_real_module('utils.conversation_helpers', BACKEND_DIR / 'utils' / 'conversation_helpers.py')
     goals = install('utils.llm.goals', ModuleType('utils.llm.goals'))
     goals.extract_and_update_goal_progress = MagicMock()
     users = install('utils.users', ModuleType('utils.users'))
