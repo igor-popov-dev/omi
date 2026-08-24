@@ -190,8 +190,6 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   void _populateUIFromConfig(CustomSttConfig? config) {
-    final t = context.omi;
-
     final providerDefaults = SttProviderConfig.get(_selectedProvider);
 
     _apiKeyController.text = config?.apiKey ?? '';
@@ -210,6 +208,9 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       _hasShownDebugWarning = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
+          // Resolved here, not in the enclosing method: _populateUIFromConfig
+          // runs from initState, where inherited widgets are not available yet.
+          final t = context.omi;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
