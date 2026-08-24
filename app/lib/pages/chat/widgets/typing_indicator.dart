@@ -18,7 +18,6 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
 
   @override
   void initState() {
-    final t = context.omi;
     super.initState();
     _controller = AnimationController(duration: const Duration(milliseconds: 600), vsync: this)..repeat(reverse: true);
 
@@ -42,7 +41,14 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
       begin: 0.85,
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Theme tokens are an inherited dependency, so the color tween is built here
+    // rather than in initState — and rebuilt if the theme is switched at runtime.
+    final t = context.omi;
     _colorAnimation = ColorTween(
       begin: t.textSecondary,
       end: t.textTertiary,
