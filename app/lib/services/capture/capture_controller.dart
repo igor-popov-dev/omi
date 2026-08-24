@@ -32,6 +32,7 @@ import 'package:omi/services/capture/conversation_location_capture.dart';
 import 'package:omi/services/capture/freemium_threshold_tracker.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
+import 'package:omi/services/voice_hub/earcon.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
 import 'package:omi/services/voice_hub/voice_chat_log.dart';
@@ -130,6 +131,10 @@ class CaptureController extends ChangeNotifier
     freeFormModeActive.value = true;
     try {
       await mode.start();
+      // Звук «голосовой режим включён» (просьба Игоря 24.08) — ПОСЛЕ удачного
+      // старта, чтобы сигнал не звучал перед ошибкой. Плеер не трогает
+      // аудиофокус (см. earcon.dart) — сессию не собьёт.
+      unawaited(thinkingEarcon.play());
     } catch (_) {
       resetFreeFormVoiceModeUi();
       rethrow;

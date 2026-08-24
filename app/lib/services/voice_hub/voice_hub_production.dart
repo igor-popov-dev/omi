@@ -75,9 +75,6 @@ import 'native_voice_player.dart';
 import 'voice_turn_coordinator.dart' show VoiceTurnPresenter;
 import 'voice_turn_driver.dart';
 
-// Один плеер сигнала «услышал» на оба входа хаба (см. earcon.dart).
-final AckEarcon _ackEarcon = AckEarcon();
-
 /// Thrown by [mintGeminiHubToken] on a transport failure, a non-200, or a
 /// 200 body missing the `token` field.
 class HubTokenMintException implements Exception {
@@ -176,9 +173,9 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     // модель молчит до ответа (идея 1, WORKLOG 24.08). Уровень читается на
     // каждом вызове, поэтому ползунок действует без пересоздания драйвера.
     blockingDelivery: () => currentClaudeEscalationLevel().blockingDelivery,
-    // Подтверждение «услышал» в блокирующем режиме — звук (файл Игоря из
-    // pixel-jarvis), а не фраза «секунду, уточню» (см. earcon.dart).
-    onBlockingCallStart: () => unawaited(_ackEarcon.play()),
+    // Подтверждение «услышал, думаю» в блокирующем режиме — звук (файл Игоря),
+    // а не фраза «секунду, уточню» (см. earcon.dart).
+    onBlockingCallStart: () => unawaited(thinkingEarcon.play()),
   );
 
   return VoiceHubTurnDriver(VoiceHubTurnDriverDeps(
@@ -248,6 +245,15 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   void Function()? onIdleTimeout,
 }) {
   late final HubController hub;
+  late final FreeFormVoiceMode mode;
+  // Сторож тишины жив, только если его кормить. `noteActivity()` был швом
+  // «подключит хост» (см. заголовок free_form_voice_mode.dart) — и его не
+  // подключил НИКТО: таймер взводился на старте и убивал режим ровно через
+  // 3 минуты ПОСРЕДИ живого разговора (жалоба Игоря 24.08: «сам прекращается,
+  // хотя я ещё говорю»). Теперь каждое живое событие сессии — речь
+  // пользователя, речь модели, вызов инструмента, конец хода — сбрасывает
+  // отсчёт; выключение случается только после 3 минут НАСТОЯЩЕЙ тишины.
+  void alive() => mode.noteActivity();
 
   final askClaudeExecutor = AskClaudeToolExecutor(
     // Voice asks for a BOUNDED agent, unlike chat — but deliberately does NOT
@@ -273,21 +279,45 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     // модель молчит до ответа (идея 1, WORKLOG 24.08). Уровень читается на
     // каждом вызове, поэтому ползунок действует без пересоздания драйвера.
     blockingDelivery: () => currentClaudeEscalationLevel().blockingDelivery,
-    // Подтверждение «услышал» в блокирующем режиме — звук (файл Игоря из
-    // pixel-jarvis), а не фраза «секунду, уточню» (см. earcon.dart).
-    onBlockingCallStart: () => unawaited(_ackEarcon.play()),
+    // Подтверждение «услышал, думаю» в блокирующем режиме — звук (файл Игоря),
+    // а не фраза «секунду, уточню» (см. earcon.dart).
+    onBlockingCallStart: () => unawaited(thinkingEarcon.play()),
   );
 
   hub = HubController(
     events: HubControllerEvents(
       onConnected: events.onConnected,
       onError: events.onError,
-      onInputTranscript: events.onInputTranscript,
-      onAssistantText: events.onAssistantText,
-      onSpeakingStart: events.onSpeakingStart,
-      onSpeakingEnd: events.onSpeakingEnd,
-      onToolRequest: (call, identity) => askClaudeExecutor.handle(call),
-      onTurnDone: events.onTurnDone,
+      onInputTranscript: (text, isFinal, identity) {
+        alive();
+        events.onInputTranscript?.call(text, isFinal, identity);
+      },
+      onAssistantText: (text, isFinal, identity) {
+        alive();
+        events.onAssistantText?.call(text, isFinal, identity);
+      },
+      onSpeakingStart: () {
+        alive();
+        events.onSpeakingStart?.call();
+      },
+      onSpeakingEnd: () {
+        alive();
+        events.onSpeakingEnd?.call();
+      },
+      // Проброс onInterrupted отсутствовал вовсе — разметка «[прервано]» в
+      // истории чата (7e17880a5e) в свободном режиме молча не работала.
+      onInterrupted: () {
+        alive();
+        events.onInterrupted?.call();
+      },
+      onToolRequest: (call, identity) {
+        alive();
+        askClaudeExecutor.handle(call);
+      },
+      onTurnDone: (identity) {
+        alive();
+        events.onTurnDone?.call(identity);
+      },
       onCascadeHandoff: events.onCascadeHandoff,
     ),
     buildInstructions: buildProductionHubInstructions,
@@ -303,11 +333,12 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     fetchTools: fetchHubTools,
   );
 
-  return FreeFormVoiceMode(
+  mode = FreeFormVoiceMode(
     hub: hub,
     startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
     mintTurnId: () => const Uuid().v4(),
     idleTimeout: idleTimeout,
     onIdleTimeout: onIdleTimeout,
   );
+  return mode;
 }
