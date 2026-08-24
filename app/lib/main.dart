@@ -395,7 +395,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             // constructing it here is side-effect-free, same as
             // `hubTurnDriver` above (no I/O until `startFreeFormVoiceMode`
             // actually calls `FreeFormVoiceMode.start()`).
-            capture.onVoiceModeStartSound = () => thinkingEarcon.play();
+            capture.onVoiceModeStartSound = () => voiceStartEarcon.play();
             capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
               events: freeFormModeProjectionEvents(
                 // Гейт по активности: поздние события уже остановленной сессии
