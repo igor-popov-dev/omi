@@ -26,8 +26,6 @@ class _AppHomeWebPageState extends State<AppHomeWebPage> with SingleTickerProvid
 
   @override
   void initState() {
-    final t = context.omi;
-
     super.initState();
     _animationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
     _slideAnimation = Tween<Offset>(
@@ -51,6 +49,9 @@ class _AppHomeWebPageState extends State<AppHomeWebPage> with SingleTickerProvid
             setState(() {
               _isLoading = false;
             });
+            // Resolved in the callback, not in initState: inherited widgets
+            // are not available while initState is still running.
+            final t = context.omi;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Failed to load page: ${error.description}', style: TextStyle(color: t.textPrimary)),
