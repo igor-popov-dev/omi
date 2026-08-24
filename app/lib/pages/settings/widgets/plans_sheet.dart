@@ -24,6 +24,8 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/widgets/confirmation_dialog.dart';
 import 'package:omi/pages/settings/payment_webview_page.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class PlansSheet extends StatefulWidget {
   final AnimationController waveController;
@@ -86,12 +88,14 @@ class _PlansSheetState extends State<PlansSheet> {
     bool isChecked = false;
     return StatefulBuilder(
       builder: (context, setDialogState) {
+        final t = context.omi;
+
         return AlertDialog(
-          backgroundColor: const Color(0xFF1F1F25),
+          backgroundColor: t.bgSecondary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             context.l10n.omiTraining,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -100,12 +104,12 @@ class _PlansSheetState extends State<PlansSheet> {
               children: [
                 Text(
                   context.l10n.getOmiUnlimitedFree,
-                  style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
+                  style: TextStyle(color: t.textPrimary, fontSize: 14, height: 1.5),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   context.l10n.trainingDataBullets,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                  style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.5),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
@@ -113,7 +117,7 @@ class _PlansSheetState extends State<PlansSheet> {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => Scaffold(
-                          appBar: AppBar(title: Text(context.l10n.trainingDataProgram), backgroundColor: Colors.black),
+                          appBar: AppBar(title: Text(context.l10n.trainingDataProgram), backgroundColor: t.bgPrimary),
                           body: WebViewWidget(
                             controller: WebViewController()
                               ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -130,7 +134,7 @@ class _PlansSheetState extends State<PlansSheet> {
                   ),
                   child: Text(
                     context.l10n.learnMoreAtOmiTraining,
-                    style: const TextStyle(color: Colors.white, decoration: TextDecoration.underline, fontSize: 14),
+                    style: TextStyle(color: t.textPrimary, decoration: TextDecoration.underline, fontSize: 14),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -154,19 +158,19 @@ class _PlansSheetState extends State<PlansSheet> {
                           },
                           fillColor: WidgetStateProperty.resolveWith((states) {
                             if (states.contains(WidgetState.selected)) {
-                              return Colors.white;
+                              return t.textPrimary;
                             }
                             return Colors.transparent;
                           }),
-                          checkColor: Colors.black,
-                          side: const BorderSide(color: Colors.white, width: 1.5),
+                          checkColor: t.bgPrimary,
+                          side: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1.5),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           context.l10n.agreeToContributeData,
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          style: TextStyle(color: t.textPrimary, fontSize: 13),
                         ),
                       ),
                     ],
@@ -179,13 +183,13 @@ class _PlansSheetState extends State<PlansSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(context.l10n.cancel, style: TextStyle(color: Colors.grey.shade400)),
+              child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
             ),
             TextButton(
               onPressed: isChecked ? () => Navigator.of(ctx).pop(true) : null,
               child: Text(
                 context.l10n.submitRequest,
-                style: TextStyle(color: isChecked ? Colors.white : Colors.grey.shade600, fontWeight: FontWeight.w600),
+                style: TextStyle(color: isChecked ? t.textPrimary : t.textSecondary, fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -279,21 +283,23 @@ class _PlansSheetState extends State<PlansSheet> {
   }
 
   Future<void> _handleDowngradeToFreemium() async {
+    final t = context.omi;
+
     // Show confirmation dialog with limitations warning
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1F1F25),
+        backgroundColor: t.bgSecondary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           context.l10n.downgradeToFreemiumTitle,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(context.l10n.downgradeLimitationsHeading, style: TextStyle(color: Colors.grey.shade300, fontSize: 14)),
+            Text(context.l10n.downgradeLimitationsHeading, style: TextStyle(color: t.textSecondary, fontSize: 14)),
             const SizedBox(height: 16),
             _buildDowngradeLimitationRow(FontAwesomeIcons.carBattery, context.l10n.downgradeLimitBattery),
             const SizedBox(height: 10),
@@ -309,12 +315,12 @@ class _PlansSheetState extends State<PlansSheet> {
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(
               context.l10n.cancel,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+              style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w500),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(context.l10n.downgradeAnyway, style: TextStyle(color: Colors.red.shade400)),
+            child: Text(context.l10n.downgradeAnyway, style: TextStyle(color: t.error)),
           ),
         ],
       ),
@@ -326,14 +332,16 @@ class _PlansSheetState extends State<PlansSheet> {
   }
 
   Widget _buildDowngradeLimitationRow(FaIconData icon, String text) {
+    final t = context.omi;
+
     return Row(
       children: [
-        FaIcon(icon, color: Colors.red.shade400, size: 18),
+        FaIcon(icon, color: t.error, size: 18),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
-            style: TextStyle(color: Colors.red.shade400, fontSize: 14, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.error, fontSize: 14, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -341,6 +349,8 @@ class _PlansSheetState extends State<PlansSheet> {
   }
 
   Future<void> _handleUpgradeWithSelectedPlan() async {
+    final t = context.omi;
+
     final bool isYearly = selectedPlan == 'yearly';
 
     // Get the price ID from the available plans
@@ -391,15 +401,15 @@ class _PlansSheetState extends State<PlansSheet> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1F1F25),
+          backgroundColor: t.bgSecondary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              const Icon(Icons.payment, color: Colors.deepPurple, size: 24),
+              Icon(Icons.payment, color: t.accent, size: 24),
               const SizedBox(width: 8),
               Text(
                 context.l10n.upgradeToAnnualPlan,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -409,7 +419,7 @@ class _PlansSheetState extends State<PlansSheet> {
             children: [
               Text(
                 context.l10n.importantBillingInfo,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 12),
               _buildBillingInfoItem(icon: FontAwesomeIcons.clock, text: context.l10n.monthlyPlanContinues),
@@ -421,18 +431,18 @@ class _PlansSheetState extends State<PlansSheet> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withValues(alpha: 0.1),
+                  color: t.accent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.3)),
+                  border: Border.all(color: t.accent.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, color: Colors.deepPurple, size: 20),
+                    OmiIconWidget(icon: OmiIcon.info, color: t.accent, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         context.l10n.thirteenMonthsCoverage,
-                        style: TextStyle(color: Colors.deepPurple.shade300, fontSize: 14, fontWeight: FontWeight.w500),
+                        style: TextStyle(color: t.accent, fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -443,13 +453,13 @@ class _PlansSheetState extends State<PlansSheet> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.grey)),
+              child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
+                backgroundColor: t.accent,
+                foregroundColor: t.textPrimary,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: Text(context.l10n.confirmUpgrade),
@@ -620,19 +630,24 @@ class _PlansSheetState extends State<PlansSheet> {
           minChildSize: 0.5,
           maxChildSize: 0.9,
           builder: (BuildContext context, ScrollController scrollController) {
+            final t = context.omi;
+
             return Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.deepPurple.withValues(alpha: 0.5),
-                    Colors.deepPurple.withValues(alpha: 0.3),
-                    Colors.black.withValues(alpha: 0.8),
-                    Colors.black,
-                  ],
-                  stops: const [0.0, 0.2, 0.6, 1.0],
-                ),
+                color: t.isGlass ? t.bgSecondary : null,
+                gradient: t.isGlass
+                    ? null
+                    : LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.deepPurple.withValues(alpha: 0.5),
+                          Colors.deepPurple.withValues(alpha: 0.3),
+                          Colors.black.withValues(alpha: 0.8),
+                          Colors.black,
+                        ],
+                        stops: const [0.0, 0.2, 0.6, 1.0],
+                      ),
                 borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
               ),
               child: ListView(
@@ -643,7 +658,7 @@ class _PlansSheetState extends State<PlansSheet> {
                       margin: const EdgeInsets.symmetric(vertical: 24),
                       width: 40,
                       height: 4,
-                      decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(color: t.textSecondary, borderRadius: BorderRadius.circular(2)),
                     ),
                   ),
                   SizedBox(
@@ -704,7 +719,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                                   height: height,
                                                   margin: const EdgeInsets.symmetric(horizontal: 1.5),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.red.withValues(alpha: 0.7),
+                                                    color: t.error.withValues(alpha: 0.7),
                                                     borderRadius: BorderRadius.circular(2),
                                                   ),
                                                 );
@@ -725,7 +740,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                                   height: height,
                                                   margin: const EdgeInsets.symmetric(horizontal: 1.5),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.red.withValues(alpha: 0.7),
+                                                    color: t.error.withValues(alpha: 0.7),
                                                     borderRadius: BorderRadius.circular(2),
                                                   ),
                                                 );
@@ -762,7 +777,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                                   height: 55,
                                                   margin: const EdgeInsets.symmetric(horizontal: 5),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.white.withValues(alpha: 0.95),
+                                                    color: t.textPrimary,
                                                     borderRadius: BorderRadius.circular(8),
                                                     boxShadow: [
                                                       BoxShadow(
@@ -781,7 +796,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                                           width: 26,
                                                           height: 3,
                                                           decoration: BoxDecoration(
-                                                            color: Colors.black,
+                                                            color: t.bgPrimary,
                                                             borderRadius: BorderRadius.circular(1.5),
                                                           ),
                                                         ),
@@ -793,7 +808,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                                             height: 2,
                                                             margin: const EdgeInsets.symmetric(vertical: 2),
                                                             decoration: BoxDecoration(
-                                                              color: Colors.grey[350],
+                                                              color: t.textSecondary,
                                                               borderRadius: BorderRadius.circular(1),
                                                             ),
                                                           ),
@@ -816,7 +831,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                                   height: 55,
                                                   margin: const EdgeInsets.symmetric(horizontal: 5),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.white.withValues(alpha: 0.95),
+                                                    color: t.textPrimary,
                                                     borderRadius: BorderRadius.circular(8),
                                                     boxShadow: [
                                                       BoxShadow(
@@ -835,7 +850,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                                           width: 26,
                                                           height: 3,
                                                           decoration: BoxDecoration(
-                                                            color: Colors.black,
+                                                            color: t.bgPrimary,
                                                             borderRadius: BorderRadius.circular(1.5),
                                                           ),
                                                         ),
@@ -847,7 +862,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                                             height: 2,
                                                             margin: const EdgeInsets.symmetric(vertical: 2),
                                                             decoration: BoxDecoration(
-                                                              color: Colors.grey[350],
+                                                              color: t.textSecondary,
                                                               borderRadius: BorderRadius.circular(1),
                                                             ),
                                                           ),
@@ -894,7 +909,7 @@ class _PlansSheetState extends State<PlansSheet> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const FaIcon(FontAwesomeIcons.crown, color: Colors.yellow, size: 20),
+                            FaIcon(FontAwesomeIcons.crown, color: t.warning, size: 20),
                             const SizedBox(width: 8),
                             Builder(
                               builder: (context) {
@@ -922,13 +937,13 @@ class _PlansSheetState extends State<PlansSheet> {
                               return Text(
                                 context.l10n.upgradeAlreadyScheduled,
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                                style: TextStyle(fontSize: 14, color: t.textSecondary),
                               );
                             } else {
                               return Text(
                                 isUnlimited ? context.l10n.youAreOnAPaidPlan : context.l10n.planSheetChooseYourPlan,
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                                style: TextStyle(fontSize: 14, color: t.textSecondary),
                               );
                             }
                           },
@@ -949,7 +964,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                 return Text(
                                   context.l10n.planEndedOn(renewalDate),
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 14, color: Colors.orange.shade400),
+                                  style: TextStyle(fontSize: 14, color: t.warning),
                                 );
                               } else {
                                 // Scenario A: Can reactivate without charge
@@ -970,13 +985,13 @@ class _PlansSheetState extends State<PlansSheet> {
                                 return Text(
                                   context.l10n.annualPlanStartsAutomatically,
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.deepPurple.shade400, fontSize: 14),
+                                  style: TextStyle(color: t.accent, fontSize: 14),
                                 );
                               } else {
                                 return Text(
                                   context.l10n.planRenewsOn(renewalDate),
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                                  style: TextStyle(fontSize: 14, color: t.textSecondary),
                                 );
                               }
                             },
@@ -1047,18 +1062,18 @@ class _PlansSheetState extends State<PlansSheet> {
                                 return Container(
                                   padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
-                                    color: Colors.deepPurple.withValues(alpha: 0.1),
+                                    color: t.accent.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.3)),
+                                    border: Border.all(color: t.accent.withValues(alpha: 0.3)),
                                   ),
                                   child: Column(
                                     children: [
-                                      const Icon(Icons.schedule, color: Colors.deepPurple, size: 32),
+                                      Icon(Icons.schedule, color: t.accent, size: 32),
                                       const SizedBox(height: 8),
                                       Text(
                                         context.l10n.upgradeScheduled,
                                         style: TextStyle(
-                                          color: Colors.deepPurple.shade300,
+                                          color: t.accent,
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -1067,7 +1082,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                       Text(
                                         context.l10n.annualPlanStartsAutomatically,
                                         textAlign: TextAlign.center,
-                                        style: TextStyle(color: Colors.deepPurple.shade400, fontSize: 14),
+                                        style: TextStyle(color: t.accent, fontSize: 14),
                                       ),
                                     ],
                                   ),
@@ -1208,8 +1223,8 @@ class _PlansSheetState extends State<PlansSheet> {
                                         _handleUpgradeWithSelectedPlan();
                                       },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: isLoading ? Colors.grey : Colors.white,
-                                  foregroundColor: isLoading ? Colors.white : Colors.black,
+                                  backgroundColor: isLoading ? t.textSecondary : t.textPrimary,
+                                  foregroundColor: isLoading ? t.textPrimary : t.bgPrimary,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 ),
@@ -1217,10 +1232,10 @@ class _PlansSheetState extends State<PlansSheet> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     if (isLoading) ...[
-                                      const SizedBox(
+                                      SizedBox(
                                         height: 20,
                                         width: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary),
                                       ),
                                     ] else ...[
                                       Text(
@@ -1233,7 +1248,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                         builder: (context, child) {
                                           return Transform.translate(
                                             offset: Offset(widget.arrowAnimation.value, 0),
-                                            child: const Icon(Icons.arrow_forward, size: 20),
+                                            child: const OmiIconWidget(icon: OmiIcon.arrowRight, size: 20),
                                           );
                                         },
                                       ),
@@ -1251,7 +1266,7 @@ class _PlansSheetState extends State<PlansSheet> {
                           Text(
                             context.l10n.freemiumLimitsIntro,
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey.shade400, fontSize: 14, fontWeight: FontWeight.w500),
+                            style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                           ),
                           const SizedBox(height: 16),
                           Column(
@@ -1299,15 +1314,15 @@ class _PlansSheetState extends State<PlansSheet> {
                                   child: OutlinedButton(
                                     onPressed: _isSwitchingToFree ? null : _handleDowngradeToFreemium,
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.grey.shade400,
-                                      side: BorderSide(color: Colors.grey.shade600, width: 1),
+                                      foregroundColor: t.textSecondary,
+                                      side: BorderSide(color: t.textSecondary, width: 1),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                     ),
                                     child: _isSwitchingToFree
-                                        ? const SizedBox(
+                                        ? SizedBox(
                                             height: 20,
                                             width: 20,
-                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: t.textSecondary),
                                           )
                                         : Text(
                                             context.l10n.downgradeToFreemiumAction,
@@ -1341,8 +1356,8 @@ class _PlansSheetState extends State<PlansSheet> {
                                         _handleUpgradeWithSelectedPlan();
                                       },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: _isUpgrading ? Colors.grey : Colors.white,
-                                  foregroundColor: _isUpgrading ? Colors.white : Colors.black,
+                                  backgroundColor: _isUpgrading ? t.textSecondary : t.textPrimary,
+                                  foregroundColor: _isUpgrading ? t.textPrimary : t.bgPrimary,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 ),
@@ -1350,10 +1365,10 @@ class _PlansSheetState extends State<PlansSheet> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     if (_isUpgrading) ...[
-                                      const SizedBox(
+                                      SizedBox(
                                         height: 20,
                                         width: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary),
                                       ),
                                     ] else ...[
                                       Text(
@@ -1366,7 +1381,7 @@ class _PlansSheetState extends State<PlansSheet> {
                                         builder: (context, child) {
                                           return Transform.translate(
                                             offset: Offset(widget.arrowAnimation.value, 0),
-                                            child: const Icon(Icons.arrow_forward, size: 20),
+                                            child: const OmiIconWidget(icon: OmiIcon.arrowRight, size: 20),
                                           );
                                         },
                                       ),
@@ -1407,11 +1422,11 @@ class _PlansSheetState extends State<PlansSheet> {
                                   AppSnackbar.showSnackbarError(l10n.couldNotOpenPaymentSettings);
                                 }
                               },
-                              icon: const Icon(Icons.credit_card, size: 20),
+                              icon: const OmiIconWidget(icon: OmiIcon.creditCard, size: 20),
                               label: Text(context.l10n.managePaymentMethod),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Colors.white, width: 1),
+                                foregroundColor: t.textPrimary,
+                                side: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
@@ -1424,7 +1439,7 @@ class _PlansSheetState extends State<PlansSheet> {
                               },
                               child: Text(
                                 context.l10n.cancelSubscription,
-                                style: const TextStyle(color: Colors.red, fontSize: 16),
+                                style: TextStyle(color: t.error, fontSize: 16),
                               ),
                             ),
                           ],
@@ -1443,6 +1458,8 @@ class _PlansSheetState extends State<PlansSheet> {
   }
 
   Widget _buildPromoCodeField() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1450,13 +1467,13 @@ class _PlansSheetState extends State<PlansSheet> {
           onTap: () => setState(() => _showPromoCodeField = !_showPromoCodeField),
           child: Row(
             children: [
-              Icon(Icons.local_offer_outlined, color: Colors.grey.shade400, size: 18),
+              Icon(Icons.local_offer_outlined, color: t.textSecondary, size: 18),
               const SizedBox(width: 8),
-              Text(context.l10n.promoCode, style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+              Text(context.l10n.promoCode, style: TextStyle(color: t.textSecondary, fontSize: 14)),
               const SizedBox(width: 4),
               Icon(
                 _showPromoCodeField ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                color: Colors.grey.shade400,
+                color: t.textSecondary,
                 size: 20,
               ),
             ],
@@ -1466,39 +1483,39 @@ class _PlansSheetState extends State<PlansSheet> {
           const SizedBox(height: 10),
           TextField(
             controller: _promoCodeController,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: t.textPrimary, fontSize: 16),
             autocorrect: false,
             enableSuggestions: false,
             decoration: InputDecoration(
               hintText: context.l10n.enterPromoCode,
-              hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              hintStyle: TextStyle(color: t.textSecondary, fontSize: 14),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.08),
+              fillColor: t.rowFill,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                borderSide: BorderSide(color: t.hairline),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                borderSide: BorderSide(color: t.hairline),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.deepPurple),
+                borderSide: BorderSide(color: t.accent),
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.red),
+                borderSide: BorderSide(color: t.error),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.red),
+                borderSide: BorderSide(color: t.error),
               ),
               errorText: _promoCodeError,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               suffixIcon: _promoCodeController.text.isNotEmpty
                   ? IconButton(
-                      icon: Icon(Icons.clear, color: Colors.grey.shade400, size: 20),
+                      icon: Icon(Icons.clear, color: t.textSecondary, size: 20),
                       onPressed: () {
                         setState(() {
                           _promoCodeController.clear();
@@ -1518,31 +1535,33 @@ class _PlansSheetState extends State<PlansSheet> {
   }
 
   Widget _buildPlansErrorCard() {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.1),
+        color: t.error.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+        border: Border.all(color: t.error.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 32),
+          OmiIconWidget(icon: OmiIcon.errorCircle, color: t.error, size: 32),
           const SizedBox(height: 8),
           Text(
             context.l10n.unableToLoadPlans,
-            style: TextStyle(color: Colors.red.shade300, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.error, fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
             context.l10n.checkConnectionTryAgain,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.red.shade400, fontSize: 14),
+            style: TextStyle(color: t.error, fontSize: 14),
           ),
           const SizedBox(height: 12),
           TextButton(
             onPressed: _loadAvailablePlans,
-            child: Text(context.l10n.retry, style: const TextStyle(color: Colors.red)),
+            child: Text(context.l10n.retry, style: TextStyle(color: t.error)),
           ),
         ],
       ),
@@ -1551,6 +1570,8 @@ class _PlansSheetState extends State<PlansSheet> {
 
   /// Groups available plans by plan_id and shows tier cards using the existing card style.
   Widget _buildTierPlanCards({required Map<String, dynamic> availablePlans}) {
+    final t = context.omi;
+
     final plans = (availablePlans['plans'] as List).cast<Map<String, dynamic>>();
 
     // Group plans by plan_id
@@ -1597,9 +1618,9 @@ class _PlansSheetState extends State<PlansSheet> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1F1F25),
+                    color: t.bgSecondary,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: isYearly ? Colors.white : Colors.transparent, width: 2),
+                    border: Border.all(color: isYearly ? t.textPrimary : Colors.transparent, width: 2),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1607,7 +1628,7 @@ class _PlansSheetState extends State<PlansSheet> {
                       Text(
                         context.l10n.billingYearly,
                         style: TextStyle(
-                          color: isYearly ? Colors.white : Colors.grey.shade500,
+                          color: isYearly ? t.textPrimary : t.textSecondary,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1617,13 +1638,13 @@ class _PlansSheetState extends State<PlansSheet> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade800,
+                            color: t.success,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             context.l10n.savePercent(savePercent),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: t.textPrimary,
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.3,
@@ -1646,15 +1667,15 @@ class _PlansSheetState extends State<PlansSheet> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1F1F25),
+                    color: t.bgSecondary,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: !isYearly ? Colors.white : Colors.transparent, width: 2),
+                    border: Border.all(color: !isYearly ? t.textPrimary : Colors.transparent, width: 2),
                   ),
                   child: Text(
                     context.l10n.billingMonthly,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: !isYearly ? Colors.white : Colors.grey.shade500,
+                      color: !isYearly ? t.textPrimary : t.textSecondary,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1736,6 +1757,8 @@ class _PlansSheetState extends State<PlansSheet> {
   }
 
   Widget _buildFeatureItem({required dynamic faIcon, required String text}) {
+    final t = context.omi;
+
     return Row(
       children: [
         Container(
@@ -1744,15 +1767,15 @@ class _PlansSheetState extends State<PlansSheet> {
           decoration: BoxDecoration(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white, width: 1),
+            border: Border.all(color: t.textPrimary, width: 1),
           ),
-          child: Center(child: FaIcon(faIcon, color: Colors.white, size: 16)),
+          child: Center(child: FaIcon(faIcon, color: t.textPrimary, size: 16)),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w400),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w400),
           ),
         ),
       ],
@@ -1760,23 +1783,25 @@ class _PlansSheetState extends State<PlansSheet> {
   }
 
   Widget _buildLimitationItem({required FaIconData icon, required String text}) {
+    final t = context.omi;
+
     return Row(
       children: [
         Container(
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.1),
+            color: t.error.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.red.shade400, width: 1),
+            border: Border.all(color: t.error, width: 1),
           ),
-          child: Center(child: FaIcon(icon, color: Colors.red.shade400, size: 18)),
+          child: Center(child: FaIcon(icon, color: t.error, size: 18)),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             text,
-            style: TextStyle(color: Colors.red.shade400, fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.error, fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -1797,12 +1822,14 @@ class _PlansSheetState extends State<PlansSheet> {
     List<String> features = const [],
     bool? desktopAccess,
   }) {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F1F25),
+        color: t.bgSecondary,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isSelected ? Colors.white : Colors.transparent, width: 2),
+        border: Border.all(color: isSelected ? t.textPrimary : Colors.transparent, width: 2),
       ),
       child: Column(
         children: [
@@ -1817,11 +1844,12 @@ class _PlansSheetState extends State<PlansSheet> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                        decoration: BoxDecoration(
+                            color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(12)),
                         child: Text(
                           context.l10n.popularBadge,
-                          style: const TextStyle(
-                            color: Colors.black,
+                          style: TextStyle(
+                            color: (t.isGlass ? t.onAccent : Colors.black),
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -1840,11 +1868,11 @@ class _PlansSheetState extends State<PlansSheet> {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                         ),
                         if (subtitle != null) ...[
                           const SizedBox(height: 4),
-                          Text(subtitle, style: TextStyle(color: Colors.grey[400], fontSize: 14)),
+                          Text(subtitle, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                         ],
                       ],
                     ),
@@ -1853,20 +1881,20 @@ class _PlansSheetState extends State<PlansSheet> {
                       children: [
                         Text(
                           monthlyPrice,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                         ),
                         if (saveTag != null) ...[
                           const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.green.shade800,
+                              color: t.success,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               saveTag,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: t.textPrimary,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.3,
@@ -1879,13 +1907,13 @@ class _PlansSheetState extends State<PlansSheet> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.red.shade800,
+                              color: t.error,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               context.l10n.endsOnDate(endsOnDate),
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: t.textPrimary,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.3,
@@ -1897,13 +1925,13 @@ class _PlansSheetState extends State<PlansSheet> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.red.shade800,
+                              color: t.error,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Active',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: t.textPrimary,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.3,
@@ -1921,7 +1949,7 @@ class _PlansSheetState extends State<PlansSheet> {
           // Plan details — always visible (no expand/collapse toggle).
           if (featureSummary != null || desktopAccess != null || features.isNotEmpty) ...[
             const SizedBox(height: 10),
-            if (featureSummary != null) Text(featureSummary, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+            if (featureSummary != null) Text(featureSummary, style: TextStyle(color: t.textSecondary, fontSize: 12)),
             if (featureSummary != null && (desktopAccess != null || features.isNotEmpty)) const SizedBox(height: 8),
             // Desktop access — explicit ✓/✗ so Neo (mobile/web only) is clearly
             // distinguished from Operator/Architect.
@@ -1932,10 +1960,10 @@ class _PlansSheetState extends State<PlansSheet> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.check, color: Colors.green[400], size: 14),
+                    OmiIconWidget(icon: OmiIcon.check, color: t.success, size: 14),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(f, style: TextStyle(color: Colors.grey[300], fontSize: 12, height: 1.3)),
+                      child: Text(f, style: TextStyle(color: t.textSecondary, fontSize: 12, height: 1.3)),
                     ),
                   ],
                 ),
@@ -1948,12 +1976,14 @@ class _PlansSheetState extends State<PlansSheet> {
   }
 
   Widget _buildShimmerPlanOption() {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F1F25), // Use conversation list background
+        color: t.bgSecondary, // Use conversation list background
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 2),
+        border: Border.all(color: t.rowFillHover, width: 2),
       ),
       child: Column(
         children: [
@@ -1967,26 +1997,26 @@ class _PlansSheetState extends State<PlansSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ShimmerWithTimeout(
-                      baseColor: Colors.white.withValues(alpha: 0.1),
-                      highlightColor: Colors.white.withValues(alpha: 0.3),
+                      baseColor: t.rowFillHover,
+                      highlightColor: t.textTertiary,
                       child: Container(
                         height: 18,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: t.rowFillHover,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
                     ),
                     const SizedBox(height: 4),
                     ShimmerWithTimeout(
-                      baseColor: Colors.white.withValues(alpha: 0.1),
-                      highlightColor: Colors.white.withValues(alpha: 0.3),
+                      baseColor: t.rowFillHover,
+                      highlightColor: t.textTertiary,
                       child: Container(
                         height: 14,
                         width: 100,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: t.rowFillHover,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -1998,26 +2028,26 @@ class _PlansSheetState extends State<PlansSheet> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   ShimmerWithTimeout(
-                    baseColor: Colors.white.withValues(alpha: 0.1),
-                    highlightColor: Colors.white.withValues(alpha: 0.3),
+                    baseColor: t.rowFillHover,
+                    highlightColor: t.textTertiary,
                     child: Container(
                       height: 18,
                       width: 100,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: t.rowFillHover,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
                   ShimmerWithTimeout(
-                    baseColor: Colors.white.withValues(alpha: 0.1),
-                    highlightColor: Colors.white.withValues(alpha: 0.3),
+                    baseColor: t.rowFillHover,
+                    highlightColor: t.textTertiary,
                     child: Container(
                       height: 14,
                       width: 60,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: t.rowFillHover,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -2098,18 +2128,20 @@ class _PlansSheetState extends State<PlansSheet> {
   String? _monthsFreeLabel(int? months) => months == null ? null : context.l10n.monthsFreeBadge(months);
 
   Widget _buildDesktopAccessRow(bool granted) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(granted ? Icons.check : Icons.close, color: granted ? Colors.green[400] : Colors.red[400], size: 14),
+          Icon(granted ? Icons.check : Icons.close, color: granted ? t.success : t.error, size: 14),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               granted ? context.l10n.worksOnDesktop : context.l10n.noDesktopAccess,
               style: TextStyle(
-                color: granted ? Colors.grey[300] : Colors.red[300],
+                color: granted ? t.textSecondary : t.error,
                 fontSize: 12,
                 height: 1.3,
                 fontWeight: granted ? FontWeight.w400 : FontWeight.w500,
@@ -2122,19 +2154,23 @@ class _PlansSheetState extends State<PlansSheet> {
   }
 
   Widget _buildBillingInfoItem({required FaIconData icon, required String text}) {
+    final t = context.omi;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        FaIcon(icon, color: Colors.green, size: 16),
+        FaIcon(icon, color: t.success, size: 16),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4)),
+          child: Text(text, style: TextStyle(color: t.textPrimary, fontSize: 14, height: 1.4)),
         ),
       ],
     );
   }
 
   Widget _buildTrainingDataOption({required bool optedIn, required String? status, required bool isLoading}) {
+    final t = context.omi;
+
     // Approved status - show as active
     if (optedIn && status == 'approved') {
       return GestureDetector(
@@ -2142,7 +2178,7 @@ class _PlansSheetState extends State<PlansSheet> {
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => Scaffold(
-                appBar: AppBar(title: Text(context.l10n.omiTraining), backgroundColor: Colors.black),
+                appBar: AppBar(title: Text(context.l10n.omiTraining), backgroundColor: t.bgPrimary),
                 body: WebViewWidget(
                   controller: WebViewController()
                     ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -2155,7 +2191,7 @@ class _PlansSheetState extends State<PlansSheet> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1F1F25),
+            color: t.bgSecondary,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.transparent, width: 2),
           ),
@@ -2168,10 +2204,10 @@ class _PlansSheetState extends State<PlansSheet> {
                   children: [
                     Text(
                       context.l10n.getFreeUnlimitedAccess,
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
-                    Text(context.l10n.trainingDataProgram, style: TextStyle(color: Colors.grey[400], fontSize: 14)),
+                    Text(context.l10n.trainingDataProgram, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                   ],
                 ),
               ),
@@ -2180,11 +2216,12 @@ class _PlansSheetState extends State<PlansSheet> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-                    child: const Text(
+                    decoration: BoxDecoration(
+                        color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(8)),
+                    child: Text(
                       'Active',
                       style: TextStyle(
-                        color: Colors.black,
+                        color: (t.isGlass ? t.onAccent : Colors.black),
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.3,
@@ -2192,7 +2229,7 @@ class _PlansSheetState extends State<PlansSheet> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+                  Icon(Icons.arrow_forward_ios, color: t.textPrimary, size: 16),
                 ],
               ),
             ],
@@ -2208,7 +2245,7 @@ class _PlansSheetState extends State<PlansSheet> {
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => Scaffold(
-                appBar: AppBar(title: Text(context.l10n.omiTraining), backgroundColor: Colors.black),
+                appBar: AppBar(title: Text(context.l10n.omiTraining), backgroundColor: t.bgPrimary),
                 body: WebViewWidget(
                   controller: WebViewController()
                     ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -2221,7 +2258,7 @@ class _PlansSheetState extends State<PlansSheet> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1F1F25),
+            color: t.bgSecondary,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.transparent, width: 2),
           ),
@@ -2234,14 +2271,14 @@ class _PlansSheetState extends State<PlansSheet> {
                   children: [
                     Text(
                       context.l10n.getFreeUnlimitedAccess,
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
-                    Text(context.l10n.yourRequestUnderReview, style: TextStyle(color: Colors.grey[400], fontSize: 14)),
+                    Text(context.l10n.yourRequestUnderReview, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+              Icon(Icons.arrow_forward_ios, color: t.textPrimary, size: 16),
             ],
           ),
         ),
@@ -2254,7 +2291,7 @@ class _PlansSheetState extends State<PlansSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         decoration: BoxDecoration(
-          color: const Color(0xFF1F1F25),
+          color: t.bgSecondary,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.transparent, width: 2),
         ),
@@ -2267,24 +2304,24 @@ class _PlansSheetState extends State<PlansSheet> {
                 children: [
                   Text(
                     context.l10n.getFreeUnlimitedAccess,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
-                  Text(context.l10n.shareDataForTraining, style: TextStyle(color: Colors.grey[400], fontSize: 14)),
+                  Text(context.l10n.shareDataForTraining, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                 ],
               ),
             ),
             if (isLoading)
-              const SizedBox(
+              SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                 ),
               )
             else
-              const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+              Icon(Icons.arrow_forward_ios, color: t.textPrimary, size: 16),
           ],
         ),
       ),

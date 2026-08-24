@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:omi/app_globals.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/core/app_shell.dart';
@@ -131,11 +130,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     bool showNewTag = false,
     Widget? trailingChip,
   }) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 1),
-        decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           child: Row(
@@ -147,20 +148,20 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+                      style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
                     ),
                     if (showBetaTag) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.2),
+                          color: t.warning.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           context.l10n.beta,
-                          style: const TextStyle(
-                            color: Colors.orange,
+                          style: TextStyle(
+                            color: t.warning,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -173,13 +174,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.2),
+                          color: t.success.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           context.l10n.newTag,
-                          style: const TextStyle(
-                            color: Colors.green,
+                          style: TextStyle(
+                            color: t.success,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -191,7 +192,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Color(0xFF3C3C43), size: 20),
+              OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
             ],
           ),
         ),
@@ -200,13 +201,17 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }
 
   Widget _buildSectionContainer({required List<Widget> children}) {
+    final t = context.omi;
+
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(children: children),
     );
   }
 
   Widget _buildVersionInfoSection() {
+    final t = context.omi;
+
     if (!Platform.isIOS && !Platform.isAndroid) {
       return const SizedBox.shrink();
     }
@@ -218,14 +223,14 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       children: [
         Text(
           displayText,
-          style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.w400),
+          style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w400),
         ),
         const SizedBox(width: 2),
         GestureDetector(
           onTap: _copyVersionInfo,
           child: Container(
             padding: const EdgeInsets.all(2),
-            child: const Icon(Icons.copy, size: 12, color: Color(0xFF8E8E93)),
+            child: OmiIconWidget(icon: OmiIcon.copy, size: 12, color: t.textSecondary),
           ),
         ),
       ],
@@ -245,6 +250,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }
 
   void _showCopyNotification() {
+    final t = context.omi;
+
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
 
@@ -260,7 +267,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               width: MediaQuery.of(context).size.width * 0.7,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: t.isGlass ? t.bgSecondary : Colors.black87,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),
@@ -269,7 +276,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               child: Text(
                 context.l10n.appAndDeviceCopied,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                style: TextStyle(color: t.textPrimary, fontSize: 14),
               ),
             ),
           ),
@@ -465,17 +472,19 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }
 
   Widget _buildSearchResults(BuildContext context) {
+    final t = context.omi;
+
     final allItems = _buildSearchableItems(context);
     final query = _searchQuery.toLowerCase();
     final filtered = allItems.where((item) => item.title.toLowerCase().contains(query)).toList();
 
     if (filtered.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.only(top: 48),
+          padding: const EdgeInsets.only(top: 48),
           child: Text(
             'No results',
-            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 16, fontWeight: FontWeight.w400),
+            style: TextStyle(color: t.textSecondary, fontSize: 16, fontWeight: FontWeight.w400),
           ),
         ),
       );
@@ -490,6 +499,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   Widget _buildOmiModeContent(BuildContext context) {
     return Consumer<UsageProvider>(
       builder: (context, usageProvider, child) {
+        final t = context.omi;
+
         return Column(
           children: [
             // Profile & Notifications Section
@@ -498,7 +509,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 // Wrapped 2025 - temporarily disabled
                 // _buildSettingsItem(
                 //   title: context.l10n.wrapped2025,
-                //   icon: FaIcon(FontAwesomeIcons.gift, color: Color(0xFF8E8E93), size: 20),
+                //   icon: OmiIconWidget(icon: OmiIcon.gift, color: t.textSecondary, size: 20),
                 //   showNewTag: true,
                 //   onTap: () {
                 //     Navigator.of(context).push(
@@ -516,7 +527,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     routeToPage(context, const ProfilePage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildSettingsItem(
                   title: context.l10n.notifications,
                   icon: _rowIcon(context, OmiIcon.bell),
@@ -524,7 +535,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     routeToPage(context, const NotificationsSettingsPage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 Consumer<UsageProvider>(
                   builder: (context, usageProvider, child) {
                     final sp = usageProvider.subscription?.subscription.plan;
@@ -536,18 +547,18 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                           ? Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.amber.withValues(alpha: 0.2),
+                                color: t.warning.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const FaIcon(FontAwesomeIcons.crown, color: Colors.amber, size: 10),
+                                  OmiIconWidget(icon: OmiIcon.crown, color: t.warning, size: 10),
                                   const SizedBox(width: 4),
                                   Text(
                                     context.l10n.pro.toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Colors.amber,
+                                    style: TextStyle(
+                                      color: t.warning,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.5,
@@ -563,7 +574,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     );
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildSettingsItem(
                   title: context.l10n.offlineSync,
                   icon: _rowIcon(context, OmiIcon.cloud),
@@ -580,7 +591,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     }
                     return Column(
                       children: [
-                        const Divider(height: 1, color: Color(0xFF3C3C43)),
+                        Divider(height: 1, color: t.divider),
                         _buildSettingsItem(
                           title: context.l10n.deviceSettings,
                           icon: _rowIcon(context, OmiIcon.bluetooth),
@@ -592,7 +603,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     );
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildSettingsItem(
                   title: context.l10n.integrations,
                   icon: _rowIcon(context, OmiIcon.integrations),
@@ -601,7 +612,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     Navigator.of(context).push(MaterialPageRoute(builder: (context) => const IntegrationsPage()));
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildSettingsItem(
                   title: context.l10n.permissions,
                   icon: _rowIcon(context, OmiIcon.shield),
@@ -628,7 +639,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       }
                     },
                   ),
-                  const Divider(height: 1, color: Color(0xFF3C3C43)),
+                  Divider(height: 1, color: t.divider),
                   _buildSettingsItem(
                     title: context.l10n.helpCenter,
                     icon: _rowIcon(context, OmiIcon.book),
@@ -643,7 +654,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       }
                     },
                   ),
-                  const Divider(height: 1, color: Color(0xFF3C3C43)),
+                  Divider(height: 1, color: t.divider),
                 ],
                 _buildSettingsItem(
                   title: context.l10n.appearance,
@@ -652,7 +663,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     routeToPage(context, const AppearanceSettingsPage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildSettingsItem(
                   title: context.l10n.developerSettings,
                   icon: _rowIcon(context, OmiIcon.code),
@@ -660,7 +671,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     await routeToPage(context, const DeveloperSettingsPage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildSettingsItem(
                   title: context.l10n.whatsNew,
                   icon: _rowIcon(context, OmiIcon.star),
@@ -669,7 +680,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     ChangelogSheet.showWithLoading(context, () => getAppChangelogs(limit: 5));
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildSettingsItem(
                   title: context.l10n.referralProgram,
                   icon: _rowIcon(context, OmiIcon.gift),
@@ -738,11 +749,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: Color(0xFF000000),
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: t.bgPrimary,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
       ),
       child: ClipRRect(
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
@@ -753,7 +766,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               margin: const EdgeInsets.only(top: 8),
               height: 4,
               width: 36,
-              decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
             ),
             // Header
             AnimatedSwitcher(
@@ -770,13 +783,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                               controller: _searchController,
                               focusNode: _searchFocusNode,
                               autofocus: true,
-                              style: const TextStyle(color: Colors.white, fontSize: 14),
-                              cursorColor: Colors.white,
+                              style: TextStyle(color: t.textPrimary, fontSize: 14),
+                              cursorColor: t.textPrimary,
                               decoration: InputDecoration(
                                 hintText: context.l10n.searchSettings,
-                                hintStyle: const TextStyle(color: Colors.white60, fontSize: 14),
+                                hintStyle: TextStyle(color: t.textSecondary, fontSize: 14),
                                 filled: true,
-                                fillColor: const Color(0xFF1C1C1E),
+                                fillColor: t.bgSecondary,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(24),
                                   borderSide: BorderSide.none,
@@ -789,14 +802,14 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                                   borderRadius: BorderRadius.circular(24),
                                   borderSide: BorderSide.none,
                                 ),
-                                prefixIcon: const Icon(Icons.search, color: Colors.white60),
+                                prefixIcon: OmiIconWidget(icon: OmiIcon.search, color: t.textSecondary, size: 24),
                                 suffixIcon: _searchQuery.isNotEmpty
                                     ? GestureDetector(
                                         onTap: () {
                                           setState(() => _searchQuery = '');
                                           _searchController.clear();
                                         },
-                                        child: const Icon(Icons.close, color: Colors.white60),
+                                        child: OmiIconWidget(icon: OmiIcon.close, color: t.textSecondary, size: 24),
                                       )
                                     : null,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -814,7 +827,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                               });
                               _searchFocusNode.unfocus();
                             },
-                            child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                            child: Text(context.l10n.cancel, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                           ),
                         ],
                       ),
@@ -829,13 +842,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                               setState(() => _isSearching = true);
                               Future.microtask(() => _searchFocusNode.requestFocus());
                             },
-                            child: const Icon(Icons.search, color: Colors.white, size: 22),
+                            child: OmiIconWidget(icon: OmiIcon.search, color: t.textPrimary, size: 22),
                           ),
                           Expanded(
                             child: Center(
                               child: Text(
                                 context.l10n.settings,
-                                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ),
@@ -843,10 +856,15 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                             onTap: () => Navigator.pop(context),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                              decoration: BoxDecoration(
+                                  color: (t.isGlass ? t.accent : Colors.white),
+                                  borderRadius: BorderRadius.circular(20)),
                               child: Text(
                                 context.l10n.done,
-                                style: const TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                    color: (t.isGlass ? t.onAccent : Colors.black),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600),
                               ),
                             ),
                           ),

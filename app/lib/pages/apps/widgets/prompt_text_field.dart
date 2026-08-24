@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PromptTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -8,6 +9,8 @@ class PromptTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.only(left: 2.0, right: 2.0, top: 10, bottom: 6),
       child: TextFormField(
@@ -24,26 +27,26 @@ class PromptTextField extends StatelessWidget {
           labelText: label,
           hintText: hint,
           hintMaxLines: 4,
-          labelStyle: TextStyle(color: Colors.grey.shade400),
-          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-          floatingLabelStyle: TextStyle(color: Colors.grey.shade300),
+          labelStyle: TextStyle(color: t.textSecondary),
+          hintStyle: TextStyle(color: t.textSecondary, fontSize: 14),
+          floatingLabelStyle: TextStyle(color: t.textSecondary),
           alignLabelWithHint: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+            borderSide: BorderSide(color: t.hairline, width: 1),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+            borderSide: BorderSide(color: t.hairline, width: 1),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+            borderSide: BorderSide(color: t.textSecondary, width: 1),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.red.shade300, width: 1),
+            borderSide: BorderSide(color: t.error, width: 1),
           ),
           filled: false,
         ),

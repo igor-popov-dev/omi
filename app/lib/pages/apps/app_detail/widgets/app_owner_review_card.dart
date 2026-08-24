@@ -9,6 +9,7 @@ import 'package:omi/backend/schema/app.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/extensions/string.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AppOwnerReviewCard extends StatefulWidget {
   final AppReview review;
@@ -49,6 +50,8 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
@@ -57,7 +60,7 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
         width: MediaQuery.of(context).size.width * 0.78,
         padding: const EdgeInsets.all(16.0),
         margin: const EdgeInsets.only(left: 12.0, right: 12.0, top: 2, bottom: 6),
-        decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(16.0)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16.0)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -74,16 +77,16 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                   itemSize: 20,
                   tapOnlyMode: false,
                   itemPadding: const EdgeInsets.symmetric(horizontal: 0),
-                  itemBuilder: (context, _) => const Icon(Icons.star, color: Colors.white),
+                  itemBuilder: (context, _) => Icon(Icons.star, color: t.textPrimary),
                   maxRating: 5.0,
                   onRatingUpdate: (rating) {},
                 ),
                 const SizedBox(width: 8),
-                Text(timeago.format(widget.review.ratedAt), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(timeago.format(widget.review.ratedAt), style: TextStyle(color: t.textSecondary, fontSize: 12)),
               ],
             ),
             const SizedBox(height: 8),
-            Text(widget.review.review.decodeString, style: const TextStyle(color: Colors.white)),
+            Text(widget.review.review.decodeString, style: TextStyle(color: t.textPrimary)),
             const SizedBox(height: 16),
             ClipRRect(
               child: AnimatedContainer(
@@ -91,8 +94,8 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                 padding: const EdgeInsets.only(top: 6),
                 height: showReplyField ? MediaQuery.sizeOf(context).height * 0.21 : 0,
                 child: isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                    ? Center(
+                        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
                       )
                     : (!showReplyField
                         ? null
@@ -120,21 +123,21 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                                     },
                                     decoration: InputDecoration(
                                       hintText: context.l10n.writeSomething,
-                                      hintStyle: const TextStyle(color: Colors.grey),
-                                      border: const OutlineInputBorder(
-                                        borderRadius: BorderRadius.all(Radius.circular(8)),
-                                        borderSide: BorderSide(color: Colors.grey),
+                                      hintStyle: TextStyle(color: t.textSecondary),
+                                      border: OutlineInputBorder(
+                                        borderRadius: const BorderRadius.all(Radius.circular(8)),
+                                        borderSide: BorderSide(color: t.textSecondary),
                                       ),
                                       enabledBorder: OutlineInputBorder(
                                         borderRadius: const BorderRadius.all(Radius.circular(8)),
-                                        borderSide: BorderSide(color: Colors.grey[700]!),
+                                        borderSide: BorderSide(color: t.textTertiary),
                                       ),
-                                      focusedBorder: const OutlineInputBorder(
-                                        borderRadius: BorderRadius.all(Radius.circular(8)),
-                                        borderSide: BorderSide(color: Colors.grey),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: const BorderRadius.all(Radius.circular(8)),
+                                        borderSide: BorderSide(color: t.textSecondary),
                                       ),
                                     ),
-                                    style: const TextStyle(color: Colors.white),
+                                    style: TextStyle(color: t.textPrimary),
                                     maxLines: 3,
                                   ),
                                 ),
@@ -146,7 +149,7 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                                       width: MediaQuery.sizeOf(context).width * 0.36,
                                       child: OutlinedButton(
                                         style: OutlinedButton.styleFrom(
-                                          side: const BorderSide(color: Colors.white),
+                                          side: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                         ),
                                         onPressed: () {
@@ -154,7 +157,7 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                                         },
                                         child: Text(
                                           context.l10n.cancel,
-                                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                                          style: TextStyle(color: t.textPrimary, fontSize: 16),
                                         ),
                                       ),
                                     ),
@@ -163,8 +166,8 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                                       width: MediaQuery.sizeOf(context).width * 0.36,
                                       child: OutlinedButton(
                                         style: OutlinedButton.styleFrom(
-                                          side: const BorderSide(color: Colors.white),
-                                          backgroundColor: Colors.white,
+                                          side: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
+                                          backgroundColor: (t.isGlass ? t.accent : Colors.white),
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                         ),
                                         onPressed: () async {
@@ -193,7 +196,8 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                                         },
                                         child: Text(
                                           context.l10n.submitReply,
-                                          style: const TextStyle(color: Colors.black, fontSize: 16),
+                                          style:
+                                              TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16),
                                         ),
                                       ),
                                     ),
@@ -212,18 +216,18 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Text(widget.ownerName, style: const TextStyle(color: Colors.white)),
+                          Text(widget.ownerName, style: TextStyle(color: t.textPrimary)),
                           const SizedBox(width: 8),
                           widget.review.respondedAt != null
                               ? Text(
                                   timeago.format(widget.review.respondedAt!),
-                                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                  style: TextStyle(color: t.textSecondary, fontSize: 12),
                                 )
                               : const SizedBox(),
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(widget.review.response, style: const TextStyle(color: Colors.white)),
+                      Text(widget.review.response, style: TextStyle(color: t.textPrimary)),
                     ],
                   )
                 : const SizedBox(),
@@ -234,7 +238,7 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                     children: [
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
+                          backgroundColor: (t.isGlass ? t.accent : Colors.white),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                         onPressed: () {
@@ -242,7 +246,7 @@ class _AppOwnerReviewCardState extends State<AppOwnerReviewCard> {
                         },
                         child: Text(
                           widget.review.response.isNotEmpty ? context.l10n.editYourReply : context.l10n.replyToReview,
-                          style: const TextStyle(color: Colors.black),
+                          style: TextStyle(color: (t.isGlass ? t.onAccent : Colors.black)),
                         ),
                       ),
                     ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ExpandableTextWidget extends StatefulWidget {
   final String text;
@@ -12,7 +13,9 @@ class ExpandableTextWidget extends StatefulWidget {
   final int maxLines;
   final String? expandText;
   final String? collapseText;
-  final Color linkColor;
+
+  /// Defaults to the theme accent when omitted.
+  final Color? linkColor;
 
   const ExpandableTextWidget({
     super.key,
@@ -21,7 +24,7 @@ class ExpandableTextWidget extends StatefulWidget {
     this.maxLines = 3,
     this.expandText,
     this.collapseText,
-    this.linkColor = Colors.deepPurple,
+    this.linkColor,
     required this.isExpanded,
     required this.toggleExpand,
   });
@@ -33,6 +36,7 @@ class ExpandableTextWidget extends StatefulWidget {
 class _ExpandableTextWidgetState extends State<ExpandableTextWidget> {
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final expandLabel = widget.expandText ?? context.l10n.showMore;
     final collapseLabel = widget.collapseText ?? context.l10n.showLess;
 
@@ -52,15 +56,15 @@ class _ExpandableTextWidgetState extends State<ExpandableTextWidget> {
             styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
               a: widget.style,
               p: widget.style,
-              blockquote: widget.style.copyWith(backgroundColor: Colors.transparent, color: Colors.black),
+              blockquote: widget.style.copyWith(backgroundColor: Colors.transparent, color: t.bgPrimary),
               blockquoteDecoration: BoxDecoration(
-                color: const Color(0xFF35343B),
+                color: t.bgTertiary,
                 borderRadius: BorderRadius.circular(4),
               ),
               code: widget.style.copyWith(
                 backgroundColor: Colors.transparent,
                 decoration: TextDecoration.none,
-                color: Colors.white,
+                color: t.textPrimary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -84,7 +88,7 @@ class _ExpandableTextWidgetState extends State<ExpandableTextWidget> {
                 child: Text(
                   widget.isExpanded ? collapseLabel : expandLabel,
                   style: TextStyle(
-                    color: Colors.deepPurple,
+                    color: t.accent,
                     fontWeight: FontWeight.w500,
                     fontSize: widget.style.fontSize,
                   ),

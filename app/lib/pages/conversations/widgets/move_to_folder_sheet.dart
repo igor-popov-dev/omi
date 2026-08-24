@@ -8,6 +8,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/providers/folder_provider.dart';
 import 'package:omi/utils/responsive/responsive_helper.dart';
 import 'package:omi/utils/theme/omi_emoji.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MoveToFolderSheet extends StatelessWidget {
   final String conversationId;
@@ -17,19 +18,20 @@ class MoveToFolderSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
-      decoration: const BoxDecoration(
-        color: ResponsiveHelper.backgroundSecondary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Consumer<FolderProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
-            return const SizedBox(
+            return SizedBox(
               height: 200,
               child: Center(
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(ResponsiveHelper.purplePrimary),
+                  valueColor: AlwaysStoppedAnimation<Color>(t.accent),
                 ),
               ),
             );
@@ -47,15 +49,15 @@ class MoveToFolderSheet extends StatelessWidget {
                   children: [
                     Text(
                       context.l10n.moveToFolder,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: ResponsiveHelper.textPrimary,
+                        color: t.textPrimary,
                       ),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.close, color: ResponsiveHelper.textTertiary, size: 24),
+                      child: Icon(Icons.close, color: t.textPrimary.withValues(alpha: 0.69), size: 24),
                     ),
                   ],
                 ),
@@ -68,7 +70,7 @@ class MoveToFolderSheet extends StatelessWidget {
                   child: Center(
                     child: Text(
                       context.l10n.noFoldersAvailable,
-                      style: const TextStyle(color: ResponsiveHelper.textTertiary),
+                      style: TextStyle(color: t.textPrimary.withValues(alpha: 0.69)),
                     ),
                   ),
                 )
@@ -116,20 +118,19 @@ class _FolderListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: isCurrentFolder ? ResponsiveHelper.purplePrimary.withValues(alpha: 0.1) : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        border: isCurrentFolder
-            ? Border.all(color: ResponsiveHelper.purplePrimary, width: 1.5)
-            : Border.all(color: ResponsiveHelper.backgroundTertiary, width: 1),
+        color: isCurrentFolder ? t.accent.withValues(alpha: 0.1) : Colors.transparent,
+        borderRadius: BorderRadius.circular(t.rowRadius),
+        border: isCurrentFolder ? Border.all(color: t.accent, width: 1.5) : Border.all(color: t.bgTertiary, width: 1),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(t.rowRadius),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -156,7 +157,7 @@ class _FolderListItem extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: isCurrentFolder ? FontWeight.w600 : FontWeight.w500,
-                          color: isCurrentFolder ? ResponsiveHelper.purplePrimary : ResponsiveHelper.textPrimary,
+                          color: isCurrentFolder ? t.accent : t.textPrimary,
                         ),
                       ),
                       if (folder.description != null && folder.description!.isNotEmpty)
@@ -166,7 +167,7 @@ class _FolderListItem extends StatelessWidget {
                             folder.description!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: ResponsiveHelper.textTertiary),
+                            style: TextStyle(fontSize: 12, color: t.textPrimary.withValues(alpha: 0.69)),
                           ),
                         ),
                     ],
@@ -174,7 +175,7 @@ class _FolderListItem extends StatelessWidget {
                 ),
 
                 // Check mark for current folder
-                if (isCurrentFolder) const Icon(Icons.check_circle, color: ResponsiveHelper.purplePrimary, size: 22),
+                if (isCurrentFolder) Icon(Icons.check_circle, color: t.accent, size: 22),
               ],
             ),
           ),

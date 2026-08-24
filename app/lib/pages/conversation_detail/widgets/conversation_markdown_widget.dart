@@ -2,20 +2,22 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 MarkdownStyleSheet _conversationMarkdownStyle(BuildContext context) {
-  const style = TextStyle(color: Colors.white, fontSize: 16, height: 1.5);
+  final t = context.omi;
+  final style = TextStyle(color: t.textPrimary, fontSize: 16, height: 1.5);
 
   return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
     a: style,
     p: style.copyWith(height: 1.5),
     pPadding: const EdgeInsets.only(bottom: 12),
-    blockquote: style.copyWith(backgroundColor: Colors.transparent, color: Colors.white),
-    blockquoteDecoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(4)),
+    blockquote: style.copyWith(backgroundColor: Colors.transparent, color: t.textPrimary),
+    blockquoteDecoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(4)),
     code: style.copyWith(
       backgroundColor: Colors.transparent,
       decoration: TextDecoration.none,
-      color: Colors.white,
+      color: t.textPrimary,
       fontWeight: FontWeight.w500,
     ),
     strong: style.copyWith(fontWeight: FontWeight.bold),
@@ -229,7 +231,7 @@ class _ConversationMarkdownWidgetState extends State<ConversationMarkdownWidget>
     return MarkdownBody(
       selectable: false,
       shrinkWrap: true,
-      builders: searchQuery.isNotEmpty ? {'highlight': _SearchHighlightBuilder()} : {},
+      builders: searchQuery.isNotEmpty ? {'highlight': _SearchHighlightBuilder(context.omi)} : {},
       inlineSyntaxes: searchQuery.isNotEmpty ? [_SearchHighlightSyntax()] : [],
       styleSheet: _conversationMarkdownStyle(context),
       data: processedContent,
@@ -370,7 +372,7 @@ class _ConversationMarkdownSliverState extends State<ConversationMarkdownSliver>
     return MarkdownBody(
       selectable: false,
       shrinkWrap: true,
-      builders: searchEnabled ? {'highlight': _SearchHighlightBuilder()} : {},
+      builders: searchEnabled ? {'highlight': _SearchHighlightBuilder(context.omi)} : {},
       inlineSyntaxes: searchEnabled ? [_SearchHighlightSyntax()] : [],
       styleSheet: _conversationMarkdownStyle(context),
       data: content,
@@ -501,6 +503,12 @@ class _SearchHighlightSyntax extends md.InlineSyntax {
 
 // Custom builder for search highlighting
 class _SearchHighlightBuilder extends MarkdownElementBuilder {
+  /// Theme tokens — a markdown element builder has no BuildContext, so the
+  /// caller passes them in.
+  final OmiTokens t;
+
+  _SearchHighlightBuilder(this.t);
+
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     if (element.tag != 'highlight') return null;
@@ -511,8 +519,8 @@ class _SearchHighlightBuilder extends MarkdownElementBuilder {
       text: TextSpan(
         text: element.textContent,
         style: (preferredStyle ?? const TextStyle()).copyWith(
-          backgroundColor: isCurrent ? Colors.orange : Colors.deepPurple,
-          color: Colors.white,
+          backgroundColor: isCurrent ? t.warning : t.accent,
+          color: t.textPrimary,
         ),
       ),
     );

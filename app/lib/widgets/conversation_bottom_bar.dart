@@ -22,6 +22,7 @@ import 'package:omi/pages/conversation_detail/conversation_detail_provider.dart'
 import 'package:omi/pages/conversation_detail/widgets/summarized_apps_sheet.dart';
 import 'package:omi/utils/audio/audio_timeline_mapper.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 enum ConversationBottomBarMode {
   recording, // During active recording (no summary icon)
@@ -370,6 +371,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
   }
 
   Widget _buildRecordingBar() {
+    final t = context.omi;
     return Material(
       elevation: 8,
       color: Colors.transparent,
@@ -379,11 +381,11 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
         width: 180,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A0B2E),
+          color: t.bgTertiary,
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: t.bgPrimary.withValues(alpha: 0.3),
               spreadRadius: 1,
               blurRadius: 5,
               offset: const Offset(0, 2),
@@ -476,15 +478,16 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
   }
 
   Widget _buildTranscriptPillContent() {
+    final t = context.omi;
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF6B46C1),
+        color: t.accent,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: t.bgPrimary.withValues(alpha: 0.3),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, 2),
@@ -510,15 +513,16 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final t = context.omi;
     return Container(
       height: 56,
       width: 56,
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF6B46C1) : const Color(0xFF2D1B4E),
+        color: isSelected ? t.accent : t.bgTertiary,
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: t.bgPrimary.withValues(alpha: 0.3),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, 2),
@@ -534,7 +538,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
             HapticFeedback.mediumImpact();
             onTap();
           },
-          child: Center(child: FaIcon(icon, color: isSelected ? Colors.white : Colors.grey.shade400, size: 22)),
+          child: Center(child: FaIcon(icon, color: isSelected ? t.textPrimary : t.textSecondary, size: 22)),
         ),
       ),
     );
@@ -554,6 +558,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
   }
 
   Widget _buildSummaryPillInner(BuildContext context, ConversationDetailProvider provider, App? app) {
+    final t = context.omi;
     final isReprocessing = provider.loadingReprocessConversation;
     final reprocessingApp = provider.selectedAppForReprocessing;
 
@@ -599,11 +604,11 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF6B46C1),
+        color: t.accent,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: t.bgPrimary.withValues(alpha: 0.3),
             spreadRadius: 1,
             blurRadius: 5,
             offset: const Offset(0, 2),
@@ -628,11 +633,11 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
                 child: Text(
                   displayName,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
               // Dropdown arrow
-              const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 18),
+              Icon(Icons.keyboard_arrow_down, color: t.textPrimary, size: 18),
             ],
           ),
         ),
@@ -641,12 +646,13 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
   }
 
   Widget _buildPlayPauseButton() {
+    final t = context.omi;
     // Show loading only when actively loading
     if (_isAudioLoading) {
-      return const SizedBox(
+      return SizedBox(
         width: 32,
         height: 32,
-        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
       );
     }
 
@@ -656,8 +662,8 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
         child: Container(
           width: 32,
           height: 32,
-          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-          child: const Icon(Icons.play_arrow, color: Color(0xFF6B46C1), size: 20),
+          decoration: BoxDecoration(color: t.textPrimary, shape: BoxShape.circle),
+          child: Icon(Icons.play_arrow, color: t.accent, size: 20),
         ),
       );
     }
@@ -670,10 +676,10 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
         final processingState = playerState?.processingState ?? ProcessingState.idle;
 
         if (processingState == ProcessingState.loading || processingState == ProcessingState.buffering) {
-          return const SizedBox(
+          return SizedBox(
             width: 32,
             height: 32,
-            child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+            child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
           );
         }
 
@@ -682,8 +688,8 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
           child: Container(
             width: 32,
             height: 32,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: const Color(0xFF6B46C1), size: 20),
+            decoration: BoxDecoration(color: t.textPrimary, shape: BoxShape.circle),
+            child: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: t.accent, size: 20),
           ),
         );
       },
@@ -691,6 +697,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
   }
 
   Widget _buildProgressBar() {
+    final t = context.omi;
     const double progressBarWidth = 90.0;
 
     if (_audioPlayer == null) {
@@ -705,13 +712,13 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
               width: progressBarWidth,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
+                color: t.textPrimary.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          Text(_formatDurationRemaining(Duration.zero), style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Text(_formatDurationRemaining(Duration.zero), style: TextStyle(color: t.textPrimary, fontSize: 12)),
         ],
       );
     }
@@ -754,14 +761,14 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
                       width: progressBarWidth,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.3),
+                        color: t.textPrimary.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: FractionallySizedBox(
                         alignment: Alignment.centerLeft,
                         widthFactor: progress,
                         child: Container(
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2)),
+                          decoration: BoxDecoration(color: t.textPrimary, borderRadius: BorderRadius.circular(2)),
                         ),
                       ),
                     ),
@@ -771,7 +778,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
                 // Duration remaining
                 Text(
                   _formatDurationRemaining(combinedPosition),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: TextStyle(color: t.textPrimary, fontSize: 12),
                 ),
               ],
             );
@@ -841,6 +848,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final t = context.omi;
     return Material(
       key: key,
       elevation: 4,
@@ -850,11 +858,11 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
         height: 56,
         width: 56,
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6B46C1) : const Color(0xFF2D1B4E),
+          color: isSelected ? t.accent : t.bgTertiary,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: t.bgPrimary.withValues(alpha: 0.3),
               spreadRadius: 1,
               blurRadius: 5,
               offset: const Offset(0, 2),
@@ -870,7 +878,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
               HapticFeedback.mediumImpact();
               onTap();
             },
-            child: Center(child: FaIcon(icon, color: isSelected ? Colors.white : Colors.grey.shade400, size: 22)),
+            child: Center(child: FaIcon(icon, color: isSelected ? t.textPrimary : t.textSecondary, size: 22)),
           ),
         ),
       ),
@@ -878,13 +886,14 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
   }
 
   Widget _buildStopButton() {
+    final t = context.omi;
     return Container(
       height: 40,
       width: 40,
       decoration: BoxDecoration(
-        color: Colors.red,
+        color: t.error,
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.4), spreadRadius: 1, blurRadius: 4)],
+        boxShadow: [BoxShadow(color: t.error.withValues(alpha: 0.4), spreadRadius: 1, blurRadius: 4)],
       ),
       child: Material(
         color: Colors.transparent,
@@ -892,20 +901,21 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: widget.onStopPressed,
-          child: const Icon(Icons.stop_rounded, color: Colors.white, size: 24),
+          child: Icon(Icons.stop_rounded, color: t.textPrimary, size: 24),
         ),
       ),
     );
   }
 
   Widget _buildAppIcon(String? imageUrl, bool isLocalAsset, bool isLoading) {
+    final t = context.omi;
     const double size = 28;
 
     if (isLoading) {
-      return const SizedBox(
+      return SizedBox(
         width: size,
         height: size,
-        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
       );
     }
 
@@ -915,7 +925,7 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
         height: size,
         child: SvgPicture.asset(
           Assets.images.aiMagic,
-          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          colorFilter: ColorFilter.mode(t.textPrimary, BlendMode.srcIn),
         ),
       );
     }
@@ -949,14 +959,14 @@ class _ConversationBottomBarState extends State<ConversationBottomBar> {
           height: size,
           child: SvgPicture.asset(
             Assets.images.aiMagic,
-            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            colorFilter: ColorFilter.mode(t.textPrimary, BlendMode.srcIn),
           ),
         );
       },
-      placeholder: (context, url) => const SizedBox(
+      placeholder: (context, url) => SizedBox(
         width: size,
         height: size,
-        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
       ),
     );
   }

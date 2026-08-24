@@ -22,6 +22,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'action_item_form_sheet.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ActionItemTileWidget extends StatefulWidget {
   final ActionItemWithMetadata actionItem;
@@ -99,6 +100,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
   }
 
   Widget _buildDueDateChip() {
+    final t = context.omi;
     if (widget.actionItem.dueAt == null) return const SizedBox.shrink();
 
     final now = DateTime.now();
@@ -114,32 +116,32 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
 
     // For snoozed tab, always show actual date/time instead of relative labels
     if (widget.isSnoozedTab) {
-      chipColor = Colors.grey.withValues(alpha: 0.2);
-      textColor = Colors.grey.shade400;
+      chipColor = t.textSecondary.withValues(alpha: 0.2);
+      textColor = t.textSecondary;
       dueDateText = _formatDueDate(context, dueDate, showFullDate: true);
     } else if (widget.actionItem.completed) {
-      chipColor = Colors.grey.withValues(alpha: 0.2);
-      textColor = Colors.grey.shade500;
+      chipColor = t.textSecondary.withValues(alpha: 0.2);
+      textColor = t.textSecondary;
       dueDateText = _formatDueDate(context, dueDate);
     } else if (isOverdue) {
-      chipColor = Colors.red.withValues(alpha: 0.15);
-      textColor = Colors.red.shade300;
+      chipColor = t.error.withValues(alpha: 0.15);
+      textColor = t.error;
       dueDateText = _formatDueDate(context, dueDate);
     } else if (isToday) {
-      chipColor = Colors.yellow.withValues(alpha: 0.15);
-      textColor = Colors.yellow.shade300;
+      chipColor = t.warning.withValues(alpha: 0.15);
+      textColor = t.warning;
       dueDateText = context.l10n.today;
     } else if (isTomorrow) {
-      chipColor = Colors.blue.withValues(alpha: 0.15);
-      textColor = Colors.blue.shade300;
+      chipColor = t.accent.withValues(alpha: 0.15);
+      textColor = t.accent;
       dueDateText = context.l10n.tomorrow;
     } else if (isThisWeek) {
-      chipColor = Colors.green.withValues(alpha: 0.15);
-      textColor = Colors.green.shade300;
+      chipColor = t.success.withValues(alpha: 0.15);
+      textColor = t.success;
       dueDateText = _formatDueDate(context, dueDate);
     } else {
-      chipColor = Colors.purple.withValues(alpha: 0.15);
-      textColor = Colors.purple.shade300;
+      chipColor = t.accent.withValues(alpha: 0.15);
+      textColor = t.accent;
       dueDateText = _formatDueDate(context, dueDate);
     }
 
@@ -234,6 +236,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
   }
 
   Widget _buildTaskExportIcon(BuildContext context) {
+    final t = context.omi;
     // If already exported, show the export platform logo
     // Otherwise, show the currently selected task app
     TaskIntegrationApp displayApp;
@@ -283,11 +286,11 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
                 width: 12,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: isExported ? Colors.green : Colors.blue,
+                  color: isExported ? t.success : t.accent,
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF1F1F25), width: 1.5),
+                  border: Border.all(color: t.bgSecondary, width: 1.5),
                 ),
-                child: Icon(isExported ? Icons.check : Icons.add, color: Colors.white, size: 8),
+                child: Icon(isExported ? Icons.check : Icons.add, color: t.textPrimary, size: 8),
               ),
             ),
           ],
@@ -297,6 +300,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
   }
 
   Future<void> _handleTaskExport(BuildContext context, TaskIntegrationApp taskApp) async {
+    final t = context.omi;
     if (taskApp == TaskIntegrationApp.appleReminders) {
       await _handleAppleRemindersExport(context);
     } else if (taskApp == TaskIntegrationApp.todoist) {
@@ -314,12 +318,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.info, color: Colors.white, size: 20),
+                Icon(Icons.info, color: t.textPrimary, size: 20),
                 const SizedBox(width: 8),
                 Text(context.l10n.serviceIntegrationComingSoon(taskApp.displayName)),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: t.warning,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -328,6 +332,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
   }
 
   Future<void> _handleTodoistExport(BuildContext context) async {
+    final t = context.omi;
     HapticFeedback.mediumImpact();
 
     final service = TodoistService();
@@ -339,12 +344,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                Icon(Icons.check_circle, color: t.textPrimary, size: 20),
                 const SizedBox(width: 8),
                 Text(context.l10n.alreadyExportedTo(widget.actionItem.exportPlatform ?? context.l10n.anotherPlatform)),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: t.warning,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -359,12 +364,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error, color: Colors.white, size: 20),
+                Icon(Icons.error, color: t.textPrimary, size: 20),
                 const SizedBox(width: 8),
                 Text(context.l10n.pleaseAuthenticateWithService('Todoist')),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: t.warning,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -378,19 +383,19 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                 ),
               ),
               const SizedBox(width: 12),
               Text(context.l10n.addingToService('Todoist')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -412,12 +417,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              Icon(success ? Icons.check_circle : Icons.error, color: Colors.white, size: 20),
+              Icon(success ? Icons.check_circle : Icons.error, color: t.textPrimary, size: 20),
               const SizedBox(width: 8),
               Text(success ? context.l10n.addedToService('Todoist') : context.l10n.failedToAddToService('Todoist')),
             ],
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? t.success : t.error,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -440,6 +445,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
   }
 
   Future<void> _handleAsanaExport(BuildContext context) async {
+    final t = context.omi;
     HapticFeedback.mediumImpact();
 
     final service = AsanaService();
@@ -451,12 +457,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                Icon(Icons.check_circle, color: t.textPrimary, size: 20),
                 const SizedBox(width: 8),
                 Text(context.l10n.alreadyExportedTo(widget.actionItem.exportPlatform ?? context.l10n.anotherPlatform)),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: t.warning,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -471,12 +477,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error, color: Colors.white, size: 20),
+                Icon(Icons.error, color: t.textPrimary, size: 20),
                 const SizedBox(width: 8),
                 Text(context.l10n.pleaseAuthenticateWithService('Asana')),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: t.warning,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -490,19 +496,19 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                 ),
               ),
               const SizedBox(width: 12),
               Text(context.l10n.addingToService('Asana')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -524,12 +530,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              Icon(success ? Icons.check_circle : Icons.error, color: Colors.white, size: 20),
+              Icon(success ? Icons.check_circle : Icons.error, color: t.textPrimary, size: 20),
               const SizedBox(width: 8),
               Text(success ? context.l10n.addedToService('Asana') : context.l10n.failedToAddToService('Asana')),
             ],
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? t.success : t.error,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -552,6 +558,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
   }
 
   Future<void> _handleGoogleTasksExport(BuildContext context) async {
+    final t = context.omi;
     HapticFeedback.mediumImpact();
 
     final service = GoogleTasksService();
@@ -563,12 +570,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                Icon(Icons.check_circle, color: t.textPrimary, size: 20),
                 const SizedBox(width: 8),
                 Text(context.l10n.alreadyExportedTo(widget.actionItem.exportPlatform ?? context.l10n.anotherPlatform)),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: t.warning,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -583,12 +590,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error, color: Colors.white, size: 20),
+                Icon(Icons.error, color: t.textPrimary, size: 20),
                 const SizedBox(width: 8),
                 Text(context.l10n.pleaseAuthenticateWithService('Google Tasks')),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: t.warning,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -602,19 +609,19 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                 ),
               ),
               const SizedBox(width: 12),
               Text(context.l10n.addingToService('Google Tasks')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -636,7 +643,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              Icon(success ? Icons.check_circle : Icons.error, color: Colors.white, size: 20),
+              Icon(success ? Icons.check_circle : Icons.error, color: t.textPrimary, size: 20),
               const SizedBox(width: 8),
               Text(
                 success
@@ -645,7 +652,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
               ),
             ],
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? t.success : t.error,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -673,6 +680,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
   }
 
   Future<void> _handleClickUpExport(BuildContext context) async {
+    final t = context.omi;
     HapticFeedback.mediumImpact();
 
     final service = ClickUpService();
@@ -684,12 +692,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error, color: Colors.white, size: 20),
+                Icon(Icons.error, color: t.textPrimary, size: 20),
                 const SizedBox(width: 8),
                 Text(context.l10n.pleaseAuthenticateWithService('ClickUp')),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: t.warning,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -703,19 +711,19 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                 ),
               ),
               const SizedBox(width: 12),
               Text(context.l10n.addingToService('ClickUp')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -737,12 +745,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              Icon(success ? Icons.check_circle : Icons.error, color: Colors.white, size: 20),
+              Icon(success ? Icons.check_circle : Icons.error, color: t.textPrimary, size: 20),
               const SizedBox(width: 8),
               Text(success ? context.l10n.addedToService('ClickUp') : context.l10n.failedToAddToService('ClickUp')),
             ],
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? t.success : t.error,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -765,6 +773,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
   }
 
   Future<void> _handleAppleRemindersExport(BuildContext context) async {
+    final t = context.omi;
     if (!PlatformService.isApple) return;
 
     HapticFeedback.mediumImpact();
@@ -778,12 +787,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                Icon(Icons.check_circle, color: t.textPrimary, size: 20),
                 const SizedBox(width: 8),
                 Text(context.l10n.alreadyExportedTo(widget.actionItem.exportPlatform ?? context.l10n.anotherPlatform)),
               ],
             ),
-            backgroundColor: Colors.orange,
+            backgroundColor: t.warning,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -804,12 +813,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.error, color: Colors.white, size: 20),
+                  Icon(Icons.error, color: t.textPrimary, size: 20),
                   const SizedBox(width: 8),
                   Text(context.l10n.permissionDeniedForAppleReminders),
                 ],
               ),
-              backgroundColor: Colors.red,
+              backgroundColor: t.error,
               duration: const Duration(seconds: 3),
             ),
           );
@@ -824,19 +833,19 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                 ),
               ),
               const SizedBox(width: 12),
               Text(context.l10n.addingToService('Apple Reminders')),
             ],
           ),
-          backgroundColor: Colors.blue,
+          backgroundColor: t.accent,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -860,7 +869,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
         SnackBar(
           content: Row(
             children: [
-              Icon(success ? Icons.check_circle : Icons.error, color: Colors.white, size: 20),
+              Icon(success ? Icons.check_circle : Icons.error, color: t.textPrimary, size: 20),
               const SizedBox(width: 8),
               Text(
                 success
@@ -869,7 +878,7 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
               ),
             ],
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          backgroundColor: success ? t.success : t.error,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -899,17 +908,18 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
       color: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(t.cardRadius),
         side: const BorderSide(color: Colors.transparent, width: 0),
       ),
       clipBehavior: Clip.hardEdge,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(t.cardRadius),
         onTap: widget.isSelectionMode ? widget.onSelectionToggle : () => _showEditSheet(context),
         onLongPress: widget.onLongPress,
         child: Padding(
@@ -929,12 +939,12 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: widget.isSelected ? Colors.deepPurpleAccent : Colors.grey.shade600,
+                            color: widget.isSelected ? t.accent : t.textTertiary,
                             width: 2,
                           ),
-                          color: widget.isSelected ? Colors.deepPurpleAccent : Colors.transparent,
+                          color: widget.isSelected ? t.accent : Colors.transparent,
                         ),
-                        child: widget.isSelected ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
+                        child: widget.isSelected ? Icon(Icons.check, color: t.textPrimary, size: 16) : null,
                       ),
                     )
                   // Completion checkbox when not in selection mode
@@ -949,17 +959,13 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: (widget.actionItem.completed || _isAnimating)
-                                  ? Colors.deepPurpleAccent
-                                  : Colors.grey.shade600,
+                              color: (widget.actionItem.completed || _isAnimating) ? t.accent : t.textTertiary,
                               width: 2,
                             ),
-                            color: (widget.actionItem.completed || _isAnimating)
-                                ? Colors.deepPurpleAccent
-                                : Colors.transparent,
+                            color: (widget.actionItem.completed || _isAnimating) ? t.accent : Colors.transparent,
                           ),
                           child: (widget.actionItem.completed || _isAnimating)
-                              ? const Icon(Icons.check, color: Colors.white, size: 16)
+                              ? Icon(Icons.check, color: t.textPrimary, size: 16)
                               : null,
                         ),
                       ),
@@ -979,15 +985,15 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
                                     widget.actionItem.description,
                                     style: TextStyle(
                                       color: (widget.actionItem.completed || _isAnimating)
-                                          ? Colors.grey.shade400
-                                          : Colors.white,
+                                          ? t.textSecondary
+                                          : t.textPrimary,
                                       fontSize: 15,
                                       fontWeight: FontWeight.w400,
                                       height: 1.5,
                                       decoration: (widget.actionItem.completed || _isAnimating)
                                           ? TextDecoration.lineThrough
                                           : null,
-                                      decorationColor: Colors.grey.shade400,
+                                      decorationColor: t.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -1018,13 +1024,13 @@ class _ActionItemTileWidgetState extends State<ActionItemTileWidget> {
                       child: Container(
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.01),
+                          color: t.bgPrimary.withValues(alpha: 0.01),
                           borderRadius: const BorderRadius.all(Radius.circular(8)),
                         ),
                         child: context.watch<UsageProvider>().showSubscriptionUI
                             ? Text(
                                 context.l10n.upgradeToUnlimited,
-                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
                               )
                             : const SizedBox.shrink(),
                       ),

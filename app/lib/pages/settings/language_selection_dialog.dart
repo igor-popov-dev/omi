@@ -7,6 +7,8 @@ import 'package:omi/providers/home_provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class LanguageSelectionDialog {
   static Future<void> show(
@@ -43,6 +45,8 @@ class LanguageSelectionDialog {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final t = context.omi;
+
             void filterLanguages(String query) {
               setState(() {
                 searchQuery = query.toLowerCase();
@@ -68,11 +72,11 @@ class LanguageSelectionDialog {
             }
 
             return AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1A),
+              backgroundColor: t.bgSecondary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Text(
                 context.l10n.tellUsPrimaryLanguage,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               content: SizedBox(
                 width: double.maxFinite,
@@ -83,25 +87,25 @@ class LanguageSelectionDialog {
                   children: [
                     Text(
                       context.l10n.languageForTranscription,
-                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                      style: TextStyle(color: t.textSecondary, fontSize: 14),
                     ),
                     if (showSingleLanguageWarning) ...[
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
+                          color: t.bgTertiary,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF8E8E93).withValues(alpha: 0.3)),
+                          border: Border.all(color: t.textTertiary),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.info_outline, color: Color(0xFF8E8E93), size: 18),
+                            OmiIconWidget(icon: OmiIcon.info, color: t.textSecondary, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 context.l10n.singleLanguageModeInfo,
-                                style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12),
+                                style: TextStyle(color: t.textSecondary, fontSize: 12),
                               ),
                             ),
                           ],
@@ -111,24 +115,24 @@ class LanguageSelectionDialog {
                     const SizedBox(height: 16),
                     TextField(
                       onChanged: filterLanguages,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: t.textPrimary),
                       decoration: InputDecoration(
                         hintText: context.l10n.searchLanguageHint,
-                        hintStyle: const TextStyle(color: Colors.grey),
-                        prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                        hintStyle: TextStyle(color: t.textSecondary),
+                        prefixIcon: Icon(Icons.search, color: t.textSecondary),
                         filled: true,
-                        fillColor: const Color(0xFF2A2A2A),
+                        fillColor: t.bgTertiary,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF35343B)),
+                          borderSide: BorderSide(color: t.bgTertiary),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF35343B)),
+                          borderSide: BorderSide(color: t.bgTertiary),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Colors.white),
+                          borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                         ),
                       ),
                     ),
@@ -136,7 +140,7 @@ class LanguageSelectionDialog {
                     Expanded(
                       child: filteredLanguages.isEmpty
                           ? Center(
-                              child: Text(context.l10n.noLanguagesFound, style: const TextStyle(color: Colors.grey)),
+                              child: Text(context.l10n.noLanguagesFound, style: TextStyle(color: t.textSecondary)),
                             )
                           : ListView.builder(
                               controller: scrollController,
@@ -146,10 +150,10 @@ class LanguageSelectionDialog {
                                 final isSelected = selectedLanguage == language.value;
 
                                 return ListTile(
-                                  title: Text(language.key, style: const TextStyle(color: Colors.white)),
-                                  trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.white) : null,
+                                  title: Text(language.key, style: TextStyle(color: t.textPrimary)),
+                                  trailing: isSelected ? Icon(Icons.check_circle, color: t.textPrimary) : null,
                                   selected: isSelected,
-                                  selectedTileColor: Colors.white.withValues(alpha: 0.12),
+                                  selectedTileColor: t.rowFillHover,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   onTap: () {
                                     setState(() {
@@ -195,7 +199,7 @@ class LanguageSelectionDialog {
                     onPressed: () {
                       Navigator.of(context).pop();
                     },
-                    style: TextButton.styleFrom(foregroundColor: Colors.grey),
+                    style: TextButton.styleFrom(foregroundColor: t.textSecondary),
                     child: Text(context.l10n.skip),
                   ),
                 ElevatedButton(
@@ -219,10 +223,10 @@ class LanguageSelectionDialog {
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.white.withValues(alpha: 0.3),
-                    foregroundColor: Colors.black,
-                    disabledForegroundColor: Colors.black.withValues(alpha: 0.4),
+                    backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                    disabledBackgroundColor: t.textTertiary,
+                    foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
+                    disabledForegroundColor: (t.isGlass ? t.onAccent : Colors.black).withValues(alpha: 0.4),
                   ),
                   child: Text(context.l10n.confirm),
                 ),

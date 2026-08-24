@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:omi/utils/ui_guidelines.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Placeholder rows shown while an app search is running.
 ///
@@ -46,15 +46,17 @@ class _SearchProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppStyles.spacingL),
+      padding: const EdgeInsets.only(bottom: 16.0),
       child: LinearProgressIndicator(
         // Indeterminate: a search has no known duration, and a determinate bar
         // would have to invent a percentage that then appears to stall.
         minHeight: 3,
-        backgroundColor: AppStyles.backgroundSecondary,
-        valueColor: const AlwaysStoppedAnimation<Color>(AppStyles.textPrimary),
-        borderRadius: BorderRadius.circular(AppStyles.radiusSmall),
+        backgroundColor: t.bgSecondary,
+        valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
+        borderRadius: BorderRadius.circular(6.0),
       ),
     );
   }
@@ -65,19 +67,21 @@ class _ShimmerListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return ShimmerWithTimeout(
-      baseColor: AppStyles.backgroundSecondary,
-      highlightColor: AppStyles.backgroundTertiary,
+      baseColor: t.bgSecondary,
+      highlightColor: t.bgTertiary,
       child: Container(
         padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(color: AppStyles.backgroundSecondary, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Row(
           children: [
             Container(
               width: 60,
               height: 60,
-              decoration: BoxDecoration(color: AppStyles.backgroundTertiary, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(12)),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -88,7 +92,7 @@ class _ShimmerListItem extends StatelessWidget {
                     width: double.infinity,
                     height: 18,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundTertiary,
+                      color: t.bgTertiary,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -97,7 +101,7 @@ class _ShimmerListItem extends StatelessWidget {
                     width: 150,
                     height: 14,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundTertiary,
+                      color: t.bgTertiary,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -108,7 +112,7 @@ class _ShimmerListItem extends StatelessWidget {
             Container(
               width: 72,
               height: 32,
-              decoration: BoxDecoration(color: AppStyles.backgroundTertiary, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(16)),
             ),
           ],
         ),

@@ -25,8 +25,11 @@ import 'package:omi/widgets/dialog.dart';
 import 'package:omi/pages/conversations/auto_sync_page.dart';
 import 'package:omi/pages/conversations/sync_page.dart';
 import 'package:omi/pages/onboarding/interactive_device_onboarding/interactive_device_onboarding_wrapper.dart';
+
 import 'firmware_update.dart';
 import 'omiglass_ota_update.dart';
+
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ConnectedDevice extends StatefulWidget {
   const ConnectedDevice({super.key});
@@ -81,12 +84,14 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
   }
 
   Color _getBatteryColor(int batteryLevel) {
+    final t = context.omi;
     if (batteryLevel > 75) {
-      return const Color.fromARGB(255, 0, 255, 8);
+      // Classic keeps the exact pure-green it has always drawn here.
+      return t.isGlass ? t.success : const Color.fromARGB(255, 0, 255, 8);
     } else if (batteryLevel > 20) {
-      return Colors.yellow.shade700;
+      return t.warning;
     } else {
-      return Colors.red;
+      return t.error;
     }
   }
 
@@ -107,6 +112,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
     Color? chipColor,
     Color? chipTextColor,
   }) {
+    final t = context.omi;
     final content = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       child: Row(
@@ -116,31 +122,28 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
             height: 24,
             child: Padding(
               padding: const EdgeInsets.only(left: 2, top: 1),
-              child: FaIcon(icon, color: iconColor ?? const Color(0xFF8E8E93), size: 20),
+              child: FaIcon(icon, color: iconColor ?? t.textSecondary, size: 20),
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
               title,
-              style: TextStyle(color: titleColor ?? Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+              style: TextStyle(color: titleColor ?? t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
             ),
           ),
           if (chipValue != null) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: chipColor ?? const Color(0xFF2A2A2E),
-                borderRadius: BorderRadius.circular(100),
-              ),
+              decoration: BoxDecoration(color: chipColor ?? t.bgTertiary, borderRadius: BorderRadius.circular(100)),
               child: Text(
                 chipValue,
-                style: TextStyle(color: chipTextColor ?? Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                style: TextStyle(color: chipTextColor ?? t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ),
             if (showChevron) const SizedBox(width: 8),
           ],
-          if (showChevron) const Icon(Icons.chevron_right, color: Color(0xFF3C3C43), size: 20),
+          if (showChevron) Icon(Icons.chevron_right, color: t.divider, size: 20),
         ],
       ),
     );
@@ -156,9 +159,10 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
   }
 
   Widget _buildBatterySection(DeviceProvider provider) {
+    final t = context.omi;
     final charging = provider.isCharging;
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         child: Row(
@@ -181,15 +185,15 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
             Expanded(
               child: Text(
                 charging ? context.l10n.charging : context.l10n.batteryLevel,
-                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+                style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
               ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(100)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(100)),
               child: Text(
                 '${provider.batteryLevel}%',
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ),
           ],
@@ -223,6 +227,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
   }
 
   Future<void> _captureRayBanMetaPhoto() async {
+    final t = context.omi;
     try {
       final provider = context.read<DeviceProvider>();
       final deviceId = provider.connectedDevice?.id;
@@ -232,9 +237,8 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
       final cameraStatus = await connection.getCameraPermissionStatus();
       if (cameraStatus != 'granted') {
         if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.l10n.raybanMetaImageCaptureUnavailable)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.l10n.raybanMetaImageCaptureUnavailable)));
         return;
       }
       await connection.capturePhoto();
@@ -243,19 +247,20 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.errorConnectingRayBanMeta(e.toString())), backgroundColor: Colors.red),
+        SnackBar(content: Text(context.l10n.errorConnectingRayBanMeta(e.toString())), backgroundColor: t.error),
       );
     }
   }
 
   Widget _buildActionsSection(DeviceProvider provider) {
+    final t = context.omi;
     final syncProvider = context.watch<SyncProvider>();
     final pendingSeconds = syncProvider.missingWalsInSeconds;
     const firmwarePolicy = FirmwareUpdateBuildPolicy.current;
     final allowsFirmwareUpdate = firmwarePolicy.allowsFirmwareUpdateForDevice(provider.pairedDevice);
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(
         children: [
           // How to Use Your Omi (interactive tutorial) — consumer CV1 pendant only.
@@ -270,12 +275,11 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
               icon: FontAwesomeIcons.graduationCap,
               title: context.l10n.deviceTutorial,
               onTap: () {
-                Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const InteractiveDeviceOnboardingWrapper(allowExit: true)));
+                Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => const InteractiveDeviceOnboardingWrapper(allowExit: true)));
               },
             ),
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
           ],
           // Ray-Ban Meta: on-demand photo capture. Its firmware is managed by
           // the Meta AI app, so the update rows below are hidden for it.
@@ -286,7 +290,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
               onTap: provider.connectedDevice != null ? _captureRayBanMetaPhoto : null,
               showChevron: provider.connectedDevice != null,
             ),
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
           ],
           // Firmware Update
           if (provider.pairedDevice?.type != DeviceType.raybanMeta && allowsFirmwareUpdate)
@@ -333,7 +337,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
               provider.connectedDevice != null &&
               provider.latestStableFirmwareVersion.isNotEmpty &&
               provider.pairedDevice?.firmwareRevision != provider.latestStableFirmwareVersion) ...[
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             _buildProfileStyleItem(
               icon: FontAwesomeIcons.rotateLeft,
               title: context.l10n.rollbackToStableFirmware,
@@ -361,13 +365,14 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
           ],
           // SD Card Sync
           if (provider.isDeviceStorageSupport) ...[
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             _buildProfileStyleItem(
               icon: FontAwesomeIcons.sdCard,
               title: context.l10n.sdCardSync,
               chipValue: pendingSeconds > 0 ? secondsToCompactDuration(pendingSeconds, context) : null,
-              chipColor: pendingSeconds > 0 ? const Color(0xFF3D3520) : null,
-              chipTextColor: pendingSeconds > 0 ? const Color(0xFFFFD060) : null,
+              chipColor:
+                  pendingSeconds > 0 ? (t.isGlass ? t.warning.withValues(alpha: 0.18) : const Color(0xFF3D3520)) : null,
+              chipTextColor: pendingSeconds > 0 ? t.warning : null,
               onTap: () {
                 final page =
                     context.read<DeviceProvider>().supportsMultiFileSync ? const AutoSyncPage() : const SyncPage();
@@ -376,7 +381,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
             ),
           ],
           // Charging Issues
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           GestureDetector(
             onTap: () async {
               if (PlatformService.isIntercomSupported) {
@@ -401,28 +406,28 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
               child: Row(
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 24,
                     height: 24,
                     child: Padding(
-                      padding: EdgeInsets.only(left: 2, top: 1),
-                      child: FaIcon(FontAwesomeIcons.circleQuestion, color: Color(0xFF8E8E93), size: 20),
+                      padding: const EdgeInsets.only(left: 2, top: 1),
+                      child: FaIcon(FontAwesomeIcons.circleQuestion, color: t.textSecondary, size: 20),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       context.l10n.chargingIssues,
-                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+                      style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: Color(0xFF3C3C43), size: 20),
+                  Icon(Icons.chevron_right, color: t.divider, size: 20),
                 ],
               ),
             ),
           ),
           // Disconnect
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           GestureDetector(
             onTap: () async {
               // Save device ID before clearing prefs
@@ -457,18 +462,18 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
               child: Row(
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 24,
                     height: 24,
                     child: Padding(
-                      padding: EdgeInsets.only(left: 2, top: 1),
-                      child: FaIcon(FontAwesomeIcons.linkSlash, color: Colors.redAccent, size: 20),
+                      padding: const EdgeInsets.only(left: 2, top: 1),
+                      child: FaIcon(FontAwesomeIcons.linkSlash, color: t.error, size: 20),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Text(
                     provider.connectedDevice == null ? context.l10n.unpairDevice : context.l10n.disconnectDevice,
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 17, fontWeight: FontWeight.w400),
+                    style: TextStyle(color: t.error, fontSize: 17, fontWeight: FontWeight.w400),
                   ),
                 ],
               ),
@@ -476,7 +481,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
           ),
           // Unpair Device - only for Limitless devices
           if (provider.connectedDevice?.type == DeviceType.limitless) ...[
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             GestureDetector(
               onTap: () async {
                 showDialog(
@@ -516,18 +521,18 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 child: Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 24,
                       height: 24,
                       child: Padding(
-                        padding: EdgeInsets.only(left: 2, top: 1),
-                        child: FaIcon(FontAwesomeIcons.ban, color: Colors.orange, size: 20),
+                        padding: const EdgeInsets.only(left: 2, top: 1),
+                        child: FaIcon(FontAwesomeIcons.ban, color: t.warning, size: 20),
                       ),
                     ),
                     const SizedBox(width: 16),
                     Text(
                       context.l10n.unpairAndForgetDevice,
-                      style: const TextStyle(color: Colors.orange, fontSize: 17, fontWeight: FontWeight.w400),
+                      style: TextStyle(color: t.warning, fontSize: 17, fontWeight: FontWeight.w400),
                     ),
                   ],
                 ),
@@ -540,6 +545,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
   }
 
   Widget _buildDeviceInfoSection(DeviceProvider provider) {
+    final t = context.omi;
     final deviceName = provider.pairedDevice?.name ?? context.l10n.unknownDevice;
     final modelNumber = provider.pairedDevice?.modelNumber ?? context.l10n.unknown;
     final manufacturer = provider.pairedDevice?.manufacturerName ?? context.l10n.unknown;
@@ -560,7 +566,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
     }
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(
         children: [
           _buildProfileStyleItem(
@@ -570,7 +576,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
             copyValue: deviceName,
             showChevron: false,
           ),
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.hashtag,
             title: context.l10n.modelNumber,
@@ -578,7 +584,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
             copyValue: modelNumber,
             showChevron: false,
           ),
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.industry,
             title: context.l10n.manufacturer,
@@ -586,7 +592,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
             copyValue: manufacturer,
             showChevron: false,
           ),
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           if (provider.pairedDevice?.type == DeviceType.raybanMeta) ...[
             _buildProfileStyleItem(
               icon: FontAwesomeIcons.microphone,
@@ -595,7 +601,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
                   provider.connectedDevice != null ? context.l10n.raybanMetaMicrophoneReady : context.l10n.offline,
               showChevron: false,
             ),
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             FutureBuilder<String>(
               future: _rayBanMetaCameraStatusMemoized(provider),
               builder: (context, snapshot) {
@@ -624,7 +630,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
               copyValue: firmware,
               showChevron: false,
             ),
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.fingerprint,
             title: context.l10n.deviceId,
@@ -633,7 +639,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
             showChevron: false,
           ),
           if (showSerialNumber) ...[
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             _buildProfileStyleItem(
               icon: FontAwesomeIcons.barcode,
               title: context.l10n.serialNumber,
@@ -649,12 +655,13 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer2<DeviceProvider, CaptureProvider>(
       builder: (context, provider, captureProvider, child) {
         return Scaffold(
-          backgroundColor: const Color(0xFF0D0D0D),
+          backgroundColor: t.bgPrimary,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF0D0D0D),
+            backgroundColor: t.bgPrimary,
             elevation: 0,
             leading: IconButton(
               icon: const FaIcon(FontAwesomeIcons.chevronLeft, size: 18),
@@ -671,7 +678,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
                   children: [
                     Text(
                       provider.pairedDevice?.name ?? context.l10n.unknownDevice,
-                      style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: t.textPrimary, fontSize: 32, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
@@ -679,8 +686,8 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: provider.connectedDevice != null
-                            ? Colors.green.withValues(alpha: 0.2)
-                            : Colors.grey.withValues(alpha: 0.2),
+                            ? t.success.withValues(alpha: 0.2)
+                            : t.textSecondary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -690,7 +697,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: provider.connectedDevice != null ? Colors.green : Colors.grey,
+                              color: provider.connectedDevice != null ? t.success : t.textSecondary,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -698,7 +705,7 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
                           Text(
                             provider.connectedDevice != null ? context.l10n.connected : context.l10n.offline,
                             style: TextStyle(
-                              color: provider.connectedDevice != null ? Colors.green : Colors.grey,
+                              color: provider.connectedDevice != null ? t.success : t.textSecondary,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -738,18 +745,18 @@ class _ConnectedDeviceState extends State<ConnectedDevice> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const FaIcon(FontAwesomeIcons.bluetooth, color: Colors.grey, size: 14),
+                      FaIcon(FontAwesomeIcons.bluetooth, color: t.textSecondary, size: 14),
                       const SizedBox(width: 6),
                       Text(
                         '${captureProvider.bleReceiveRateKbps.toStringAsFixed(1)} kbps',
-                        style: const TextStyle(color: Colors.grey, fontSize: 14),
+                        style: TextStyle(color: t.textSecondary, fontSize: 14),
                       ),
                       const SizedBox(width: 24),
-                      const FaIcon(FontAwesomeIcons.signal, color: Colors.grey, size: 14),
+                      FaIcon(FontAwesomeIcons.signal, color: t.textSecondary, size: 14),
                       const SizedBox(width: 6),
                       Text(
                         '${captureProvider.wsSendRateKbps.toStringAsFixed(1)} kbps',
-                        style: const TextStyle(color: Colors.grey, fontSize: 14),
+                        style: TextStyle(color: t.textSecondary, fontSize: 14),
                       ),
                     ],
                   ),

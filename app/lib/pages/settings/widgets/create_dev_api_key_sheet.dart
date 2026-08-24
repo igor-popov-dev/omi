@@ -6,6 +6,8 @@ import 'package:omi/pages/settings/widgets/dev_api_key_created_dialog.dart';
 import 'package:omi/providers/dev_api_key_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class CreateDevApiKeySheet extends StatefulWidget {
   const CreateDevApiKeySheet({super.key});
@@ -117,6 +119,8 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
   }
 
   Widget _buildPresetChip(String label, bool isSelected, VoidCallback onTap) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -124,12 +128,12 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF252525),
+          color: isSelected ? t.accent : t.bgTertiary,
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : const Color(0xFFAEAEB2),
+            color: isSelected ? t.textPrimary : t.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -139,26 +143,28 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
   }
 
   Widget _buildPermissionTile(String resource, String readScope, String writeScope, IconData icon) {
+    final t = context.omi;
+
     final hasRead = _scopes[readScope] ?? false;
     final hasWrite = _scopes[writeScope] ?? false;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: const Color(0xFF1A1A1A)),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(t.cardRadius), color: t.bgSecondary),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFF252525), borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: const Color(0xFF8B5CF6), size: 20),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: t.accent, size: 20),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 resource,
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
               ),
             ),
             _buildTogglePill(
@@ -183,6 +189,8 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
     required VoidCallback onLeftTap,
     required VoidCallback onRightTap,
   }) {
+    final t = context.omi;
+
     // Determine border radius based on selection state
     final leftRadius = BorderRadius.only(
       topLeft: const Radius.circular(8),
@@ -198,7 +206,7 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
     );
 
     return Container(
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: const Color(0xFF252525)),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: t.bgTertiary),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -214,7 +222,7 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
               child: Text(
                 leftLabel,
                 style: TextStyle(
-                  color: leftSelected ? Colors.white : const Color(0xFF6C6C70),
+                  color: leftSelected ? t.textPrimary : t.textTertiary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -228,12 +236,12 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: rightRadius,
-                color: rightSelected ? const Color(0xFF8B5CF6) : Colors.transparent,
+                color: rightSelected ? t.accent : Colors.transparent,
               ),
               child: Text(
                 rightLabel,
                 style: TextStyle(
-                  color: rightSelected ? Colors.white : const Color(0xFF6C6C70),
+                  color: rightSelected ? t.textPrimary : t.textTertiary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -247,12 +255,14 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F0F0F),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: t.bgPrimary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Padding(
         padding: EdgeInsets.only(bottom: bottomPadding),
@@ -269,7 +279,7 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                     margin: const EdgeInsets.only(top: 12, bottom: 8),
                     width: 40,
                     height: 4,
-                    decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+                    decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
                   ),
                 ),
                 // Header
@@ -280,10 +290,12 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
+                          color: t.isGlass ? t.accent : null,
+                          gradient:
+                              t.isGlass ? null : const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)]),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.key, color: Colors.white, size: 22),
+                        child: OmiIconWidget(icon: OmiIcon.key, color: t.textPrimary, size: 22),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -292,12 +304,12 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                           children: [
                             Text(
                               context.l10n.createApiKey,
-                              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                              style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               context.l10n.accessDataProgrammatically,
-                              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+                              style: TextStyle(color: t.textSecondary, fontSize: 13),
                             ),
                           ],
                         ),
@@ -307,10 +319,10 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF252525),
+                            color: t.bgTertiary,
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Icon(Icons.close, color: Color(0xFF8E8E93), size: 20),
+                          child: OmiIconWidget(icon: OmiIcon.close, color: t.textSecondary, size: 20),
                         ),
                       ),
                     ],
@@ -325,8 +337,8 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                     children: [
                       Text(
                         context.l10n.keyNameLabel,
-                        style: const TextStyle(
-                          color: Color(0xFF8E8E93),
+                        style: TextStyle(
+                          color: t.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5,
@@ -336,23 +348,23 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                       TextFormField(
                         controller: _nameController,
                         autofocus: false,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: TextStyle(color: t.textPrimary, fontSize: 16),
                         decoration: InputDecoration(
                           hintText: context.l10n.keyNamePlaceholder,
-                          hintStyle: const TextStyle(color: Color(0xFF6C6C70), fontSize: 16),
+                          hintStyle: TextStyle(color: t.textTertiary, fontSize: 16),
                           filled: true,
-                          fillColor: const Color(0xFF1A1A1A),
+                          fillColor: t.bgSecondary,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFF2C2C2E)),
+                            borderSide: BorderSide(color: t.bgTertiary),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFF2C2C2E)),
+                            borderSide: BorderSide(color: t.bgTertiary),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
+                            borderSide: BorderSide(color: t.accent, width: 1.5),
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                         ),
@@ -375,8 +387,8 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                     children: [
                       Text(
                         context.l10n.permissionsLabel,
-                        style: const TextStyle(
-                          color: Color(0xFF8E8E93),
+                        style: TextStyle(
+                          color: t.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5,
@@ -425,12 +437,12 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.amber.shade700, size: 16),
+                      OmiIconWidget(icon: OmiIcon.info, color: t.warning, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           context.l10n.permissionsInfoNote,
-                          style: const TextStyle(color: Color(0xFF6C6C70), fontSize: 12),
+                          style: TextStyle(color: t.textTertiary, fontSize: 12),
                         ),
                       ),
                     ],
@@ -445,20 +457,20 @@ class _CreateDevApiKeySheetState extends State<CreateDevApiKeySheet> {
                     child: ElevatedButton(
                       onPressed: _isCreating ? null : _createKey,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8B5CF6),
-                        disabledBackgroundColor: const Color(0xFF8B5CF6).withValues(alpha: 0.5),
-                        foregroundColor: Colors.white,
+                        backgroundColor: t.accent,
+                        disabledBackgroundColor: t.accent.withValues(alpha: 0.5),
+                        foregroundColor: t.textPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         elevation: 0,
                       ),
                       child: _isCreating
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                               ),
                             )
                           : Text(

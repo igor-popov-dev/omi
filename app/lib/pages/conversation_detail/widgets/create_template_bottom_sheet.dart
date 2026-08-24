@@ -18,6 +18,7 @@ import 'package:omi/pages/conversation_detail/widgets/template_creation_outcome.
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CreateTemplateBottomSheet extends StatefulWidget {
   final String? conversationId;
@@ -46,13 +47,14 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
   }
 
   Future<File> _createEmojiIcon(String emoji) async {
+    final t = context.omi;
     // Create a simple widget with white background and emoji
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     const size = 256.0;
 
     // Draw white background
-    final bgPaint = Paint()..color = Colors.white;
+    final bgPaint = Paint()..color = t.textPrimary;
     canvas.drawRect(const Rect.fromLTWH(0, 0, size, size), bgPaint);
 
     // Draw emoji text
@@ -227,12 +229,13 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0F0F14),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: t.bgPrimary,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -242,7 +245,7 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
               width: 40,
               height: 4,
               margin: const EdgeInsets.only(top: 12),
-              decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
             ),
 
             // Header
@@ -253,25 +256,25 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                      gradient: LinearGradient(
+                        colors: [t.accent, t.accent],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(t.rowRadius),
                     ),
-                    child: const Icon(Icons.auto_fix_high, color: Colors.white, size: 20),
+                    child: Icon(Icons.auto_fix_high, color: t.textPrimary, size: 20),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       context.l10n.createCustomTemplate,
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                   ),
                   IconButton(
                     onPressed: _isCreating ? null : () => Navigator.pop(context),
-                    icon: Icon(Icons.close, color: Colors.grey.shade500),
+                    icon: Icon(Icons.close, color: t.textSecondary),
                   ),
                 ],
               ),
@@ -290,20 +293,20 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                       // Name field
                       Text(
                         context.l10n.templateName,
-                        style: TextStyle(color: Colors.grey.shade300, fontSize: 14, fontWeight: FontWeight.w500),
+                        style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _nameController,
                         enabled: !_isCreating,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: t.textPrimary),
                         decoration: InputDecoration(
                           hintText: context.l10n.templateNameHint,
-                          hintStyle: TextStyle(color: Colors.grey.shade600),
+                          hintStyle: TextStyle(color: t.textTertiary),
                           filled: true,
-                          fillColor: const Color(0xFF1F1F25),
+                          fillColor: t.bgSecondary,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(t.rowRadius),
                             borderSide: BorderSide.none,
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -324,21 +327,21 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                       // Prompt field
                       Text(
                         context.l10n.conversationPrompt,
-                        style: TextStyle(color: Colors.grey.shade300, fontSize: 14, fontWeight: FontWeight.w500),
+                        style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _promptController,
                         enabled: !_isCreating,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: t.textPrimary),
                         maxLines: 4,
                         decoration: InputDecoration(
                           hintText: context.l10n.conversationPromptHint,
-                          hintStyle: TextStyle(color: Colors.grey.shade600),
+                          hintStyle: TextStyle(color: t.textTertiary),
                           filled: true,
-                          fillColor: const Color(0xFF1F1F25),
+                          fillColor: t.bgSecondary,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(t.rowRadius),
                             borderSide: BorderSide.none,
                           ),
                           contentPadding: const EdgeInsets.all(16),
@@ -360,8 +363,8 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1F1F25),
-                          borderRadius: BorderRadius.circular(12),
+                          color: t.bgSecondary,
+                          borderRadius: BorderRadius.circular(t.rowRadius),
                         ),
                         child: Row(
                           children: [
@@ -369,13 +372,13 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                               width: 40,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF2A2A2E),
+                                color: t.bgTertiary,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Center(
                                 child: FaIcon(
                                   _isPublic ? FontAwesomeIcons.globe : FontAwesomeIcons.lock,
-                                  color: Colors.grey.shade400,
+                                  color: t.textSecondary,
                                   size: 16,
                                 ),
                               ),
@@ -387,8 +390,8 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                                 children: [
                                   Text(
                                     context.l10n.makePublic,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: t.textPrimary,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -398,7 +401,7 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                                     _isPublic
                                         ? context.l10n.anyoneCanDiscoverTemplate
                                         : context.l10n.onlyYouCanUseTemplate,
-                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                                    style: TextStyle(color: t.textSecondary, fontSize: 13),
                                   ),
                                 ],
                               ),
@@ -412,7 +415,7 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                                         _isPublic = value;
                                       });
                                     },
-                              activeThumbColor: const Color(0xFF6366F1),
+                              activeThumbColor: t.accent,
                             ),
                           ],
                         ),
@@ -428,29 +431,29 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                           child: ElevatedButton(
                             onPressed: _isCreating ? null : _createTemplate,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _isCreating ? const Color(0xFF2A2A2E) : Colors.white,
-                              foregroundColor: Colors.black,
+                              backgroundColor: _isCreating ? t.bgTertiary : t.textPrimary,
+                              foregroundColor: t.bgPrimary,
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                               elevation: 0,
                             ),
                             child: _isCreating
                                 ? Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const SizedBox(
+                                      SizedBox(
                                         width: 18,
                                         height: 18,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                          valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                                         ),
                                       ),
                                       const SizedBox(width: 12),
                                       Text(
                                         _statusMessage,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: t.textPrimary,
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                         ),

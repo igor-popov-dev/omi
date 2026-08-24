@@ -6,6 +6,8 @@ import 'package:omi/pages/settings/integration_settings_page.dart';
 import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/services/integrations/clickup_service.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class ClickUpSettingsPage extends StatefulWidget {
   const ClickUpSettingsPage({super.key});
@@ -178,10 +180,12 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     if (_isLoadingTeams) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF000000),
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: t.bgPrimary,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -197,18 +201,18 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
+              color: t.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+              border: Border.all(color: t.success.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     context.l10n.connectedAsUser(_clickupService.currentUserId!),
-                    style: const TextStyle(color: Colors.green, fontSize: 12),
+                    style: TextStyle(color: t.success, fontSize: 12),
                   ),
                 ),
               ],
@@ -216,10 +220,10 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
           ),
         Text(
           context.l10n.defaultWorkspace,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
-        Text(context.l10n.tasksCreatedInWorkspace, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14)),
+        Text(context.l10n.tasksCreatedInWorkspace, style: TextStyle(color: t.textSecondary, fontSize: 14)),
         const SizedBox(height: 16),
         ..._teams.map((team) {
           final teamId = team['id'].toString();
@@ -231,16 +235,16 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1C1E),
+                color: t.bgSecondary,
                 borderRadius: BorderRadius.circular(12),
-                border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                border: isSelected ? Border.all(color: t.textPrimary, width: 2) : null,
               ),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(teamName, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                    child: Text(teamName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                   ),
-                  if (isSelected) const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                  if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                 ],
               ),
             ),
@@ -250,10 +254,10 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
         if (_selectedTeamId != null) ...[
           Text(
             context.l10n.defaultSpace,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          Text(context.l10n.selectSpaceInWorkspace, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14)),
+          Text(context.l10n.selectSpaceInWorkspace, style: TextStyle(color: t.textSecondary, fontSize: 14)),
           const SizedBox(height: 16),
           if (_isLoadingSpaces)
             const Center(
@@ -262,11 +266,11 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
           else if (_spaces.isEmpty)
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
               child: Center(
                 child: Text(
                   context.l10n.noSpacesInWorkspace,
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
+                  style: TextStyle(color: t.textSecondary, fontSize: 14),
                 ),
               ),
             )
@@ -281,16 +285,16 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C1C1E),
+                    color: t.bgSecondary,
                     borderRadius: BorderRadius.circular(12),
-                    border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                    border: isSelected ? Border.all(color: t.textPrimary, width: 2) : null,
                   ),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(spaceName, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                        child: Text(spaceName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                       ),
-                      if (isSelected) const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                      if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                     ],
                   ),
                 ),
@@ -301,10 +305,10 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
         if (_selectedSpaceId != null) ...[
           Text(
             context.l10n.defaultList,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          Text(context.l10n.tasksAddedToList, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14)),
+          Text(context.l10n.tasksAddedToList, style: TextStyle(color: t.textSecondary, fontSize: 14)),
           const SizedBox(height: 16),
           if (_isLoadingLists)
             const Center(
@@ -313,11 +317,11 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
           else if (_lists.isEmpty)
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
               child: Center(
                 child: Text(
                   context.l10n.noListsInSpace,
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
+                  style: TextStyle(color: t.textSecondary, fontSize: 14),
                 ),
               ),
             )
@@ -332,16 +336,16 @@ class _ClickUpSettingsPageState extends State<ClickUpSettingsPage> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C1C1E),
+                    color: t.bgSecondary,
                     borderRadius: BorderRadius.circular(12),
-                    border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                    border: isSelected ? Border.all(color: t.textPrimary, width: 2) : null,
                   ),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(listName, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                        child: Text(listName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                       ),
-                      if (isSelected) const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                      if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                     ],
                   ),
                 ),

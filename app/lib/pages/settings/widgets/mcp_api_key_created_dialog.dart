@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:omi/backend/schema/mcp_api_key.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class McpApiKeyCreatedDialog extends StatelessWidget {
   final McpApiKeyCreated apiKey;
@@ -12,6 +13,8 @@ class McpApiKeyCreatedDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return AlertDialog(
       title: Text(context.l10n.keyCreated),
       content: SingleChildScrollView(
@@ -40,7 +43,7 @@ class McpApiKeyCreatedDialog extends StatelessWidget {
         ElevatedButton(
           child: Text(context.l10n.copy),
           style: ElevatedButton.styleFrom(
-            foregroundColor: Colors.white,
+            foregroundColor: t.textPrimary,
             backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
           onPressed: () {

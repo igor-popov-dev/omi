@@ -6,6 +6,8 @@ import 'package:omi/pages/settings/integration_settings_page.dart';
 import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/services/integrations/asana_service.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AsanaSettingsPage extends StatefulWidget {
   const AsanaSettingsPage({super.key});
@@ -146,10 +148,12 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     if (_isLoadingWorkspaces) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF000000),
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: t.bgPrimary,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -165,18 +169,18 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
+              color: t.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+              border: Border.all(color: t.success.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     context.l10n.connectedAsUser(_asanaService.currentUserGid!),
-                    style: const TextStyle(color: Colors.green, fontSize: 12),
+                    style: TextStyle(color: t.success, fontSize: 12),
                   ),
                 ),
               ],
@@ -184,10 +188,10 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
           ),
         Text(
           context.l10n.defaultWorkspace,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
-        Text(context.l10n.tasksCreatedInWorkspace, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14)),
+        Text(context.l10n.tasksCreatedInWorkspace, style: TextStyle(color: t.textSecondary, fontSize: 14)),
         const SizedBox(height: 16),
         ..._workspaces.map((workspace) {
           final workspaceGid = workspace['gid'] as String;
@@ -199,16 +203,16 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1C1E),
+                color: t.bgSecondary,
                 borderRadius: BorderRadius.circular(12),
-                border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                border: isSelected ? Border.all(color: t.textPrimary, width: 2) : null,
               ),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(workspaceName, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                    child: Text(workspaceName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                   ),
-                  if (isSelected) const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                  if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                 ],
               ),
             ),
@@ -221,17 +225,17 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
             children: [
               Text(
                 context.l10n.defaultProjectOptional,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
               ),
               if (_selectedProjectGid != null)
                 TextButton(
                   onPressed: _clearProject,
-                  child: Text(context.l10n.clear, style: const TextStyle(color: Colors.red)),
+                  child: Text(context.l10n.clear, style: TextStyle(color: t.error)),
                 ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(context.l10n.leaveUnselectedTasks, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14)),
+          Text(context.l10n.leaveUnselectedTasks, style: TextStyle(color: t.textSecondary, fontSize: 14)),
           const SizedBox(height: 16),
           if (_isLoadingProjects)
             const Center(
@@ -240,11 +244,11 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
           else if (_projects.isEmpty)
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
               child: Center(
                 child: Text(
                   context.l10n.noProjectsInWorkspace,
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
+                  style: TextStyle(color: t.textSecondary, fontSize: 14),
                 ),
               ),
             )
@@ -259,16 +263,16 @@ class _AsanaSettingsPageState extends State<AsanaSettingsPage> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C1C1E),
+                    color: t.bgSecondary,
                     borderRadius: BorderRadius.circular(12),
-                    border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                    border: isSelected ? Border.all(color: t.textPrimary, width: 2) : null,
                   ),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(projectName, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                        child: Text(projectName, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                       ),
-                      if (isSelected) const Icon(Icons.check_circle, color: Colors.white, size: 24),
+                      if (isSelected) OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 24),
                     ],
                   ),
                 ),

@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:omi/backend/schema/message.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ChartMessageWidget extends StatelessWidget {
   final ChartData chartData;
@@ -16,6 +17,7 @@ class ChartMessageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     if (chartData.datasets.isEmpty || chartData.datasets.first.dataPoints.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -24,19 +26,20 @@ class ChartMessageWidget extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.fromLTRB(12, 16, 16, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A20),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.cardRadius),
+        border: Border.all(color: t.rowFill),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             chartData.title,
-            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 20),
-          SizedBox(height: 200, child: chartData.chartType == 'bar' ? _buildBarChart() : _buildLineChart()),
+          SizedBox(
+              height: 200, child: chartData.chartType == 'bar' ? _buildBarChart(context) : _buildLineChart(context)),
         ],
       ),
     );
@@ -52,7 +55,8 @@ class ChartMessageWidget extends StatelessWidget {
     return (points.length / 4).ceil().clamp(2, points.length);
   }
 
-  Widget _bottomLabel(String text, int idx, int total, int interval) {
+  Widget _bottomLabel(BuildContext context, String text, int idx, int total, int interval) {
+    final t = context.omi;
     // Always show first and last; otherwise respect interval
     bool show = idx == 0 || idx == total - 1 || idx % interval == 0;
     if (!show) return const SizedBox.shrink();
@@ -62,7 +66,7 @@ class ChartMessageWidget extends StatelessWidget {
         padding: const EdgeInsets.only(top: 8),
         child: Text(
           text,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+          style: TextStyle(color: t.textSecondary, fontSize: 10),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
@@ -71,7 +75,8 @@ class ChartMessageWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildLineChart() {
+  Widget _buildLineChart(BuildContext context) {
+    final t = context.omi;
     final dataset = chartData.datasets.first;
     final color = _parseColor(dataset.color);
     final points = dataset.dataPoints;
@@ -91,7 +96,7 @@ class ChartMessageWidget extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: _niceInterval(minY, maxY),
-          getDrawingHorizontalLine: (value) => FlLine(color: Colors.white.withValues(alpha: 0.06), strokeWidth: 1),
+          getDrawingHorizontalLine: (value) => FlLine(color: t.rowFill, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -104,7 +109,7 @@ class ChartMessageWidget extends StatelessWidget {
               getTitlesWidget: (value, meta) {
                 int idx = value.toInt();
                 if (idx < 0 || idx >= points.length) return const SizedBox.shrink();
-                return _bottomLabel(points[idx].label, idx, points.length, _labelInterval(points));
+                return _bottomLabel(context, points[idx].label, idx, points.length, _labelInterval(points));
               },
             ),
           ),
@@ -115,7 +120,7 @@ class ChartMessageWidget extends StatelessWidget {
               interval: _niceInterval(minY, maxY),
               getTitlesWidget: (value, meta) {
                 if (value == meta.max || value == meta.min) return const SizedBox.shrink();
-                return Text(_formatValue(value), style: TextStyle(color: Colors.grey.shade500, fontSize: 11));
+                return Text(_formatValue(value), style: TextStyle(color: t.textSecondary, fontSize: 11));
               },
             ),
           ),
@@ -123,7 +128,7 @@ class ChartMessageWidget extends StatelessWidget {
         borderData: FlBorderData(show: false),
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => const Color(0xFF2C2C34),
+            getTooltipColor: (_) => t.bgTertiary,
             tooltipRoundedRadius: 8,
             getTooltipItems: (spots) {
               return spots.map((spot) {
@@ -131,7 +136,7 @@ class ChartMessageWidget extends StatelessWidget {
                 String label = idx >= 0 && idx < points.length ? points[idx].label : '';
                 return LineTooltipItem(
                   '$label\n${_formatValue(spot.y)}',
-                  const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                  TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
                 );
               }).toList();
             },
@@ -164,7 +169,8 @@ class ChartMessageWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBarChart() {
+  Widget _buildBarChart(BuildContext context) {
+    final t = context.omi;
     final dataset = chartData.datasets.first;
     final color = _parseColor(dataset.color);
     final points = dataset.dataPoints;
@@ -181,7 +187,7 @@ class ChartMessageWidget extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: _niceInterval(0, maxY),
-          getDrawingHorizontalLine: (value) => FlLine(color: Colors.white.withValues(alpha: 0.06), strokeWidth: 1),
+          getDrawingHorizontalLine: (value) => FlLine(color: t.rowFill, strokeWidth: 1),
         ),
         titlesData: FlTitlesData(
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -193,7 +199,7 @@ class ChartMessageWidget extends StatelessWidget {
               getTitlesWidget: (value, meta) {
                 int idx = value.toInt();
                 if (idx < 0 || idx >= points.length) return const SizedBox.shrink();
-                return _bottomLabel(points[idx].label, idx, points.length, _labelInterval(points));
+                return _bottomLabel(context, points[idx].label, idx, points.length, _labelInterval(points));
               },
             ),
           ),
@@ -204,7 +210,7 @@ class ChartMessageWidget extends StatelessWidget {
               interval: _niceInterval(0, maxY),
               getTitlesWidget: (value, meta) {
                 if (value == meta.max || value == meta.min) return const SizedBox.shrink();
-                return Text(_formatValue(value), style: TextStyle(color: Colors.grey.shade500, fontSize: 11));
+                return Text(_formatValue(value), style: TextStyle(color: t.textSecondary, fontSize: 11));
               },
             ),
           ),
@@ -212,14 +218,14 @@ class ChartMessageWidget extends StatelessWidget {
         borderData: FlBorderData(show: false),
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (_) => const Color(0xFF2C2C34),
+            getTooltipColor: (_) => t.bgTertiary,
             tooltipRoundedRadius: 8,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               int idx = group.x;
               String label = idx >= 0 && idx < points.length ? points[idx].label : '';
               return BarTooltipItem(
                 '$label\n${_formatValue(rod.toY)}',
-                const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
               );
             },
           ),

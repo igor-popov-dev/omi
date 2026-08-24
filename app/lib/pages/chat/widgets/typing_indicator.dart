@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class TypingIndicator extends StatefulWidget {
   const TypingIndicator({super.key});
@@ -40,10 +41,17 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
       begin: 0.85,
       end: 1.0,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Theme tokens are an inherited dependency, so the color tween is built here
+    // rather than in initState — and rebuilt if the theme is switched at runtime.
+    final t = context.omi;
     _colorAnimation = ColorTween(
-      begin: Colors.grey[400],
-      end: Colors.grey[600],
+      begin: t.textSecondary,
+      end: t.textTertiary,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 

@@ -7,6 +7,7 @@ import 'package:omi/gen/pigeon_communicator.g.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AppleWatchSetupBottomSheet extends StatefulWidget {
   final String deviceId;
@@ -52,12 +53,13 @@ class _AppleWatchSetupBottomSheetState extends State<AppleWatchSetupBottomSheet>
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final responsive = ResponsiveHelper(context);
 
     return Container(
-      decoration: const BoxDecoration(
-        color: ResponsiveHelper.backgroundSecondary,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -67,7 +69,7 @@ class _AppleWatchSetupBottomSheetState extends State<AppleWatchSetupBottomSheet>
             margin: const EdgeInsets.only(top: 12),
             width: 40,
             height: 4,
-            decoration: BoxDecoration(color: ResponsiveHelper.textTertiary, borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
           ),
 
           // Main content
@@ -94,8 +96,8 @@ class _AppleWatchSetupBottomSheetState extends State<AppleWatchSetupBottomSheet>
                 if (_isLoading) ...[
                   Text(context.l10n.checkingAppleWatch, style: responsive.titleLarge, textAlign: TextAlign.center),
                   const SizedBox(height: 16),
-                  const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(ResponsiveHelper.purplePrimary),
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(t.accent),
                     strokeWidth: 2,
                   ),
                 ] else if (_isAppInstalled == false) ...[
@@ -136,19 +138,19 @@ class _AppleWatchSetupBottomSheetState extends State<AppleWatchSetupBottomSheet>
                       child: ElevatedButton(
                         onPressed: _isChecking ? null : _handlePrimaryAction,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: ResponsiveHelper.purplePrimary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          backgroundColor: t.accent,
+                          foregroundColor: t.textPrimary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           elevation: 0,
                         ),
                         child: _isChecking
-                            ? const SizedBox(
+                            ? SizedBox(
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                                 ),
                               )
                             : Text(

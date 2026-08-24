@@ -8,6 +8,8 @@ import 'package:omi/backend/schema/app.dart';
 import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class ApiKeysWidget extends StatefulWidget {
   final String appId;
@@ -75,11 +77,13 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
   }
 
   void _showNewKeyDialog() {
+    final t = context.omi;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1F1F25),
+        backgroundColor: t.bgSecondary,
         title: Text(context.l10n.createAKey, textAlign: TextAlign.center),
         content: _buildNewKeyContent(),
         contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
@@ -96,7 +100,7 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
                 backgroundColor: Theme.of(dialogContext).colorScheme.secondary,
                 minimumSize: const Size(120, 40),
               ),
-              child: Text(context.l10n.done, style: const TextStyle(color: Colors.white)),
+              child: Text(context.l10n.done, style: TextStyle(color: t.textPrimary)),
             ),
           ),
         ],
@@ -133,10 +137,12 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     final provider = Provider.of<AddAppProvider>(context);
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(12.0)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12.0)),
       padding: const EdgeInsets.all(14.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,14 +157,14 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
                     Text(context.l10n.apiKeys, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: Icon(Icons.info_outline, size: 20, color: Colors.grey.shade400),
+                      icon: OmiIconWidget(icon: OmiIcon.info, size: 20, color: t.textSecondary),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () {
                         showDialog(
                           context: context,
                           builder: (dialogContext) => AlertDialog(
-                            backgroundColor: const Color(0xFF1F1F25),
+                            backgroundColor: t.bgSecondary,
                             title: Text(context.l10n.omiApiKeys),
                             content: Text(context.l10n.apiKeysDescription),
                             actions: [
@@ -166,7 +172,7 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
                                 onPressed: () => Navigator.of(dialogContext).pop(),
                                 style: TextButton.styleFrom(
                                   backgroundColor: Theme.of(dialogContext).colorScheme.secondary,
-                                  foregroundColor: Colors.white,
+                                  foregroundColor: t.textPrimary,
                                 ),
                                 child: Text(context.l10n.gotIt),
                               ),
@@ -181,29 +187,29 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
                 ElevatedButton.icon(
                   onPressed: _isCreatingKey ? null : _createApiKey,
                   icon: _isCreatingKey
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(color: t.textPrimary, strokeWidth: 2),
                         )
-                      : const Icon(Icons.add, size: 16),
+                      : const OmiIconWidget(icon: OmiIcon.plus, size: 16),
                   label: Text(_isCreatingKey ? context.l10n.creating : context.l10n.createKey),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.secondary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: t.textPrimary,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     disabledBackgroundColor: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.7),
-                    disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
+                    disabledForegroundColor: t.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
           if (_isLoading)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(color: Colors.white),
+                padding: const EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(color: t.textPrimary),
               ),
             ),
           if (provider.apiKeys.isEmpty)
@@ -225,6 +231,8 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
   }
 
   Widget _buildNewKeyContent() {
+    final t = context.omi;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,7 +241,7 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(4)),
           child: Row(
             children: [
               Expanded(
@@ -246,7 +254,7 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.copy, size: 18),
+                icon: const OmiIconWidget(icon: OmiIcon.copy, size: 18),
                 onPressed: () => _copyToClipboard(_newKey!.secret!),
                 tooltip: context.l10n.copyToClipboard,
                 padding: EdgeInsets.zero,
@@ -264,11 +272,11 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
                   children: [
                     TextSpan(
                       text: context.l10n.pleaseCopyKeyNow,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: t.textPrimary),
                     ),
                     TextSpan(
                       text: context.l10n.willNotSeeAgain,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -288,9 +296,11 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
       itemCount: provider.apiKeys.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
+        final t = context.omi;
+
         final key = provider.apiKeys[index];
         return Container(
-          decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(10.0)),
+          decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10.0)),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
             title: Text(key.label, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -302,15 +312,15 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
               width: 42,
               height: 42,
               child: _deletingKeyId == key.id
-                  ? const Center(
+                  ? Center(
                       child: SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.red, strokeWidth: 2),
+                        child: CircularProgressIndicator(color: t.error, strokeWidth: 2),
                       ),
                     )
                   : IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      icon: Icon(Icons.delete_outline, color: t.error),
                       onPressed: () => _showDeleteConfirmation(key.id),
                       tooltip: context.l10n.revokeKey,
                     ),
@@ -322,10 +332,12 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
   }
 
   void _showDeleteConfirmation(String keyId) {
+    final t = context.omi;
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1F1F25),
+        backgroundColor: t.bgSecondary,
         title: Text(context.l10n.revokeApiKeyQuestion),
         content: Text(context.l10n.revokeApiKeyWarning),
         actions: [
@@ -338,7 +350,7 @@ class _ApiKeysWidgetState extends State<ApiKeysWidget> {
               Navigator.of(dialogContext).pop();
               _deleteApiKey(keyId);
             },
-            child: Text(context.l10n.revoke, style: const TextStyle(color: Colors.red)),
+            child: Text(context.l10n.revoke, style: TextStyle(color: t.error)),
           ),
         ],
       ),

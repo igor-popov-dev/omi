@@ -11,6 +11,7 @@ import 'package:omi/providers/connectivity_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/widgets/animated_loading_button.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AddReviewWidget extends StatefulWidget {
   final App app;
@@ -81,6 +82,8 @@ class _AddReviewWidgetState extends State<AddReviewWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16.0),
@@ -90,7 +93,7 @@ class _AddReviewWidgetState extends State<AddReviewWidget> {
         top: 12,
         bottom: 6,
       ),
-      decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(16.0)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16.0)),
       child: Column(
         children: [
           Row(
@@ -100,7 +103,7 @@ class _AddReviewWidgetState extends State<AddReviewWidget> {
                 padding: const EdgeInsets.only(left: 6.0),
                 child: Text(
                   widget.app.userReview?.score == null ? context.l10n.rateAndReviewThisApp : context.l10n.yourReview,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  style: TextStyle(color: t.textPrimary, fontSize: 16),
                 ),
               ),
             ],
@@ -129,7 +132,7 @@ class _AddReviewWidgetState extends State<AddReviewWidget> {
                   return dynamicPadding.clamp(8.0, 24.0); // Clamp between reasonable values
                 }(),
               ),
-              itemBuilder: (context, _) => const Icon(Icons.star, color: Colors.white),
+              itemBuilder: (context, _) => Icon(Icons.star, color: t.textPrimary),
               maxRating: 5.0,
               onRatingUpdate: (rating) {
                 if (isLoading) return;
@@ -175,32 +178,32 @@ class _AddReviewWidgetState extends State<AddReviewWidget> {
                               },
                               decoration: InputDecoration(
                                 hintText: context.l10n.writeReviewOptional,
-                                hintStyle: const TextStyle(color: Colors.grey),
-                                border: const OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                                  borderSide: BorderSide(color: Colors.grey),
+                                hintStyle: TextStyle(color: t.textSecondary),
+                                border: OutlineInputBorder(
+                                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+                                  borderSide: BorderSide(color: t.textSecondary),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: const BorderRadius.all(Radius.circular(8)),
-                                  borderSide: BorderSide(color: Colors.grey[700]!),
+                                  borderSide: BorderSide(color: t.textTertiary),
                                 ),
-                                focusedBorder: const OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                                  borderSide: BorderSide(color: Colors.grey),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+                                  borderSide: BorderSide(color: t.textSecondary),
                                 ),
                               ),
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: t.textPrimary),
                               maxLines: 3,
                             ),
                           ),
                           const SizedBox(height: 20),
                           showButton
                               ? AnimatedLoadingButton(
-                                  loaderColor: Colors.black,
+                                  loaderColor: t.bgPrimary,
                                   text: widget.app.userReview != null
                                       ? context.l10n.updateReview
                                       : context.l10n.submitReview,
-                                  textStyle: const TextStyle(color: Colors.black, fontSize: 16),
+                                  textStyle: TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16),
                                   onPressed: () async {
                                     FocusScope.of(context).unfocus();
                                     if (rating == widget.app.userReview?.score &&
@@ -273,7 +276,7 @@ class _AddReviewWidgetState extends State<AddReviewWidget> {
                                       ).showSnackBar(SnackBar(content: Text(context.l10n.cantRateWithoutInternet)));
                                     }
                                   },
-                                  color: Colors.white,
+                                  color: t.textPrimary,
                                 )
                               : const SizedBox(),
                         ],

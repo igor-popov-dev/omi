@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/widgets/photo_viewer_page.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PhotosGridComponent extends StatelessWidget {
   final List<ConversationPhoto> photos;
@@ -11,6 +12,7 @@ class PhotosGridComponent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return GridView.builder(
       padding: EdgeInsets.zero,
       scrollDirection: Axis.vertical,
@@ -39,24 +41,24 @@ class PhotosGridComponent extends StatelessWidget {
                     base64Decode(photo.base64),
                     fit: BoxFit.cover,
                     gaplessPlayback: true,
-                    color: photo.discarded ? const Color(0xFF35343B) : null,
+                    color: photo.discarded ? t.bgTertiary : null,
                     colorBlendMode: photo.discarded ? BlendMode.saturation : null,
                   ),
                   if (photo.discarded)
                     Container(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      child: const Icon(Icons.visibility_off_outlined, color: Colors.white70, size: 28),
+                      color: t.bgPrimary.withValues(alpha: 0.5),
+                      child: Icon(Icons.visibility_off_outlined, color: t.textPrimary.withValues(alpha: 0.7), size: 28),
                     ),
                   if (isProcessing)
                     Container(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      child: const Center(
+                      color: t.bgPrimary.withValues(alpha: 0.5),
+                      child: Center(
                         child: SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.0,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                           ),
                         ),
                       ),

@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:omi/backend/schema/device_guide.dart';
 import 'package:omi/gen/assets.gen.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/utils/responsive/responsive_helper.dart';
 import 'package:omi/widgets/device_pairing_sheet.dart';
 import 'package:omi/widgets/rayban_meta_input_picker_sheet.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ConnectionGuideSheet extends StatelessWidget {
   const ConnectionGuideSheet({super.key});
@@ -124,12 +124,13 @@ class ConnectionGuideSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final devices = _buildDevices(context);
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-      decoration: const BoxDecoration(
-        color: ResponsiveHelper.backgroundSecondary,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -139,13 +140,13 @@ class ConnectionGuideSheet extends StatelessWidget {
             margin: const EdgeInsets.only(top: 12),
             width: 40,
             height: 4,
-            decoration: BoxDecoration(color: ResponsiveHelper.textTertiary, borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 20),
           // Title
           Text(
             context.l10n.connectionGuide,
-            style: const TextStyle(color: ResponsiveHelper.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 24),
           // Device grid
@@ -185,22 +186,23 @@ class ConnectionGuideSheet extends StatelessWidget {
   }
 
   Widget _buildDeviceCard(BuildContext context, DeviceGuideProduct product) {
+    final t = context.omi;
     return GestureDetector(
       onTap: () => _onDeviceTapped(context, product),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-        decoration: BoxDecoration(color: ResponsiveHelper.backgroundTertiary, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (product.localImagePath != null)
               Image.asset(product.localImagePath!, width: 80, height: 80, fit: BoxFit.contain)
             else
-              const SizedBox(width: 80, height: 80, child: Icon(Icons.devices, color: ResponsiveHelper.textTertiary)),
+              SizedBox(width: 80, height: 80, child: Icon(Icons.devices, color: t.textTertiary)),
             const SizedBox(height: 12),
             Text(
               product.name,
-              style: const TextStyle(color: ResponsiveHelper.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
+              style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,

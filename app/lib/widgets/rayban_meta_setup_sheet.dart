@@ -7,6 +7,7 @@ import 'package:omi/gen/pigeon_communicator.g.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Guided setup for Ray-Ban Meta glasses.
 ///
@@ -115,12 +116,13 @@ class _RayBanMetaSetupSheetState extends State<RayBanMetaSetupSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final responsive = ResponsiveHelper(context);
 
     return Container(
-      decoration: const BoxDecoration(
-        color: ResponsiveHelper.backgroundSecondary,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
       ),
       child: SafeArea(
         child: Column(
@@ -130,7 +132,7 @@ class _RayBanMetaSetupSheetState extends State<RayBanMetaSetupSheet> {
               margin: const EdgeInsets.only(top: 12),
               width: 40,
               height: 4,
-              decoration: BoxDecoration(color: ResponsiveHelper.textTertiary, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
             ),
             Padding(
               padding: const EdgeInsets.all(32.0),
@@ -142,7 +144,7 @@ class _RayBanMetaSetupSheetState extends State<RayBanMetaSetupSheet> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: responsive.mediumShadow,
-                      color: Colors.white,
+                      color: t.textPrimary,
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
@@ -164,13 +166,14 @@ class _RayBanMetaSetupSheetState extends State<RayBanMetaSetupSheet> {
   }
 
   List<Widget> _buildStepContent(BuildContext context, ResponsiveHelper responsive) {
+    final t = context.omi;
     switch (_step) {
       case _SetupStep.loading:
       case _SetupStep.ready:
         return [
           Text(context.l10n.connectRayBanMeta, style: responsive.titleLarge, textAlign: TextAlign.center),
           const SizedBox(height: 24),
-          const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white), strokeWidth: 2),
+          CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary), strokeWidth: 2),
         ];
 
       case _SetupStep.audioOnly:
@@ -185,7 +188,7 @@ class _RayBanMetaSetupSheetState extends State<RayBanMetaSetupSheet> {
           const SizedBox(height: 12),
           Text(
             context.l10n.raybanMetaMusicPauseNote,
-            style: responsive.bodyMedium.copyWith(color: ResponsiveHelper.textTertiary),
+            style: responsive.bodyMedium.copyWith(color: t.textTertiary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
@@ -219,7 +222,7 @@ class _RayBanMetaSetupSheetState extends State<RayBanMetaSetupSheet> {
           const SizedBox(height: 16),
           Text(context.l10n.raybanMetaWaitingForMetaAI, style: responsive.bodyLarge, textAlign: TextAlign.center),
           const SizedBox(height: 24),
-          const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white), strokeWidth: 2),
+          CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary), strokeWidth: 2),
           const SizedBox(height: 24),
           _secondaryButton(context.l10n.raybanMetaCheckAgain, _refreshStep),
         ];
@@ -242,15 +245,16 @@ class _RayBanMetaSetupSheetState extends State<RayBanMetaSetupSheet> {
   }
 
   Widget _primaryButton(String label, VoidCallback onPressed) {
+    final t = context.omi;
     return SizedBox(
       width: double.infinity,
       height: 52,
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: t.textPrimary,
+          foregroundColor: t.bgPrimary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.cardRadius)),
         ),
         child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       ),
@@ -258,12 +262,13 @@ class _RayBanMetaSetupSheetState extends State<RayBanMetaSetupSheet> {
   }
 
   Widget _secondaryButton(String label, VoidCallback onPressed) {
+    final t = context.omi;
     return SizedBox(
       width: double.infinity,
       height: 52,
       child: TextButton(
         onPressed: onPressed,
-        child: Text(label, style: const TextStyle(fontSize: 16, color: ResponsiveHelper.textTertiary)),
+        child: Text(label, style: TextStyle(fontSize: 16, color: t.textTertiary)),
       ),
     );
   }

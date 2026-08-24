@@ -10,6 +10,7 @@ import 'package:omi/backend/http/api/goals.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/pages/chat/page.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Goal tracker widget with semicircle gauge
 class GoalTrackerWidget extends StatefulWidget {
@@ -425,11 +426,12 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
   }
 
   Color _getColor(double p) {
-    if (p >= 0.8) return const Color(0xFF22C55E);
-    if (p >= 0.6) return const Color(0xFF84CC16);
-    if (p >= 0.4) return const Color(0xFFFBBF24);
-    if (p >= 0.2) return const Color(0xFFF97316);
-    return const Color(0xFFEF4444);
+    final t = context.omi;
+    if (p >= 0.8) return t.success;
+    if (p >= 0.6) return t.success;
+    if (p >= 0.4) return t.warning;
+    if (p >= 0.2) return t.warning;
+    return t.error;
   }
 
   @override
@@ -440,20 +442,23 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
   }
 
   Widget _buildLoading() {
+    final t = context.omi;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(vertical: 40),
-      child: const Center(
+      child: Center(
         child: SizedBox(
           width: 20,
           height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white24)),
+          child: CircularProgressIndicator(
+              strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary.withValues(alpha: 0.24))),
         ),
       ),
     );
   }
 
   Widget _buildEmpty() {
+    final t = context.omi;
     final hasSuggestion = _suggestion != null;
 
     return GestureDetector(
@@ -461,7 +466,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgPrimary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Column(
           children: [
             Text(
@@ -470,30 +475,30 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 1.5,
-                color: Colors.white.withValues(alpha: 0.3),
+                color: t.textPrimary.withValues(alpha: 0.3),
               ),
             ),
             const SizedBox(height: 12),
             if (hasSuggestion) ...[
               Text(
                 _suggestion!.suggestedTitle,
-                style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.7)),
+                style: TextStyle(fontSize: 14, color: t.textPrimary.withValues(alpha: 0.7)),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 context.l10n.tapToTrackThisGoal,
-                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.35)),
+                style: TextStyle(fontSize: 12, color: t.textPrimary.withValues(alpha: 0.35)),
               ),
             ] else ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add_rounded, size: 18, color: Colors.white.withValues(alpha: 0.4)),
+                  Icon(Icons.add_rounded, size: 18, color: t.textPrimary.withValues(alpha: 0.4)),
                   const SizedBox(width: 8),
                   Text(
                     context.l10n.tapToSetAGoal,
-                    style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.5)),
+                    style: TextStyle(fontSize: 14, color: t.textPrimary.withValues(alpha: 0.5)),
                   ),
                 ],
               ),
@@ -505,6 +510,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
   }
 
   Widget _buildContent() {
+    final t = context.omi;
     final progress = _goal!.progressPercentage;
     final color = _getColor(progress);
 
@@ -515,7 +521,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
           // Main card with gauge
           Container(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
-            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: t.bgPrimary, borderRadius: BorderRadius.circular(t.cardRadius)),
             child: Column(
               children: [
                 // "Goal" label
@@ -525,7 +531,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 1.5,
-                    color: Colors.white.withValues(alpha: 0.3),
+                    color: t.textPrimary.withValues(alpha: 0.3),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -547,14 +553,14 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,
-                                  color: Colors.white.withValues(alpha: 0.7),
+                                  color: t.textPrimary.withValues(alpha: 0.7),
                                 ),
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Icon(Icons.edit, size: 12, color: Colors.white.withValues(alpha: 0.25)),
+                            Icon(Icons.edit, size: 12, color: t.textPrimary.withValues(alpha: 0.25)),
                           ],
                         ),
                 ),
@@ -576,7 +582,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
                             children: [
                               CustomPaint(
                                 size: const Size(260, 160),
-                                painter: _GaugePainter(progress: progress, color: color),
+                                painter: _GaugePainter(progress: progress, color: color, t: t),
                               ),
                               // Main number with edit hint
                               Positioned(
@@ -587,16 +593,16 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
                                   children: [
                                     Text(
                                       _formatNum(_goal!.currentValue),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 48,
                                         fontWeight: FontWeight.w300,
-                                        color: Colors.white,
+                                        color: t.textPrimary,
                                         height: 1,
                                       ),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.only(left: 4, top: 4),
-                                      child: Icon(Icons.edit, size: 12, color: Colors.white.withValues(alpha: 0.25)),
+                                      child: Icon(Icons.edit, size: 12, color: t.textPrimary.withValues(alpha: 0.25)),
                                     ),
                                   ],
                                 ),
@@ -618,19 +624,19 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(color: t.bgPrimary, borderRadius: BorderRadius.circular(t.cardRadius)),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         _advice!,
-                        style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.6), height: 1.4),
+                        style: TextStyle(fontSize: 14, color: t.textPrimary.withValues(alpha: 0.6), height: 1.4),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(Icons.chevron_right, size: 20, color: Colors.white.withValues(alpha: 0.3)),
+                    Icon(Icons.chevron_right, size: 20, color: t.textPrimary.withValues(alpha: 0.3)),
                   ],
                 ),
               ),
@@ -642,6 +648,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
   }
 
   Widget _buildTitleEdit() {
+    final t = context.omi;
     return Row(
       children: [
         Expanded(
@@ -649,12 +656,12 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
             controller: _goalTitleController,
             autofocus: true,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.9)),
+            style: TextStyle(fontSize: 14, color: t.textPrimary.withValues(alpha: 0.9)),
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.1),
+              fillColor: t.rowFillHover,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             ),
             onSubmitted: (_) => _saveTitle(),
@@ -669,8 +676,8 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
           behavior: HitTestBehavior.opaque,
           child: Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: const Color(0xFF22C55E), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.check, size: 18, color: Colors.white),
+            decoration: BoxDecoration(color: t.success, borderRadius: BorderRadius.circular(8)),
+            child: Icon(Icons.check, size: 18, color: t.textPrimary),
           ),
         ),
       ],
@@ -678,6 +685,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
   }
 
   Widget _buildValueEdit(Color color) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Column(
@@ -693,11 +701,12 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w200,
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: t.textPrimary.withValues(alpha: 0.2),
                   ),
                 ),
               ),
-              _numField(_targetValueController, context.l10n.target.toUpperCase(), Colors.white60),
+              _numField(
+                  _targetValueController, context.l10n.target.toUpperCase(), t.textPrimary.withValues(alpha: 0.6)),
             ],
           ),
           const SizedBox(height: 20),
@@ -712,10 +721,10 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 10),
-                  decoration: BoxDecoration(color: const Color(0xFF22C55E), borderRadius: BorderRadius.circular(20)),
+                  decoration: BoxDecoration(color: t.success, borderRadius: BorderRadius.circular(20)),
                   child: Text(
                     context.l10n.save,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.textPrimary),
                   ),
                 ),
               ),
@@ -731,7 +740,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: t.rowFillHover,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -739,7 +748,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.6),
+                      color: t.textPrimary.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -752,6 +761,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
   }
 
   Widget _numField(TextEditingController c, String label, Color color) {
+    final t = context.omi;
     return Column(
       children: [
         Text(
@@ -760,7 +770,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
             fontSize: 10,
             fontWeight: FontWeight.w600,
             letterSpacing: 1,
-            color: Colors.white.withValues(alpha: 0.35),
+            color: t.textPrimary.withValues(alpha: 0.35),
           ),
         ),
         const SizedBox(height: 6),
@@ -775,7 +785,7 @@ class _GoalTrackerWidgetState extends State<GoalTrackerWidget> with WidgetsBindi
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 8),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.05),
+              fillColor: t.rowFill,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
             ),
           ),
@@ -789,7 +799,10 @@ class _GaugePainter extends CustomPainter {
   final double progress;
   final Color color;
 
-  _GaugePainter({required this.progress, required this.color});
+  /// A painter has no BuildContext, so the resolved tokens are passed in.
+  final OmiTokens t;
+
+  _GaugePainter({required this.progress, required this.color, required this.t});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -814,7 +827,7 @@ class _GaugePainter extends CustomPainter {
       final p2 = Offset(center.dx + outerRadius * math.cos(angle), center.dy + outerRadius * math.sin(angle));
 
       final paint = Paint()
-        ..color = isFilled ? color : Colors.white.withValues(alpha: 0.15)
+        ..color = isFilled ? color : t.rowFillHover
         ..strokeWidth = 3
         ..strokeCap = StrokeCap.round;
 

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gradient_borders/box_borders/gradient_box_border.dart';
 import 'package:provider/provider.dart';
 import 'package:tuple/tuple.dart';
@@ -29,16 +28,22 @@ import 'package:omi/pages/conversation_detail/widgets/summarized_apps_sheet.dart
 import 'package:omi/pages/conversations/widgets/move_to_folder_sheet.dart';
 import 'package:omi/pages/settings/developer.dart';
 import 'package:omi/providers/folder_provider.dart';
-import 'package:omi/utils/folders/folder_icon_mapper.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/other/time_utils.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/widgets/extensions/string.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'maps_util.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 // Highlight search matches with current result highlighting
-List<TextSpan> highlightSearchMatches(String text, String searchQuery, {int currentResultIndex = -1}) {
+List<TextSpan> highlightSearchMatches(
+  String text,
+  String searchQuery, {
+  required OmiTokens t,
+  int currentResultIndex = -1,
+}) {
   if (searchQuery.isEmpty) {
     return [TextSpan(text: text)];
   }
@@ -62,9 +67,8 @@ List<TextSpan> highlightSearchMatches(String text, String searchQuery, {int curr
       TextSpan(
         text: text.substring(index, index + searchQuery.length),
         style: TextStyle(
-          backgroundColor:
-              isCurrentResult ? Colors.orange.withValues(alpha: 0.9) : Colors.deepPurple.withValues(alpha: 0.6),
-          color: Colors.white,
+          backgroundColor: isCurrentResult ? t.warning.withValues(alpha: 0.9) : t.accent.withValues(alpha: 0.6),
+          color: t.textPrimary,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -192,6 +196,7 @@ class GetSummaryWidgets extends StatelessWidget {
           children: [
             // Combined date & time chip - uses Google Calendar logo when event is linked
             _buildChip(
+              context: context,
               label: '$date, $time',
               icon: hasCalendarEvent ? null : Icons.calendar_today,
               leadingWidget: hasCalendarEvent
@@ -209,10 +214,11 @@ class GetSummaryWidgets extends StatelessWidget {
             ),
             // Duration chip
             if (conversation.transcriptSegments.isNotEmpty && _getDuration(context, conversation).isNotEmpty)
-              _buildChip(label: _getDuration(context, conversation), icon: Icons.timelapse),
+              _buildChip(context: context, label: _getDuration(context, conversation), icon: Icons.timelapse),
             // Attendees chip (only when calendar event is linked and has attendees)
             if (hasCalendarEvent && conversation.calendarEvent!.attendees.isNotEmpty)
               _buildChip(
+                context: context,
                 label: _formatAttendeesLabel(conversation.calendarEvent!.attendees),
                 icon: Icons.people,
                 onTap: () => _showCalendarEventDetails(context, conversation.calendarEvent!),
@@ -246,6 +252,7 @@ class GetSummaryWidgets extends StatelessWidget {
     required String conversationId,
     required String? currentFolderId,
   }) {
+    final t = context.omi;
     return GestureDetector(
       onTap: () async {
         HapticFeedback.selectionClick();
@@ -282,7 +289,7 @@ class GetSummaryWidgets extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: folder != null ? folder.colorValue.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
+          color: folder != null ? folder.colorValue.withValues(alpha: 0.2) : t.textSecondary.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -290,23 +297,23 @@ class GetSummaryWidgets extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
-              child: FaIcon(
-                folderIconToFa(folder?.icon),
+              child: OmiFolderIcon(
+                folder?.icon,
                 size: 12,
-                color: folder != null ? folder.colorValue : Colors.grey.shade300,
+                color: folder != null ? folder.colorValue : t.textSecondary,
               ),
             ),
             const SizedBox(width: 6),
             Text(
               folder?.name ?? context.l10n.noFolder,
               style: TextStyle(
-                color: folder != null ? folder.colorValue : Colors.grey.shade300,
+                color: folder != null ? folder.colorValue : t.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 16, color: folder != null ? folder.colorValue : Colors.grey.shade300),
+            Icon(Icons.arrow_drop_down, size: 16, color: folder != null ? folder.colorValue : t.textSecondary),
           ],
         ),
       ),
@@ -314,8 +321,9 @@ class GetSummaryWidgets extends StatelessWidget {
   }
 
   Widget _buildVisibilityChip({required BuildContext context, required ServerConversation conversation}) {
+    final t = context.omi;
     final isPrivate = conversation.visibility == ConversationVisibility.private_;
-    final color = isPrivate ? Colors.grey.shade300 : Colors.green;
+    final color = isPrivate ? t.textSecondary : t.success;
     final label = isPrivate ? context.l10n.private : context.l10n.shared;
     final icon = isPrivate ? Icons.lock_outline : Icons.public;
 
@@ -345,11 +353,12 @@ class GetSummaryWidgets extends StatelessWidget {
   }
 
   void _showVisibilitySheet(BuildContext context, ServerConversation conversation) {
+    final t = context.omi;
     final provider = context.read<ConversationDetailProvider>();
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetContext) {
         return SafeArea(
@@ -365,11 +374,11 @@ class GetSummaryWidgets extends StatelessWidget {
                   children: [
                     Text(
                       context.l10n.visibility,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: t.textPrimary),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.pop(sheetContext),
-                      child: Icon(Icons.close, color: Colors.grey.shade500, size: 24),
+                      child: Icon(Icons.close, color: t.textSecondary, size: 24),
                     ),
                   ],
                 ),
@@ -451,19 +460,20 @@ class GetSummaryWidgets extends StatelessWidget {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final t = context.omi;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: isSelected ? Border.all(color: Colors.white.withValues(alpha: 0.15)) : null,
+          color: isSelected ? t.rowFill : Colors.transparent,
+          borderRadius: BorderRadius.circular(t.rowRadius),
+          border: isSelected ? Border.all(color: t.rowFillHover) : null,
         ),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: isSelected ? Colors.green : Colors.grey.shade400),
+            Icon(icon, size: 22, color: isSelected ? t.success : t.textSecondary),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -471,35 +481,40 @@ class GetSummaryWidgets extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 2),
-                  Text(description, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                  Text(description, style: TextStyle(color: t.textSecondary, fontSize: 13)),
                 ],
               ),
             ),
-            if (isSelected) const Icon(Icons.check_circle, color: Colors.green, size: 22),
+            if (isSelected) Icon(Icons.check_circle, color: t.success, size: 22),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildChip({required String label, IconData? icon, Widget? leadingWidget, VoidCallback? onTap}) {
+  Widget _buildChip({
+    required BuildContext context,
+    required String label,
+    IconData? icon,
+    Widget? leadingWidget,
+    VoidCallback? onTap,
+  }) {
+    final t = context.omi;
     final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+          color: t.textSecondary.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(t.rowRadius)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (leadingWidget != null)
-            leadingWidget
-          else if (icon != null)
-            Icon(icon, size: 14, color: Colors.grey.shade300),
+          if (leadingWidget != null) leadingWidget else if (icon != null) Icon(icon, size: 14, color: t.textSecondary),
           const SizedBox(width: 6),
           Text(
             label,
-            style: TextStyle(color: Colors.grey.shade300, fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -513,6 +528,7 @@ class GetSummaryWidgets extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Selector<ConversationDetailProvider, Tuple3<ServerConversation, TextEditingController?, FocusNode?>>(
       selector: (context, provider) => Tuple3(provider.conversation, provider.titleController, provider.titleFocusNode),
       builder: (context, data, child) {
@@ -532,7 +548,7 @@ class GetSummaryWidgets extends StatelessWidget {
                     focusNode: data.item3,
                     controller: data.item2,
                     content: conversation.structured.title.decodeString,
-                    style: Theme.of(context).textTheme.titleLarge!.copyWith(fontSize: 32, color: Colors.white),
+                    style: Theme.of(context).textTheme.titleLarge!.copyWith(fontSize: 32, color: t.textPrimary),
                   ),
             const SizedBox(height: 16),
             _buildInfoChips(context, conversation),
@@ -550,6 +566,7 @@ class ActionItemsListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<ConversationDetailProvider>(
       builder: (context, provider, child) {
         return Column(
@@ -582,7 +599,7 @@ class ActionItemsListWidget extends StatelessWidget {
                             source: 'Action Items',
                           );
                         },
-                        icon: const Icon(Icons.copy_rounded, color: Colors.white, size: 20),
+                        icon: Icon(Icons.copy_rounded, color: t.textPrimary, size: 20),
                       ),
                     ],
                   )
@@ -599,8 +616,8 @@ class ActionItemsListWidget extends StatelessWidget {
                   background: Container(
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 20.0),
-                    color: Colors.red,
-                    child: const Icon(Icons.delete, color: Colors.white),
+                    color: t.error,
+                    child: Icon(Icons.delete, color: t.textPrimary),
                   ),
                   onDismissed: (direction) {
                     var tempItem = provider.conversation.structured.actionItems[idx];
@@ -615,7 +632,7 @@ class ActionItemsListWidget extends StatelessWidget {
                     //         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     //         action: SnackBarAction(
                     //           label: 'Undo',
-                    //           textColor: Colors.white,
+                    //           textColor: t.textPrimary,
                     //           onPressed: () {
                     //             provider.undoDeleteActionItem(idx);
                     //           },
@@ -662,7 +679,7 @@ class ActionItemsListWidget extends StatelessWidget {
                           child: SelectionArea(
                             child: Text(
                               item.description.decodeString,
-                              style: TextStyle(color: Colors.grey.shade300, fontSize: 16, height: 1.3),
+                              style: TextStyle(color: t.textSecondary, fontSize: 16, height: 1.3),
                             ),
                           ),
                         ),
@@ -723,6 +740,7 @@ class ReprocessDiscardedWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<ConversationDetailProvider>(
       builder: (context, provider, child) {
         if (provider.loadingReprocessConversation && provider.reprocessConversationId == provider.conversation.id) {
@@ -733,13 +751,13 @@ class ReprocessDiscardedWidget extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                  CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
                   const SizedBox(width: 16),
                   Text(
                     provider.conversation.discarded
                         ? context.l10n.summarizingConversation
                         : context.l10n.resummarizingConversation,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: t.textPrimary, fontSize: 16),
                   ),
                 ],
               ),
@@ -772,7 +790,7 @@ class ReprocessDiscardedWidget extends StatelessWidget {
                       ),
                       width: 2,
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(t.rowRadius),
                   ),
                   child: MaterialButton(
                     onPressed: () async {
@@ -781,7 +799,7 @@ class ReprocessDiscardedWidget extends StatelessWidget {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                      child: Text(context.l10n.summarize, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                      child: Text(context.l10n.summarize, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                     ),
                   ),
                 ),
@@ -885,6 +903,7 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final String content = widget.appResponse.content.trim().decodeString;
     // Sections belong to Omi's own structured summary; an app summary replaces them.
     final String sectionsContent =
@@ -918,7 +937,7 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
                           },
                           child: RichText(
                             text: TextSpan(
-                              style: const TextStyle(color: Colors.grey),
+                              style: TextStyle(color: t.textSecondary),
                               text: context.l10n.noSummaryForApp,
                             ),
                           ),
@@ -959,24 +978,24 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
                             imageUrl: widget.app!.getImageUrl(),
                             imageBuilder: (context, imageProvider) {
                               return CircleAvatar(
-                                backgroundColor: Colors.white,
+                                backgroundColor: t.textPrimary,
                                 radius: 12,
                                 backgroundImage: imageProvider,
                               );
                             },
                             errorWidget: (context, url, error) {
-                              return const CircleAvatar(
-                                backgroundColor: Colors.white,
+                              return CircleAvatar(
+                                backgroundColor: t.textPrimary,
                                 radius: 12,
-                                child: Icon(Icons.error_outline_rounded, size: 12),
+                                child: const Icon(Icons.error_outline_rounded, size: 12),
                               );
                             },
                             progressIndicatorBuilder: (context, url, progress) => CircleAvatar(
-                              backgroundColor: Colors.white,
+                              backgroundColor: t.textPrimary,
                               radius: 12,
                               child: CircularProgressIndicator(
                                 value: progress.progress,
-                                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                                 strokeWidth: 2,
                               ),
                             ),
@@ -1010,9 +1029,9 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
                                 Text(
                                   _resultTitle(context),
                                   maxLines: 1,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.white,
+                                    color: t.textPrimary,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -1021,14 +1040,14 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
                                     widget.app!.description.decodeString,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                    style: TextStyle(color: t.textSecondary, fontSize: 12),
                                   ),
                               ],
                             ),
                           ),
-                          const SizedBox(
+                          SizedBox(
                             width: 42,
-                            child: Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+                            child: Icon(Icons.arrow_forward_ios, color: t.textPrimary, size: 20),
                           ),
                         ],
                       ),
@@ -1043,6 +1062,7 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
   }
 
   Widget _buildEditor(BuildContext context, String original) {
+    final t = context.omi;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1052,13 +1072,13 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
           minLines: 6,
           maxLines: 12,
           maxLength: 10000,
-          style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5),
+          style: TextStyle(color: t.textPrimary, fontSize: 16, height: 1.5),
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.grey.shade900,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            fillColor: t.bgSecondary,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(t.rowRadius), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.all(14),
-            counterStyle: TextStyle(color: Colors.grey.shade500),
+            counterStyle: TextStyle(color: t.textSecondary),
           ),
         ),
         const SizedBox(height: 12),
@@ -1069,15 +1089,15 @@ class _AppResultDetailWidgetState extends State<AppResultDetailWidget> {
               onPressed: () => _exitEditing(cancelled: true),
               child: Text(
                 context.l10n.cancel,
-                style: TextStyle(color: Colors.grey.shade300, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textSecondary, fontWeight: FontWeight.w500),
               ),
             ),
             const SizedBox(width: 8),
             ElevatedButton(
               onPressed: () => _save(original),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
+                backgroundColor: t.textPrimary,
+                foregroundColor: t.bgPrimary,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -1109,6 +1129,7 @@ class GetAppsWidgets extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<ConversationDetailProvider>(
       builder: (context, provider, child) {
         final summarizedApp = provider.getSummarizedApp();
@@ -1163,7 +1184,7 @@ class GetAppsWidgets extends StatelessWidget {
                     ),
                     width: 2,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(t.rowRadius),
                 ),
                 child: MaterialButton(
                   onPressed: () {
@@ -1179,7 +1200,7 @@ class GetAppsWidgets extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     child: Text(
                       context.l10n.generateSummary,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      style: TextStyle(color: t.textPrimary, fontSize: 16),
                     ),
                   ),
                 ),
@@ -1218,6 +1239,7 @@ class GetGeolocationWidgets extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Selector<ConversationDetailProvider, Geolocation?>(
       selector: (context, provider) {
         if (provider.conversation.discarded) return null;
@@ -1235,7 +1257,7 @@ class GetGeolocationWidgets extends StatelessWidget {
                       MapsUtil.launchMap(geolocation.latitude!, geolocation.longitude!);
                     },
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(t.cardRadius),
                       child: SizedBox(
                         height: 200,
                         child: Stack(
@@ -1253,17 +1275,17 @@ class GetGeolocationWidgets extends StatelessWidget {
                               errorWidget: (context, url, error) {
                                 return Container(
                                   height: 200,
-                                  color: const Color(0xFF2A2A2A),
+                                  color: t.bgTertiary,
                                   child: Center(
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        const Icon(Icons.location_off, size: 40, color: Colors.grey),
+                                        Icon(Icons.location_off, size: 40, color: t.textSecondary),
                                         const SizedBox(height: 8),
                                         Text(
                                           context.l10n.couldNotLoadMap,
                                           textAlign: TextAlign.center,
-                                          style: const TextStyle(color: Colors.grey),
+                                          style: TextStyle(color: t.textSecondary),
                                         ),
                                       ],
                                     ),
@@ -1283,7 +1305,7 @@ class GetGeolocationWidgets extends StatelessWidget {
                                   gradient: LinearGradient(
                                     begin: Alignment.bottomCenter,
                                     end: Alignment.topCenter,
-                                    colors: [Colors.black.withValues(alpha: 0.6), Colors.black.withValues(alpha: 0.0)],
+                                    colors: [t.bgPrimary.withValues(alpha: 0.6), t.bgPrimary.withValues(alpha: 0.0)],
                                   ),
                                 ),
                               ),
@@ -1295,11 +1317,11 @@ class GetGeolocationWidgets extends StatelessWidget {
                               right: 16,
                               child: Text(
                                 _getShortAddress(context, geolocation.address?.decodeString),
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: t.textPrimary,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
-                                  shadows: [Shadow(offset: Offset(0, 1), blurRadius: 2, color: Colors.black)],
+                                  shadows: [Shadow(offset: const Offset(0, 1), blurRadius: 2, color: t.bgPrimary)],
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -1320,6 +1342,7 @@ class GetGeolocationWidgets extends StatelessWidget {
 
 extension _AppResultDetailWidgetSliver on _AppResultDetailWidgetState {
   Widget _buildSliver(BuildContext context, String content, String sectionsContent) {
+    final t = context.omi;
     if ((content.isEmpty && sectionsContent.isEmpty) || _isEditing) {
       return SliverMainAxisGroup(
         slivers: [
@@ -1342,7 +1365,7 @@ extension _AppResultDetailWidgetSliver on _AppResultDetailWidgetState {
                             },
                             child: RichText(
                               text: TextSpan(
-                                style: const TextStyle(color: Colors.grey),
+                                style: TextStyle(color: t.textSecondary),
                                 text: context.l10n.noSummaryForApp,
                               ),
                             ),
@@ -1381,6 +1404,7 @@ extension _AppResultDetailWidgetSliver on _AppResultDetailWidgetState {
   }
 
   Widget _buildAppAttribution(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       onTap: () async {
         if (widget.app != null) {
@@ -1396,21 +1420,21 @@ extension _AppResultDetailWidgetSliver on _AppResultDetailWidgetState {
                 ? CachedNetworkImage(
                     imageUrl: widget.app!.getImageUrl(),
                     imageBuilder: (context, imageProvider) {
-                      return CircleAvatar(backgroundColor: Colors.white, radius: 12, backgroundImage: imageProvider);
+                      return CircleAvatar(backgroundColor: t.textPrimary, radius: 12, backgroundImage: imageProvider);
                     },
                     errorWidget: (context, url, error) {
-                      return const CircleAvatar(
-                        backgroundColor: Colors.white,
+                      return CircleAvatar(
+                        backgroundColor: t.textPrimary,
                         radius: 12,
-                        child: Icon(Icons.error_outline_rounded, size: 12),
+                        child: const Icon(Icons.error_outline_rounded, size: 12),
                       );
                     },
                     progressIndicatorBuilder: (context, url, progress) => CircleAvatar(
-                      backgroundColor: Colors.white,
+                      backgroundColor: t.textPrimary,
                       radius: 12,
                       child: CircularProgressIndicator(
                         value: progress.progress,
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                         strokeWidth: 2,
                       ),
                     ),
@@ -1438,19 +1462,19 @@ extension _AppResultDetailWidgetSliver on _AppResultDetailWidgetState {
                         Text(
                           _resultTitle(context),
                           maxLines: 1,
-                          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white, fontSize: 14),
+                          style: TextStyle(fontWeight: FontWeight.w500, color: t.textPrimary, fontSize: 14),
                         ),
                         if (widget.app != null)
                           Text(
                             widget.app!.description.decodeString,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            style: TextStyle(color: t.textSecondary, fontSize: 12),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 42, child: Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20)),
+                  SizedBox(width: 42, child: Icon(Icons.arrow_forward_ios, color: t.textPrimary, size: 20)),
                 ],
               ),
             ),
@@ -1519,6 +1543,7 @@ class _GetDevToolsOptionsState extends State<GetDevToolsOptions> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Column(
       children: [
         Card(
@@ -1526,10 +1551,10 @@ class _GetDevToolsOptionsState extends State<GetDevToolsOptions> {
           child: ListTile(
             title: Text(context.l10n.triggerConversationIntegration),
             leading: loadingAppIntegrationTest
-                ? const SizedBox(
+                ? SizedBox(
                     height: 24,
                     width: 24,
-                    child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                    child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
                   )
                 : const Icon(Icons.send_to_mobile_outlined),
             onTap: () {
@@ -1635,14 +1660,15 @@ class _CalendarEventDetailsSheetState extends State<CalendarEventDetailsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final start = widget.calendarEvent.startTime;
     final end = widget.calendarEvent.endTime;
     final timeStr = '${_fmt(start)} – ${_fmt(end)}';
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).padding.bottom + 24),
       child: Column(
@@ -1653,18 +1679,18 @@ class _CalendarEventDetailsSheetState extends State<CalendarEventDetailsSheet> {
             child: Container(
               width: 36,
               height: 4,
-              decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
             ),
           ),
           const SizedBox(height: 20),
           Row(
             children: [
-              const Icon(Icons.calendar_today, size: 18, color: Colors.white70),
+              Icon(Icons.calendar_today, size: 18, color: t.textPrimary.withValues(alpha: 0.7)),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   widget.calendarEvent.title,
-                  style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -1672,9 +1698,9 @@ class _CalendarEventDetailsSheetState extends State<CalendarEventDetailsSheet> {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.access_time, size: 16, color: Colors.white54),
+              Icon(Icons.access_time, size: 16, color: t.textPrimary.withValues(alpha: 0.54)),
               const SizedBox(width: 8),
-              Text(timeStr, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              Text(timeStr, style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7), fontSize: 14)),
             ],
           ),
           if (widget.calendarEvent.attendees.isNotEmpty) ...[
@@ -1682,12 +1708,12 @@ class _CalendarEventDetailsSheetState extends State<CalendarEventDetailsSheet> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.people_outline, size: 16, color: Colors.white54),
+                Icon(Icons.people_outline, size: 16, color: t.textPrimary.withValues(alpha: 0.54)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     widget.calendarEvent.attendees.join(', '),
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7), fontSize: 14),
                   ),
                 ),
               ],
@@ -1704,7 +1730,7 @@ class _CalendarEventDetailsSheetState extends State<CalendarEventDetailsSheet> {
             ),
           ],
           const SizedBox(height: 24),
-          const Divider(color: Color(0xFF2C2C2E)),
+          Divider(color: t.bgTertiary),
           const SizedBox(height: 8),
           // Share with attendees button
           if (widget.calendarEvent.attendeeEmails.isNotEmpty)
@@ -1714,7 +1740,7 @@ class _CalendarEventDetailsSheetState extends State<CalendarEventDetailsSheet> {
             _ActionRow(
               icon: Icons.link_off,
               label: 'Unlink calendar event',
-              color: Colors.redAccent,
+              color: t.error,
               loading: _unlinking,
               onTap: () async {
                 setState(() => _unlinking = true);
@@ -1733,19 +1759,23 @@ class _ActionRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final Color color;
+
+  /// Defaults to the theme's primary text color when omitted.
+  final Color? color;
   final bool loading;
 
   const _ActionRow({
     required this.icon,
     required this.label,
     this.onTap,
-    this.color = Colors.white,
+    this.color,
     this.loading = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+    final color = this.color ?? t.textPrimary;
     return InkWell(
       onTap: loading ? null : onTap,
       borderRadius: BorderRadius.circular(8),

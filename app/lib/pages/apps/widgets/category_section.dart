@@ -12,6 +12,8 @@ import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class CategorySection extends StatelessWidget {
   final String categoryName;
@@ -29,6 +31,8 @@ class CategorySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     if (apps.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -65,7 +69,7 @@ class CategorySection extends StatelessWidget {
               children: [
                 Text(
                   categoryName,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: t.textPrimary),
                 ),
                 const Spacer(),
                 if (showViewAll)
@@ -77,16 +81,16 @@ class CategorySection extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade700,
+                            color: t.textSecondary,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             'All',
-                            style: TextStyle(fontSize: 11, color: Colors.grey.shade300, fontWeight: FontWeight.w600),
+                            style: TextStyle(fontSize: 11, color: t.textSecondary, fontWeight: FontWeight.w600),
                           ),
                         ),
                         // const SizedBox(width: 8),
-                        Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 16),
+                        OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 16),
                       ],
                     ),
                   ),
@@ -133,6 +137,8 @@ class SectionAppItemCard extends StatelessWidget {
         return currentApp.enabled;
       },
       builder: (context, isEnabled, child) {
+        final t = context.omi;
+
         return GestureDetector(
           onTap: () async {
             PlatformManager.instance.analytics.pageOpened('App Detail');
@@ -165,13 +171,13 @@ class SectionAppItemCard extends StatelessWidget {
                   placeholder: (context, url) => Container(
                     width: 60,
                     height: 60,
-                    decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
                   ),
                   errorWidget: (context, url, error) => Container(
                     width: 60,
                     height: 60,
-                    decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.error_outline, color: Colors.white54, size: 24),
+                    decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
+                    child: OmiIconWidget(icon: OmiIcon.errorCircle, color: t.textSecondary, size: 24),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -185,7 +191,7 @@ class SectionAppItemCard extends StatelessWidget {
                         app.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white, fontSize: 17),
+                        style: TextStyle(fontWeight: FontWeight.w500, color: t.textPrimary, fontSize: 17),
                       ),
                       Padding(
                         padding: const EdgeInsets.only(top: 2.0),
@@ -201,7 +207,7 @@ class SectionAppItemCard extends StatelessWidget {
                               category.getLocalizedTitle(context),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.grey, fontSize: 13),
+                              style: TextStyle(color: t.textSecondary, fontSize: 13),
                             );
                           },
                         ),
@@ -210,7 +216,7 @@ class SectionAppItemCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           '${app.getRatingAvg()!} · ${app.ratingCount} ${app.ratingCount == 1 ? "rating" : "ratings"}',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          style: TextStyle(fontSize: 11, color: t.textSecondary),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -226,7 +232,7 @@ class SectionAppItemCard extends StatelessWidget {
                   width: 60,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: isEnabled ? Colors.grey.shade700 : Colors.white,
+                    color: isEnabled ? t.textSecondary : (t.isGlass ? t.accent : Colors.white),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
@@ -235,7 +241,7 @@ class SectionAppItemCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: isEnabled ? Colors.white : Colors.black,
+                        color: isEnabled ? t.textPrimary : (t.isGlass ? t.onAccent : Colors.black),
                       ),
                     ),
                   ),

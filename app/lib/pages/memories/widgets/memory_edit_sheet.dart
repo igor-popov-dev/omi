@@ -6,6 +6,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/widgets/extensions/string.dart';
 import 'delete_confirmation.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MemoryEditSheet extends StatefulWidget {
   final Memory memory;
@@ -56,12 +57,13 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1F1F25),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         child: Column(
@@ -77,17 +79,17 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(16),
+                        color: t.rowFillHover,
+                        borderRadius: BorderRadius.circular(t.cardRadius),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.label_outline, size: 14, color: Colors.white),
+                          Icon(Icons.label_outline, size: 14, color: t.textPrimary),
                           const SizedBox(width: 4),
                           Text(
                             widget.memory.category.toString().split('.').last,
-                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            style: TextStyle(color: t.textPrimary, fontSize: 14),
                           ),
                         ],
                       ),
@@ -97,18 +99,18 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.blue.withValues(alpha: 0.5), width: 1),
+                          color: t.accent.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(t.cardRadius),
+                          border: Border.all(color: t.accent.withValues(alpha: 0.5), width: 1),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.flag, size: 14, color: Colors.blue),
+                            Icon(Icons.flag, size: 14, color: t.accent),
                             const SizedBox(width: 4),
                             Text(
                               context.l10n.baselineMemory,
-                              style: const TextStyle(color: Colors.blue, fontSize: 14, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: t.accent, fontSize: 14, fontWeight: FontWeight.w500),
                             ),
                           ],
                         ),
@@ -121,13 +123,13 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
                     IconButton(
                       icon: Icon(
                         _isBaseline ? Icons.flag : Icons.flag_outlined,
-                        color: _isBaseline ? Colors.blue : Colors.white,
+                        color: _isBaseline ? t.accent : t.textPrimary,
                       ),
                       onPressed: _toggleBaseline,
                       tooltip: _isBaseline ? context.l10n.unpinAsBaseline : context.l10n.pinAsBaseline,
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      icon: Icon(Icons.delete_outline, color: t.error),
                       onPressed: () => _showDeleteConfirmation(context),
                     ),
                   ],
@@ -145,7 +147,7 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
                   minLines: 3,
                   textInputAction: TextInputAction.newline,
                   keyboardType: TextInputType.multiline,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
+                  style: TextStyle(color: t.textPrimary, fontSize: 16, height: 1.4),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
@@ -156,9 +158,9 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
             ),
             const SizedBox(height: 24),
             if (_saveFailed) ...[
-              const Text(
+              Text(
                 'Failed to save. Please check your connection.',
-                style: TextStyle(color: Colors.redAccent, fontSize: 13),
+                style: TextStyle(color: t.error, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
@@ -168,20 +170,20 @@ class _MemoryEditSheetState extends State<MemoryEditSheet> {
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _handleSave,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _saveFailed ? Colors.orange : Colors.deepPurpleAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: _saveFailed ? t.warning : t.accent,
+                  foregroundColor: t.textPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  disabledBackgroundColor: Colors.deepPurpleAccent.withValues(alpha: 0.5),
-                  disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
+                  disabledBackgroundColor: t.accent.withValues(alpha: 0.5),
+                  disabledForegroundColor: t.textPrimary.withValues(alpha: 0.7),
                 ),
                 child: _isSaving
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                         ),
                       )
                     : Text(
