@@ -1190,6 +1190,25 @@ class CaptureController extends ChangeNotifier
               PlatformManager.instance.analytics.omiDoubleTap(feature: 'unstar_conversation');
               HapticFeedback.lightImpact();
             }
+          } else if (doubleTapAction == 3) {
+            // Self-host (просьба Игоря 24.08): двойной тап = голосовой режим —
+            // начать разговор с кулона, не доставая телефон. Работает и с
+            // заблокированным экраном: событие приходит по BLE в живой
+            // foreground-сервис, микрофонный FGS-тип в манифесте есть, звук
+            // идёт через гарнитуру (VoiceRouteCoordinator). Выключение — сам
+            // (end_conversation по «пока»), сторожем тишины или повторным
+            // двойным тапом.
+            Logger.debug("Double tap: toggling free-form voice mode");
+            HapticFeedback.mediumImpact();
+            if (freeFormModeActive.value) {
+              PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_stop');
+              stopFreeFormVoiceMode();
+            } else {
+              PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_start');
+              startFreeFormVoiceMode().catchError((Object e) {
+                Logger.error('[VoiceMode] запуск с кулона не удался: $e');
+              });
+            }
           } else {
             // End conversation and process (default)
             Logger.debug("Double tap: processing conversation");
