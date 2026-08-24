@@ -9,6 +9,7 @@ import 'package:omi/pages/apps/widgets/capability_category_section.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/ui_guidelines.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CapabilityAppsPage extends StatefulWidget {
   final AppCapability capability;
@@ -180,16 +181,18 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
         title: Text(
           widget.capability.getLocalizedTitle(context),
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios, color: t.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -208,17 +211,17 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.apps_outlined, size: 64, color: Colors.grey.shade600),
+                          Icon(Icons.apps_outlined, size: 64, color: t.textSecondary),
                           const SizedBox(height: 16),
-                          const Text(
+                          Text(
                             'No apps found',
-                            style: TextStyle(fontSize: 18, color: Colors.white70),
+                            style: TextStyle(fontSize: 18, color: t.textSecondary),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Check back later for new apps',
-                            style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                            style: TextStyle(fontSize: 14, color: t.textSecondary),
                             textAlign: TextAlign.center,
                           ),
                         ],
