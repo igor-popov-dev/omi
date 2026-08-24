@@ -71,6 +71,7 @@ import 'package:omi/providers/speech_profile_provider.dart';
 import 'package:omi/providers/sync_provider.dart';
 import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/providers/usage_provider.dart';
+import 'package:omi/providers/upstream_sync_provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/providers/voice_recorder_provider.dart';
 import 'package:omi/providers/phone_call_provider.dart';
@@ -498,6 +499,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(lazy: true, create: (context) => McpProvider()),
         ChangeNotifierProvider(lazy: true, create: (context) => PaymentMethodProvider()),
         ChangeNotifierProvider(create: (context) => VoiceRecorderProvider()..checkPendingRecording()),
+        // Self-host patch (providers/upstream_sync_provider.dart, docs/selfhost-patches.md):
+        // пульт апстрим-синка. lazy — на чужом сервере роутов нет, и запрос
+        // не должен уходить, пока плашку никто не смотрит.
+        ChangeNotifierProvider(lazy: true, create: (context) => UpstreamSyncProvider()..refresh()),
         ChangeNotifierProvider(create: (context) => LocaleProvider()),
         ChangeNotifierProvider(create: (context) => AnnouncementProvider()),
         // A call must hush the phone's own always-on recording, or one call becomes two
