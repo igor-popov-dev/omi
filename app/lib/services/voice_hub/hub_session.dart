@@ -374,6 +374,17 @@ const Duration hubWarmTimeoutDuration = Duration(milliseconds: 10000);
 /// assuming it is far better than waiting indefinitely for a quiet moment.
 const Duration goAwayAssumedRunway = Duration(seconds: 50);
 
+/// How long the model may stay silent after EVERY tool call of a batch has
+/// been answered before the hub treats the turn as stuck and nudges it.
+///
+/// Measured 24.08 against live Gemini (`marathon/probes/lane5-toolresult-stall.py`):
+/// a turn that is going to speak starts speaking well inside this window,
+/// while a stuck one produces nothing at all — no speech, no second call, no
+/// error — and the socket only dies on its own about 100s later with 1008
+/// "The operation was aborted". Everything in between is indistinguishable
+/// from "still thinking" to the user, who already heard "секунду, уточню".
+const Duration toolResultStallGrace = Duration(seconds: 12);
+
 /// Held back from the `goAway` runway so the rebuild it pays for can actually
 /// finish. Covers a warm that runs the full [hubWarmTimeoutDuration] plus the
 /// socket handshake (measured 24.08: 0.76-0.83s to `setupComplete`, whole seam

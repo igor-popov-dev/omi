@@ -207,6 +207,7 @@ class _Harness {
 
   /// Handle each built session was handed, in build order (nulls included).
   final List<String?> specHandles = [];
+
   /// Give every built session its own id, as the real one does (a uuid per
   /// socket). Off by default so the existing tests keep asserting [sid].
   bool distinctSessionIds = false;
@@ -1484,6 +1485,85 @@ void main() {
       h.session.connect();
       await p;
       expect(h.session.userTexts.single, contains('ANSWER'));
+    });
+
+    // The turn that answers nothing at all. Measured 24.08 against live
+    // Gemini (`marathon/probes/lane5-toolresult-stall.py`): a `toolResponse`
+    // is accepted without complaint and then the socket produces NOTHING —
+    // no speech, no second call, no error — until it dies on its own ~100s
+    // later with 1008. The user heard "секунду, уточню" and is now listening
+    // to silence they cannot tell from thinking.
+    test('a turn that goes silent after the answer gets nudged with it', () async {
+      final h = _Harness();
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.sendToolResult('c1', 'ask_claude', 'ANSWER');
+      expect(h.session.toolResults.single.output, 'ANSWER');
+      expect(h.session.userTexts, isEmpty, reason: 'сторож ещё не сработал');
+
+      h.clock.fire(); // the stall watchdog
+      expect(h.session.userTexts.single, contains('ANSWER'));
+      expect(h.session.userTexts.single, contains('Do NOT call ask_claude again'));
+    });
+
+    test('a turn that speaks disarms the watchdog', () async {
+      final h = _Harness();
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.sendToolResult('c1', 'ask_claude', 'ANSWER');
+      h.session.events.onSpeakingStart?.call();
+
+      expect(h.clock.pending, isFalse);
+      expect(h.session.userTexts, isEmpty);
+    });
+
+    test('half an answered batch does not arm the watchdog', () async {
+      // Gemini sends several calls in ONE frame and stays silent until every
+      // one is answered (measured 24.08). Arming on the first answer would
+      // nudge a server that is behaving perfectly.
+      final h = _Harness();
+      await _warmed(h);
+      askTool(h, 'c1');
+      askTool(h, 'c2');
+      h.controller.sendToolResult('c1', 'ask_claude', 'ONE');
+      expect(h.clock.pending, isFalse, reason: 'вторая половина пачки ещё не отвечена');
+
+      h.controller.sendToolResult('c2', 'ask_claude', 'TWO');
+      expect(h.clock.pending, isTrue);
+      h.clock.fire();
+      expect(h.session.userTexts.single, contains('TWO'));
+    });
+
+    test('the user talking over the gap disarms the watchdog', () async {
+      final h = _Harness();
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.sendToolResult('c1', 'ask_claude', 'ANSWER');
+      h.session.events.onUserSpeechState?.call(true);
+
+      expect(h.clock.pending, isFalse);
+      expect(h.session.userTexts, isEmpty);
+    });
+
+    test('a second tool call disarms the watchdog', () async {
+      final h = _Harness();
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.sendToolResult('c1', 'ask_claude', 'ONE');
+      askTool(h, 'c2');
+
+      expect(h.clock.pending, isFalse, reason: 'модель жива, она спрашивает дальше');
+      expect(h.session.userTexts, isEmpty);
+    });
+
+    test('a socket that dies takes its watchdog with it', () async {
+      final h = _Harness();
+      await _warmed(h);
+      askTool(h, 'c1');
+      h.controller.sendToolResult('c1', 'ask_claude', 'ANSWER');
+      h.controller.teardownSession();
+
+      expect(h.clock.pending, isFalse);
     });
 
     test('a forgotten conversation drops the answers it was waiting on', () async {
