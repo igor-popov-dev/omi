@@ -9,6 +9,18 @@ import 'package:omi/models/audio_route.dart';
 import 'package:omi/providers/phone_call_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 
+/// The sentence worth repeating after the call screen closes, or null if there is none.
+///
+/// Only a failure has anything to say, and only when the failure named itself: a plain
+/// hang-up, or a refusal with no reason attached, would produce a snack bar saying
+/// nothing. Kept out of the widget so the rule can be tested without a call.
+@visibleForTesting
+String? closingMessageFor(PhoneCallState state, PhoneCallError? lastError) {
+  if (state != PhoneCallState.failed) return null;
+  final message = lastError?.message.trim() ?? '';
+  return message.isEmpty ? null : message;
+}
+
 class ActiveCallPage extends StatefulWidget {
   const ActiveCallPage({super.key});
 
@@ -37,9 +49,21 @@ class _ActiveCallPageState extends State<ActiveCallPage> {
     var state = _provider?.callState ?? PhoneCallState.idle;
     if ((state == PhoneCallState.ended || state == PhoneCallState.failed) && !_popScheduled) {
       _popScheduled = true;
+      // A refusal names its cause on this screen — and this screen closes two seconds
+      // later. After the pop the text exists nowhere: the calls page only shows an error
+      // when the call never started, and a call the cloud refuses did start. So "this
+      // month's calling limit is used up" got two seconds and vanished, which is barely
+      // better than the "Busy Here" it replaced. Carry the sentence over the pop.
+      final closing = closingMessageFor(state, _provider?.lastError);
+      // Captured BEFORE the pop: afterwards this State's context is defunct. The
+      // messenger itself belongs to the app above this route, so the bar outlives us.
+      final messenger = ScaffoldMessenger.of(context);
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
           Navigator.of(context).pop();
+        }
+        if (closing != null) {
+          messenger.showSnackBar(SnackBar(content: Text(closing), duration: const Duration(seconds: 6)));
         }
       });
     }
