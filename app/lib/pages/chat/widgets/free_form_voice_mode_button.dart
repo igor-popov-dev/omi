@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/services/mic/mic_arbiter.dart' show MicBusyError, kConversationMicOwner;
 import 'package:omi/utils/alerts/app_snackbar.dart';
 
 class FreeFormVoiceModeButton extends StatelessWidget {
@@ -64,7 +65,23 @@ class FreeFormVoiceModeButton extends StatelessWidget {
       return;
     }
     captureProvider.startFreeFormVoiceMode().catchError((Object error) {
-      AppSnackbar.showSnackbarError('Voice mode failed to start: $error');
+      AppSnackbar.showSnackbarError(freeFormVoiceModeStartErrorMessage(error));
     });
   }
+}
+
+/// What the toggle says when the mode refuses to start.
+///
+/// A busy microphone is the one failure here that is not a malfunction: the
+/// hub and conversation capture share one recorder through [MicArbiter], so
+/// asking for the mic while the phone is recording a conversation is an
+/// ordinary situation with an ordinary answer. Showing "Bad state:
+/// Microphone is busy (held by conversation)" for it reads as a crash.
+String freeFormVoiceModeStartErrorMessage(Object error) {
+  if (error is MicBusyError) {
+    return error.owner == kConversationMicOwner
+        ? 'Микрофон занят записью разговора — остановите запись и включите режим снова'
+        : 'Микрофон сейчас занят (${error.owner})';
+  }
+  return 'Не удалось включить голосовой режим: $error';
 }

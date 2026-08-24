@@ -21,6 +21,20 @@ class MicArbiter {
   }
 }
 
+/// Contention on the shared microphone: somebody else holds it right now.
+///
+/// A [StateError] subclass, so every existing `throwsStateError` expectation
+/// and catch site keeps working — but a typed one, because a caller that has
+/// something better to say than "Bad state:" needs to tell this apart from a
+/// genuine programming error (the voice-mode toggle does: a busy mic is an
+/// ordinary situation with a real answer, not a crash).
+class MicBusyError extends StateError {
+  /// Who holds the mic — one of the `k*MicOwner` names.
+  final String owner;
+
+  MicBusyError(this.owner) : super('Microphone is busy (held by $owner)');
+}
+
 /// Arbiter owner names. Strings compared by identity of value — kept here so
 /// the two handles onto the one native recorder cannot drift apart by typo.
 const String kConversationMicOwner = 'conversation';
@@ -74,7 +88,7 @@ class ArbitratedMic implements IMicRecorderService {
     Function(bool began)? onInterruption,
   }) async {
     if (!_arbiter.tryAcquire(_owner)) {
-      throw StateError('Microphone is busy (held by ${_arbiter.owner})');
+      throw MicBusyError(_arbiter.owner ?? 'unknown');
     }
     try {
       await _inner.start(
@@ -104,7 +118,7 @@ class ArbitratedMic implements IMicRecorderService {
     Function(String code, String message)? onError,
   }) async {
     if (!_arbiter.tryAcquire(_owner)) {
-      throw StateError('Microphone is busy (held by ${_arbiter.owner})');
+      throw MicBusyError(_arbiter.owner ?? 'unknown');
     }
     try {
       await _inner.startBatch(
