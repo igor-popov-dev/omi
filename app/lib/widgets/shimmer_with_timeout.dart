@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// A shimmer widget that automatically falls back to a static skeleton after a timeout.
 ///
@@ -25,11 +26,11 @@ class ShimmerWithTimeout extends StatefulWidget {
   /// Defaults to 5 seconds.
   final int timeoutSeconds;
 
-  /// The base color of the shimmer gradient.
-  final Color baseColor;
+  /// The base color of the shimmer gradient. Defaults to the themed skeleton fill.
+  final Color? baseColor;
 
-  /// The highlight color of the shimmer gradient.
-  final Color highlightColor;
+  /// The highlight color of the shimmer gradient. Defaults to the themed sweep color.
+  final Color? highlightColor;
 
   /// Optional direction of the shimmer animation.
   final ShimmerDirection direction;
@@ -38,8 +39,8 @@ class ShimmerWithTimeout extends StatefulWidget {
     super.key,
     required this.child,
     this.timeoutSeconds = 5,
-    this.baseColor = const Color(0xFF2A2A32),
-    this.highlightColor = const Color(0xFF3A3A42),
+    this.baseColor,
+    this.highlightColor,
     this.direction = ShimmerDirection.ltr,
   });
 
@@ -71,10 +72,13 @@ class _ShimmerWithTimeoutState extends State<ShimmerWithTimeout> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     if (_showShimmer) {
       return Shimmer.fromColors(
-        baseColor: widget.baseColor,
-        highlightColor: widget.highlightColor,
+        // Classic keeps the exact default pair it always had; Glass needs a light
+        // skeleton so the sweep is visible on a white surface.
+        baseColor: widget.baseColor ?? (t.isGlass ? t.bgTertiary : const Color(0xFF2A2A32)),
+        highlightColor: widget.highlightColor ?? (t.isGlass ? t.bgSecondary : const Color(0xFF3A3A42)),
         direction: widget.direction,
         child: widget.child,
       );

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CustomRefreshIndicator extends StatefulWidget {
   final Widget child;
@@ -160,6 +161,7 @@ class _CustomRefreshIndicatorState extends State<CustomRefreshIndicator> with Ti
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return NotificationListener<ScrollNotification>(
       onNotification: (ScrollNotification notification) {
         if (notification.depth == 0) {
@@ -182,7 +184,7 @@ class _CustomRefreshIndicatorState extends State<CustomRefreshIndicator> with Ti
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.black.withValues(alpha: 0.3), Colors.transparent],
+                    colors: [t.bgPrimary.withValues(alpha: 0.3), Colors.transparent],
                   ),
                 ),
                 child: Padding(
@@ -193,6 +195,7 @@ class _CustomRefreshIndicatorState extends State<CustomRefreshIndicator> with Ti
                       progress: _dragOffset / widget.triggerDistance,
                       isRefreshing: _isRefreshing,
                       animation: _animation,
+                      t: context.omi,
                     ),
                   ),
                 ),
@@ -209,8 +212,15 @@ class CircularDotsIndicator extends CustomPainter {
   final bool isRefreshing;
   final Animation<double> animation;
 
-  CircularDotsIndicator({required this.progress, required this.isRefreshing, required this.animation})
-      : super(repaint: animation);
+  /// Theme tokens — a painter has no BuildContext, so the caller passes them in.
+  final OmiTokens t;
+
+  CircularDotsIndicator({
+    required this.progress,
+    required this.isRefreshing,
+    required this.animation,
+    required this.t,
+  }) : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -245,12 +255,12 @@ class CircularDotsIndicator extends CustomPainter {
 
         final paint = Paint()
           ..style = PaintingStyle.fill
-          ..color = Colors.white.withValues(alpha: opacity);
+          ..color = t.textPrimary.withValues(alpha: opacity);
 
         // Add enhanced shadow for spinning dots
         final shadowPaint = Paint()
           ..style = PaintingStyle.fill
-          ..color = Colors.white.withValues(alpha: opacity * 0.3)
+          ..color = t.textPrimary.withValues(alpha: opacity * 0.3)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
         canvas.drawCircle(dotCenter, (dotRadius + 1) * sizeFactor, shadowPaint);
 
@@ -259,13 +269,13 @@ class CircularDotsIndicator extends CustomPainter {
         // Static dots during pull-down
         final paint = Paint()
           ..style = PaintingStyle.fill
-          ..color = isFilled ? Colors.white : Colors.white.withValues(alpha: 0.3);
+          ..color = isFilled ? t.textPrimary : t.textPrimary.withValues(alpha: 0.3);
 
         // Add shadow for filled dots
         if (isFilled) {
           final shadowPaint = Paint()
             ..style = PaintingStyle.fill
-            ..color = Colors.white.withValues(alpha: 0.3)
+            ..color = t.textPrimary.withValues(alpha: 0.3)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
           canvas.drawCircle(dotCenter, dotRadius + 1, shadowPaint);
         }

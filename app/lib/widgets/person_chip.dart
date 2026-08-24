@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PersonChip extends StatelessWidget {
   final String personName;
@@ -16,6 +17,7 @@ class PersonChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return ChoiceChip(
       label: Row(
         mainAxisSize: MainAxisSize.min,
@@ -29,8 +31,8 @@ class PersonChip extends StatelessWidget {
       onSelected: onSelected,
       showCheckmark: !isAddButton,
       selectedColor: Theme.of(context).colorScheme.secondary,
-      checkmarkColor: Colors.white,
-      backgroundColor: Colors.grey.shade800.withValues(alpha: 0.6),
+      checkmarkColor: t.textPrimary,
+      backgroundColor: t.textTertiary.withValues(alpha: 0.6),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.transparent, width: 1),
