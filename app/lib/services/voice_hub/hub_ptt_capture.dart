@@ -42,7 +42,21 @@ class HubPttCaptureOptions {
   /// Tee for each raw PCM16LE-mono-16kHz chunk, in arrival order — mirrors
   /// `NativeMicRecorderService.start(onByteReceived: ...)`.
   final void Function(Uint8List pcm)? onChunk;
-  const HubPttCaptureOptions({this.onChunk});
+
+  /// The mic was taken away (`began: true`) or given back (`began: false`) —
+  /// mirrors `NativeMicRecorderService.start(onInterruption: ...)`, which
+  /// relays the native controller's `INTERRUPTED`/`RUNNING` transitions
+  /// (`PhoneMicController.kt`: `Cause.MODE` when a phone call takes the audio
+  /// mode, `Cause.SILENCED` when another app preempts the input).
+  ///
+  /// Nothing restarts the capture from here: the native side resumes itself
+  /// and this is state, not a command (see `NativeMicRecorderService`'s own
+  /// header). A continuous consumer needs it because the alternative is
+  /// inferring a silent mic from the absence of frames, which looks exactly
+  /// like a person not talking.
+  final void Function(bool began)? onInterruption;
+
+  const HubPttCaptureOptions({this.onChunk, this.onInterruption});
 }
 
 /// Resolves once the capture is confirmed live, or rejects if the mic failed
@@ -62,8 +76,9 @@ class NativeMicHubPttCapture implements HubPttCapture {
   static Future<NativeMicHubPttCapture> start(
     IMicRecorderService recorder, {
     required void Function(Uint8List pcm) onChunk,
+    void Function(bool began)? onInterruption,
   }) async {
-    await recorder.start(onByteReceived: onChunk);
+    await recorder.start(onByteReceived: onChunk, onInterruption: onInterruption);
     return NativeMicHubPttCapture._(recorder);
   }
 
@@ -75,15 +90,28 @@ class NativeMicHubPttCapture implements HubPttCapture {
   }
 }
 
-/// Production [HubStartCapture]: one fresh [IMicRecorderService] session per
-/// turn. `createRecorder` is injectable so a future caller can share a
-/// longer-lived recorder instance instead of minting one per press; the
-/// default mints a plain `NativeMicRecorderService()` per capture, mirroring
-/// how [HubPttCaptureOptions] is turn-scoped.
+/// Production [HubStartCapture]: one [IMicRecorderService] session per turn.
+///
+/// `createRecorder` is expected to hand back the app's SHARED recorder, not a
+/// fresh one — production passes `ServiceManager.instance().voiceHubMic`. It
+/// once minted a `NativeMicRecorderService()` per capture, which detached
+/// conversation capture from the native event stream for the rest of the
+/// process (see `arbitratedPhoneMicHandles`). The seam stays a factory
+/// because the arbiter, not this file, decides whether the mic is available:
+/// a contended `start()` throws, and the capture contract already promises
+/// callers a rejected future in that case.
 HubStartCapture nativeMicHubCaptureFactory(IMicRecorderService Function() createRecorder) {
   return (options) async {
     final recorder = createRecorder();
     final onChunk = options.onChunk;
-    return NativeMicHubPttCapture.start(recorder, onChunk: (pcm) => onChunk?.call(pcm));
+    final onInterruption = options.onInterruption;
+    return NativeMicHubPttCapture.start(
+      recorder,
+      onChunk: (pcm) => onChunk?.call(pcm),
+      // Passed through as null when unwanted rather than as an empty closure:
+      // `NativeMicRecorderService` treats a null handler as "nobody is
+      // listening", which is the truth for the PTT driver.
+      onInterruption: onInterruption == null ? null : (began) => onInterruption(began),
+    );
   };
 }

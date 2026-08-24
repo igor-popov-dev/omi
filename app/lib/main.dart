@@ -411,6 +411,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               resolveIdleTimeout: () =>
                   freeFormIdleTimeoutFromMinutes(SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes),
               onIdleTimeout: capture.resetFreeFormVoiceModeUi,
+              // The mic can be taken away mid-session (a call, another app).
+              // Nothing else in the wiring notices: the hub only sees frames
+              // stop arriving, which is indistinguishable from a person who
+              // has stopped talking.
+              onMicInterruption: capture.applyFreeFormMicInterruption,
             );
             return capture;
           },

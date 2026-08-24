@@ -67,6 +67,13 @@ class HubVoiceStatusIndicator extends StatelessWidget {
   /// right now. It answers the question a silent screen cannot — whether the
   /// phone hears you at all — and the PTT path never sets it.
   String? _labelFor(VoiceTurnUiProjection projection) {
+    // A hint is a specific thing the host wants said INSTEAD of the generic
+    // phase word, and it only ever gets set when the phase word would be
+    // misleading. The drop recovery is the live case: it sets "Связь
+    // прервалась, восстанавливаю…" together with `isThinking`, and until this
+    // line existed the hint was dropped on the floor and the user watched a
+    // reconnect that called itself "Думаю…".
+    if (projection.hint.isNotEmpty) return projection.hint;
     if (projection.isListening) return projection.isHearingUser ? 'Слышу…' : 'Слушаю…';
     if (projection.isThinking || projection.isResponseWaiting) return 'Думаю…';
     if (projection.isResponseActive) return 'Говорю…';

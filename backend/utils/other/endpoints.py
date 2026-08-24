@@ -100,6 +100,20 @@ def get_user(uid: str) -> Any:
     return auth.get_user(uid)  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]  # firebase_admin auth untyped
 
 
+# Tolerance for the client's clock running ahead of this server's when an ID
+# token is verified. `verify_id_token` defaults to 0, which rejects a token
+# whose `iat` is even ONE second in the future — and that happens in normal
+# operation: the token is minted by Google, travels, and is checked here
+# against a different clock. Observed live 24.08 on a healthy host whose own
+# drift was 0.11s against time.apple.com:
+#     ERROR utils.other.endpoints: Token used too early, 1787569083 < 1787569084
+#     POST /v2/realtime/session -> 401
+# For the user that is the voice mode simply refusing to start, with nothing
+# to retry against. Google's own guidance is to allow a small skew; the token
+# is still verified by signature and expiry, so this widens nothing else.
+ID_TOKEN_CLOCK_SKEW_SECONDS = 10
+
+
 def verify_token(token: str) -> str:
     """
     Verify a Firebase token or ADMIN_KEY and return the uid.
@@ -136,7 +150,7 @@ def verify_token(token: str) -> str:
 
     # Verify Firebase token
     try:
-        decoded_token = cast(Any, auth.verify_id_token(token))  # type: ignore[reportUnknownMemberType]  # firebase_admin auth untyped
+        decoded_token = cast(Any, auth.verify_id_token(token, clock_skew_seconds=ID_TOKEN_CLOCK_SKEW_SECONDS))  # type: ignore[reportUnknownMemberType]  # firebase_admin auth untyped
         return decoded_token['uid']
     except InvalidIdTokenError:
         # Only honored when no real Firebase credential is configured — every

@@ -15,12 +15,32 @@ import 'voice_chat_log.dart';
 import 'voice_turn_coordinator.dart' show VoiceTurnPresenter;
 import 'voice_turn_machine.dart' show VoiceTurnUiProjection;
 
-const VoiceTurnUiProjection _listeningProjection = VoiceTurnUiProjection(
+/// The mode is live, the wire is open, and nobody is talking on it — the
+/// resting state of a running free-form session. Public because the host
+/// paints it back by hand after a state the hub itself never emits an event
+/// for (`CaptureController.applyFreeFormMicInterruption`).
+const VoiceTurnUiProjection freeFormListeningProjection = VoiceTurnUiProjection(
   isListening: true,
   isLocked: false,
   isFollowUp: false,
   transcript: '',
   hint: '',
+  isThinking: false,
+  isResponseWaiting: false,
+  isResponseActive: false,
+);
+
+/// The mic is not ours right now — a phone call took the audio mode, or
+/// another app preempted the input (`PhoneMicController.kt`). Not a listening
+/// state and not a thinking one: nothing the user says is reaching anybody,
+/// and the honest thing to show is exactly that. Until this existed the
+/// indicator kept saying "Слушаю…" through a whole call.
+const VoiceTurnUiProjection freeFormMicBusyProjection = VoiceTurnUiProjection(
+  isListening: false,
+  isLocked: false,
+  isFollowUp: false,
+  transcript: '',
+  hint: 'Микрофон занят — не слышу вас',
   isThinking: false,
   isResponseWaiting: false,
   isResponseActive: false,
@@ -112,7 +132,7 @@ HubControllerEvents freeFormModeProjectionEvents({
   }
 
   return HubControllerEvents(
-    onConnected: (_) => applyProjection(_listeningProjection),
+    onConnected: (_) => applyProjection(freeFormListeningProjection),
     onError: (error) {
       // Flush what was already spoken before the drop: it happened, so it
       // belongs in history even though the session did not survive.
@@ -133,7 +153,7 @@ HubControllerEvents freeFormModeProjectionEvents({
       commitUser();
       applyProjection(_speakingProjection);
     },
-    onSpeakingEnd: () => applyProjection(_listeningProjection),
+    onSpeakingEnd: () => applyProjection(freeFormListeningProjection),
     onAssistantText: (text, isFinal, identity) {
       if (text.isNotEmpty) assistantSaid.write(text);
       if (isFinal) commitAssistant();

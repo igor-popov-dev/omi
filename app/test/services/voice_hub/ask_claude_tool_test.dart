@@ -203,8 +203,8 @@ void main() {
       // 403 — Access redirects to its login page, the client follows, and the
       // app sees an HTML 404 from a host that works fine seconds later.
       final client = AskClaudeBridgeClient(
-        httpClient: MockClient((request) async => http.Response('<html>${'x' * 5000}</html>', 404,
-            headers: {'content-type': 'text/html; charset=UTF-8'})),
+        httpClient: MockClient((request) async =>
+            http.Response('<html>${'x' * 5000}</html>', 404, headers: {'content-type': 'text/html; charset=UTF-8'})),
       );
       await expectLater(
         client.ask(question: 'q'),
@@ -308,7 +308,7 @@ void main() {
   });
 
   group('AskClaudeToolExecutor', () {
-    test('ignores a tool call whose name is not ask_claude', () async {
+    test('answers a tool call it does not own instead of dropping it', () async {
       var calls = 0;
       final client = AskClaudeBridgeClient(httpClient: MockClient((r) async {
         calls += 1;
@@ -327,8 +327,15 @@ void main() {
       executor.handle(const HubToolCallRequest(name: 'other_tool', callId: 'c1', argumentsJson: '{}'));
       await Future<void>.value();
 
-      expect(calls, 0);
-      expect(results, isEmpty);
+      expect(calls, 0, reason: 'an unknown tool must never reach the bridge');
+      // Silence here would hang the whole turn: Gemini batches several calls
+      // into one frame and waits for every response before it speaks (live
+      // measurement 24.08).
+      expect(results, hasLength(1));
+      expect(results.single.callId, 'c1');
+      expect(results.single.name, 'other_tool');
+      expect(results.single.output, startsWith('Error:'));
+      expect(results.single.output, contains('other_tool'));
     });
 
     test('parses question/use_tools and relays the bridge answer via sendToolResult', () async {

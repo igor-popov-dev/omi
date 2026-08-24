@@ -336,6 +336,16 @@ class HubController {
   /// in the middle of it. See [_toolCallInFlight].
   final Map<String, VoiceSessionId?> _toolCallOrigin = {};
 
+  /// Watchdog for a turn that went silent after the tool answered. Armed the
+  /// moment the LAST outstanding call of a batch is answered, disarmed by any
+  /// sign of life. See [_armToolStallWatchdog].
+  Object? _toolStallHandle;
+
+  /// What the watchdog would re-deliver if it fires — the answer the model
+  /// already has and is not speaking.
+  String? _stalledToolName;
+  String? _stalledToolOutput;
+
   /// A tool result that came back for a socket that no longer exists, waiting
   /// for the next one to speak it. See [_deliverOrphanedToolResult].
   final List<String> _orphanedToolResults = [];
@@ -552,6 +562,9 @@ class HubController {
     // nobody remembers asking would arrive as a non sequitur.
     _toolCallOrigin.clear();
     _orphanedToolResults.clear();
+    // Including the answer the stall watchdog is holding: firing it after the
+    // mode ended would speak into the next conversation instead.
+    _cancelToolStallWatchdog();
   }
 
   bool isWarm() => session?.isWarm() ?? false;
@@ -589,6 +602,7 @@ class HubController {
     // The goAway belonged to the socket being dropped; a new one starts with
     // a clean lifetime.
     _clearGoAway();
+    _cancelToolStallWatchdog();
     _replyGenerating = false;
     _userSpeaking = false;
     final s = session;
@@ -818,6 +832,7 @@ class HubController {
       // The call was the last thing holding a `goAway` back; this is a safe
       // moment now.
       _actOnGoAwayIfSafe();
+      _armToolStallWatchdog(name, output);
       return;
     }
     // It is not. A `toolResponse` carrying a callId this socket never issued
@@ -833,6 +848,9 @@ class HubController {
   bool get _toolCallInFlight => _toolCallOrigin.values.any((origin) => origin == sessionId);
 
   void _noteToolCallOut(String callId) {
+    // The model asked for something else — it is alive, and the answer it is
+    // waiting on now is not the one the watchdog is holding.
+    _cancelToolStallWatchdog();
     if (_toolCallOrigin.length >= _toolBookkeepingCap) {
       _toolCallOrigin.remove(_toolCallOrigin.keys.first);
     }
@@ -874,6 +892,45 @@ class HubController {
       _orphanedToolResults.removeAt(0);
     }
     _orphanedToolResults.add(text);
+  }
+
+  /// Arms the stall watchdog once the answer the model was waiting on is on
+  /// the wire. Only when the batch is COMPLETE: Gemini sends several calls in
+  /// one frame and says nothing until every one of them is answered (measured
+  /// 24.08, `marathon/probes/lane5-parallel-toolcalls.py`), so arming on the
+  /// first answer of a pair would fire the watchdog at a server that is
+  /// behaving perfectly.
+  void _armToolStallWatchdog(String name, String output) {
+    if (_toolCallInFlight) return;
+    _cancelToolStallWatchdog();
+    _stalledToolName = name;
+    _stalledToolOutput = output;
+    _toolStallHandle = clock.setTimer(toolResultStallGrace, () {
+      _toolStallHandle = null;
+      final stalledName = _stalledToolName;
+      final stalledOutput = _stalledToolOutput;
+      _stalledToolName = null;
+      _stalledToolOutput = null;
+      if (stalledName == null || stalledOutput == null) return;
+      // Another call went out in the meantime is already covered by the
+      // disarm on [_noteToolCallOut]; getting here means the turn produced
+      // nothing at all.
+      _deliverOrphanedToolResult(stalledName, stalledOutput);
+    });
+  }
+
+  /// Any sign the turn is alive disarms the watchdog: speech, a text chunk,
+  /// another tool call, a finished turn, the user talking over it, or the
+  /// socket going away. The cost of a false fire is a repeated answer in the
+  /// user's ear, so the disarms are deliberately generous.
+  void _cancelToolStallWatchdog() {
+    final handle = _toolStallHandle;
+    if (handle != null) {
+      clock.clearTimer(handle);
+      _toolStallHandle = null;
+    }
+    _stalledToolName = null;
+    _stalledToolOutput = null;
   }
 
   /// Barge-in seam (design doc §6 step 1, `voice_turn_driver.dart`):
@@ -934,16 +991,25 @@ class HubController {
       onConnected: (sid) => _handleConnected(sid),
       onError: (message, retryable, closeCode) => _handleError(message, retryable, closeCode),
       onInputTranscript: (text, isFinal, identity) => events.onInputTranscript?.call(text, isFinal, identity),
-      onAssistantText: (text, isFinal, identity) => events.onAssistantText?.call(text, isFinal, identity),
+      onAssistantText: (text, isFinal, identity) {
+        _cancelToolStallWatchdog();
+        events.onAssistantText?.call(text, isFinal, identity);
+      },
       onUserSpeechState: (isSpeaking) {
         // Only recorded, never used as a trigger: a rebuild fired the instant
         // speech ends would land BEFORE the reply to it starts generating,
         // i.e. lose the very sentence it just waited out. The safe moments
         // stay what they were — a handle offer or a finished turn.
         _userSpeaking = isSpeaking;
+        // The user talking over the gap owns the turn now; a nudge here would
+        // land on top of them.
+        if (isSpeaking) _cancelToolStallWatchdog();
         events.onUserSpeechState?.call(isSpeaking);
       },
-      onSpeakingStart: () => events.onSpeakingStart?.call(),
+      onSpeakingStart: () {
+        _cancelToolStallWatchdog();
+        events.onSpeakingStart?.call();
+      },
       onSpeakingEnd: () => events.onSpeakingEnd?.call(),
       onToolRequest: (call, identity) {
         _noteToolCallOut(call.callId);
@@ -968,6 +1034,7 @@ class HubController {
         // server never handed a handle for (a first turn that produced none)
         // would otherwise never see one.
         _replyGenerating = false;
+        _cancelToolStallWatchdog();
         _actOnGoAwayIfSafe();
         events.onTurnDone?.call(identity);
       },
@@ -1028,6 +1095,7 @@ class HubController {
     _handleInFlight = null;
     // The warning has been overtaken by the drop it warned about.
     _clearGoAway();
+    _cancelToolStallWatchdog();
     _replyGenerating = false;
     _userSpeaking = false;
     // Classify BEFORE forwarding: the forward drives the reducer's

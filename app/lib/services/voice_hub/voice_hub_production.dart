@@ -59,7 +59,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:omi/backend/http/shared.dart';
 import 'package:omi/env/env.dart';
-import 'package:omi/services/mic/native_mic_recorder_service.dart';
+import 'package:omi/services/services.dart' show ServiceManager;
 
 import 'ask_claude_tool.dart';
 import 'cf_access_http_client.dart';
@@ -120,7 +120,9 @@ const String _kHubInstructions = 'You are Omi, a warm and concise voice assistan
     'ORDER MATTERS: FIRST say a short filler out loud — in Russian say exactly '
     '"секунду, уточню" — and only THEN call the tool. The call itself is seconds of silence, '
     'so a filler spoken after the result lands is useless — the user has already sat through '
-    'the wait wondering whether you heard them at all.';
+    'the wait wondering whether you heard them at all. Say that filler ONCE per turn: if '
+    'one request makes you call the tool several times, the single filler covers them all — '
+    'repeating it back to back sounds like a stutter.';
 
 /// Production [HubFetchTools]: the one tool this app declares today.
 Future<List<VoiceToolDeclaration>> fetchHubTools() async => const [askClaudeToolDeclaration];
@@ -184,23 +186,43 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
         events: events,
         buildInstructions: buildProductionHubInstructions,
         mintToken: mintGeminiHubToken,
-        createSession: (spec) => GeminiHubSession(
-          token: spec.token,
-          instructions: spec.instructions,
-          playerFactory: nativeVoicePlayerFactory,
-          events: spec.events,
-          tools: spec.tools,
-          freeFormMode: freeFormMode(),
-        ),
+        createSession: (spec) => buildProductionGeminiSession(spec, freeFormMode: freeFormMode()),
         fetchTools: fetchHubTools,
       );
       return hub;
     },
-    startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
+    startCapture: productionHubCaptureFactory(),
     applyProjection: applyProjection,
     pttHubEnabled: pttHubEnabled,
     toolExecutor: askClaudeExecutor.handle,
   ));
+}
+
+/// The one place a production Gemini session is built out of the spec
+/// `HubController` hands its `createSession`. Both production factories go
+/// through it — they used to hand-list the same six arguments each, and the
+/// two lists drifted: NEITHER passed `spec.resumptionHandle`.
+///
+/// That field is how a conversation survives its socket (design doc §10). The
+/// controller keeps the latest handle across a teardown and offers it in the
+/// spec precisely so the next socket continues the same conversation; dropping
+/// it here made every rebuild silently blank — including the drop recovery,
+/// which reconnects and then asks the model out loud to "продолжай с того
+/// места, где мы остановились" (`CaptureController.recoverFreeFormVoiceMode`).
+/// The model had never heard that place. The controller-level fix for exactly
+/// this ("keeps the conversation, so the model really can continue it") was
+/// tested against a fake session, so nothing caught that production threw the
+/// handle away on the way to the real one.
+GeminiHubSession buildProductionGeminiSession(HubSessionSpec spec, {required bool freeFormMode}) {
+  return GeminiHubSession(
+    token: spec.token,
+    instructions: spec.instructions,
+    playerFactory: nativeVoicePlayerFactory,
+    events: spec.events,
+    tools: spec.tools,
+    resumptionHandle: spec.resumptionHandle,
+    freeFormMode: freeFormMode,
+  );
 }
 
 bool _defaultFreeFormModeOff() => false;
@@ -238,11 +260,23 @@ bool _defaultFreeFormModeOff() => false;
 /// exists only for the PTT driver's warm-wait race
 /// (`HubController.handoffWarmWaitToCascade`), which nothing here ever
 /// calls — free-form mode has no warm-wait/cascade concept.
+/// The mic both hub paths capture through: the app's SHARED recorder, taken
+/// from [ServiceManager] rather than constructed here.
+///
+/// Named (instead of inlined at the two call sites) so the rule is stated
+/// once and testable: a hub that builds a `NativeMicRecorderService` of its
+/// own detaches conversation capture from the native event stream for the
+/// rest of the process, and its arbiter handle is what makes the two
+/// consumers exclusive (`arbitratedPhoneMicHandles`).
+HubStartCapture productionHubCaptureFactory() =>
+    nativeMicHubCaptureFactory(() => ServiceManager.instance().voiceHubMic);
+
 FreeFormVoiceMode createProductionFreeFormVoiceMode({
   required HubControllerEvents events,
   http.Client? bridgeHttpClient,
   Duration? Function()? resolveIdleTimeout,
   void Function()? onIdleTimeout,
+  void Function(bool interrupted)? onMicInterruption,
 }) {
   late final HubController hub;
   // Same `late final` idiom as `hub` above and in
@@ -295,23 +329,17 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     ),
     buildInstructions: buildProductionHubInstructions,
     mintToken: mintGeminiHubToken,
-    createSession: (spec) => GeminiHubSession(
-      token: spec.token,
-      instructions: spec.instructions,
-      playerFactory: nativeVoicePlayerFactory,
-      events: spec.events,
-      tools: spec.tools,
-      freeFormMode: true,
-    ),
+    createSession: (spec) => buildProductionGeminiSession(spec, freeFormMode: true),
     fetchTools: fetchHubTools,
   );
 
   mode = FreeFormVoiceMode(
     hub: hub,
-    startCapture: nativeMicHubCaptureFactory(() => NativeMicRecorderService()),
+    startCapture: productionHubCaptureFactory(),
     mintTurnId: () => const Uuid().v4(),
     resolveIdleTimeout: resolveIdleTimeout,
     onIdleTimeout: onIdleTimeout,
+    onMicInterruption: onMicInterruption,
   );
   return mode;
 }

@@ -374,6 +374,17 @@ const Duration hubWarmTimeoutDuration = Duration(milliseconds: 10000);
 /// assuming it is far better than waiting indefinitely for a quiet moment.
 const Duration goAwayAssumedRunway = Duration(seconds: 50);
 
+/// How long the model may stay silent after EVERY tool call of a batch has
+/// been answered before the hub treats the turn as stuck and nudges it.
+///
+/// Measured 24.08 against live Gemini (`marathon/probes/lane5-toolresult-stall.py`):
+/// a turn that is going to speak starts speaking well inside this window,
+/// while a stuck one produces nothing at all — no speech, no second call, no
+/// error — and the socket only dies on its own about 100s later with 1008
+/// "The operation was aborted". Everything in between is indistinguishable
+/// from "still thinking" to the user, who already heard "секунду, уточню".
+const Duration toolResultStallGrace = Duration(seconds: 12);
+
 /// Held back from the `goAway` runway so the rebuild it pays for can actually
 /// finish. Covers a warm that runs the full [hubWarmTimeoutDuration] plus the
 /// socket handshake (measured 24.08: 0.76-0.83s to `setupComplete`, whole seam
@@ -779,9 +790,41 @@ abstract class BaseHubSession implements HubSession {
     if (handle != null) clock.clearTimer(handle);
     _idleHandle = clock.setTimer(idleRelease, () {
       _idleHandle = null;
+      // A session with an OPEN turn is not idle, however quiet the wire has
+      // gone — see [canIdleRelease]. Re-arm rather than release, so the
+      // release still fires once the turn closes.
+      if (!canIdleRelease) {
+        touchIdle();
+        return;
+      }
       teardown(); // silent release — ensureWarm() re-establishes on the next press
     });
   }
+
+  /// Whether the idle release may fire right now (default: always).
+  ///
+  /// The release is about a WARM UNUSED hub — the PTT gap between presses.
+  /// "No frames for [idleRelease]" is a good proxy for that only while no
+  /// turn is open; under an open turn the same silence means the INPUT died,
+  /// not that nobody wants the hub. Free-form mode is where this bites: the
+  /// mic streams continuously, so the only way it goes quiet for 90s with the
+  /// mode still on is the mic being taken away — a phone call is the everyday
+  /// case, and the native controller deliberately does NOT rebuild through
+  /// one (`PhoneMicController.kt`, "Rule 2: a call mode is up and data
+  /// stalled -> interruption, not a rebuild"), it waits for the call to end.
+  ///
+  /// Releasing there was silent in the worst way: [teardown] emits no event,
+  /// so the host kept showing "voice mode on" while every mic frame after the
+  /// call fed a torn-down session ([BaseHubSession.appendAudio] buffers when
+  /// the socket cannot accept input, and nothing re-warms), i.e. the user
+  /// talked into a dead socket until the silence auto-off. Holding the socket
+  /// instead hands the case to machinery that already exists: the provider
+  /// closes it on its own (~100-151s, measured — see [geminiIdleCloseMs]),
+  /// that close IS reported, and the host's drop recovery rebuilds the socket
+  /// and resumes the conversation.
+  /// (Subclass-facing by convention, like the rest of this class — see file
+  /// header.)
+  bool get canIdleRelease => true;
 
   // MARK: Per-turn primitives (delegate to subclass frames)
 
