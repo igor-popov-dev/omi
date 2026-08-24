@@ -772,6 +772,22 @@ class ModulatePrerecordedProvider(PrerecordedSTTProvider):
         )
 
 
+# Self-host patch (not for upstream): our own pre-recorded engine is a single
+# whisper.cpp-shaped endpoint, not the two-path hosted Parakeet service. The
+# request and response shapes already match, so pointing HOSTED_PARAKEET_API_URL
+# at it and overriding the path is the whole integration. Unset elsewhere, so the
+# hosted service keeps its own /v2 -> /v1 fallback untouched.
+SELFHOST_PRERECORDED_PATH_ENV = 'OMI_SELFHOST_PRERECORDED_STT_PATH'
+
+
+def _prerecorded_transcribe_path(*, v2: bool) -> str:
+    """The path appended to HOSTED_PARAKEET_API_URL for one transcription call."""
+    override = (os.getenv(SELFHOST_PRERECORDED_PATH_ENV) or '').strip()
+    if override:
+        return override if override.startswith('/') else '/' + override
+    return '/v2/transcribe' if v2 else '/v1/transcribe'
+
+
 _PARAKEET_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
 _PARAKEET_URL_DOWNLOAD_TIMEOUT = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
 _PARAKEET_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
@@ -832,17 +848,22 @@ def parakeet_prerecorded_from_bytes(
         files = {'file': ('audio.wav', BytesIO(audio_bytes), 'audio/wav')}
 
         use_v2 = diarize and os.getenv('PARAKEET_USE_V2', '1') == '1'
+        v2_path = _prerecorded_transcribe_path(v2=True)
+        v1_path = _prerecorded_transcribe_path(v2=False)
         if use_v2:
-            url = api_url.rstrip('/') + '/v2/transcribe'
+            url = api_url.rstrip('/') + v2_path
             data = {'diarize': 'true'}
         else:
-            url = api_url.rstrip('/') + '/v1/transcribe'
+            url = api_url.rstrip('/') + v1_path
             data = {}
 
         with httpx.Client(timeout=_PARAKEET_TIMEOUT) as client:
             response = client.post(url, files=files, data=data if data else None)
-            if response.status_code == 404 and use_v2:
-                url = api_url.rstrip('/') + '/v1/transcribe'
+            # A single-path engine answers the same URL twice; retrying it would
+            # only repeat the 404, so the fallback is skipped when both resolve
+            # to the same path.
+            if response.status_code == 404 and use_v2 and v1_path != v2_path:
+                url = api_url.rstrip('/') + v1_path
                 response = client.post(url, files={'file': ('audio.wav', BytesIO(audio_bytes), 'audio/wav')})
                 use_v2 = False
         response.raise_for_status()
