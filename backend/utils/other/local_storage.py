@@ -17,6 +17,18 @@ LOCAL_STORAGE_ROOT_ENV = 'OMI_LOCAL_STORAGE_ROOT'
 LOCAL_STORAGE_BASE_URL_ENV = 'OMI_LOCAL_STORAGE_BASE_URL'
 HARNESS_STATE_ROOT_ENV = 'OMI_HARNESS_STATE_ROOT'
 
+# Self-host patch (docs/selfhost-patches.md): upstream исходит из того, что
+# локальное хранилище блобов бывает только у эмуляторного стенда, и требует
+# demo-проект плюс FIRESTORE_EMULATOR_HOST. У нас оно нужно на НАСТОЯЩЕМ
+# Firestore: свой сервер на mac mini держит блобы на диске, потому что GCS —
+# это платный вендор, которого в self-host нет. Без локального корня профили
+# голоса и загрузка файлов в чат отвечают 500 (BUCKET_* остаются пустыми).
+#
+# Опт-ин явный: кто переменную не ставит, живёт по правилу upstream слово в
+# слово. Проверка вложенности корня в состояние стенда остаётся В ЛЮБОМ случае —
+# именно она не даёт указать на произвольный каталог, и ослаблять её нельзя.
+SELFHOST_LOCAL_STORAGE_ENV = 'OMI_SELFHOST_LOCAL_STORAGE'
+
 
 def _contained_path(root: Path, value: str, *, label: str) -> Path:
     candidate = Path(value).expanduser().resolve()
@@ -36,9 +48,11 @@ def local_storage_root_from_env() -> Path | None:
     if not raw_state_root:
         raise RuntimeError(f'{LOCAL_STORAGE_ROOT_ENV} requires {HARNESS_STATE_ROOT_ENV}')
 
-    project_id = (os.environ.get('FIREBASE_PROJECT_ID') or '').strip()
-    if not project_id.startswith('demo-') or not os.environ.get('FIRESTORE_EMULATOR_HOST'):
-        raise RuntimeError(f'{LOCAL_STORAGE_ROOT_ENV} is allowed only with the owned local emulator harness')
+    selfhost = os.environ.get(SELFHOST_LOCAL_STORAGE_ENV, '').strip().lower() in ('1', 'true', 'yes')
+    if not selfhost:
+        project_id = (os.environ.get('FIREBASE_PROJECT_ID') or '').strip()
+        if not project_id.startswith('demo-') or not os.environ.get('FIRESTORE_EMULATOR_HOST'):
+            raise RuntimeError(f'{LOCAL_STORAGE_ROOT_ENV} is allowed only with the owned local emulator harness')
 
     state_root = Path(raw_state_root).expanduser().resolve()
     return _contained_path(state_root, raw_root, label=LOCAL_STORAGE_ROOT_ENV)
