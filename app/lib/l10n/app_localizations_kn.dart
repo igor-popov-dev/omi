@@ -7437,9 +7437,6 @@ class AppLocalizationsKn extends AppLocalizations {
   String get voiceFailedToTranscribe => 'ಆಡಿಯೋ ಟ್ರಾನ್ಸ್‌ಕ್ರೈಬ್ ವಿಫಲವಾಗಿದೆ';
 
   @override
-  String get voiceNoSpeechDetected => 'No speech detected — record again';
-
-  @override
   String get pdfTranscriptExport => 'ಟ್ರಾನ್ಸ್‌ಕ್ರಿಪ್ಟ್ ರಕಷ್ಯ';
 
   @override
@@ -9887,6 +9884,42 @@ class AppLocalizationsKn extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'ಡಯಾಗ್ನೋಸ್ಟಿಕ್ಸ್ ಹಂಚಿಕೊಳ್ಳಲಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
+  String get appDisabledTitle => 'ಈ ಆ್ಯಪ್ ನಿಷ್ಕ್ರಿಯಗೊಂಡಿದೆ ಮತ್ತು ಅನುಸ್ಥಾಪಿಸಲಾಗುವುದಿಲ್ಲ.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'ಇದರ ಎಂಡ್‌ಪಾಯಿಂಟ್ ಸತತ 72 ಗಂಟೆಗಳ ಕಾಲ ವಿಫಲವಾಯಿತು, ಆದ್ದರಿಂದ ರವಾನೆಗಳನ್ನು ನಿಲ್ಲಿಸಲಾಯಿತು.';
+
+  @override
+  String get appDisabledGeneric => 'ಇದನ್ನು Omi ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿತು.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'ಮೊದಲು ಎಂಡ್‌ಪಾಯಿಂಟ್ ಸರಿಪಡಿಸಿ — ಮರು-ಸಕ್ರಿಯಗೊಳಿಸುವಾಗ ಕಾನ್ಫಿಗರ್ ಮಾಡಿದ ಪ್ರತಿ URL ಅನ್ನು ಮತ್ತೆ ಪರಿಶೀಲಿಸಲಾಗುತ್ತದೆ.';
+
+  @override
+  String get appReEnable => 'ಮರು-ಸಕ್ರಿಯಗೊಳಿಸಿ';
+
+  @override
+  String get appReEnableFailedTitle => 'ಮರು-ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಲಿಲ್ಲ';
+
+  @override
+  String get appReEnableFailedBody => 'ಈ ಆ್ಯಪ್ ಅನ್ನು ಮರು-ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.';
+
+  @override
+  String appDisabledOn(String date) {
+    return '$date ರಂದು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'ಕೊನೆಯ ದೋಷ: $error';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
 
   @override
   String sttOfflineBuffering(String duration) {

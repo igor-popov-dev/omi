@@ -7419,9 +7419,6 @@ class AppLocalizationsId extends AppLocalizations {
   String get voiceFailedToTranscribe => 'Gagal mentranskripsi audio';
 
   @override
-  String get voiceNoSpeechDetected => 'No speech detected — record again';
-
-  @override
   String get pdfTranscriptExport => 'Ekspor Transkrip';
 
   @override
@@ -9866,6 +9863,42 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get diagnosticsShareFailed => 'Tidak dapat membagikan diagnostik. Silakan coba lagi.';
+
+  @override
+  String get appDisabledTitle => 'Aplikasi ini dinonaktifkan dan tidak dapat dipasang.';
+
+  @override
+  String get appDisabledWebhookFailures =>
+      'Endpoint-nya gagal selama 72 jam berturut-turut, sehingga pengiriman dihentikan.';
+
+  @override
+  String get appDisabledGeneric => 'Aplikasi ini dinonaktifkan oleh Omi.';
+
+  @override
+  String get appDisabledOwnerHint =>
+      'Perbaiki endpoint terlebih dahulu — mengaktifkan kembali akan memeriksa ulang setiap URL yang dikonfigurasi.';
+
+  @override
+  String get appReEnable => 'Aktifkan kembali';
+
+  @override
+  String get appReEnableFailedTitle => 'Gagal mengaktifkan kembali';
+
+  @override
+  String get appReEnableFailedBody => 'Aplikasi ini tidak dapat diaktifkan kembali. Silakan coba lagi.';
+
+  @override
+  String appDisabledOn(String date) {
+    return 'Dinonaktifkan pada $date.';
+  }
+
+  @override
+  String appDisabledLastError(String error) {
+    return 'Kesalahan terakhir: $error.';
+  }
+
+  @override
+  String get voiceNoSpeechDetected => 'No speech detected — record again';
 
   @override
   String sttOfflineBuffering(String duration) {

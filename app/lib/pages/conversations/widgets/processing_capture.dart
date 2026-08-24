@@ -287,7 +287,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
         stateText = context.l10n.transcriptionUnavailable;
         statusIndicator = const PausedStatusIndicator();
       } else if (bufferingFor != null) {
-        // Self-host: custom STT endpoint unreachable. Audio keeps recording
+        // Custom STT endpoint unreachable. Audio keeps recording
         // and buffering locally (see PurePollingSocket) — say so instead of
         // silently claiming "Listening" while nothing is being transcribed.
         stateText = _customSttBufferingText(bufferingFor);
@@ -393,7 +393,7 @@ class _ConversationCaptureWidgetState extends State<ConversationCaptureWidget> {
             ? (isDeviceRecording ? context.l10n.muted : context.l10n.paused)
             : hasTerminalTranscriptionFailure
                 ? context.l10n.transcriptionUnavailable
-                // Self-host: custom STT endpoint unreachable, audio still buffering
+                // Custom STT endpoint unreachable, audio still buffering
                 // locally (see customSttBufferingDuration / PurePollingSocket).
                 : bufferingFor != null
                     ? _customSttBufferingText(bufferingFor)
