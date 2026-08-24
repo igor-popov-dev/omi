@@ -52,6 +52,7 @@
 // `bridgeHttpClient` is therefore optional now, defaulting to
 // `CfAccessHttpClient()`; a caller can still inject a bare `http.Client()`
 // (or a fake) for tests or a non-tunnel deployment.
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -63,6 +64,9 @@ import 'package:omi/services/services.dart' show ServiceManager;
 
 import 'ask_claude_tool.dart';
 import 'cf_access_http_client.dart';
+import 'earcon.dart';
+import 'end_conversation_tool.dart';
+import 'escalation_level.dart';
 import 'free_form_voice_mode.dart';
 import 'gemini_hub_session.dart';
 import 'hub_controller.dart';
@@ -111,21 +115,20 @@ Future<String> mintGeminiHubToken() async {
 /// per-user/context templating yet (a future tick that wants that plugs it
 /// in here; the seam is a `String Function()`, not a constant, precisely so
 /// this can grow that later without touching `hub_controller.dart`).
-String buildProductionHubInstructions() => _kHubInstructions;
+/// Инструкции сессии — теперь функция от ползунка эскалации (просьба Игоря
+/// 24.08, см. `escalation_level.dart`). Читается `HubController`-ом при каждом
+/// открытии сессии, поэтому смена уровня применяется со следующего запуска
+/// голосового режима.
+String buildProductionHubInstructions() => hubInstructionsForLevel(currentClaudeEscalationLevel());
 
-const String _kHubInstructions = 'You are Omi, a warm and concise voice assistant running on the '
-    "user's phone. Speak naturally and briefly, like a helpful friend, not a chatbot reading a "
-    'list. For anything that needs real reasoning, remembered context, or looking something up — '
-    "rather than a quick reply you're confident in — use the ask_claude tool instead of guessing. "
-    'ORDER MATTERS: FIRST say a short filler out loud — in Russian say exactly '
-    '"секунду, уточню" — and only THEN call the tool. The call itself is seconds of silence, '
-    'so a filler spoken after the result lands is useless — the user has already sat through '
-    'the wait wondering whether you heard them at all. Say that filler ONCE per turn: if '
-    'one request makes you call the tool several times, the single filler covers them all — '
-    'repeating it back to back sounds like a stutter.';
-
-/// Production [HubFetchTools]: the one tool this app declares today.
-Future<List<VoiceToolDeclaration>> fetchHubTools() async => const [askClaudeToolDeclaration];
+/// Production [HubFetchTools]: каталог зависит от того же ползунка — на
+/// крайнем левом уровне (чистый Gemini Live) инструмента ask_claude в сессии
+/// нет вовсе, это структурная гарантия, а не промпт.
+///
+/// Промпт-константа полосы 5 (`_kHubInstructions`) здесь не воскрешается: её
+/// текст переехал в `escalation_level.dart`, который собирает инструкции по
+/// уровню. Правило «один филлер на ход» из того же коммита перенесено туда же.
+Future<List<VoiceToolDeclaration>> fetchHubTools() async => hubToolsForLevel(currentClaudeEscalationLevel());
 
 /// Assembles a real, network-backed [VoiceHubTurnDriver] — see file header
 /// for exactly what's wired and what's deliberately still not (bootstrap
@@ -178,6 +181,13 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     // line. Without this the whole round trip is dead air — 44s of it, measured
     // 23.08, which the user read as the assistant having died mid-sentence.
     announce: (text) => hub.sendUserText(text),
+    // …кроме высоких уровней ползунка эскалации: там доставка блокирующая —
+    // модель молчит до ответа (идея 1, WORKLOG 24.08). Уровень читается на
+    // каждом вызове, поэтому ползунок действует без пересоздания драйвера.
+    blockingDelivery: () => currentClaudeEscalationLevel().blockingDelivery,
+    // Подтверждение «услышал, думаю» в блокирующем режиме — звук (файл Игоря),
+    // а не фраза «секунду, уточню» (см. earcon.dart).
+    onBlockingCallStart: () => unawaited(thinkingEarcon.play()),
   );
 
   return VoiceHubTurnDriver(VoiceHubTurnDriverDeps(
@@ -194,7 +204,15 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     startCapture: productionHubCaptureFactory(),
     applyProjection: applyProjection,
     pttHubEnabled: pttHubEnabled,
-    toolExecutor: askClaudeExecutor.handle,
+    toolExecutor: (call) {
+      if (call.name == endConversationToolName) {
+        // PTT-режим поход-ходовой: «разговора», который можно закончить, тут
+        // нет, но незакрытый вызов подвесил бы ход модели — отвечаем no-op.
+        hub.sendToolResult(call.callId, call.name, 'В этом режиме нечего выключать — продолжай.');
+        return;
+      }
+      askClaudeExecutor.handle(call);
+    },
   ));
 }
 
@@ -277,12 +295,17 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   Duration? Function()? resolveIdleTimeout,
   void Function()? onIdleTimeout,
   void Function(bool interrupted)? onMicInterruption,
+  // Модель сама заканчивает разговор инструментом end_conversation (просьба
+  // Игоря 24.08). В production сюда приходит CaptureController.stopFreeFormVoiceMode
+  // (стоп + сброс UI + досылка диалога в чат); без него гасим только сам режим.
+  void Function()? onConversationEnd,
 }) {
   late final HubController hub;
   // Same `late final` idiom as `hub` above and in
   // `createProductionVoiceHubTurnDriver`: assigned below before this function
   // returns, and only ever read from a callback the live socket fires later.
   late final FreeFormVoiceMode mode;
+  late final EndConversationToolHandler endHandler;
 
   final askClaudeExecutor = AskClaudeToolExecutor(
     // Voice asks for a BOUNDED agent, unlike chat — but deliberately does NOT
@@ -311,6 +334,13 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     // line. Without this the whole round trip is dead air — 44s of it, measured
     // 23.08, which the user read as the assistant having died mid-sentence.
     announce: (text) => hub.sendUserText(text),
+    // …кроме высоких уровней ползунка эскалации: там доставка блокирующая —
+    // модель молчит до ответа (идея 1, WORKLOG 24.08). Уровень читается на
+    // каждом вызове, поэтому ползунок действует без пересоздания драйвера.
+    blockingDelivery: () => currentClaudeEscalationLevel().blockingDelivery,
+    // Подтверждение «услышал, думаю» в блокирующем режиме — звук (файл Игоря),
+    // а не фраза «секунду, уточню» (см. earcon.dart).
+    onBlockingCallStart: () => unawaited(thinkingEarcon.play()),
   );
 
   // Wrapped so every content event rearms the silence-timeout clock: the
@@ -323,14 +353,32 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
       // copyWith, not a hand-listed copy: the only event this wiring owns is
       // the tool call (it goes to the `ask_claude` executor instead of the
       // host); everything else must reach the host untouched, including
-      // events added after this line was written.
-      events.copyWith(onToolRequest: (call, identity) => askClaudeExecutor.handle(call)),
+      // events added after this line was written. Ровно этим и лечится
+      // потерянный проброс onInterrupted (разметка «[прервано]» в истории,
+      // 7e17880a5e): ручной список её терял, copyWith — нет.
+      events.copyWith(onToolRequest: (call, identity) {
+        // Модель закончила разговор сама — это не вопрос к Claude.
+        if (endHandler.handle(call)) return;
+        askClaudeExecutor.handle(call);
+      }),
       () => mode.noteActivity(),
     ),
     buildInstructions: buildProductionHubInstructions,
     mintToken: mintGeminiHubToken,
     createSession: (spec) => buildProductionGeminiSession(spec, freeFormMode: true),
     fetchTools: fetchHubTools,
+    // Анти-зомби 24.08: хаб сам себя пересоздавал через цикл «idle-close 1008
+    // → re-warm» ещё полчаса после выключения режима — жёг поминутный биллинг
+    // и перехватывал нативный плеер у новых сессий (повторные запуски играли
+    // в закрытый трек = тишина). Тёплый сокет свободного режима имеет смысл
+    // ТОЛЬКО пока сам режим работает.
+    shouldStayWarm: () => mode.isRunning,
+  );
+
+  endHandler = EndConversationToolHandler(
+    sendToolResult: (callId, name, output) => hub.sendToolResult(callId, name, output),
+    stopMode: () => (onConversationEnd ?? mode.stop)(),
+    schedule: (delay, run) => Timer(delay, run),
   );
 
   mode = FreeFormVoiceMode(

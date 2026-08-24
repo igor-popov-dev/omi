@@ -304,10 +304,23 @@ class SharedPreferencesUtil {
 
   bool get vadGateEnabled => getBool('vadGateEnabled');
 
-  // PTT Hub — routes pendant taps through the realtime voice hub instead of the STT pipeline (experimental)
+  // PTT Hub — hold-to-talk через realtime-хаб. УБРАН (решение Игоря 24.08):
+  // удержание кнопки кулона занято включением/выключением самого кулона (это
+  // единственный удобный способ, не трогать), а push-to-talk конфликтовал с
+  // одиночным нажатием и не нужен — разговор запускается одиночным нажатием
+  // (singleTapAction=1). Геттер прибит к false, хранение оставлено на случай
+  // возврата; тумблер в Developer-настройках скрыт.
   set pttHubEnabled(bool value) => saveBool('pttHubEnabled', value);
 
-  bool get pttHubEnabled => getBool('pttHubEnabled');
+  bool get pttHubEnabled => false;
+
+  // Действие ОДИНОЧНОГО нажатия кнопки кулона (просьба Игоря 24.08 — селект
+  // по аналогии с doubleTapAction): 0 = прежнее поведение (голосовой вопрос
+  // Omi: записать реплику, ответ придёт нотификацией), 1 = свободный
+  // голосовой режим (разговор с ассистентом, повторное нажатие выключает).
+  set singleTapAction(int value) => saveInt('singleTapAction', value);
+
+  int get singleTapAction => getInt('singleTapAction', defaultValue: 0);
 
   // Free-form Voice Mode — hands-free voice-mode button in chat (experimental)
   set freeFormMode(bool value) => saveBool('freeFormMode', value);
@@ -323,6 +336,16 @@ class SharedPreferencesUtil {
 
   int get freeFormVoiceIdleTimeoutMinutes =>
       getInt('freeFormVoiceIdleTimeoutMinutes', defaultValue: kDefaultFreeFormVoiceIdleTimeoutMinutes);
+
+  // Ползунок «как часто голосовой хаб ходит к Claude» (0..4, см.
+  // services/voice_hub/escalation_level.dart). Дефолт 2 (balanced) — ровно
+  // поведение до появления ползунка. Ключ v2: под старым ключом
+  // 'claudeEscalationLevel' у Игоря осталась «4» с неудачного теста 24.08
+  // (ползунок тогда скрыли) — возврат ползунка не должен молча включить
+  // правый край, поэтому старое значение сознательно брошено.
+  set claudeEscalationLevel(int value) => saveInt('claudeEscalationLevelV2', value);
+
+  int get claudeEscalationLevel => getInt('claudeEscalationLevelV2', defaultValue: 2);
 
   // Notification frequency (0-5): 0 = off, 5 = most frequent. Default is 0 (disabled)
   set notificationFrequency(int value) => saveInt('notificationFrequency', value);

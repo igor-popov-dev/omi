@@ -340,10 +340,27 @@ class AskClaudeToolExecutor {
   /// time and timezone, which is exactly what [deviceClockContext] states.
   final DateTime Function() now;
 
+  /// Per-call switch back to BLOCKING delivery even when [announce] is wired
+  /// (идея 1 из WORKLOG 24.08 ~02:50): на высоких уровнях эскалации модель
+  /// должна сказать «секунду» и молчать до ответа — неблокирующий путь там
+  /// давал «раздвоение личности». Функция, а не флаг: уровень ползунка
+  /// читается на КАЖДОМ вызове, а executor живёт столько же, сколько драйвер.
+  /// Честная пауза с тёплым мостом — ~4–8 с (замер 24.08), а не прежние 44 с,
+  /// ради которых announce и появился.
+  final bool Function()? blockingDelivery;
+
+  /// Fires the moment a BLOCKING call starts — production plays the «услышал»
+  /// earcon here (см. earcon.dart): модель в блокирующем режиме молчит до
+  /// ответа, и без сигнала пользователь повторял вопрос в тишину, плодя
+  /// второй вызов и два ответа подряд (жалоба Игоря 24.08 про перебивание).
+  final void Function()? onBlockingCallStart;
+
   AskClaudeToolExecutor({
     required this.client,
     required this.sendToolResult,
     this.announce,
+    this.blockingDelivery,
+    this.onBlockingCallStart,
     this.timeout = const Duration(seconds: 60),
     this.now = DateTime.now,
   });
@@ -351,16 +368,37 @@ class AskClaudeToolExecutor {
   /// Handed to the model the instant it asks, so it can carry the conversation
   /// instead of standing still. Deliberately an instruction, not data: a bare
   /// "pending" string got read out loud as if it were the answer.
+  ///
+  /// «НЕ отвечай сам» — урок живого теста 24.08: прежняя формулировка
+  /// «продолжай разговор обычным образом» читалась моделью как разрешение
+  /// ответить на вопрос самостоятельно, и ответ Opus затем звучал второй
+  /// репликой — то самое «раздвоение личности» (WORKLOG 24.08 ~02:50).
   static const String _pendingResult =
-      'Запрос отправлен умной модели. Ответа пока НЕТ — не выдумывай его и не пересказывай. '
-      'Продолжай разговор обычным образом; готовый ответ придёт отдельной репликой, '
-      'и тогда ты озвучишь его.';
+      'Запрос отправлен умной модели. Ответа пока НЕТ — не выдумывай его, не пересказывай '
+      'и НЕ отвечай на этот вопрос сам: ответ придёт отдельной репликой, и тогда ты его '
+      'озвучишь. До тех пор можешь коротко поддерживать разговор на другие темы.';
 
-  /// Prefix for the delivered answer. Tells the model this is material to voice,
-  /// not a new question from the user.
-  static const String _answerPrefix =
-      'Пришёл ответ от умной модели на твой запрос. Озвучь его своими словами, коротко, '
-      'вклинившись в разговор естественно (например «так, ответ есть»). Вот он: ';
+  /// Frame for the delivered answer. Tells the model this is material to
+  /// voice, not a new question from the user, and NAMES the question it
+  /// answers — к моменту доставки разговор мог уйти на реплику-две вперёд,
+  /// и безымянное «так, ответ есть» звучало невпопад (живой тест 24.08).
+  static String _answerFor(String? question, String output) {
+    final trimmed = question == null || question.isEmpty
+        ? null
+        : (question.length > 90 ? '${question.substring(0, 90)}…' : question);
+    final about = trimmed == null ? '' : ' на вопрос «$trimmed»';
+    return 'Пришёл ответ от умной модели$about. Озвучь его своими словами, коротко, '
+        'вклинившись в разговор естественно (например «так, ответ есть»); если разговор '
+        'уже ушёл с этой темы, сначала назови, к чему это ответ. Вот он: $output';
+  }
+
+  /// Monotonic counter of announce-path calls: the NEWEST call supersedes the
+  /// delivery of every older, still-in-flight answer (single-flight). Реальный
+  /// случай с живого теста 24.08: пока ехал ответ на старый вопрос, пользователь
+  /// спросил новое — старый ответ прилетал позже нового вопроса и звучал как
+  /// вторая личность. Устаревший ответ теперь просто не озвучивается (модель
+  /// свой ход уже получила через `_pendingResult`, ничего не зависает).
+  int _announceGeneration = 0;
 
   /// Feed this directly to `HubControllerEvents.onToolRequest` /
   /// `HubSessionEvents.onToolRequest`. Fire-and-forget by design — a hub
@@ -387,12 +425,29 @@ class AskClaudeToolExecutor {
     unawaited(_run(call));
   }
 
+  /// Blocking result for a call that got superseded mid-flight: пользователь
+  /// перебил тишину новым вопросом → модель сделала НОВЫЙ вызов, а этот ответ
+  /// уже не к месту. Полный текст ему отдавать нельзя — модель озвучит два
+  /// ответа подряд («странное при перебивании», жалоба Игоря 24.08); протоколу
+  /// же нужен ХОТЬ КАКОЙ-ТО tool-result на каждый вызов.
+  static const String _staleBlockingResult =
+      'Этот ответ устарел: пользователь уже задал новый вопрос, и на него идёт отдельный '
+      'запрос. НЕ озвучивай этот ответ — просто дождись свежего.';
+
   Future<void> _run(HubToolCallRequest call) async {
-    final deliverOutOfBand = announce;
+    // Блокирующая доставка по требованию уровня: ответ придёт самим
+    // tool-result'ом, модель ждёт его молча (см. blockingDelivery).
+    final blocking = blockingDelivery?.call() ?? false;
+    final deliverOutOfBand = blocking ? null : announce;
+    // Every call bumps the generation: the NEWEST call stales all older
+    // in-flight answers, независимо от режима доставки.
+    final generation = ++_announceGeneration;
     if (deliverOutOfBand != null) {
       // Release the turn first: everything after this happens while the model
       // is free to keep talking.
       sendToolResult(call.callId, call.name, _pendingResult);
+    } else if (blocking) {
+      onBlockingCallStart?.call();
     }
     // Self-host patch: this round trip used to be invisible. When it failed the
     // model simply went quiet and the mode died, and logcat showed nothing at
@@ -408,10 +463,36 @@ class AskClaudeToolExecutor {
         'за ${elapsed.inMilliseconds} мс, ${output.length} символов';
     failed ? Logger.error('$summary: $output') : Logger.debug(summary);
     if (deliverOutOfBand != null) {
-      deliverOutOfBand(failed ? output : '$_answerPrefix$output');
+      if (generation != _announceGeneration) {
+        // Superseded: пока этот ответ ехал, модель спросила что-то новее —
+        // разговор уже там, а запоздалый ответ прозвучал бы «второй личностью».
+        Logger.debug('[ask_claude] ${call.callId} ответ устарел (есть более новый запрос) — не озвучиваем');
+        return;
+      }
+      deliverOutOfBand(failed ? output : _answerFor(_questionOf(call), output));
+      return;
+    }
+    if (generation != _announceGeneration && !failed) {
+      // Блокирующий аналог supersede: tool-result отдать обязаны (протокол),
+      // но вместо устаревшего ответа — инструкция его не озвучивать.
+      Logger.debug('[ask_claude] ${call.callId} блокирующий ответ устарел — отдаём заглушку');
+      sendToolResult(call.callId, call.name, _staleBlockingResult);
       return;
     }
     sendToolResult(call.callId, call.name, output);
+  }
+
+  /// The question text of a call, for labeling its delivered answer.
+  /// Parse errors return null — доставка важнее подписи (у `_resolve` своя,
+  /// говорящая обработка кривых аргументов).
+  static String? _questionOf(HubToolCallRequest call) {
+    try {
+      final decoded = jsonDecode(call.argumentsJson);
+      final q = decoded is Map<String, dynamic> ? decoded['question'] : null;
+      return q is String ? q : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<String> _resolve(HubToolCallRequest call) async {

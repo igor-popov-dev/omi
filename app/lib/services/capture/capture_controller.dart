@@ -117,6 +117,19 @@ class CaptureController extends ChangeNotifier
   /// source of truth (`FreeFormVoiceMode.isRunning` itself isn't listenable).
   final ValueNotifier<bool> freeFormModeActive = ValueNotifier(false);
 
+  /// Self-host: звук «голосовой режим включён» — подключается в main.dart
+  /// (thinkingEarcon), в тестах остаётся null.
+  void Function()? onVoiceModeStartSound;
+
+  /// Telecom call shell for the voice mode (self-managed call + CallStyle
+  /// notification, ~/omi-jarvis/docs/voice-call-mode-design.md). Wired in
+  /// main.dart to `VoiceCallSession.start`/`end`; null in tests and on
+  /// platforms without the native peer. Start is awaited BEFORE the mode's
+  /// own start so the call (and the mic legality it grants) exists before
+  /// capture opens; both are fail-open and never throw.
+  Future<void> Function()? onVoiceModeCallStart;
+  Future<void> Function()? onVoiceModeCallEnd;
+
   /// Self-host patch: records the spoken exchange into chat history, so voice
   /// and chat share one conversation (see `voice_chat_log.dart`).
   final VoiceChatLog voiceChatLog = VoiceChatLog();
@@ -142,7 +155,21 @@ class CaptureController extends ChangeNotifier
     hubTurnDriver?.teardown();
     freeFormModeActive.value = true;
     try {
+      // Call shell first: the mic must already be inside an active telecom
+      // call before capture opens, or a background/lock-screen start records
+      // silence (Android 12+ background-mic restriction).
+      await onVoiceModeCallStart?.call();
+      // Stop-during-start guard (the same race FreeFormVoiceMode.start guards
+      // for its capture): stopFreeFormVoiceMode during the await above already
+      // reset the UI and ended the call shell — starting the mode now would
+      // leave it running headless with the toggle showing off.
+      if (!freeFormModeActive.value) return;
       await mode.start();
+      // Звук «голосовой режим включён» (просьба Игоря 24.08) — ПОСЛЕ удачного
+      // старта, чтобы сигнал не звучал перед ошибкой. Колбэк, а не плеер:
+      // контроллеру незачем знать про just_audio, а тестам — про платформенные
+      // каналы (main.dart подключает thinkingEarcon).
+      onVoiceModeStartSound?.call();
     } catch (_) {
       resetFreeFormVoiceModeUi();
       rethrow;
@@ -153,9 +180,12 @@ class CaptureController extends ChangeNotifier
   /// and resets the UI state.
   void stopFreeFormVoiceMode() {
     freeFormVoiceMode?.stop();
-    // The tail of the conversation is still buffered — post it before the mode
-    // goes away, otherwise the last few turns never reach chat history.
-    unawaited(voiceChatLog.flush());
+    // ПОЛНЫЙ teardown, а не только отмена хода: тёплый сокет после остановки
+    // продолжал жить вместе со своим плеером и коммуникационным аудиорежимом —
+    // другие приложения не могли играть звук, а поздние события сессии
+    // перещёлкивали индикатор обратно в «слушаю» при выключенном режиме
+    // (баг Игоря 24.08). Цена — следующий старт платит переподключение ~1–2 с.
+    freeFormVoiceMode?.hub.teardownSession();
     resetFreeFormVoiceModeUi();
   }
 
@@ -209,6 +239,29 @@ class CaptureController extends ChangeNotifier
   void resetFreeFormVoiceModeUi() {
     freeFormModeActive.value = false;
     hubProjection.value = idleVoiceTurnProjection;
+    // Единая точка (см. ниже): сюда сходятся все пути завершения — значит,
+    // и звонок-оболочка гасится ровно здесь. Идемпотентно и fail-open на
+    // стороне VoiceCallSession; при завершении, начатом самим звонком
+    // (красная кнопка / настоящий вызов), native уже всё снёс — end() no-op.
+    unawaited(onVoiceModeCallEnd?.call() ?? Future<void>.value());
+    // The tail of the conversation is still buffered — post it, THEN reload
+    // chat history so the spoken dialogue shows up right away. Записи и
+    // раньше долетали до сервера, но чат их не перечитывал — разговор
+    // «не появлялся», пока экран не переоткроют (жалоба Игоря 24.08 ~02:45).
+    // Единая точка: сюда приходят и ручная остановка, и idle-timeout, и обрыв.
+    unawaited(voiceChatLog.flush().then((_) => externalActions.refreshChatMessages()));
+  }
+
+  /// Self-host: смена уровня эскалации (ползунок Gemini ↔ Claude) должна
+  /// действовать со СЛЕДУЮЩЕГО разговора, даже если тёплый сокет ещё жив —
+  /// тёплая сессия несёт инструкции и каталог инструментов СТАРОГО уровня
+  /// (stop() сознательно оставляет сокет тёплым ради быстрого рестарта).
+  /// Живой разговор не рвём — уровень доедет при следующем старте после
+  /// остановки. PTT-хаб не трогаем: его тёплая сессия пересобирается своим
+  /// драйвером, а рвать её отсюда значило бы лезть в его внутренности.
+  void invalidateWarmVoiceSessions() {
+    if (freeFormModeActive.value) return;
+    freeFormVoiceMode?.hub.teardownSession();
   }
 
   // Self-host patch, not for upstream: a dropped socket used to end the
@@ -231,6 +284,14 @@ class CaptureController extends ChangeNotifier
   /// it dropped. Falls back to a clean stop when recovery itself fails or when
   /// drops keep coming — reconnecting forever would burn per-minute billing on a
   /// session that cannot hold.
+  ///
+  /// ПОЛНЫЙ цикл через единый путь, а не ре-коннект «на месте» (баг Игоря
+  /// 24.08 ~16:08): прежний `mode.stop(); mode.start()` восстанавливал сессию
+  /// В ОБХОД звонка-оболочки — звонок к тому моменту уже был снят, а
+  /// воскресшая сессия жила без него: держала микрофон бесконечно и отбирала
+  /// аудиофокус у любого другого приложения (Яндекс.Музыка играла полсекунды
+  /// и глохла). Теперь обрыв проходит те же двери, что и человек: полный
+  /// стоп (режим, хаб, звонок, микрофон) → полный старт (звонок → режим).
   Future<void> recoverFreeFormVoiceMode(Object error) async {
     final mode = freeFormVoiceMode;
     Logger.error('[VoiceMode] сессия оборвалась: $error');
@@ -283,11 +344,28 @@ class CaptureController extends ChangeNotifier
       // Same rule: the mode gave up, the user did not. What could not hold
       // here is the socket, and the handle is not tied to it.
       mode.suspend();
+      // ...но тёплый сокет отпускаем, как это делает stopFreeFormVoiceMode:
+      // suspend() освобождает только микрофон, а живой сокет продолжал держать
+      // плеер и коммуникационный аудиорежим (другие приложения без звука —
+      // баг Игоря 24.08). teardownSession() рвёт сокет и НЕ трогает
+      // resumption handle, так что разговор всё равно помнится.
+      mode.hub.teardownSession();
       resetFreeFormVoiceModeUi();
       return;
     }
     _voiceRecoveries.add(now);
 
+    // Здесь НЕ stopFreeFormVoiceMode(): его публичный stop() означает «это
+    // пользователь закончил разговор» и заставляет хаб забыть сессию — восста-
+    // новление через него отдавало новому сокету пустой разговор, и фраза
+    // «продолжай с того места» становилась ложью. suspend() отпускает микрофон,
+    // не трогая resumption handle; teardownSession() рвёт сокет вместе с его
+    // плеером и аудиорежимом; resetFreeFormVoiceModeUi() снимает звонок-оболочку.
+    // Полный цикл звонка обязателен: восстановленная в обход него сессия жила
+    // без звонка, держала микрофон и отбирала аудиофокус (регресс 24.08 ~16:08).
+    mode.suspend();
+    mode.hub.teardownSession();
+    resetFreeFormVoiceModeUi();
     hubProjection.value = const VoiceTurnUiProjection(
       isListening: false,
       isLocked: false,
@@ -300,12 +378,15 @@ class CaptureController extends ChangeNotifier
     );
 
     try {
-      // restart(), not stop()+start(): the public stop() means "the USER
-      // ended the conversation" and makes the hub forget it (design doc §10),
-      // so recovering through it handed the new socket a blank session — and
-      // the line below, which asks the model to pick up where it left off,
-      // was then a lie it could not act on.
-      await mode.restart();
+      // Через startFreeFormVoiceMode, а не mode.start(): режим обязан снова
+      // жить внутри звонка-оболочки. Разговор при этом цел — выше был
+      // suspend(), а не stop(), так что новый сокет поднимется на прежнем
+      // resumption handle и строка ниже действительно ему по силам.
+      await startFreeFormVoiceMode();
+      // Восстановление могло быть молча отменено (стоп во время await) —
+      // тогда пользователь выключил режим сам, и объявлять «связь
+      // восстановлена» некому.
+      if (!freeFormModeActive.value) return;
       Logger.debug('[VoiceMode] сессия восстановлена, попытка ${_voiceRecoveries.length}');
       mode.announce(_voiceRecoveryPrompt);
     } catch (e) {
@@ -1174,6 +1255,24 @@ class CaptureController extends ChangeNotifier
   @visibleForTesting
   void handleSingleTapButtonEvent(String deviceId) {
     debugPrint("Single tap detected");
+    // Self-host (просьба Игоря 24.08): одиночное нажатие настраивается — как
+    // двойное. Вариант 1 = свободный голосовой режим (тот же тумблер, что у
+    // doubleTapAction=3): прежний «голосовой вопрос Omi» Игорь не использует,
+    // а конфликт «хотел двойной тап — сработал одиночный» при этом исчезает:
+    // оба жеста делают одно и то же.
+    if (SharedPreferencesUtil().singleTapAction == 1) {
+      HapticFeedback.mediumImpact();
+      if (freeFormModeActive.value) {
+        PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_stop_single_tap');
+        stopFreeFormVoiceMode();
+      } else {
+        PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_start_single_tap');
+        startFreeFormVoiceMode().catchError((Object e) {
+          Logger.error('[VoiceMode] запуск с кулона (одиночный тап) не удался: $e');
+        });
+      }
+      return;
+    }
     if (_voiceCommandSession == null) {
       // Start voice question session (new toggle mode)
       debugPrint("Starting voice question session (toggle mode)");
@@ -1291,6 +1390,35 @@ class CaptureController extends ChangeNotifier
               unmarkConversationForStarring();
               PlatformManager.instance.analytics.omiDoubleTap(feature: 'unstar_conversation');
               HapticFeedback.lightImpact();
+            }
+          } else if (doubleTapAction == 3) {
+            // Self-host (просьба Игоря 24.08): двойной тап = голосовой режим —
+            // начать разговор с кулона, не доставая телефон. Работает и с
+            // заблокированным экраном: событие приходит по BLE в живой
+            // foreground-сервис, микрофонный FGS-тип в манифесте есть, звук
+            // идёт через гарнитуру (VoiceRouteCoordinator). Выключение — сам
+            // (end_conversation по «пока»), сторожем тишины или повторным
+            // двойным тапом.
+            Logger.debug("Double tap: toggling free-form voice mode");
+            HapticFeedback.mediumImpact();
+            if (freeFormModeActive.value) {
+              PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_stop');
+              stopFreeFormVoiceMode();
+            } else {
+              PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_start');
+              startFreeFormVoiceMode().catchError((Object e) {
+                Logger.error('[VoiceMode] запуск с кулона не удался: $e');
+              });
+            }
+          } else if (doubleTapAction == 4) {
+            // Self-host (просьба Игоря 24.08): аварийная кнопка «Завершить
+            // голосовой режим» — выключить разговор, НЕ прощаясь с нейронкой.
+            // Только стоп: если режим не активен, ничего не делает.
+            Logger.debug("Double tap: force-stopping free-form voice mode");
+            if (freeFormModeActive.value) {
+              HapticFeedback.mediumImpact();
+              PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_force_stop');
+              stopFreeFormVoiceMode();
             }
           } else {
             // End conversation and process (default)

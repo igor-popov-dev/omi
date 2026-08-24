@@ -48,6 +48,8 @@ import 'package:omi/providers/announcement_provider.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/providers/auth_provider.dart';
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/services/voice_call/voice_call_session.dart';
+import 'package:omi/services/voice_hub/earcon.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart';
 import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/services/voice_hub/voice_hub_production.dart';
@@ -395,9 +397,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             // constructing it here is side-effect-free, same as
             // `hubTurnDriver` above (no I/O until `startFreeFormVoiceMode`
             // actually calls `FreeFormVoiceMode.start()`).
+            capture.onVoiceModeStartSound = () => voiceStartEarcon.play();
+            // Telecom call shell: the running voice session is a self-managed
+            // Android call (CallStyle notification, hang-up on the lock
+            // screen, background-mic legality) — voice-call-mode-design.md.
+            // Fail-open everywhere: on iOS or any telecom refusal the mode
+            // just runs without the shell.
+            final voiceCallSession = VoiceCallSession();
+            voiceCallSession.onEndedBySystem = capture.stopFreeFormVoiceMode;
+            capture.onVoiceModeCallStart = voiceCallSession.start;
+            capture.onVoiceModeCallEnd = voiceCallSession.end;
             capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
               events: freeFormModeProjectionEvents(
-                applyProjection: (projection) => capture.hubProjection.value = projection,
+                // Гейт по активности: поздние события уже остановленной сессии
+                // (хвост speaking-end и т.п.) перещёлкивали индикатор обратно в
+                // «слушаю» при выключенном режиме (баг Игоря 24.08).
+                applyProjection: (projection) {
+                  if (capture.freeFormModeActive.value) capture.hubProjection.value = projection;
+                },
                 onDisconnected: capture.recoverFreeFormVoiceMode,
                 // Self-host patch: the spoken exchange lands in chat history, so
                 // the voice and chat assistants share one conversation instead of
@@ -410,7 +427,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               // running, and this object is built once here and never rebuilt.
               resolveIdleTimeout: () =>
                   freeFormIdleTimeoutFromMinutes(SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes),
-              onIdleTimeout: capture.resetFreeFormVoiceModeUi,
+              // Полный stop (не только сброс UI): выключение по тишине тоже
+              // обязано рвать тёплую сессию — иначе она держит аудиорежим.
+              onIdleTimeout: capture.stopFreeFormVoiceMode,
+              // Модель сама закончила разговор (end_conversation): гасим режим
+              // штатно — стоп, сброс UI, досылка диалога в чат, перечитка.
+              onConversationEnd: capture.stopFreeFormVoiceMode,
               // The mic can be taken away mid-session (a call, another app).
               // Nothing else in the wiring notices: the hub only sees frames
               // stop arriving, which is indistinguishable from a person who

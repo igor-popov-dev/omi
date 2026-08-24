@@ -5,6 +5,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart';
+import 'package:omi/services/voice_hub/voice_chat_log.dart';
 import 'package:omi/services/voice_hub/hub_controller.dart';
 import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection, idleVoiceTurnProjection;
 
@@ -129,6 +130,113 @@ void main() {
       for (final p in applied) {
         expect(p, isNot(equals(idleVoiceTurnProjection)));
       }
+    });
+  });
+
+  // Self-host patch: история должна отражать УСЛЫШАННОЕ, а не сгенерированное.
+  group('запись разговора в историю', () {
+    late List<VoiceChatTurn> posted;
+    late VoiceChatLog log;
+    late HubControllerEvents events;
+
+    setUp(() {
+      posted = [];
+      log = VoiceChatLog(post: (turns) async {
+        posted.addAll(turns);
+        return true;
+      });
+      events = freeFormModeProjectionEvents(
+        applyProjection: (_) {},
+        onDisconnected: (_) {},
+        // Обязательный параметр появился вместе с упреждающей пересборкой
+        // сокета (полоса 5); этой группе тестов goAway не интересен.
+        onSocketExpiring: () {},
+        chatLog: log,
+      );
+    });
+
+    tearDown(() => log.dispose());
+
+    test('реплики копятся по кускам и пишутся одной строкой', () async {
+      events.onInputTranscript!('что я ', false, null);
+      events.onInputTranscript!('ел вчера', false, null);
+      events.onSpeakingStart!();
+      events.onAssistantText!('вчера была ', false, null);
+      events.onAssistantText!('паста', false, null);
+      events.onTurnDone!(null);
+      await log.flush();
+
+      expect(posted.map((t) => t.text), ['что я ел вчера', 'вчера была паста']);
+      expect(posted.map((t) => t.sender), ['human', 'ai']);
+    });
+
+    // Регресс 24.08: метка = момент НАЧАЛА речи, не коммита. onTurnDone
+    // коммитит пользователя перед ассистентом — следующая реплика
+    // пользователя, начатая во время ответа, получала метку раньше самого
+    // ответа, и чат (сортировка по created_at) показывал их не по порядку.
+    test('метки реплик хронологичны даже при коммите парами', () async {
+      events.onInputTranscript!('первый вопрос', false, null); // user1 начал
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      events.onSpeakingStart!(); // ассистент начал, user1 закоммичен
+      events.onAssistantText!('длинный ответ', false, null);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      // Пользователь заговорил, пока ассистент ещё отвечает.
+      events.onInputTranscript!('второй вопрос', false, null);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      events.onTurnDone!(null); // коммитит user2 ПЕРЕД assistant1
+      await log.flush();
+
+      expect(posted.map((t) => t.text), ['первый вопрос', 'второй вопрос', 'длинный ответ']);
+      final byTime = [...posted]..sort((a, b) => a.spokenAt.compareTo(b.spokenAt));
+      expect(byTime.map((t) => t.text), ['первый вопрос', 'длинный ответ', 'второй вопрос'],
+          reason: 'хронология по меткам обязана совпадать с реальным порядком речи');
+    });
+
+    // Скрин Игоря 24.08: пузырь «<noise>» в чате — служебная метка не-речи
+    // от Gemini, а не сказанное.
+    test('токен <noise> вырезается, реплика из одного шума не пишется', () async {
+      events.onInputTranscript!('<noise>', false, null);
+      events.onSpeakingStart!(); // коммит user — чистый шум, писать нечего
+      events.onAssistantText!('Тут я.', false, null);
+      events.onTurnDone!(null);
+      events.onInputTranscript!('<noise>', false, null);
+      events.onInputTranscript!('Ты меня слышишь?', false, null);
+      events.onTurnDone!(null);
+      await log.flush();
+
+      expect(posted.map((t) => t.text), ['Тут я.', 'Ты меня слышишь?']);
+    });
+
+    test('перебивание помечает реплику как недоговорённую', () async {
+      events.onSpeakingStart!();
+      events.onAssistantText!('вчера была паста и ещё', false, null);
+      events.onInterrupted!();
+      await log.flush();
+
+      // Хвост после перебивания пользователь не слышал — строка помечена,
+      // чтобы следующий ход не строился на том, чего не было в эфире.
+      expect(posted.single.text, 'вчера была паста и ещё… [прервано]');
+      expect(posted.single.sender, 'ai');
+    });
+
+    test('после перебивания следующая реплика не тянет за собой старый хвост', () async {
+      events.onSpeakingStart!();
+      events.onAssistantText!('первая', false, null);
+      events.onInterrupted!();
+      events.onSpeakingStart!();
+      events.onAssistantText!('вторая', false, null);
+      events.onTurnDone!(null);
+      await log.flush();
+
+      expect(posted.map((t) => t.text), ['первая… [прервано]', 'вторая']);
+    });
+
+    test('обрыв сессии тоже сохраняет прозвучавшее', () async {
+      events.onAssistantText!('успел сказать', false, null);
+      events.onError!(const HubControllerError(reason: 'socket closed', retryable: true, aliveForMs: 10));
+      await log.flush();
+
+      expect(posted.single.text, 'успел сказать');
     });
   });
 }

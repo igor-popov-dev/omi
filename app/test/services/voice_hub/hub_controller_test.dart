@@ -215,7 +215,7 @@ class _Harness {
   final _FakeReconnectClock clock = _FakeReconnectClock();
   Future<String> Function() mintTokenImpl = () async => 'ek_token';
 
-  _Harness({String instructions = 'INSTRUCTIONS+CARD', HubFetchTools? fetchTools}) {
+  _Harness({String instructions = 'INSTRUCTIONS+CARD', HubFetchTools? fetchTools, bool Function()? shouldStayWarm}) {
     controller = HubController(
       events: log.events,
       buildInstructions: () => instructions,
@@ -233,6 +233,7 @@ class _Harness {
       clock: clock,
       now: () => _now.value,
       fetchTools: fetchTools,
+      shouldStayWarm: shouldStayWarm,
     );
   }
 
@@ -837,6 +838,41 @@ void main() {
       h.session.connect();
       expect(h.controller.isWarm(), isTrue);
       expect(h.mintCalls, 2);
+    });
+
+    // Анти-зомби 24.08: свободный режим выключен -> хаб НЕ смеет пересоздавать
+    // себя через цикл «idle-close 1008 -> re-warm» (полчаса тёплых сокетов на
+    // поминутном биллинге и перехваченный у новых сессий плеер).
+    test('shouldStayWarm=false: an idle-close does NOT arm a self re-warm', () async {
+      var stayWarm = true;
+      final h = _Harness(shouldStayWarm: () => stayWarm);
+      await _warmed(h);
+      h.nowMs = 1000 + hubIdleTeardownThresholdMs + 1;
+      stayWarm = false; // the mode was switched off while the socket idled
+      h.session.fail('websocket closed (1008)', true, 1008);
+
+      expect(h.clock.pending, isFalse, reason: 'no re-warm may even be scheduled');
+      expect(h.mintCalls, 1);
+      // An explicit warm (a fresh mode start) still works.
+      stayWarm = true;
+      await _warmed(h);
+      expect(h.mintCalls, 2);
+    });
+
+    test('shouldStayWarm flips to false during the backoff: the armed re-warm does not fire', () async {
+      var stayWarm = true;
+      final h = _Harness(shouldStayWarm: () => stayWarm);
+      await _warmed(h);
+      h.nowMs = 1000 + hubIdleTeardownThresholdMs + 1;
+      h.session.fail('websocket closed (1008)', true, 1008);
+      expect(h.clock.pending, isTrue);
+
+      stayWarm = false; // the mode went off while the backoff was pending
+      h.clock.fire();
+      await _tick();
+
+      expect(h.controller.isAvailable(), isFalse);
+      expect(h.mintCalls, 1, reason: 'the fired timer must re-check and stay cold');
     });
 
     test('an idle teardown re-warms WITHOUT spending a strike (the failure budget stays full)', () async {

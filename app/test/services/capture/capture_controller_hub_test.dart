@@ -224,29 +224,23 @@ void main() {
     expect(driver.endCalls, 0);
   });
 
-  test('flag on, no driver set: single-tap toggle is a no-op for the hub (legacy pipeline unaffected)', () {
+  test('PTT hub is retired: even a stored "true" flag reads back false and never reaches the driver', () {
+    // Решение Игоря 24.08: удержание кнопки кулона занято питанием кулона, а
+    // push-to-talk конфликтовал с одиночным нажатием. Геттер прибит к false
+    // (preferences.dart); у Игоря в prefs осталось true с живого теста —
+    // прибитый геттер обязан его игнорировать.
     SharedPreferencesUtil().pttHubEnabled = true;
-    final provider = CaptureProvider();
-    expect(provider.hubTurnDriver, isNull);
+    expect(SharedPreferencesUtil().pttHubEnabled, isFalse);
 
-    // Must not throw even though hubTurnDriver is unset.
-    provider.handleSingleTapButtonEvent('device-1'); // start
-    provider.handleSingleTapButtonEvent('device-1'); // end
-  });
-
-  test('flag on + driver set: begin() called on first tap, end() called on second tap', () {
-    SharedPreferencesUtil().pttHubEnabled = true;
     final provider = CaptureProvider();
     final driver = _CountingHubTurnDriver();
     provider.hubTurnDriver = driver;
 
     provider.handleSingleTapButtonEvent('device-1'); // start
-    expect(driver.beginCalls, 1);
-    expect(driver.endCalls, 0);
-
     provider.handleSingleTapButtonEvent('device-1'); // end
-    expect(driver.beginCalls, 1);
-    expect(driver.endCalls, 1);
+
+    expect(driver.beginCalls, 0);
+    expect(driver.endCalls, 0);
   });
 
   test('free-form mode running: a tap must NOT open a second hub socket', () {
@@ -266,22 +260,6 @@ void main() {
 
     provider.handleSingleTapButtonEvent('device-1'); // end
     expect(driver.beginCalls, 0);
-  });
-
-  test('free-form mode switched on mid-turn: end() still closes the turn the tap began', () {
-    // The gate is on `begin()` only. A turn started before the mode came up
-    // must still be closed, or it would sit in the driver forever.
-    SharedPreferencesUtil().pttHubEnabled = true;
-    final provider = CaptureProvider();
-    final driver = _CountingHubTurnDriver();
-    provider.hubTurnDriver = driver;
-
-    provider.handleSingleTapButtonEvent('device-1'); // start — mode still off
-    expect(driver.beginCalls, 1);
-
-    provider.freeFormModeActive.value = true;
-    provider.handleSingleTapButtonEvent('device-1'); // end
-    expect(driver.endCalls, 1, reason: 'начатый ход обязан закрыться, гейт только на begin()');
   });
 
   group('FreeFormVoiceMode wiring (startFreeFormVoiceMode/stopFreeFormVoiceMode)', () {
@@ -440,6 +418,27 @@ void main() {
       await provider.recoverFreeFormVoiceMode(StateError('socket closed 1011'));
 
       expect(hub.canResumeConversation, isTrue);
+    });
+
+    // Регресс 24.08 ~16:08: ре-коннект «на месте» восстанавливал сессию В ОБХОД
+    // звонка-оболочки — воскресшая сессия жила без звонка, держала микрофон
+    // бесконечно и отбирала аудиофокус у других приложений.
+    test('recoverFreeFormVoiceMode: восстановленная сессия снова живёт в звонке', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      final callEvents = <String>[];
+      provider.onVoiceModeCallStart = () async => callEvents.add('start');
+      provider.onVoiceModeCallEnd = () async => callEvents.add('end');
+      await provider.startFreeFormVoiceMode();
+      // Иначе сработает гард «микрофон молчал всю сессию (звонок?) — выключаю
+      // режим, а не пересобираю», и до цикла звонка дело не дойдёт.
+      feedMicFrame();
+
+      await provider.recoverFreeFormVoiceMode(StateError('socket closed 1005'));
+
+      expect(provider.freeFormModeActive.value, isTrue);
+      expect(callEvents, ['start', 'end', 'start'],
+          reason: 'обрыв обязан пройти полный цикл: звонок снят и поставлен заново');
     });
 
     test('recoverFreeFormVoiceMode: gives up after repeated drops rather than looping', () async {
@@ -726,6 +725,62 @@ void main() {
       expect(provider.freeFormModeActive.value, isFalse);
       expect(provider.hubProjection.value, idleVoiceTurnProjection);
       expect(session.cancelled, 0);
+    });
+
+    // Telecom call shell (voice-call-mode-design.md): the session runs inside
+    // a self-managed Android call. The provider only owns the ordering
+    // contract — shell up BEFORE capture opens (background-mic legality),
+    // shell down at the single reset point every teardown path funnels into.
+    test('call shell: starts before capture opens, ends on stop', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      var callStarts = 0;
+      var callEnds = 0;
+      provider.onVoiceModeCallStart = () async {
+        callStarts += 1;
+        // The contract that makes lock-screen starts legal: the call must be
+        // active before the mic capture is even attempted.
+        expect(captureCalls, 0, reason: 'call shell must start before capture opens');
+      };
+      provider.onVoiceModeCallEnd = () async => callEnds += 1;
+
+      await provider.startFreeFormVoiceMode();
+      expect(callStarts, 1);
+      expect(callEnds, 0);
+
+      provider.stopFreeFormVoiceMode();
+      expect(callEnds, 1);
+    });
+
+    test('call shell: stop during call setup aborts the start (no headless mode)', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      var callEnds = 0;
+      provider.onVoiceModeCallStart = () async {
+        // The user hits Stop while telecom is still building the call.
+        provider.stopFreeFormVoiceMode();
+      };
+      provider.onVoiceModeCallEnd = () async => callEnds += 1;
+
+      await provider.startFreeFormVoiceMode();
+
+      expect(provider.freeFormModeActive.value, isFalse);
+      expect(provider.freeFormVoiceMode!.isRunning, isFalse, reason: 'the mode must not start headless');
+      expect(captureCalls, 0);
+      expect(callEnds, 1);
+    });
+
+    test('call shell: a capture failure still ends the shell', () async {
+      final provider = CaptureProvider();
+      provider.freeFormVoiceMode = buildMode();
+      captureError = StateError('mic denied');
+      var callEnds = 0;
+      provider.onVoiceModeCallStart = () async {};
+      provider.onVoiceModeCallEnd = () async => callEnds += 1;
+
+      await expectLater(provider.startFreeFormVoiceMode(), throwsStateError);
+
+      expect(callEnds, 1, reason: 'a failed start must not leak a live call');
     });
   });
 }

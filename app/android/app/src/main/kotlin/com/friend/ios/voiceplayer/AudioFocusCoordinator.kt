@@ -32,6 +32,8 @@ class AudioFocusCoordinator(
     private var activeRequest: AudioFocusRequest? = null
 
     private val listener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        // Диагностика застрявшего duck (24.08): каждое изменение фокуса — в лог.
+        Log.i(TAG, "audio focus change: $focusChange -> ${AudioFocusPolicy.actionFor(focusChange)}")
         when (AudioFocusPolicy.actionFor(focusChange)) {
             AudioFocusAction.STOP -> onStop()
             AudioFocusAction.DUCK -> onDuck()
@@ -49,10 +51,20 @@ class AudioFocusCoordinator(
     fun request() {
         abandon()
         val attributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+            // Matches the AudioTrack's own usage (see StreamingPcmPlayer):
+            // the session is a self-managed call, so the focus request must
+            // describe call audio too.
+            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
-        val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        // GAIN_TRANSIENT_EXCLUSIVE, НЕ GAIN (баг Игоря 24.08 ~11:54, логкат):
+        // с постоянным GAIN музыкальный плеер (Suno) не считал сессию временной
+        // и пере-запрашивал фокус; наша политика на потерю — STOP, восстановление
+        // сессии просило фокус заново — война каждые ~2 с, голос ассистента давал
+        // «0 frames delivered», пользователь слышал тишину при живом микрофоне.
+        // Транзиентный эксклюзив — штатная семантика голосового ассистента:
+        // музыка вежливо встаёт на паузу и сама возобновляется после abandon().
+        val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
             .setAudioAttributes(attributes)
             .setOnAudioFocusChangeListener(listener)
             .build()

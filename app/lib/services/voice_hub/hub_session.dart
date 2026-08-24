@@ -70,6 +70,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:omi/utils/logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -185,6 +186,15 @@ class HubSessionEvents {
   /// Spoken audio drained / was interrupted (echo gate: start release).
   final void Function()? onSpeakingEnd;
 
+  /// Self-host patch, not for upstream: the user talked over the reply.
+  ///
+  /// Everything generated after this point was never heard, and even the
+  /// current sentence was cut mid-air. A listener that records history must
+  /// treat the accumulated reply as *partially spoken* — otherwise the model's
+  /// own transcript claims it said things the user never heard, and the next
+  /// turn is built on that fiction.
+  final void Function()? onInterrupted;
+
   /// The model requested a tool call.
   final void Function(HubToolCallRequest call, HubEventIdentity? identity)? onToolRequest;
 
@@ -229,6 +239,7 @@ class HubSessionEvents {
     this.onUserSpeechState,
     this.onSpeakingStart,
     this.onSpeakingEnd,
+    this.onInterrupted,
     this.onToolRequest,
     this.onTurnDone,
     this.onResumptionHandle,
@@ -904,8 +915,22 @@ abstract class BaseHubSession implements HubSession {
   /// Decode base64 spoken PCM and play through the injected [VoicePlayer].
   void playAudio(String b64) {
     if (b64.isEmpty) return;
-    _player?.enqueuePcm16(base64Decode(b64));
+    final player = _player;
+    // Диагностика «слышу текст, не слышу голос» (24.08): каждый потерянный
+    // чанк обязан оставлять след. Первый чанк и каждый 25-й — тоже, чтобы по
+    // логу было видно, что тракт жив.
+    if (player == null) {
+      Logger.debug('[hub-audio] аудио-чанк ПОТЕРЯН: плеер отсутствует (_player == null)');
+      return;
+    }
+    _audioChunksPlayed += 1;
+    if (_audioChunksPlayed == 1 || _audioChunksPlayed % 25 == 0) {
+      Logger.debug('[hub-audio] чанк №$_audioChunksPlayed -> нативный плеер');
+    }
+    player.enqueuePcm16(base64Decode(b64));
   }
+
+  int _audioChunksPlayed = 0;
 
   /// Barge-in: drop everything buffered in the player immediately.
   @override

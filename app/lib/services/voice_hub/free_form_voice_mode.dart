@@ -140,7 +140,7 @@ class FreeFormVoiceMode {
     _inputFrames = 0;
     _micInterrupted = false;
     try {
-      _capture = await startCapture(HubPttCaptureOptions(
+      final capture = await startCapture(HubPttCaptureOptions(
         onChunk: (pcm) {
           _inputFrames += 1;
           hub.appendAudio(turnId, pcm);
@@ -150,6 +150,15 @@ class FreeFormVoiceMode {
         // and acting on it would flip the state of the live one.
         onInterruption: (began) => _noteMicInterruption(turnId, began),
       ));
+      // Гонка «стоп во время старта» (баг Игоря 24.08: микрофон висит после
+      // остановки): stop() мог отработать, пока capture строился — тогда
+      // готовый захват никому не принадлежит и держит микрофон вечно.
+      // Осиротевший капчер гасим на месте.
+      if (_turnId != turnId) {
+        capture.dispose();
+        return;
+      }
+      _capture = capture;
     } catch (_) {
       hub.cancelTurn(turnId);
       _turnId = null;
@@ -341,6 +350,12 @@ HubControllerEvents freeFormActivityEvents(HubControllerEvents inner, void Funct
       note();
       inner.onSpeakingEnd?.call();
     },
+    // Перебивание — тоже живая активность, и его проброс обязателен: без него
+    // разметка «[прервано]» в истории чата молча не работает.
+    onInterrupted: () {
+      note();
+      inner.onInterrupted?.call();
+    },
     onToolRequest: (call, identity) {
       note();
       inner.onToolRequest?.call(call, identity);
@@ -349,5 +364,8 @@ HubControllerEvents freeFormActivityEvents(HubControllerEvents inner, void Funct
       note();
       inner.onTurnDone?.call(identity);
     },
+    // НЕ активность (это предупреждение сервера, а не человек), но проброс
+    // нужен: на нём висит упреждающая пересборка сокета.
+    onGoAway: inner.onGoAway,
   );
 }

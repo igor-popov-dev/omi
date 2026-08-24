@@ -51,6 +51,9 @@ class DeveloperModeProvider extends BaseProvider {
   // so the settings row can repaint; the live mode re-reads the preference
   // itself on every arm (`main.dart`'s `resolveIdleTimeout`), not this copy.
   int freeFormVoiceIdleTimeoutMinutes = kDefaultFreeFormVoiceIdleTimeoutMinutes;
+  // Ползунок «как часто голосовой хаб ходит к Claude» (0..4, дефолт 2 —
+  // balanced). Семантика уровней — services/voice_hub/escalation_level.dart.
+  int claudeEscalationLevel = 2;
 
   void onConversationEventsToggled(bool value) {
     conversationEventsToggled = value;
@@ -129,6 +132,7 @@ class DeveloperModeProvider extends BaseProvider {
     pttHubEnabled = SharedPreferencesUtil().pttHubEnabled;
     freeFormMode = SharedPreferencesUtil().freeFormMode;
     freeFormVoiceIdleTimeoutMinutes = SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes;
+    claudeEscalationLevel = SharedPreferencesUtil().claudeEscalationLevel;
     conversationEventsToggled = SharedPreferencesUtil().conversationEventsToggled;
     transcriptsToggled = SharedPreferencesUtil().transcriptsToggled;
     audioBytesToggled = SharedPreferencesUtil().audioBytesToggled;
@@ -311,6 +315,12 @@ class DeveloperModeProvider extends BaseProvider {
   void onFreeFormVoiceIdleTimeoutChanged(int minutes) {
     freeFormVoiceIdleTimeoutMinutes = minutes;
     SharedPreferencesUtil().freeFormVoiceIdleTimeoutMinutes = minutes;
+    notifyListeners();
+  }
+
+  void onClaudeEscalationLevelChanged(int value) {
+    claudeEscalationLevel = value;
+    SharedPreferencesUtil().claudeEscalationLevel = value;
     notifyListeners();
   }
 }

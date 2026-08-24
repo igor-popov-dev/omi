@@ -1,6 +1,7 @@
 // Tests for `free_form_voice_mode.dart` — see that file's header for scope
 // (start/stop contract + silence-timeout auto-off, priority-22.08 steps 2/6).
 // No TS source to mirror; test names describe behavior directly.
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -344,6 +345,32 @@ void main() {
       await mode.restart();
       expect(mode.isRunning, isTrue);
       expect(captureCalls, 1);
+    });
+
+    test('stop() during startCapture: осиротевший капчер гасится, микрофон не висит', () async {
+      // Гонка с живого теста Игоря 24.08: стоп во время восстановления сессии
+      // оставлял готовый капчер без хозяина — индикатор микрофона висел вечно
+      // при выключенном режиме.
+      hub = buildHub();
+      await hub.ensureWarm();
+      clock = _FakeClock();
+      final captureReady = Completer<HubPttCapture>();
+      final lateCapture = _FakeCapture();
+      final mode = FreeFormVoiceMode(
+        hub: hub,
+        startCapture: (_) => captureReady.future,
+        mintTurnId: () => 'race-turn',
+        clock: clock,
+        now: () => 0,
+      );
+      final starting = mode.start();
+      mode.stop(); // пользователь выключил, пока капчер строился
+      captureReady.complete(lateCapture);
+      await starting;
+
+      expect(mode.isRunning, isFalse);
+      // Без пост-await защиты в start() здесь был бы 0 — захват жил бы вечно.
+      expect(lateCapture.disposeCalls, 1);
     });
 
     test('stop() while not running is a no-op', () async {

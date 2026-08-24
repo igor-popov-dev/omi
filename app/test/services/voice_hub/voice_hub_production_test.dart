@@ -33,7 +33,6 @@ import 'package:omi/services/voice_hub/voice_hub_production.dart';
 import 'package:omi/services/voice_hub/gemini_hub_session.dart';
 import 'package:omi/services/voice_hub/hub_controller.dart';
 import 'package:omi/services/voice_hub/hub_session.dart';
-import 'package:omi/services/voice_hub/voice_hub_production.dart';
 
 void main() {
   // The seam both production factories build their session through. It exists
@@ -121,9 +120,14 @@ void main() {
   });
 
   group('fetchHubTools', () {
-    test('returns exactly the ask_claude tool catalog', () async {
+    test('returns ask_claude (and end_conversation) at the default escalation level', () async {
+      // С появлением ползунка (escalation_level.dart) description зависит от
+      // уровня, поэтому сверяем имя и схему, а не идентичность декларации.
+      // Дефолт (prefs не инициализированы) — balanced, инструмент есть.
       final tools = await fetchHubTools();
-      expect(tools, [askClaudeToolDeclaration]);
+      final askClaude = tools.where((t) => t.name == askClaudeToolDeclaration.name);
+      expect(askClaude, hasLength(1));
+      expect(askClaude.single.parameters, same(askClaudeToolDeclaration.parameters));
     });
   });
 

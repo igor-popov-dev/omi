@@ -119,16 +119,43 @@ HubControllerEvents freeFormModeProjectionEvents({
   final userSaid = StringBuffer();
   final assistantSaid = StringBuffer();
 
+  // Реплика штампуется временем НАЧАЛА речи, а не временем коммита (баг Игоря
+  // 24.08: фрагменты диалога в чате не в том порядке). Коммиты происходят
+  // сильно позже речи и парами (`onTurnDone` коммитит пользователя ПЕРЕД
+  // ассистентом): следующая реплика пользователя, начатая во время ответа,
+  // получала метку РАНЬШЕ этого ответа, а парные коммиты — одинаковые метки,
+  // и сортировка чата по created_at их тасовала. Момент первого фрагмента —
+  // честная хронология: она у реплик строго возрастает.
+  DateTime? userStartedAt;
+  DateTime? assistantStartedAt;
+
   void commitUser() {
     if (chatLog == null || userSaid.isEmpty) return;
-    chatLog.addUserTurn(userSaid.toString());
+    // Gemini размечает не-речь токеном <noise> в транскрипте — это служебная
+    // метка, а не сказанное; пузырь «<noise>» в чате (скрин Игоря 24.08)
+    // выглядит как мусор. Токен вырезается, реплика из одного шума не пишется.
+    final said = userSaid.toString().replaceAll('<noise>', ' ');
+    final startedAt = userStartedAt;
     userSaid.clear();
+    userStartedAt = null;
+    chatLog.addUserTurn(said, at: startedAt);
   }
 
-  void commitAssistant() {
+  void commitAssistant({bool interrupted = false}) {
     if (chatLog == null || assistantSaid.isEmpty) return;
-    chatLog.addAssistantTurn(assistantSaid.toString());
+    // Self-host patch: history must record what the user HEARD, not what the
+    // model generated. On barge-in the tail was cut mid-air, so the line is
+    // marked as such — otherwise the next turn is built on the fiction that
+    // the whole reply landed, and the model refers back to things nobody heard.
+    //
+    // The cut is marked, not measured: the transcript arrives as the model
+    // speaks, and without word-level timings from the player there is no honest
+    // way to say WHERE it stopped. A marker the model can reason about beats a
+    // guessed offset that looks precise and is wrong.
+    final spoken = assistantSaid.toString().trimRight();
+    chatLog.addAssistantTurn(interrupted ? '$spoken… [прервано]' : spoken, at: assistantStartedAt);
     assistantSaid.clear();
+    assistantStartedAt = null;
   }
 
   return HubControllerEvents(
@@ -151,11 +178,24 @@ HubControllerEvents freeFormModeProjectionEvents({
     onSpeakingStart: () {
       // The user's utterance is over the moment the model starts answering.
       commitUser();
+      // Звук может пойти раньше первого фрагмента транскрипта — начало
+      // реплики ассистента честнее считать отсюда.
+      assistantStartedAt ??= DateTime.now();
       applyProjection(_speakingProjection);
     },
     onSpeakingEnd: () => applyProjection(freeFormListeningProjection),
+    onInterrupted: () {
+      // The user talked over the reply: close the line as partially spoken and
+      // drop nothing else — whatever the model generates after this belongs to
+      // the next turn, not to the one that was cut.
+      commitAssistant(interrupted: true);
+      applyProjection(freeFormListeningProjection);
+    },
     onAssistantText: (text, isFinal, identity) {
-      if (text.isNotEmpty) assistantSaid.write(text);
+      if (text.isNotEmpty) {
+        assistantStartedAt ??= DateTime.now();
+        assistantSaid.write(text);
+      }
       if (isFinal) commitAssistant();
     },
     onTurnDone: (_) {
@@ -173,6 +213,7 @@ HubControllerEvents freeFormModeProjectionEvents({
         if (isFinal) commitUser();
         return;
       }
+      userStartedAt ??= DateTime.now();
       userSaid.write(text);
     },
   );

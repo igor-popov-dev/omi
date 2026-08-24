@@ -74,13 +74,20 @@
 // file to begin with.
 import 'dart:convert';
 
+import 'package:omi/utils/logger.dart';
+
 import 'gemini_tool_schema.dart';
 import 'hub_session.dart';
 
-/// `desktop/windows/.../voice/tokenMint.ts` `GEMINI_LIVE_MODEL`, copied
-/// verbatim (not re-exported — that module pulls in the desktop token-mint
-/// graph this port does not have).
-const String geminiLiveModel = 'models/gemini-3.1-flash-live-preview';
+/// Was `desktop/windows/.../voice/tokenMint.ts`'s `GEMINI_LIVE_MODEL`
+/// (`gemini-3.1-flash-live-preview`) — self-host diverges deliberately
+/// (24.08): that preview started refusing every Live handshake with WS 1011
+/// "Internal error encountered." (reproduced from a desktop probe with the
+/// exact setup frame below; the key, quota, and mint were all healthy). The
+/// `-latest` alias tracks Google's current native-audio Live model, which is
+/// exactly the protection a pinned preview lacked. The ephemeral-token mint
+/// does not pin a model, so this constant is the single switch.
+const String geminiLiveModel = 'models/gemini-2.5-flash-native-audio-latest';
 
 class GeminiHubSession extends BaseHubSession {
   GeminiHubSession({
@@ -156,6 +163,13 @@ class GeminiHubSession extends BaseHubSession {
           'responseModalities': ['AUDIO'],
           'temperature': 0.3,
           'mediaResolution': 'MEDIA_RESOLUTION_HIGH',
+          // Thinking выключен (24.08, после перехода на 2.5-native-audio):
+          // модель молча «думала» перед ответом — в эфире это длинные паузы,
+          // а её английские thought-саммари утекали текстом в чат («Testing
+          // Response Generation…»). Для живого разговора скорость важнее
+          // цепочек рассуждений: сложное и так эскалируется в ask_claude.
+          // Сетап с thinkingBudget=0 проверен пробой (setupComplete, 24.08).
+          'thinkingConfig': {'thinkingBudget': 0},
           'speechConfig': {
             'voiceConfig': {
               'prebuiltVoiceConfig': {'voiceName': 'Charon'},
@@ -462,6 +476,9 @@ class GeminiHubSession extends BaseHubSession {
       if (!freeFormMode) _responsePending = false;
       _pendingToolCallIds.clear();
       clearPlayback();
+      // Self-host patch: tell the host the reply was cut mid-air, so history
+      // records what was actually heard instead of what was generated.
+      events.onInterrupted?.call();
     }
     // Server-VAD verdict (free-form mode only; manual mode never sends it).
     // Unknown values are ignored rather than guessed at: a future third state
@@ -488,12 +505,24 @@ class GeminiHubSession extends BaseHubSession {
     if (parts.isNotEmpty) _markReplyInFlight();
     for (final partRaw in parts) {
       final part = partRaw as Map<String, dynamic>;
+      // Страховка к thinkingBudget=0 выше: если модель всё же прислала
+      // thought-часть (динамический thinking, смена модели за алиасом),
+      // это её внутренний монолог, а не сказанное — в транскрипт и чат
+      // ему нельзя.
+      if (part['thought'] == true) continue;
       if (part['text'] is String) emitAssistantText(part['text'] as String, false);
       final inline = part['inlineData'] as Map<String, dynamic>?;
       final mime = inline?['mimeType'] is String ? inline!['mimeType'] as String : '';
       final data = inline?['data'] is String ? inline!['data'] as String : '';
-      if (mime.contains('audio/pcm') && data.isNotEmpty && _turnGateOpen) {
-        playAudio(data); // gated: only the live turn's reply
+      if (mime.contains('audio/pcm') && data.isNotEmpty) {
+        if (_turnGateOpen) {
+          playAudio(data); // gated: only the live turn's reply
+        } else {
+          // Диагностика «слышу текст, не слышу голос» (24.08): если аудио
+          // Gemini дошло, но гейт закрыт — это должно быть видно в логе, а
+          // не пропадать молча.
+          Logger.debug('[hub-audio] аудио-чанк отброшен гейтом (streaming=$_streamingActive)');
+        }
       }
     }
     if (sc['turnComplete'] == true) {

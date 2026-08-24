@@ -60,6 +60,7 @@ class NativeVoicePlayer implements VoicePlayer, StreamingPcmPlayerFlutterApi {
     }
     _current = player;
     await api.start(sessionId);
+    Logger.debug('[NativeVoicePlayer] start ok (session $sessionId)');
     return player;
   }
 

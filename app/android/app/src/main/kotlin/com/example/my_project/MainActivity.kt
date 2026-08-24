@@ -9,6 +9,7 @@ import com.friend.ios.ble.OmiCompanionManager
 import com.friend.ios.batch.OmiBackgroundAudioStreamer
 import com.friend.ios.phonemic.*
 import com.friend.ios.voiceplayer.*
+import com.friend.ios.voicecall.*
 import android.os.Bundle
 import androidx.annotation.NonNull
 import android.Manifest
@@ -60,6 +61,14 @@ class MainActivity: FlutterActivity() {
             ?: StreamingPcmPlayerController(mainThreadHandler(), applicationContext).also { streamingPcmPlayerController = it }
         pcmPlayerController.bindFlutterApi(StreamingPcmPlayerFlutterApi(flutterEngine.dartExecutor.binaryMessenger))
         StreamingPcmPlayerHostApi.setUp(flutterEngine.dartExecutor.binaryMessenger, StreamingPcmPlayerHostApiImpl(pcmPlayerController))
+
+        // Register Voice Call Session Pigeon APIs (voice mode as a self-managed
+        // telecom call — ~/omi-jarvis/docs/voice-call-mode-design.md). Singleton
+        // like PhoneMicController: the system-instantiated ConnectionService
+        // must find the controller without an Activity in the picture.
+        VoiceCallController.initialize(application)
+        VoiceCallController.instance.bindFlutterApi(VoiceCallSessionFlutterApi(flutterEngine.dartExecutor.binaryMessenger))
+        VoiceCallSessionHostApi.setUp(flutterEngine.dartExecutor.binaryMessenger, VoiceCallSessionHostApiImpl(VoiceCallController.instance))
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NATIVE_BLE_TRANSCRIPT_CHANNEL).setMethodCallHandler {
             call, result ->
             if (call.method == "drain") {
@@ -116,6 +125,7 @@ class MainActivity: FlutterActivity() {
         // configureFlutterEngine re-arms both on the next attach.
         OmiBleManager.isFlutterAlive = false
         streamingPcmPlayerController?.unbindFlutterApi()
+        if (VoiceCallController.isInitialized) VoiceCallController.instance.unbindFlutterApi()
         getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
             .edit()
             .putBoolean("flutter.nativeBleForegroundReady", false)
@@ -124,6 +134,8 @@ class MainActivity: FlutterActivity() {
             // Engine + main isolate die with the activity; a live capture session must not outlive its consumer.
             if (PhoneMicController.isInitialized) PhoneMicController.instance.onFlutterEngineDestroyed()
             streamingPcmPlayerController?.shutdown()
+            // The call shell must not outlive the Dart session that owns it.
+            if (VoiceCallController.isInitialized) VoiceCallController.instance.shutdown()
             // Background Mode and Transcribe Later both need the foreground service to keep
             // the device connected/capturing after a task close. With both off (default),
             // tear it down so the device disconnects when the app is closed.

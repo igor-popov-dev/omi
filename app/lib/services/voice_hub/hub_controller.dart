@@ -83,6 +83,12 @@ class HubControllerError {
   final bool retryable;
   final int aliveForMs;
   const HubControllerError({required this.reason, required this.retryable, required this.aliveForMs});
+
+  // Без toString() каждый лог обрыва печатал бесполезное
+  // «Instance of 'HubControllerError'» — причину первого обрыва 24.08 так и
+  // не узнали (логкат 03:31:28). Причина обязана быть видна в логе.
+  @override
+  String toString() => 'HubControllerError(reason: $reason, retryable: $retryable, aliveForMs: $aliveForMs)';
 }
 
 /// Everything the controller surfaces to its host (the per-turn driver,
@@ -100,6 +106,9 @@ class HubControllerEvents {
   final void Function(bool isSpeaking)? onUserSpeechState;
   final void Function()? onSpeakingStart;
   final void Function()? onSpeakingEnd;
+
+  /// Self-host patch: barge-in — см. [HubSessionEvents.onInterrupted].
+  final void Function()? onInterrupted;
   final void Function(HubToolCallRequest call, HubEventIdentity? identity)? onToolRequest;
   final void Function(HubEventIdentity? identity)? onTurnDone;
   final void Function(HubCascadeHandoff handoff)? onCascadeHandoff;
@@ -124,6 +133,7 @@ class HubControllerEvents {
     this.onUserSpeechState,
     this.onSpeakingStart,
     this.onSpeakingEnd,
+    this.onInterrupted,
     this.onToolRequest,
     this.onTurnDone,
     this.onCascadeHandoff,
@@ -233,6 +243,20 @@ class HubController {
   final int Function() now;
   final HubFetchTools? fetchTools;
 
+  /// Gate on the SELF-driven re-warm after a socket close. When set and
+  /// returning `false`, the controller stays cold instead of rebuilding the
+  /// session on its own — an explicit `ensureWarm` still works. Null keeps
+  /// the historical always-re-warm behavior (the PTT driver's contract).
+  ///
+  /// Exists because of the 24.08 zombie: the free-form mode's hub kept
+  /// resurrecting itself through the Gemini idle-close (1008) -> re-warm ->
+  /// idle-close loop every ~2.5 min for half an hour after the user thought
+  /// the mode was off — burning per-minute input billing and replacing the
+  /// native player under any NEWER session the user started (which is why
+  /// repeat launches played silence). The mode's liveness is the only
+  /// authority on whether staying warm is worth money.
+  final bool Function()? shouldStayWarm;
+
   HubController({
     this.events = const HubControllerEvents(),
     required this.buildInstructions,
@@ -241,6 +265,7 @@ class HubController {
     HubClock? clock,
     int Function()? now,
     this.fetchTools,
+    this.shouldStayWarm,
   })  : clock = clock ?? const DefaultHubClock(),
         now = now ?? _defaultNow;
 
@@ -1011,6 +1036,7 @@ class HubController {
         events.onSpeakingStart?.call();
       },
       onSpeakingEnd: () => events.onSpeakingEnd?.call(),
+      onInterrupted: () => events.onInterrupted?.call(),
       onToolRequest: (call, identity) {
         _noteToolCallOut(call.callId);
         events.onToolRequest?.call(call, identity);
@@ -1143,6 +1169,10 @@ class HubController {
   /// Arms the one-shot backoff. Coalesced: a second close while one is
   /// pending is a no-op. Rebuilds only if nothing else re-warmed first.
   void _scheduleReWarm() {
+    // Checked BOTH here and at fire time: the mode can be switched off
+    // during the backoff window, and a warm socket for a mode nobody is
+    // running is billed dead air (see [shouldStayWarm]).
+    if (!(shouldStayWarm?.call() ?? true)) return;
     if (_reconnectPending) return;
     _reconnectPending = true;
     _reconnectHandle = clock.setTimer(reconnectBackoff, () {
@@ -1152,7 +1182,7 @@ class HubController {
       // path — swallow the rejection so it never surfaces as an unhandled
       // error; the next press (or a socket close from a partial connect)
       // drives the next attempt.
-      if (session == null) _fireAndForgetWarm();
+      if (session == null && (shouldStayWarm?.call() ?? true)) _fireAndForgetWarm();
     });
   }
 
