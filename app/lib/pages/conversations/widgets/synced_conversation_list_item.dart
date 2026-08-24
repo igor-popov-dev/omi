@@ -9,6 +9,7 @@ import 'package:omi/pages/conversation_detail/page.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/other/time_utils.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
 import 'package:omi/widgets/extensions/string.dart';
 
 class SyncedConversationListItem extends StatefulWidget {
@@ -140,12 +141,7 @@ class _SyncedConversationListItemState extends State<SyncedConversationListItem>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          conversation.discarded
-              ? const SizedBox.shrink()
-              : Text(
-                  conversation.structured.getEmoji(),
-                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w500),
-                ),
+          conversation.discarded ? const SizedBox.shrink() : OmiEmoji(conversation.structured.getEmoji(), size: 22),
           conversation.structured.category.isNotEmpty && !conversation.discarded
               ? const SizedBox(width: 12)
               : const SizedBox.shrink(),

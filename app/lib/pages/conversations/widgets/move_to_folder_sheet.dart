@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/backend/schema/folder.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/providers/folder_provider.dart';
-import 'package:omi/utils/folders/folder_icon_mapper.dart';
 import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
 
 class MoveToFolderSheet extends StatelessWidget {
   final String conversationId;
@@ -143,7 +142,7 @@ class _FolderListItem extends StatelessWidget {
                     color: folder.colorValue.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Center(child: FaIcon(folderIconToFa(folder.icon), size: 18, color: folder.colorValue)),
+                  child: Center(child: OmiFolderIcon(folder.icon, size: 18, color: folder.colorValue)),
                 ),
                 const SizedBox(width: 14),
 
