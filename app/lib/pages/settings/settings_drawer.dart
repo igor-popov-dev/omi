@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:omi/app_globals.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/core/app_shell.dart';
@@ -510,7 +509,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 // Wrapped 2025 - temporarily disabled
                 // _buildSettingsItem(
                 //   title: context.l10n.wrapped2025,
-                //   icon: FaIcon(FontAwesomeIcons.gift, color: Color(0xFF8E8E93), size: 20),
+                //   icon: OmiIconWidget(icon: OmiIcon.gift, color: t.textSecondary, size: 20),
                 //   showNewTag: true,
                 //   onTap: () {
                 //     Navigator.of(context).push(
@@ -554,7 +553,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  FaIcon(FontAwesomeIcons.crown, color: t.warning, size: 10),
+                                  OmiIconWidget(icon: OmiIcon.crown, color: t.warning, size: 10),
                                   const SizedBox(width: 4),
                                   Text(
                                     context.l10n.pro.toUpperCase(),
@@ -803,14 +802,14 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                                   borderRadius: BorderRadius.circular(24),
                                   borderSide: BorderSide.none,
                                 ),
-                                prefixIcon: Icon(Icons.search, color: t.textSecondary),
+                                prefixIcon: OmiIconWidget(icon: OmiIcon.search, color: t.textSecondary, size: 24),
                                 suffixIcon: _searchQuery.isNotEmpty
                                     ? GestureDetector(
                                         onTap: () {
                                           setState(() => _searchQuery = '');
                                           _searchController.clear();
                                         },
-                                        child: Icon(Icons.close, color: t.textSecondary),
+                                        child: OmiIconWidget(icon: OmiIcon.close, color: t.textSecondary, size: 24),
                                       )
                                     : null,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),

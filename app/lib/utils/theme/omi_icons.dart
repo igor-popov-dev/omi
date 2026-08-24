@@ -78,6 +78,7 @@ enum OmiIcon {
   language,
   document,
   users,
+  crown,
 }
 
 /// Classic glyph: either a Material [IconData] or a FontAwesome [FaIconData].
@@ -168,6 +169,7 @@ const Map<OmiIcon, IconData> _lucide = {
   OmiIcon.language: LucideIcons.languages,
   OmiIcon.document: LucideIcons.fileText,
   OmiIcon.users: LucideIcons.users,
+  OmiIcon.crown: LucideIcons.crown,
 };
 
 /// Classic theme: the glyphs the app draws today, unchanged.
@@ -238,6 +240,7 @@ const Map<OmiIcon, _ClassicGlyph> _classic = {
   OmiIcon.language: _ClassicGlyph.material(Icons.language),
   OmiIcon.document: _ClassicGlyph.material(Icons.description),
   OmiIcon.users: _ClassicGlyph.material(Icons.people),
+  OmiIcon.crown: _ClassicGlyph.fa(FontAwesomeIcons.crown),
 };
 
 /// Theme-aware icon.
