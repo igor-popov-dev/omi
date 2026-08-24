@@ -85,6 +85,15 @@ class CaptureController extends ChangeNotifier
   final Future<void> Function()? _inProgressConversationLoader;
   final Future<BleAudioCodec> Function(String deviceId)? _audioCodecLoader;
 
+  /// Test seam for the forced Firebase token refresh a 4001 close asks for.
+  final Future<void> Function()? _authTokenRefresher;
+
+  // Close codes the backend uses to explain a refused socket, as opposed to a
+  // connection that dropped. See backend/utils/other/endpoints.py.
+  static const int _wsCloseTokenRefreshRequired = 4001;
+  static const int _wsCloseReloginRequired = 4004;
+  static const int _wsCloseAccountDeleting = 4005;
+
   CaptureExternalActions externalActions;
   DeviceOnboardingProvider? deviceOnboardingProvider;
 
@@ -536,10 +545,12 @@ class CaptureController extends ChangeNotifier
     ConversationLocationCapture? conversationLocationCapture,
     Future<void> Function()? inProgressConversationLoader,
     Future<BleAudioCodec> Function(String deviceId)? audioCodecLoader,
+    Future<void> Function()? authTokenRefresher,
   })  : externalActions = externalActions ?? const NoopCaptureExternalActions(),
         _conversationLocationCapture = conversationLocationCapture ?? ConversationLocationCapture(),
         _inProgressConversationLoader = inProgressConversationLoader,
-        _audioCodecLoader = audioCodecLoader {
+        _audioCodecLoader = audioCodecLoader,
+        _authTokenRefresher = authTokenRefresher {
     // Restore a persisted device mute so it survives an app kill/restart. When
     // the device reconnects, streamDeviceRecording() reads _isPaused as
     // `wasPaused` and re-applies the mute instead of silently resuming.
@@ -1118,6 +1129,10 @@ class CaptureController extends ChangeNotifier
     final effectiveChannels =
         channels ?? ((audioCodec == BleAudioCodec.pcm16 || audioCodec == BleAudioCodec.pcm8) ? 1 : 2);
     final attemptKey = '$audioCodec|$effectiveSampleRate|$effectiveChannels|$isPcm|$source';
+
+    // A new attempt is reaching for fresh credentials, so let it run; if the
+    // server refuses again, onClosed re-arms the block on its own.
+    _transcriptionAuthRejection = null;
 
     if (!force && _websocketInitInFlight.containsKey(attemptKey)) {
       Logger.debug('initiateWebsocket skipped - an identical connection attempt is already in flight');
@@ -2226,15 +2241,30 @@ class CaptureController extends ChangeNotifier
       externalActions.markAsOutOfCreditsAndRefresh();
     }
 
+    // An auth rejection is not a dropped connection, and reconnecting on the
+    // same 15s cadence answers it with the same credential the server just
+    // refused. 4001 says the token is stale and a refreshed one would be
+    // accepted, so refresh it before the keepalive tries again; 4004 and 4005
+    // say no credential this session can present will be accepted, so the loop
+    // has to stop and say why instead of retrying until the user gives up.
+    if (closeCode == _wsCloseTokenRefreshRequired) {
+      unawaited(_refreshAuthToken());
+    }
+    if (closeCode == _wsCloseReloginRequired || closeCode == _wsCloseAccountDeleting) {
+      _transcriptionAuthRejection = closeCode;
+    }
+
     // Reflect the transcription pipeline break in recordingState. Before this
     // change the UI kept reading "record" while the socket was dead, which
     // looked like active capture to the user (issue #6499). Only flip when we
     // were actively phone-mic recording — device/system-audio flows have their
     // own state lanes.
+    final ctx = globalNavigatorKey.currentContext;
     if (recordingState == RecordingState.record) {
       updateRecordingState(RecordingState.interrupted);
-      final ctx = globalNavigatorKey.currentContext;
-      if (ctx != null) {
+      // "reconnecting" would be a lie after a rejection nothing retries past;
+      // that case gets its own notice below, whatever the recording state was.
+      if (ctx != null && _transcriptionAuthRejection == null) {
         AppSnackbar.showSnackbar(ctx.l10n.transcriptionPausedReconnecting, duration: const Duration(seconds: 3));
       }
     }
@@ -2247,11 +2277,42 @@ class CaptureController extends ChangeNotifier
       _socketReconnectPending = true;
     }
 
+    if (_transcriptionAuthRejection != null) {
+      _keepAliveTimer?.cancel();
+      _keepAliveTimer = null;
+      if (ctx != null) {
+        // Both codes mean the same thing to the user: the credential this
+        // session holds will not be accepted again, and signing in is the only
+        // way forward — for a deleting account that surfaces the deletion
+        // through the normal sign-in path instead of a silent retry loop.
+        AppSnackbar.showSnackbar(ctx.l10n.sessionExpiredSignInAgain, duration: const Duration(seconds: 5));
+      }
+      notifyListeners();
+      return;
+    }
+
     notifyListeners();
     _startKeepAliveServices();
   }
 
+  /// The socket was refused for a reason no retry can resolve (4004 re-login,
+  /// 4005 account deletion). Cleared by the next explicit connection attempt,
+  /// which is allowed to fail again and re-arm this.
+  int? _transcriptionAuthRejection;
+
+  Future<void> _refreshAuthToken() async {
+    final refresher = _authTokenRefresher;
+    if (refresher != null) {
+      await refresher();
+      return;
+    }
+    await AuthService.instance.refreshIdToken();
+  }
+
   bool get _shouldReconnectTranscriptionSocket {
+    // A refused credential is not something the keepalive can fix by trying
+    // once more; without this the loop reconnects every 15s indefinitely.
+    if (_transcriptionAuthRejection != null) return false;
     final activeDeviceCapture = _recordingDevice != null && recordingState == RecordingState.deviceRecord && !_isPaused;
     final activePhoneOrSystemCapture = recordingState == RecordingState.record ||
         recordingState == RecordingState.interrupted ||
