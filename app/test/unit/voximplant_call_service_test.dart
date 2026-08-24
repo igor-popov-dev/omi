@@ -190,4 +190,102 @@ void main() {
       expect(seen, [PhoneCallState.active]);
     });
   });
+
+  group('callFailure', () {
+    // Что этот разбор стоит: сценарий отклоняет звонок кодом 486, а платформа рисует
+    // 486 как «Busy Here». Без заголовка «месячный лимит исчерпан» приходит на телефон
+    // словами «собеседник занят» — и пользователь перезванивает вместо того, чтобы
+    // пополнить счёт.
+    test('a refusal names its own cause instead of the SIP reason phrase', () {
+      final e = VoximplantCallService.callFailure(
+        code: 486,
+        description: 'Busy Here',
+        headers: {'X-Omi-Reason': 'quota_exceeded', 'X-Omi-Used': '300', 'X-Omi-Limit': '300'},
+      );
+
+      expect(e.code, 'VOX_QUOTA_EXCEEDED');
+      expect(e.message, contains('limit is used up'));
+      expect(e.message, contains('300 of 300'));
+      expect(e.message, isNot(contains('Busy')));
+    });
+
+    test('the counters are optional — the reason still shows without them', () {
+      final e = VoximplantCallService.callFailure(
+        code: 486,
+        description: 'Busy Here',
+        headers: {'X-Omi-Reason': 'quota_exceeded'},
+      );
+
+      // Не «нет подстроки of» — она есть в «start of next month», и такая проверка
+      // краснела бы на верном коде. Проверяется ровно то, что обещано: скобки со счётом.
+      expect(e.message, contains('limit is used up'));
+      expect(e.message, isNot(contains('(')));
+    });
+
+    // SIP-заголовки регистронезависимы, и SDK двух платформ отдают их в разном регистре.
+    // Поиск по точной строке работал бы на одной и молча ломался на другой — а выглядело
+    // бы это как «заголовок не доехал», то есть уводило бы от причины.
+    test('the header is found whatever case the SDK hands it over in', () {
+      final e = VoximplantCallService.callFailure(
+        code: 486,
+        description: 'Busy Here',
+        headers: {'x-omi-reason': 'no_verified_number'},
+      );
+
+      expect(e.code, 'VOX_NO_VERIFIED_NUMBER');
+      expect(e.message, contains('verify your number'));
+    });
+
+    // Главная страховка: доставку этих заголовков ИХ сетью нельзя проверить до первого
+    // живого звонка. Значит их отсутствие обязано стоить ровно ноль — прежнее поведение.
+    test('without the header nothing changes — a real busy signal stays a busy signal', () {
+      final e = VoximplantCallService.callFailure(code: 486, description: 'Busy Here', headers: {});
+
+      expect(e.code, 'SIP_486');
+      expect(e.message, 'Busy Here');
+    });
+
+    test('null headers are not a crash — the SDK may omit them entirely', () {
+      final e = VoximplantCallService.callFailure(code: 603, description: '', headers: null);
+
+      expect(e.code, 'SIP_603');
+      expect(e.message, 'The call could not be completed.');
+    });
+
+    // Бэкенд может завести новую причину раньше, чем клиент про неё узнает. Показать
+    // сырое слово лучше, чем «Busy Here»: его хотя бы можно найти в логе кабинета.
+    test('an unknown reason still beats the SIP reason phrase', () {
+      final e = VoximplantCallService.callFailure(
+        code: 486,
+        description: 'Busy Here',
+        headers: {'X-Omi-Reason': 'some_new_backend_reason'},
+      );
+
+      expect(e.code, 'VOX_SOME_NEW_BACKEND_REASON');
+      expect(e.message, contains('some_new_backend_reason'));
+    });
+
+    // Все пять причин бэкенда (routers/phone_calls.py) плюс три, которые сценарий решает
+    // сам, обязаны иметь человеческий текст — иначе ветка default их проглотит незаметно.
+    test('every reason the backend and the scenario can send has its own wording', () {
+      const reasons = [
+        'quota_exceeded',
+        'feature_disabled',
+        'no_verified_number',
+        'destination_not_allowed',
+        'invalid_destination',
+        'inbound_not_ours',
+        'call_loop_guard',
+        'denied_by_server',
+      ];
+      for (final reason in reasons) {
+        final e = VoximplantCallService.callFailure(
+          code: 486,
+          description: 'Busy Here',
+          headers: {'X-Omi-Reason': reason},
+        );
+        expect(e.message, isNot(contains(reason)), reason: '$reason fell through to the default branch');
+      }
+    });
+  });
 }

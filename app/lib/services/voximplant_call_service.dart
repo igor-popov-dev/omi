@@ -270,6 +270,82 @@ class VoximplantCallService {
     }
   }
 
+  /// Why a call failed, in the words the user needs rather than the words SIP has.
+  ///
+  /// The cloud scenario refuses a call with `reject(486, {'X-Omi-Reason': …})`. Without
+  /// reading that header the app shows the platform's own description — "Busy Here" for a
+  /// 486 — so "your monthly minute limit is used up" arrives as "the other side is busy",
+  /// and the user redials instead of topping up. That is the same defect class as the
+  /// upstream one this fork already fixes: an error that names something other than its
+  /// cause points away from it.
+  ///
+  /// Deliberately conservative: with no header (a real busy signal, a network failure, an
+  /// older scenario still in the cabinet) it behaves exactly as before. Delivery of these
+  /// headers over Voximplant's own network cannot be tested before the first live call —
+  /// so absence must cost nothing.
+  static PhoneCallError callFailure({
+    required int code,
+    required String description,
+    Map<String, String>? headers,
+  }) {
+    final reason = _header(headers, 'X-Omi-Reason');
+    if (reason == null || reason.isEmpty) {
+      return PhoneCallError(
+        code: 'SIP_$code',
+        message: description.trim().isEmpty ? 'The call could not be completed.' : description,
+      );
+    }
+    final used = _header(headers, 'X-Omi-Used');
+    final limit = _header(headers, 'X-Omi-Limit');
+    return PhoneCallError(code: 'VOX_${reason.toUpperCase()}', message: _refusalMessage(reason, used, limit));
+  }
+
+  /// SIP header names are case-insensitive and the SDKs do not agree on the case they hand
+  /// over, so looking up the exact string we sent would work on one platform and quietly
+  /// fail on the other — with the failure looking like "the header never arrived".
+  static String? _header(Map<String, String>? headers, String name) {
+    if (headers == null) return null;
+    final wanted = name.toLowerCase();
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == wanted) return entry.value.trim();
+    }
+    return null;
+  }
+
+  /// The five reasons the backend's `POST /v1/phone/call/authorize` can return, plus the three the scenario
+  /// decides on its own (`inbound_not_ours`, `call_loop_guard`, `denied_by_server`). Kept in the backend's own
+  /// words rather than re-coded on the way, so there is one list to drift instead of two;
+  /// `marathon/tools/vox-refusal-reason-drift.py` fails if the backend grows a reason this switch does not know.
+  static String _refusalMessage(String reason, String? used, String? limit) {
+    switch (reason) {
+      case 'quota_exceeded':
+        final counted =
+            (used != null && limit != null && used.isNotEmpty && limit.isNotEmpty) ? ' ($used of $limit used)' : '';
+        return 'This month\'s calling limit is used up$counted. The limit resets at the start of next month.';
+      case 'feature_disabled':
+        return 'Calling is switched off for this account: the monthly limit is set to zero.';
+      case 'no_verified_number':
+        return 'No verified phone number yet — verify your number before placing calls.';
+      case 'destination_not_allowed':
+        return 'Calls to this country are not allowed on this account.';
+      case 'invalid_destination':
+        return 'That number cannot be dialled — check the digits and the country code.';
+      case 'inbound_not_ours':
+        return 'That is an incoming call to our own number, not a call the app can place.';
+      case 'denied_by_server':
+        // Сценарий подставляет это слово, когда бэкенд ответил «нельзя», но причину не
+        // назвал. Своей ветки эта причина требует именно поэтому: у неё нет слова,
+        // которое можно было бы показать, — а ветка default показывает как раз слово.
+        return 'The server did not allow this call.';
+      case 'call_loop_guard':
+        return 'The call was stopped to avoid dialling ourselves in a loop.';
+      default:
+        // An unknown reason is still worth showing: the raw word beats "Busy Here", and it
+        // is the string to search for in the cabinet log.
+        return 'The server refused the call: $reason';
+    }
+  }
+
   /// The `{"uid": …, "call_id": …}` the cloud scenario parses, or null if it would not fit.
   static String? buildCustomData({required String uid, required String callId}) {
     final payload = jsonEncode({'uid': uid, 'call_id': callId});
@@ -379,8 +455,11 @@ class VoximplantCallService {
     call.onCallFailed = (call, code, description, headers) {
       _call = null;
       // 486 and 603 are the scenario refusing (quota, direction, no verified number) or the
-      // other side declining — telling them apart matters more than the SIP number does.
-      _reportError('SIP_$code', description.trim().isEmpty ? 'The call could not be completed.' : description);
+      // other side declining — telling them apart matters more than the SIP number does,
+      // and the SIP code alone cannot: the scenario rejects with 486 and the platform
+      // renders that as "Busy Here", which reads as "they are on another call".
+      final failure = callFailure(code: code, description: description, headers: headers);
+      _reportError(failure.code, failure.message);
       emitState(PhoneCallState.failed);
     };
   }
