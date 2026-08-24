@@ -20,6 +20,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/other/time_utils.dart';
 import 'package:omi/utils/platform/platform_service.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/widgets/extensions/string.dart';
 
@@ -396,10 +397,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
                     height: 40,
                     decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(12)),
                     alignment: Alignment.center,
-                    child: Text(
-                      widget.conversation.structured.getEmoji(),
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
-                    ),
+                    child: OmiEmoji(widget.conversation.structured.getEmoji(), size: 22),
                   ),
                 if (!widget.conversation.discarded) const SizedBox(width: 12),
                 Expanded(
@@ -552,11 +550,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!widget.conversation.discarded)
-                  Text(
-                    widget.conversation.structured.getEmoji(),
-                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w500),
-                  ),
+                if (!widget.conversation.discarded) OmiEmoji(widget.conversation.structured.getEmoji(), size: 22),
                 if (widget.conversation.structured.category.isNotEmpty && !widget.conversation.discarded)
                   const SizedBox(width: 8),
                 if (widget.conversation.structured.category.isNotEmpty)

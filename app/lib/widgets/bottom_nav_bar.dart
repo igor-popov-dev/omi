@@ -2,10 +2,11 @@ import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/providers/home_provider.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class BottomNavBar extends StatefulWidget {
   const BottomNavBar({super.key, required this.onTabTap, this.onTabWarmup});
@@ -44,10 +45,10 @@ class _BottomNavBarState extends State<BottomNavBar> {
             ),
             child: Row(
               children: [
-                _buildTab(context, selectedIndex, 0, FontAwesomeIcons.house, 'Home'),
-                _buildTab(context, selectedIndex, 1, FontAwesomeIcons.comments, 'Conversations'),
-                _buildTab(context, selectedIndex, 2, FontAwesomeIcons.listCheck, 'Tasks'),
-                _buildTab(context, selectedIndex, 3, FontAwesomeIcons.puzzlePiece, 'Apps'),
+                _buildTab(context, selectedIndex, 0, OmiIcon.home, 'Home'),
+                _buildTab(context, selectedIndex, 1, OmiIcon.chat, 'Conversations'),
+                _buildTab(context, selectedIndex, 2, OmiIcon.tasks, 'Tasks'),
+                _buildTab(context, selectedIndex, 3, OmiIcon.apps, 'Apps'),
               ],
             ),
           ),
@@ -59,7 +60,12 @@ class _BottomNavBarState extends State<BottomNavBar> {
   @override
   Widget build(BuildContext context) => _navigation;
 
-  Widget _buildTab(BuildContext context, int selectedIndex, int index, FaIconData icon, String label) {
+  Widget _buildTab(BuildContext context, int selectedIndex, int index, OmiIcon icon, String label) {
+    final t = context.omi;
+    final isSelected = selectedIndex == index;
+    // Classic keeps the exact white/grey pair it has always drawn; Glass needs
+    // ink tones instead, white would be invisible on the light bar.
+    final color = t.isGlass ? (isSelected ? t.textPrimary : t.textTertiary) : (isSelected ? Colors.white : Colors.grey);
     return Expanded(
       child: InkWell(
         onTapDown: (_) => widget.onTabWarmup?.call(index),
@@ -76,7 +82,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
         },
         child: SizedBox(
           height: 90,
-          child: Center(child: FaIcon(icon, color: selectedIndex == index ? Colors.white : Colors.grey, size: 26)),
+          child: Center(child: OmiIconWidget(icon: icon, color: color, size: 26)),
         ),
       ),
     );

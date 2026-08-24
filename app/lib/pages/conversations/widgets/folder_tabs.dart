@@ -3,16 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:collection/collection.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/backend/schema/folder.dart';
 import 'package:omi/pages/conversations/widgets/create_folder_sheet.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/providers/folder_provider.dart';
-import 'package:omi/utils/folders/folder_icon_mapper.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
 
 class FolderTabs extends StatefulWidget {
   final List<Folder> folders;
@@ -252,7 +251,7 @@ class _FolderTab extends StatelessWidget {
             if (icon != null) ...[
               Padding(
                 padding: const EdgeInsets.only(bottom: 2),
-                child: FaIcon(folderIconToFa(icon), size: 12, color: isSelected ? effectiveColor : Colors.grey[400]),
+                child: OmiFolderIcon(icon, size: 12, color: isSelected ? effectiveColor : Colors.grey[400]),
               ),
               const SizedBox(width: 5),
             ],
@@ -372,7 +371,7 @@ class _FolderContextMenu extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  FaIcon(folderIconToFa(folder.icon), size: 18, color: folder.colorValue),
+                  OmiFolderIcon(folder.icon, size: 18, color: folder.colorValue),
                   const SizedBox(width: 8),
                   Text(
                     folder.name,
@@ -451,7 +450,7 @@ class _DeleteFolderSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Center(
-                        child: FaIcon(folderIconToFa(folder.icon), size: 20, color: Colors.red.withValues(alpha: 0.8)),
+                        child: OmiFolderIcon(folder.icon, size: 20, color: Colors.red.withValues(alpha: 0.8)),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -563,7 +562,7 @@ class _MoveOption extends StatelessWidget {
                     color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Center(child: FaIcon(folderIconToFa(icon), size: 18, color: color)),
+                  child: Center(child: OmiFolderIcon(icon, size: 18, color: color)),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -621,7 +620,7 @@ class FolderChip extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
-              child: FaIcon(folderIconToFa(folder.icon), size: 10, color: folder.colorValue),
+              child: OmiFolderIcon(folder.icon, size: 10, color: folder.colorValue),
             ),
             const SizedBox(width: 4),
             Text(

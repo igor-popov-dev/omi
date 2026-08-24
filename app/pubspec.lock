@@ -861,14 +861,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.2.5"
-  flutter_voximplant:
-    dependency: "direct main"
-    description:
-      name: flutter_voximplant
-      sha256: "942bb00c98b6be5e9ed83a2d6f390f342e42eb08cc6fafabade455a77da70ec7"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.17.0"
   flutter_web_plugins:
     dependency: transitive
     description: flutter
@@ -1365,6 +1357,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.3.2"
+  lucide_icons_flutter:
+    dependency: "direct main"
+    description:
+      name: lucide_icons_flutter
+      sha256: "6e2eb4a11137851be84a57e936fc864d565709ec0ae854b786b15397d1b66276"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.17"
   map_launcher:
     dependency: "direct main"
     description:

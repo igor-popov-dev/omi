@@ -18411,35 +18411,29 @@ abstract class AppLocalizations {
   /// **'Last error: {error}.'**
   String appDisabledLastError(String error);
 
-  /// Shown when a voice recording was transcribed but contained no recognizable speech
+  /// Title of the appearance (theme) settings screen
   ///
   /// In en, this message translates to:
-  /// **'No speech detected — record again'**
-  String get voiceNoSpeechDetected;
+  /// **'Appearance'**
+  String get appearance;
 
-  /// No description provided for @sttOfflineBuffering.
+  /// Name of the classic (dark) app theme
   ///
   /// In en, this message translates to:
-  /// **'Offline — buffering audio ({duration})'**
-  String sttOfflineBuffering(String duration);
+  /// **'Classic'**
+  String get appearanceClassic;
 
-  /// No description provided for @sttLiveTranscribing.
+  /// Name of the glass (light) app theme
   ///
   /// In en, this message translates to:
-  /// **'Transcribing speech…'**
-  String get sttLiveTranscribing;
+  /// **'Glass'**
+  String get appearanceGlass;
 
-  /// No description provided for @sttWaitingForSpeech.
+  /// Name of the glass app theme with a beta marker, used in settings search
   ///
   /// In en, this message translates to:
-  /// **'Listening — waiting for speech'**
-  String get sttWaitingForSpeech;
-
-  /// No description provided for @sttReconnecting.
-  ///
-  /// In en, this message translates to:
-  /// **'Transcription connection lost — reconnecting…'**
-  String get sttReconnecting;
+  /// **'Glass (beta)'**
+  String get appearanceGlassBeta;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

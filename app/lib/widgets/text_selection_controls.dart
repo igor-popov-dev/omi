@@ -19,7 +19,7 @@ class OmiTextSelectionToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoTheme(
-      data: const CupertinoThemeData(brightness: Brightness.dark, primaryColor: Colors.blue),
+      data: CupertinoThemeData(brightness: Theme.of(context).brightness, primaryColor: Colors.blue),
       child: CupertinoTextSelectionToolbar(anchorAbove: anchorAbove, anchorBelow: anchorBelow, children: children),
     );
   }

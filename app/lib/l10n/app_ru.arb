@@ -3263,6 +3263,10 @@
     "appReEnableFailedBody": "Это приложение не удалось включить снова. Попробуйте ещё раз.",
     "appDisabledOn": "Отключено {date}.",
     "appDisabledLastError": "Последняя ошибка: {error}.",
+    "appearance": "Оформление",
+    "appearanceClassic": "Классическая",
+    "appearanceGlass": "Glass",
+    "appearanceGlassBeta": "Glass (бета)",
     "voiceNoSpeechDetected": "Речь не распознана — запишите заново",
     "sttOfflineBuffering": "Распознавание офлайн — аудио копится ({duration})",
     "@sttOfflineBuffering": {

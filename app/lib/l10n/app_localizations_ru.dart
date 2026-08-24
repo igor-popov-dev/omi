@@ -9924,19 +9924,14 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get voiceNoSpeechDetected => 'Речь не распознана — запишите заново';
+  String get appearance => 'Оформление';
 
   @override
-  String sttOfflineBuffering(String duration) {
-    return 'Распознавание офлайн — аудио копится ($duration)';
-  }
+  String get appearanceClassic => 'Классическая';
 
   @override
-  String get sttLiveTranscribing => 'Речь распознаётся…';
+  String get appearanceGlass => 'Glass';
 
   @override
-  String get sttWaitingForSpeech => 'Слушаю — жду речи';
-
-  @override
-  String get sttReconnecting => 'Связь с распознаванием потеряна — переподключаюсь…';
+  String get appearanceGlassBeta => 'Glass (бета)';
 }

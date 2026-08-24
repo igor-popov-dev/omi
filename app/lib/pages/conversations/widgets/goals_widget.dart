@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omi/backend/http/api/goals.dart';
 import 'package:omi/providers/goals_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
 
 /// Keep integer stepping for small goals without asking RenderSlider to paint
 /// one division per unit for arbitrarily large targets.
@@ -309,7 +310,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                                       ? Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2)
                                       : null,
                                 ),
-                                child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
+                                child: Center(child: OmiEmoji(emoji, size: 22)),
                               ),
                             );
                           },
@@ -618,7 +619,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                   color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Center(child: Text(emoji, style: const TextStyle(fontSize: 18))),
+                child: Center(child: OmiEmoji(emoji, size: 18)),
               ),
               // Content
               Expanded(

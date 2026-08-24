@@ -9923,19 +9923,14 @@ class AppLocalizationsHr extends AppLocalizations {
   }
 
   @override
-  String get voiceNoSpeechDetected => 'No speech detected — record again';
+  String get appearance => 'Appearance';
 
   @override
-  String sttOfflineBuffering(String duration) {
-    return 'Offline — buffering audio ($duration)';
-  }
+  String get appearanceClassic => 'Classic';
 
   @override
-  String get sttLiveTranscribing => 'Transcribing speech…';
+  String get appearanceGlass => 'Glass';
 
   @override
-  String get sttWaitingForSpeech => 'Listening — waiting for speech';
-
-  @override
-  String get sttReconnecting => 'Transcription connection lost — reconnecting…';
+  String get appearanceGlassBeta => 'Glass (beta)';
 }
