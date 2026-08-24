@@ -23,6 +23,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/debouncer.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/ui_guidelines.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 String filterValueToString(dynamic value) {
   if (value is String) {
@@ -83,23 +84,25 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
     return Selector<AppProvider, List<App>>(
       selector: (context, provider) => provider.filteredApps,
       builder: (context, filteredApps, child) {
+        final t = context.omi;
+
         if (filteredApps.isEmpty) {
           return SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.only(top: MediaQuery.sizeOf(context).height * 0.3),
               child: Column(
                 children: [
-                  Icon(Icons.search_off, size: 64, color: Colors.grey.shade600),
+                  Icon(Icons.search_off, size: 64, color: t.textSecondary),
                   const SizedBox(height: 16),
                   Text(
                     context.l10n.noAppsFound,
-                    style: const TextStyle(fontSize: 18, color: Colors.white70),
+                    style: TextStyle(fontSize: 18, color: t.textSecondary),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     context.l10n.tryAdjustingSearch,
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                    style: TextStyle(fontSize: 14, color: t.textSecondary),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -423,6 +426,8 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
           );
         },
         builder: (context, state, child) {
+          final t = context.omi;
+
           return RefreshIndicator(
             onRefresh: () async {
               HapticFeedback.mediumImpact();
@@ -488,7 +493,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               }
                                               provider.applyFilters();
                                             },
-                                            icon: const Icon(Icons.search, color: Colors.white60, size: 20),
+                                            icon: Icon(Icons.search, color: t.textSecondary, size: 20),
                                             padding: EdgeInsets.zero,
                                           ),
                                         ),
@@ -500,9 +505,9 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               height: 44,
                                               child: SearchBar(
                                                 hintText: context.l10n.searchAppsPlaceholder,
-                                                leading: const Padding(
-                                                  padding: EdgeInsets.only(left: 6.0),
-                                                  child: Icon(Icons.search, color: Colors.white60, size: 20),
+                                                leading: Padding(
+                                                  padding: const EdgeInsets.only(left: 6.0),
+                                                  child: Icon(Icons.search, color: t.textSecondary, size: 20),
                                                 ),
                                                 backgroundColor: WidgetStateProperty.all(
                                                   AppStyles.backgroundSecondary,
@@ -516,9 +521,9 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                                 trailing: state.isSearchActive
                                                     ? [
                                                         IconButton(
-                                                          icon: const Icon(
+                                                          icon: Icon(
                                                             Icons.close,
-                                                            color: Colors.white70,
+                                                            color: t.textSecondary,
                                                             size: 16,
                                                           ),
                                                           padding: EdgeInsets.zero,
@@ -566,7 +571,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                         curve: Curves.easeInOut,
                                         height: 44,
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.22),
+                                          color: t.rowFillHover,
                                           borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
                                         ),
                                         child: TextButton.icon(
@@ -581,16 +586,16 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               !wasSelected,
                                             );
                                           },
-                                          icon: const FaIcon(
+                                          icon: FaIcon(
                                             FontAwesomeIcons.solidUser,
                                             size: 16,
-                                            color: Colors.white,
+                                            color: t.textPrimary,
                                           ),
                                           label: Text(
                                             context.l10n.myApps,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 14,
-                                              color: Colors.white,
+                                              color: t.textPrimary,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -622,10 +627,10 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               !wasSelected,
                                             );
                                           },
-                                          icon: const FaIcon(
+                                          icon: FaIcon(
                                             FontAwesomeIcons.solidUser,
                                             size: 16,
-                                            color: Colors.white,
+                                            color: t.textPrimary,
                                           ),
                                           padding: EdgeInsets.zero,
                                         ),
@@ -642,7 +647,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                         curve: Curves.easeInOut,
                                         height: 44,
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.22),
+                                          color: t.rowFillHover,
                                           borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
                                         ),
                                         child: TextButton.icon(
@@ -657,18 +662,18 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               !wasSelected,
                                             );
                                           },
-                                          icon: const FaIcon(
+                                          icon: FaIcon(
                                             FontAwesomeIcons.download,
                                             size: 16,
-                                            color: Colors.white,
+                                            color: t.textPrimary,
                                           ),
                                           label: Text(
                                             (state.visibleFilterCount > 0 && !state.isSearchActive)
                                                 ? context.l10n.installed
                                                 : context.l10n.installedApps,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 14,
-                                              color: Colors.white,
+                                              color: t.textPrimary,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -700,10 +705,10 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               !wasSelected,
                                             );
                                           },
-                                          icon: const FaIcon(
+                                          icon: FaIcon(
                                             FontAwesomeIcons.download,
                                             size: 16,
-                                            color: Colors.white,
+                                            color: t.textPrimary,
                                           ),
                                           padding: EdgeInsets.zero,
                                         ),
@@ -720,7 +725,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                         curve: Curves.easeInOut,
                                         height: 44,
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.22),
+                                          color: t.rowFillHover,
                                           borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
                                         ),
                                         child: TextButton.icon(
@@ -735,16 +740,16 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                               builder: (context) => const FilterBottomSheet(),
                                             );
                                           },
-                                          icon: const FaIcon(
+                                          icon: FaIcon(
                                             FontAwesomeIcons.filter,
                                             size: 16,
-                                            color: Colors.white,
+                                            color: t.textPrimary,
                                           ),
                                           label: Text(
                                             context.l10n.filters,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 14,
-                                              color: Colors.white,
+                                              color: t.textPrimary,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -765,7 +770,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                             curve: Curves.easeInOut,
                                             decoration: BoxDecoration(
                                               color: state.visibleFilterCount > 0
-                                                  ? Colors.white.withValues(alpha: 0.22)
+                                                  ? t.rowFillHover
                                                   : AppStyles.backgroundSecondary,
                                               borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
                                             ),
@@ -781,10 +786,10 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
                                                   builder: (context) => const FilterBottomSheet(),
                                                 );
                                               },
-                                              icon: const FaIcon(
+                                              icon: FaIcon(
                                                 FontAwesomeIcons.filter,
                                                 size: 16,
-                                                color: Colors.white,
+                                                color: t.textPrimary,
                                               ),
                                               padding: EdgeInsets.zero,
                                             ),

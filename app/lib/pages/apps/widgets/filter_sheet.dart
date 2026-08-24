@@ -6,17 +6,20 @@ import 'package:provider/provider.dart';
 import 'package:omi/l10n/app_localizations.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class FilterBottomSheet extends StatelessWidget {
   const FilterBottomSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Consumer<AppProvider>(
         builder: (context, provider, child) {
@@ -29,19 +32,19 @@ class FilterBottomSheet extends StatelessWidget {
                   children: [
                     Text(
                       AppLocalizations.of(context).filters,
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.white),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: t.textPrimary),
                     ),
                     if (provider.filters.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
+                          color: t.rowFillHover,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           '${provider.filters.length}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.textPrimary),
                         ),
                       ),
                     ],
@@ -49,14 +52,14 @@ class FilterBottomSheet extends StatelessWidget {
                     IconButton(
                       key: const ValueKey('filter_sheet_close_button'),
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                      icon: Icon(Icons.close, color: t.textPrimary, size: 24),
                     ),
                   ],
                 ),
               ),
 
               // Divider
-              Container(margin: const EdgeInsets.symmetric(vertical: 16), height: 1, color: const Color(0xFF35343B)),
+              Container(margin: const EdgeInsets.symmetric(vertical: 16), height: 1, color: t.bgTertiary),
 
               // Content
               Expanded(
@@ -100,9 +103,9 @@ class FilterBottomSheet extends StatelessWidget {
               // Bottom buttons
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1C1C1E),
-                  border: Border(top: BorderSide(color: Color(0xFF35343B), width: 1)),
+                decoration: BoxDecoration(
+                  color: t.bgSecondary,
+                  border: Border(top: BorderSide(color: t.bgTertiary, width: 1)),
                 ),
                 child: Row(
                   children: [
@@ -119,12 +122,12 @@ class FilterBottomSheet extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: Colors.grey.shade600),
+                            side: BorderSide(color: t.textSecondary),
                           ),
                         ),
                         child: Text(
                           AppLocalizations.of(context).resetFilters,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: t.textPrimary),
                         ),
                       ),
                     ),
@@ -206,6 +209,8 @@ class FilterBottomSheet extends StatelessWidget {
   }
 
   Widget _buildCategoryChips(BuildContext context, AppProvider provider) {
+    final t = context.omi;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -223,7 +228,7 @@ class FilterBottomSheet extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected ? Colors.white.withValues(alpha: 0.22) : const Color(0xFF35343B),
+              color: isSelected ? t.rowFillHover : t.bgTertiary,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -231,7 +236,7 @@ class FilterBottomSheet extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.grey.shade300,
+                color: isSelected ? t.textPrimary : t.textSecondary,
               ),
             ),
           ),
@@ -241,6 +246,8 @@ class FilterBottomSheet extends StatelessWidget {
   }
 
   Widget _buildSortOptions(BuildContext context, AppProvider provider) {
+    final t = context.omi;
+
     final l10n = AppLocalizations.of(context);
     final sortOptions = [
       {'label': 'A-Z', 'key': 'A-Z'},
@@ -267,9 +274,9 @@ class FilterBottomSheet extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1F1F25).withValues(alpha: 0.5),
+                color: t.textTertiary,
                 borderRadius: BorderRadius.circular(12),
-                border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+                border: isSelected ? Border.all(color: t.textPrimary, width: 2) : null,
               ),
               child: Row(
                 children: [
@@ -279,7 +286,7 @@ class FilterBottomSheet extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isSelected ? Colors.white : Colors.transparent,
-                      border: Border.all(color: isSelected ? Colors.white : Colors.grey.shade500, width: 2),
+                      border: Border.all(color: isSelected ? t.textPrimary : t.textSecondary, width: 2),
                     ),
                     child: isSelected ? const Icon(Icons.check, size: 12, color: Colors.black) : null,
                   ),
@@ -288,7 +295,7 @@ class FilterBottomSheet extends StatelessWidget {
                     option['label']!,
                     style: TextStyle(
                       fontSize: 16,
-                      color: isSelected ? Colors.white : Colors.grey.shade300,
+                      color: isSelected ? t.textPrimary : t.textSecondary,
                       fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
                     ),
                   ),
@@ -302,6 +309,8 @@ class FilterBottomSheet extends StatelessWidget {
   }
 
   Widget _buildCapabilities(BuildContext context, AppProvider provider) {
+    final t = context.omi;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -319,7 +328,7 @@ class FilterBottomSheet extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected ? Colors.white.withValues(alpha: 0.22) : const Color(0xFF35343B),
+              color: isSelected ? t.rowFillHover : t.bgTertiary,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -327,7 +336,7 @@ class FilterBottomSheet extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.grey.shade300,
+                color: isSelected ? t.textPrimary : t.textSecondary,
               ),
             ),
           ),
