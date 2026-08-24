@@ -197,6 +197,14 @@ class GeminiHubSession extends BaseHubSession {
   @override
   bool canAcceptInput() => isOpen && (freeFormMode ? _streamingActive : _activityOpen);
 
+  /// A turn is open (see [BaseHubSession.canIdleRelease] for why that blocks
+  /// the release). Free-form mode has exactly one turn for the whole mode, so
+  /// `_streamingActive` IS "the mode is on"; manual mode counts both halves of
+  /// a press — the activity window while the user holds the button, and the
+  /// wait for the reply after they let go.
+  @override
+  bool get canIdleRelease => !(freeFormMode ? _streamingActive : (_activityOpen || _responsePending));
+
   @override
   void appendAudioFrame(String b64) {
     send({
