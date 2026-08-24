@@ -32,7 +32,6 @@ import 'package:omi/services/capture/conversation_location_capture.dart';
 import 'package:omi/services/capture/freemium_threshold_tracker.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
-import 'package:omi/services/voice_hub/earcon.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode.dart';
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
 import 'package:omi/services/voice_hub/voice_chat_log.dart';
@@ -116,6 +115,10 @@ class CaptureController extends ChangeNotifier
   /// source of truth (`FreeFormVoiceMode.isRunning` itself isn't listenable).
   final ValueNotifier<bool> freeFormModeActive = ValueNotifier(false);
 
+  /// Self-host: звук «голосовой режим включён» — подключается в main.dart
+  /// (thinkingEarcon), в тестах остаётся null.
+  void Function()? onVoiceModeStartSound;
+
   /// Self-host patch: records the spoken exchange into chat history, so voice
   /// and chat share one conversation (see `voice_chat_log.dart`).
   final VoiceChatLog voiceChatLog = VoiceChatLog();
@@ -132,9 +135,10 @@ class CaptureController extends ChangeNotifier
     try {
       await mode.start();
       // Звук «голосовой режим включён» (просьба Игоря 24.08) — ПОСЛЕ удачного
-      // старта, чтобы сигнал не звучал перед ошибкой. Плеер не трогает
-      // аудиофокус (см. earcon.dart) — сессию не собьёт.
-      unawaited(thinkingEarcon.play());
+      // старта, чтобы сигнал не звучал перед ошибкой. Колбэк, а не плеер:
+      // контроллеру незачем знать про just_audio, а тестам — про платформенные
+      // каналы (main.dart подключает thinkingEarcon).
+      onVoiceModeStartSound?.call();
     } catch (_) {
       resetFreeFormVoiceModeUi();
       rethrow;
@@ -1097,6 +1101,24 @@ class CaptureController extends ChangeNotifier
   @visibleForTesting
   void handleSingleTapButtonEvent(String deviceId) {
     debugPrint("Single tap detected");
+    // Self-host (просьба Игоря 24.08): одиночное нажатие настраивается — как
+    // двойное. Вариант 1 = свободный голосовой режим (тот же тумблер, что у
+    // doubleTapAction=3): прежний «голосовой вопрос Omi» Игорь не использует,
+    // а конфликт «хотел двойной тап — сработал одиночный» при этом исчезает:
+    // оба жеста делают одно и то же.
+    if (SharedPreferencesUtil().singleTapAction == 1) {
+      HapticFeedback.mediumImpact();
+      if (freeFormModeActive.value) {
+        PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_stop_single_tap');
+        stopFreeFormVoiceMode();
+      } else {
+        PlatformManager.instance.analytics.omiDoubleTap(feature: 'voice_mode_start_single_tap');
+        startFreeFormVoiceMode().catchError((Object e) {
+          Logger.error('[VoiceMode] запуск с кулона (одиночный тап) не удался: $e');
+        });
+      }
+      return;
+    }
     if (_voiceCommandSession == null) {
       // Start voice question session (new toggle mode)
       debugPrint("Starting voice question session (toggle mode)");

@@ -394,6 +394,68 @@ class _DeviceSettingsState extends State<DeviceSettings> {
     }
   }
 
+  String _getSingleTapActionLabel(int action) {
+    switch (action) {
+      case 1:
+        return 'Голосовой режим';
+      default:
+        return 'Вопрос Omi (нотификация)';
+    }
+  }
+
+  void _showSingleTapActionSheet() {
+    int currentAction = SharedPreferencesUtil().singleTapAction;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 16),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+              ),
+              const Text(
+                'Одиночное нажатие',
+                style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                title: const Text(
+                  'Вопрос Omi (ответ нотификацией)',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                ),
+                trailing: currentAction == 0 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                onTap: () {
+                  setState(() => SharedPreferencesUtil().singleTapAction = 0);
+                  Navigator.pop(sheetContext);
+                },
+              ),
+              ListTile(
+                title: const Text(
+                  'Голосовой режим (разговор с ассистентом)',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                ),
+                trailing: currentAction == 1 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                onTap: () {
+                  setState(() => SharedPreferencesUtil().singleTapAction = 1);
+                  Navigator.pop(sheetContext);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _showDoubleTapActionSheet() {
     int currentAction = SharedPreferencesUtil().doubleTapAction;
 
@@ -776,6 +838,15 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             ),
             const Divider(height: 1, color: Color(0xFF3C3C43)),
           ],
+          // Single Tap — self-host патч (Игорь, 24.08): одиночное нажатие
+          // настраивается, как двойное. Строки нарочно не в l10n.
+          _buildProfileStyleItem(
+            icon: FontAwesomeIcons.handPointUp,
+            title: 'Одиночное нажатие',
+            chipValue: _getSingleTapActionLabel(SharedPreferencesUtil().singleTapAction),
+            onTap: _showSingleTapActionSheet,
+          ),
+          const Divider(height: 1, color: Color(0xFF3C3C43)),
           // Double Tap
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.handPointer,

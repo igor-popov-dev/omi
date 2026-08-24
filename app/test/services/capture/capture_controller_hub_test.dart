@@ -190,29 +190,23 @@ void main() {
     expect(driver.endCalls, 0);
   });
 
-  test('flag on, no driver set: single-tap toggle is a no-op for the hub (legacy pipeline unaffected)', () {
+  test('PTT hub is retired: even a stored "true" flag reads back false and never reaches the driver', () {
+    // Решение Игоря 24.08: удержание кнопки кулона занято питанием кулона, а
+    // push-to-talk конфликтовал с одиночным нажатием. Геттер прибит к false
+    // (preferences.dart); у Игоря в prefs осталось true с живого теста —
+    // прибитый геттер обязан его игнорировать.
     SharedPreferencesUtil().pttHubEnabled = true;
-    final provider = CaptureProvider();
-    expect(provider.hubTurnDriver, isNull);
+    expect(SharedPreferencesUtil().pttHubEnabled, isFalse);
 
-    // Must not throw even though hubTurnDriver is unset.
-    provider.handleSingleTapButtonEvent('device-1'); // start
-    provider.handleSingleTapButtonEvent('device-1'); // end
-  });
-
-  test('flag on + driver set: begin() called on first tap, end() called on second tap', () {
-    SharedPreferencesUtil().pttHubEnabled = true;
     final provider = CaptureProvider();
     final driver = _CountingHubTurnDriver();
     provider.hubTurnDriver = driver;
 
     provider.handleSingleTapButtonEvent('device-1'); // start
-    expect(driver.beginCalls, 1);
-    expect(driver.endCalls, 0);
-
     provider.handleSingleTapButtonEvent('device-1'); // end
-    expect(driver.beginCalls, 1);
-    expect(driver.endCalls, 1);
+
+    expect(driver.beginCalls, 0);
+    expect(driver.endCalls, 0);
   });
 
   group('FreeFormVoiceMode wiring (startFreeFormVoiceMode/stopFreeFormVoiceMode)', () {

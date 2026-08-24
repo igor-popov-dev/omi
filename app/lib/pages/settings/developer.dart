@@ -1645,19 +1645,11 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           child: Divider(color: Colors.grey.shade800, height: 1),
                         ),
-                        // PTT Hub
-                        _buildExperimentalItem(
-                          title: 'PTT Hub (voice hub, pendant)',
-                          description:
-                              'Routes pendant taps through the new realtime voice hub instead of the STT pipeline',
-                          icon: FontAwesomeIcons.microphoneLines,
-                          value: provider.pttHubEnabled,
-                          onChanged: provider.onPttHubEnabledChanged,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          child: Divider(color: Colors.grey.shade800, height: 1),
-                        ),
+                        // PTT Hub — тумблер СКРЫТ (решение Игоря 24.08): удержание
+                        // кнопки кулона занято питанием самого кулона, push-to-talk
+                        // конфликтовал с одиночным нажатием и не нужен. Геттер
+                        // pttHubEnabled прибит к false (preferences.dart); разговор
+                        // запускается одиночным/двойным нажатием (настройки кулона).
                         // Free-form Voice Mode
                         _buildExperimentalItem(
                           title: 'Free-form Voice Mode (chat button)',

@@ -48,6 +48,7 @@ import 'package:omi/providers/announcement_provider.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/providers/auth_provider.dart';
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/services/voice_hub/earcon.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart';
 import 'package:omi/services/voice_hub/voice_hub_production.dart';
 import 'package:omi/providers/connectivity_provider.dart';
@@ -394,6 +395,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             // constructing it here is side-effect-free, same as
             // `hubTurnDriver` above (no I/O until `startFreeFormVoiceMode`
             // actually calls `FreeFormVoiceMode.start()`).
+            capture.onVoiceModeStartSound = () => thinkingEarcon.play();
             capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
               events: freeFormModeProjectionEvents(
                 applyProjection: (projection) => capture.hubProjection.value = projection,
