@@ -19,6 +19,7 @@ import 'package:omi/pages/apps/widgets/search_loading_sliver.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/providers/home_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/debouncer.dart';
 import 'package:omi/utils/other/temp.dart';
@@ -112,7 +113,12 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
         }
 
         return SliverPadding(
-          padding: const EdgeInsets.only(bottom: 64, left: 20, right: 20, top: 20),
+          padding: EdgeInsets.only(
+            bottom: BottomNavMetrics.listBottomPadding(context, classic: 64),
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
           sliver: SliverList.separated(
             itemCount: filteredApps.length,
             separatorBuilder: (context, index) => const SizedBox(height: 8),
@@ -147,7 +153,7 @@ class ExploreInstallPageState extends State<ExploreInstallPage> with AutomaticKe
         }).toList();
 
         return SliverPadding(
-          padding: const EdgeInsets.only(top: 8, bottom: 100),
+          padding: EdgeInsets.only(top: 8, bottom: BottomNavMetrics.listBottomPadding(context, classic: 100)),
           sliver: SliverList.builder(
             itemCount: filteredGroups.length,
             itemBuilder: (context, index) {

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'package:omi/pages/conversations/widgets/merge_confirmation_dialog.dart';
 import 'package:omi/providers/conversation_provider.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
@@ -70,7 +71,12 @@ class _MergeActionBarState extends State<MergeActionBar> with SingleTickerProvid
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    20,
+                    20,
+                    BottomNavMetrics.actionSheetBottomPadding(context, classic: 20),
+                  ),
                   child: Row(
                     children: [
                       // Cancel button

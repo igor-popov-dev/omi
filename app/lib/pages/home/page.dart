@@ -56,6 +56,7 @@ import 'package:omi/providers/sync_provider.dart';
 import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/services/integrations/apple_reminders_sync_service.dart';
 import 'package:omi/services/quick_actions_service.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/device.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/services/announcement_service.dart';
@@ -930,7 +931,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                               },
                             ),
                             if (home.selectedIndex == 0)
-                              Positioned(left: 16, right: 16, bottom: 78, child: _buildChatBar(context)),
+                              Positioned(
+                                left: 16,
+                                right: 16,
+                                // Classic — прежние 78 pt внахлёст с градиентным
+                                // баром; Glass — над плавающей пилюлей.
+                                bottom: BottomNavMetrics.askOmiBottom(context),
+                                child: _buildChatBar(context),
+                              ),
                           ],
                         );
                       },
@@ -1027,7 +1035,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
     final t = context.omi;
     return AppBar(
       automaticallyImplyLeading: false,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      // Glass: шапка прозрачна, чтобы матовая подложка шла до верха экрана;
+      // Classic — прежняя сплошная surface.
+      backgroundColor: t.isGlass ? Colors.transparent : Theme.of(context).colorScheme.surface,
+      scrolledUnderElevation: t.isGlass ? 0 : null,
+      surfaceTintColor: t.isGlass ? Colors.transparent : null,
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,

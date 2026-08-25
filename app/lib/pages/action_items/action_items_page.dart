@@ -12,6 +12,7 @@ import 'package:omi/providers/action_items_provider.dart';
 import 'package:omi/providers/goals_provider.dart';
 import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/services/app_review_service.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/debouncer.dart';
 
@@ -207,7 +208,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
         if (provider.isSelectionMode) return const SizedBox.shrink();
         return Positioned(
           right: 20,
-          bottom: 100,
+          bottom: BottomNavMetrics.listBottomPadding(context, classic: 100),
           child: FloatingActionButton(
             heroTag: 'action_items_fab',
             onPressed: () {
@@ -561,10 +562,10 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
     return CustomScrollView(
       controller: _scrollController,
       physics: const NeverScrollableScrollPhysics(),
-      slivers: const [
-        SliverPadding(padding: EdgeInsets.only(top: 16)),
-        ActionItemsShimmerList(itemCount: 7),
-        SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+      slivers: [
+        const SliverPadding(padding: EdgeInsets.only(top: 16)),
+        const ActionItemsShimmerList(itemCount: 7),
+        SliverPadding(padding: EdgeInsets.only(bottom: BottomNavMetrics.listBottomPadding(context, classic: 100))),
       ],
     );
   }
@@ -743,7 +744,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
         ],
 
         // Bottom padding
-        const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+        SliverPadding(padding: EdgeInsets.only(bottom: BottomNavMetrics.listBottomPadding(context, classic: 100))),
       ],
     );
   }

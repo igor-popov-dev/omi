@@ -24,6 +24,7 @@ import 'package:omi/models/local_recording.dart';
 import 'package:omi/providers/folder_provider.dart';
 import 'package:omi/providers/home_provider.dart';
 import 'package:omi/services/app_review_service.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'widgets/conversations_group_widget.dart';
@@ -737,7 +738,14 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
                     }
                   }),
                 ),
-              SliverToBoxAdapter(child: SizedBox(height: convoProvider.isSelectionModeActive ? 160 : 100)),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: BottomNavMetrics.listBottomPadding(
+                    context,
+                    classic: convoProvider.isSelectionModeActive ? 160 : 100,
+                  ),
+                ),
+              ),
             ],
           ),
         );

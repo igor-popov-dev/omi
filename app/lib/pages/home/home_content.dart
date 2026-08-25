@@ -21,6 +21,7 @@ import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/providers/home_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/enums.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
@@ -146,7 +147,9 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
                 SliverToBoxAdapter(child: _buildMindMapPreview(context)),
 
                 // Bottom padding so content isn't hidden behind chat bar + nav
-                const SliverToBoxAdapter(child: SizedBox(height: 160)),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: BottomNavMetrics.homeListBottomPadding(context, classic: 160)),
+                ),
               ] else if (convoProvider.isLoadingConversations || convoProvider.isFetchingConversations)
                 // Hide both the recent-convos preview AND the get-started tiles
                 // while we're still fetching — otherwise users with conversations
@@ -162,7 +165,7 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
                   hasScrollBody: false,
                   child: Padding(
                     // Bottom padding leaves room for the floating chat bar.
-                    padding: const EdgeInsets.only(bottom: 160),
+                    padding: EdgeInsets.only(bottom: BottomNavMetrics.homeListBottomPadding(context, classic: 160)),
                     child: Center(child: _buildGetStartedOptions(context)),
                   ),
                 ),

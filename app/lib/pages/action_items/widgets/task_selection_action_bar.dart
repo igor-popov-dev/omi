@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/pages/settings/task_integrations_page.dart';
 import 'package:omi/providers/action_items_provider.dart';
 import 'package:omi/providers/task_integration_provider.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
@@ -76,7 +77,12 @@ class _TaskSelectionActionBarState extends State<TaskSelectionActionBar> with Si
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    20,
+                    20,
+                    BottomNavMetrics.actionSheetBottomPadding(context, classic: 20),
+                  ),
                   child: Row(
                     children: [
                       // Cancel
