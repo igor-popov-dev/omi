@@ -28,6 +28,11 @@ from models.users import PlanType, SubscriptionStatus, Subscription, PlanLimits,
 from utils.byok import get_byok_key, get_byok_keys
 from utils.log_sanitizer import sanitize
 from utils.observability.fallback import record_fallback
+
+# Self-host patch (docs/selfhost-patches.md): месячный потолок чата снимается рубильником
+# OMI_SELFHOST_UNLIMITED_CHAT. Логика — в utils/selfhost_chat_quota.py, файле, которого нет
+# в upstream: здесь остаются только две короткие врезки ниже.
+from utils.selfhost_chat_quota import selfhost_chat_quota_unlimited, unlimited_chat_snapshot
 import logging
 
 logger = logging.getLogger(__name__)
@@ -1017,6 +1022,13 @@ def get_chat_quota_snapshot(
     desktop callers can be paywalled; mobile callers fall through to the
     real plan logic.
     """
+    # Self-host patch (docs/selfhost-patches.md): у нас нет платного провайдера чата —
+    # вопросы уходят в claude-bridge на подписку, серверная цена вопроса нулевая, мерить
+    # нечего. Стоит ПЕРВОЙ строкой: ни одна проверка выше по кругу (в т.ч. paywall) не
+    # должна успеть отказать. Расход в снапшоте остаётся настоящим, снимается только потолок.
+    if selfhost_chat_quota_unlimited():
+        return unlimited_chat_snapshot(uid, firestore_client=firestore_client)
+
     # Paywall test override — surface as exhausted Free-plan quota so the
     # client renders the same over-limit popup it shows for normal users
     # past 30/mo.
@@ -1081,6 +1093,13 @@ def enforce_chat_quota(
       a canned AI reply for mobile UX. Plus and Unlimited-v2 are explicitly
       hard-capped by the catalog.
     """
+    # Self-host patch (docs/selfhost-patches.md): тот же рубильник и на пути принятия
+    # решения. Отдельная врезка, а не только снапшот выше: отсюда 402 уходит в
+    # routers/chat.py, который превращает его в готовую реплику ассистента «лимит
+    # исчерпан» и отдаёт 200 OK — отказ невидим и в логах бэкенда, и в логах моста.
+    if selfhost_chat_quota_unlimited():
+        return
+
     # Release-probe traffic is the deploy gate proving the candidate can chat at
     # all — never paywall it, or the gate hard-blocks its own deploys once the
     # probe's turns exhaust the Free cap.
