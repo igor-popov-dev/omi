@@ -7,6 +7,7 @@ No transcript, credential, request header, or raw exception is stored here.
 
 from __future__ import annotations
 
+import logging
 import os
 from hashlib import sha256
 from datetime import datetime, timedelta, timezone
@@ -19,6 +20,8 @@ from database import conversations as conversations_db
 from database._client import document_id_from_seed, get_firestore_client
 from database.firestore_transaction_retry import run_with_transaction_contention_retry
 from database.firestore_index_registry import MEETING_RECEIPTS_DUE_QUERY
+
+logger = logging.getLogger(__name__)
 
 CONVERSATIONS_COLLECTION = 'conversations'
 FINALIZATION_JOBS_COLLECTION = 'conversation_finalization_jobs'
@@ -177,6 +180,42 @@ def _uid_from_conversation_path(path: str) -> str | None:
 
 def _job_ref(client: Any, job_id: str) -> Any:
     return client.collection(FINALIZATION_JOBS_COLLECTION).document(job_id)
+
+
+def _finalization_job_released(client: Any, job_id: Any, *, transaction: Any = None) -> bool:
+    """Return True when no durable finalization job can still drive the conversation.
+
+    A ``finalization_job_id`` on a ``processing`` row means "a durable job owns
+    this lifecycle", which is why every orphan fence skips such rows. Ownership
+    ends when the job reaches a terminal status: ``dead_letter`` terminalizes the
+    conversation itself, but a ``completed`` job may terminate as ``stale`` — the
+    fanout fence declines a row that was not ``completed`` at the time — and then
+    nothing replays the conversation. Without this check the row keeps a job id
+    that names a finished job, so the orphan sweep skips it for good and the
+    recording stays ``processing`` forever.
+
+    A vanished job document is released as well: nothing remains to drive it.
+    """
+    if not isinstance(job_id, str) or not job_id:
+        return True
+    snapshot = _job_ref(client, job_id).get(transaction=transaction)
+    if not getattr(snapshot, 'exists', False):
+        return True
+    return (snapshot.to_dict() or {}).get('status') in TERMINAL_JOB_STATUSES
+
+
+def _job_released_for_sweep(client: Any, job_id: Any) -> bool:
+    """Discovery-side ownership check that never lets one unreadable job end the sweep.
+
+    A read failure resolves to "still owned", so the row is skipped this window
+    and re-examined on a later sweep — the sweep keeps its bounded progress and
+    an unreadable job can never be mistaken for a released one.
+    """
+    try:
+        return _finalization_job_released(client, job_id)
+    except Exception:
+        logger.warning('stale processing sweep could not read the owning finalization job; skipping the row')
+        return False
 
 
 def _projection_shard(job_id: str) -> int:
@@ -1439,8 +1478,10 @@ def get_stale_processing_orphan_candidates(
     """Return a bounded window of actionable bare-`processing` conversations.
 
     Eligibility is bounded by the authoritative, server-owned admission fence
-    ``processing_admitted_at`` — never caller-controlled ``created_at``. A bare
-    ``processing`` row (no ``finalization_job_id``) that is not ``deferred`` is:
+    ``processing_admitted_at`` — never caller-controlled ``created_at``. A
+    ``processing`` row that is not ``deferred`` and is owned by no *live*
+    finalization job (no job id, or a job that already reached a terminal status
+    and so cannot drive the row any more) is:
 
     * returned with ``legacy=False`` when its admission age exceeds
       ``stale_after`` (a genuine crash orphan ready for exactly one terminal), and
@@ -1449,6 +1490,10 @@ def get_stale_processing_orphan_candidates(
       terminalized on first sight).
 
     Fresh admissions under ``stale_after`` are filtered out and never returned.
+
+    The owning job is read only for a row that is otherwise eligible, so the
+    per-invocation read amplification is bounded by ``limit`` and not by
+    ``max_scan``.
 
     The cross-user sweep is a single-equality ``collection_group`` query on
     ``status == 'processing'``. A single-field equality query is served by
@@ -1503,12 +1548,14 @@ def get_stale_processing_orphan_candidates(
             if uid is None:
                 continue
             data = snapshot.to_dict() or {}
-            if data.get('deferred') or data.get('finalization_job_id'):
+            if data.get('deferred'):
                 continue
             admitted_at = data.get('processing_admitted_at')
+            if isinstance(admitted_at, datetime) and admitted_at > cutoff:
+                continue  # fresh admission still under the conservative threshold
+            if not _job_released_for_sweep(client, data.get('finalization_job_id')):
+                continue  # a live durable job still owns this row
             if isinstance(admitted_at, datetime):
-                if admitted_at > cutoff:
-                    continue  # fresh admission still under the conservative threshold
                 collected.append(
                     {'uid': uid, 'conversation_id': snapshot.id, 'processing_admitted_at': admitted_at, 'legacy': False}
                 )
@@ -1704,7 +1751,7 @@ def stamp_processing_admission_if_absent(uid: str, conversation_id: str, *, fire
 
 
 def _complete_unstampable_orphan_conversation_txn(
-    transaction: Any, conversation_ref: Any, stale_before: datetime
+    transaction: Any, conversation_ref: Any, client: Any, stale_before: datetime
 ) -> bool:
     """Terminalize a legacy orphan whose admission fence can never be stamped.
 
@@ -1723,7 +1770,9 @@ def _complete_unstampable_orphan_conversation_txn(
     data = snapshot.to_dict() or {}
     if data.get('status') != 'processing':
         return False
-    if data.get('discarded') or data.get('deferred') or data.get('finalization_job_id'):
+    if data.get('discarded') or data.get('deferred'):
+        return False
+    if not _finalization_job_released(client, data.get('finalization_job_id'), transaction=transaction):
         return False
     if isinstance(data.get('processing_admitted_at'), datetime):
         return False  # no longer a legacy row: the admission-fenced path owns it
@@ -1741,19 +1790,21 @@ def complete_unstampable_orphan_conversation(
     client = _client(firestore_client)
     transaction = client.transaction()
     transactional = firestore.transactional(_complete_unstampable_orphan_conversation_txn)
-    return transactional(transaction, _conversation_ref(client, uid, conversation_id), _now() - stale_after)
+    return transactional(transaction, _conversation_ref(client, uid, conversation_id), client, _now() - stale_after)
 
 
 def _complete_orphan_conversation_txn(
-    transaction: Any, conversation_ref: Any, expected_admitted_at: datetime | None, now: datetime
+    transaction: Any, conversation_ref: Any, client: Any, expected_admitted_at: datetime | None, now: datetime
 ) -> bool:
     """Terminalize exactly the scanned orphan generation, fencing every live owner.
 
     Verified immediately before the write, inside the transaction:
     * still ``processing`` (not already completed/discarded/merging),
     * not ``deferred`` (a desktop lazy row that intentionally stays on processing),
-    * no ``finalization_job_id`` (a finalizer attached durable ownership after
-      discovery), and
+    * no *live* ``finalization_job_id`` — a finalizer that attached durable
+      ownership after discovery still fences the row, but a job that already
+      reached a terminal status has released it (a ``completed`` job may end as
+      ``stale`` without terminalizing the conversation), and
     * ``processing_admitted_at`` still equals the scanned generation (the processor
       has not renewed its lease or been re-admitted).
 
@@ -1768,7 +1819,9 @@ def _complete_orphan_conversation_txn(
     data = snapshot.to_dict() or {}
     if data.get('status') != 'processing':
         return False
-    if data.get('discarded') or data.get('deferred') or data.get('finalization_job_id'):
+    if data.get('discarded') or data.get('deferred'):
+        return False
+    if not _finalization_job_released(client, data.get('finalization_job_id'), transaction=transaction):
         return False
     admitted_at = data.get('processing_admitted_at')
     if not isinstance(admitted_at, datetime) or admitted_at != expected_admitted_at:
@@ -1784,7 +1837,9 @@ def complete_orphan_conversation(
     client = _client(firestore_client)
     transaction = client.transaction()
     transactional = firestore.transactional(_complete_orphan_conversation_txn)
-    return transactional(transaction, _conversation_ref(client, uid, conversation_id), expected_admitted_at, _now())
+    return transactional(
+        transaction, _conversation_ref(client, uid, conversation_id), client, expected_admitted_at, _now()
+    )
 
 
 def _renew_processing_lease_txn(transaction: Any, conversation_ref: Any, now: datetime) -> bool:

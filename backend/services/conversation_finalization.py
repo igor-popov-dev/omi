@@ -401,9 +401,13 @@ def reconcile_stale_processing_conversations(limit: int = 100, *, firestore_clie
     """Close bare-`processing` conversations stranded by a synchronous-route crash.
 
     The durable replay sweep (``reconcile_listen_finalization_jobs``) only covers
-    rows with a finalization job. A bare-`processing` row admitted by the
+    rows with a *live* finalization job. A bare-`processing` row admitted by the
     synchronous legacy route (or a server/merge create) and then lost to a hard
     crash has no job, so it is never replayed and the recording never resolves.
+    A row whose job already reached a terminal status is stranded the same way:
+    a ``completed`` job that ended as ``stale`` (the fanout fence declined a row
+    that was not yet ``completed``) leaves the job id behind with nothing left to
+    drive it, so the row is treated as unowned here too.
 
     Eligibility is bounded by the authoritative, server-owned admission fence
     ``processing_admitted_at`` (never caller-controlled ``created_at``), so a live
@@ -412,8 +416,8 @@ def reconcile_stale_processing_conversations(limit: int = 100, *, firestore_clie
     stamping the fence and deferred to a later sweep rather than completed on
     sight. Each aged orphan is driven through the truthful terminal ownership CAS
     (``complete_orphan_conversation``): a row already completed, discarded,
-    superseded by a newer generation, or since bound to a durable job is fenced
-    out, so the orphan reaches exactly one terminal and its recording stays
+    superseded by a newer generation, or since bound to a live durable job is
+    fenced out, so the orphan reaches exactly one terminal and its recording stays
     retrievable. Re-enrichment is a separate follow-up; this safety net only ends
     the stuck lifecycle. It needs no durable dispatch, so it runs in every
     deployment mode.

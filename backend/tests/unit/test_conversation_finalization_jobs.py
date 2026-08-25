@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import pytest
 from google.api_core.exceptions import Aborted
 
 from database import conversation_finalization_jobs as jobs
@@ -49,6 +50,60 @@ class _Collection:
 
     def document(self, doc_id: str):
         return self.refs.setdefault(doc_id, _Ref(doc_id, None))
+
+
+class _JobsClient:
+    """Minimal client that serves finalization-job documents by id.
+
+    The orphan fences read the owning job to tell a live owner from one that
+    already terminated, so every fence test needs a client that can answer that
+    single lookup.
+    """
+
+    def __init__(self, jobs_by_id: dict[str, dict | None] | None = None, *, unreadable: bool = False):
+        self._jobs = jobs_by_id or {}
+        self._unreadable = unreadable
+        self.lookups: list[str] = []
+
+    def collection(self, name: str):
+        assert name == jobs.FINALIZATION_JOBS_COLLECTION
+        return _JobsCollection(self)
+
+    def document(self, path: str):  # pragma: no cover - the fences never resolve by path
+        raise AssertionError('the ownership fence resolves a job by id, not by path')
+
+
+class _JobsCollection:
+    def __init__(self, client: _JobsClient):
+        self._client = client
+
+    def document(self, job_id: str):
+        self._client.lookups.append(job_id)
+        if self._client._unreadable:
+            return _UnreadableJobRef(job_id)
+        return _Ref(job_id, self._client._jobs.get(job_id))
+
+
+class _UnreadableJobRef:
+    def __init__(self, job_id: str):
+        self.id = job_id
+
+    def get(self, transaction=None):
+        del transaction
+        raise RuntimeError('job document unreadable')
+
+
+class _UpdateTimeRef(_Ref):
+    """A conversation ref that also carries Firestore's server-owned ``update_time``."""
+
+    def __init__(self, doc_id: str, data: dict | None, *, update_time: datetime):
+        super().__init__(doc_id, data)
+        self._update_time = update_time
+
+    def get(self, transaction=None):
+        snapshot = super().get(transaction=transaction)
+        snapshot.update_time = self._update_time
+        return snapshot
 
 
 class _Transaction:
@@ -1107,12 +1162,21 @@ class _OrphanQuery:
 
 
 class _OrphanClient:
-    def __init__(self, snapshots: list[_OrphanSnapshot]):
+    def __init__(
+        self,
+        snapshots: list[_OrphanSnapshot],
+        *,
+        jobs_by_id: dict[str, dict | None] | None = None,
+        unreadable_jobs: bool = False,
+    ):
         self._snapshots = snapshots
+        self._jobs = jobs_by_id or {}
+        self._unreadable_jobs = unreadable_jobs
         self.queries: list[_OrphanQuery] = []
         self.collection_group_calls: list[str] = []
         self.collection_calls: list[str] = []
         self.document_calls: list[str] = []
+        self.job_lookups: list[str] = []
 
     def collection_group(self, name: str) -> _OrphanQuery:
         self.collection_group_calls.append(name)
@@ -1122,6 +1186,11 @@ class _OrphanClient:
 
     def collection(self, name: str):
         self.collection_calls.append(name)
+        # The owning finalization job is a by-id document read, not a query: it
+        # tells a live owner from one that already terminated. Any other
+        # collection-scoped access would be the forbidden scan.
+        if name == jobs.FINALIZATION_JOBS_COLLECTION:
+            return _OrphanJobsCollection(self)
         raise AssertionError('stale orphan sweep must not use a collection-scoped query')
 
     def document(self, path: str) -> _OrphanDocRef:
@@ -1129,6 +1198,17 @@ class _OrphanClient:
         # the last-examined conversation document by path.
         self.document_calls.append(path)
         return _OrphanDocRef(self, path)
+
+
+class _OrphanJobsCollection:
+    def __init__(self, client: _OrphanClient):
+        self._client = client
+
+    def document(self, job_id: str):
+        self._client.job_lookups.append(job_id)
+        if self._client._unreadable_jobs:
+            return _UnreadableJobRef(job_id)
+        return _Ref(job_id, self._client._jobs.get(job_id))
 
 
 def test_stale_orphan_query_is_a_single_field_collection_group_equality():
@@ -1207,13 +1287,86 @@ def test_stale_orphan_candidates_exclude_deferred_and_durable_job_rows():
         _processing_snapshot('uid', 'durable', admitted_at=aged, finalization_job_id='job-x'),
         _processing_snapshot('uid', 'orphan', admitted_at=aged),
     ]
-    client = _OrphanClient(snapshots)
+    client = _OrphanClient(snapshots, jobs_by_id={'job-x': {'status': 'leased'}})
 
     candidates = jobs.get_stale_processing_orphan_candidates(
         stale_after=timedelta(seconds=900), firestore_client=client
     )['candidates']
 
     assert [candidate['conversation_id'] for candidate in candidates] == ['orphan']
+
+
+def test_stale_orphan_candidates_admit_a_row_whose_job_already_terminated():
+    """A terminal job has released the row: the sweep must stop skipping it.
+
+    A durable job can end as ``completed`` with a ``stale`` outcome — the fanout
+    fence declines a conversation that was not ``completed`` at the time — and a
+    ``dead_letter`` job that lost its own terminalization race leaves the row the
+    same way. The job id stays on the row, so before this fence the sweep skipped
+    it on every future pass and the recording stayed ``processing`` for good.
+    """
+    now = _now()
+    aged = now - timedelta(seconds=1000)
+    snapshots = [
+        _processing_snapshot('uid', 'job-completed', admitted_at=aged, finalization_job_id='job-done'),
+        _processing_snapshot('uid', 'job-dead-letter', admitted_at=aged, finalization_job_id='job-dead'),
+        _processing_snapshot('uid', 'job-vanished', admitted_at=aged, finalization_job_id='job-gone'),
+        _processing_snapshot('uid', 'job-live', admitted_at=aged, finalization_job_id='job-live'),
+    ]
+    client = _OrphanClient(
+        snapshots,
+        jobs_by_id={
+            'job-done': {'status': 'completed', 'terminal_outcome': 'stale'},
+            'job-dead': {'status': 'dead_letter'},
+            'job-live': {'status': 'leased'},
+        },
+    )
+
+    candidates = jobs.get_stale_processing_orphan_candidates(
+        stale_after=timedelta(seconds=900), firestore_client=client
+    )['candidates']
+
+    assert [candidate['conversation_id'] for candidate in candidates] == [
+        'job-completed',
+        'job-dead-letter',
+        'job-vanished',
+    ]
+
+
+def test_stale_orphan_candidates_skip_a_row_whose_job_cannot_be_read():
+    """An unreadable job resolves to "still owned": never terminalize on a read failure."""
+    now = _now()
+    aged = now - timedelta(seconds=1000)
+    client = _OrphanClient(
+        [_processing_snapshot('uid', 'unreadable-owner', admitted_at=aged, finalization_job_id='job-x')],
+        unreadable_jobs=True,
+    )
+
+    candidates = jobs.get_stale_processing_orphan_candidates(
+        stale_after=timedelta(seconds=900), firestore_client=client
+    )['candidates']
+
+    assert candidates == []
+
+
+def test_stale_orphan_candidates_read_the_owning_job_only_for_an_eligible_row(monkeypatch):
+    """Job reads are bounded by the eligible set, not by the scan window."""
+    now = _now()
+    monkeypatch.setattr(jobs, '_now', lambda: now)
+    snapshots = [
+        # Fresh admission: excluded on age, so its owner is never read.
+        _processing_snapshot('uid', 'fresh', admitted_at=now - timedelta(seconds=10), finalization_job_id='job-fresh'),
+        # Deferred: owned by the lazy-open path, so its owner is never read either.
+        _processing_snapshot(
+            'uid', 'deferred', admitted_at=now - timedelta(seconds=1000), deferred=True, finalization_job_id='job-def'
+        ),
+        _processing_snapshot('uid', 'aged', admitted_at=now - timedelta(seconds=1000), finalization_job_id='job-aged'),
+    ]
+    client = _OrphanClient(snapshots, jobs_by_id={'job-aged': {'status': 'completed'}})
+
+    jobs.get_stale_processing_orphan_candidates(stale_after=timedelta(seconds=900), firestore_client=client)
+
+    assert client.job_lookups == ['job-aged']
 
 
 def test_stale_orphan_candidates_page_past_excluded_rows_to_reach_a_later_orphan():
@@ -1345,7 +1498,7 @@ def test_complete_orphan_completes_only_an_unchanged_orphan_generation():
     admitted = now - timedelta(seconds=1000)
     orphan = _Ref('orphan', {'status': 'processing', 'processing_admitted_at': admitted})
 
-    completed = jobs._complete_orphan_conversation_txn(transaction, orphan, admitted, now)
+    completed = jobs._complete_orphan_conversation_txn(transaction, orphan, _JobsClient(), admitted, now)
 
     assert completed is True
     assert transaction.updates == [(orphan, {'status': 'completed'})]
@@ -1355,13 +1508,96 @@ def test_complete_orphan_fences_a_row_a_finalizer_claimed_after_discovery():
     transaction = _Transaction()
     now = _now()
     admitted = now - timedelta(seconds=1000)
-    # Between discovery (job-less) and terminalization, a finalizer attached durable ownership.
+    # Between discovery (job-less) and terminalization, a finalizer attached durable ownership
+    # and that job is still live (leased), so the row stays its property.
     claimed = _Ref(
         'claimed', {'status': 'processing', 'processing_admitted_at': admitted, 'finalization_job_id': 'job-1'}
     )
 
-    assert jobs._complete_orphan_conversation_txn(transaction, claimed, admitted, now) is False
+    assert (
+        jobs._complete_orphan_conversation_txn(
+            transaction, claimed, _JobsClient({'job-1': {'status': 'leased'}}), admitted, now
+        )
+        is False
+    )
     assert transaction.updates == []
+
+
+def test_complete_orphan_completes_a_row_its_job_already_released():
+    """A terminal job no longer owns the row, so the fence must let it close.
+
+    Symmetric to the discovery fence: a ``completed`` job that ended as ``stale``
+    (or a job document that is gone) leaves the id behind on a ``processing`` row
+    with nothing left to drive it. Without this the CAS refused every such row and
+    the recording never reached a terminal state.
+    """
+    now = _now()
+    admitted = now - timedelta(seconds=1000)
+    for job_status, jobs_by_id in (
+        ('completed', {'job-1': {'status': 'completed', 'terminal_outcome': 'stale'}}),
+        ('dead_letter', {'job-1': {'status': 'dead_letter'}}),
+        ('vanished', {}),
+    ):
+        transaction = _Transaction()
+        released = _Ref(
+            'released', {'status': 'processing', 'processing_admitted_at': admitted, 'finalization_job_id': 'job-1'}
+        )
+
+        completed = jobs._complete_orphan_conversation_txn(
+            transaction, released, _JobsClient(jobs_by_id), admitted, now
+        )
+
+        assert completed is True, job_status
+        assert transaction.updates == [(released, {'status': 'completed'})]
+
+
+def test_complete_orphan_propagates_an_unreadable_job_instead_of_terminalizing():
+    """Inside the transaction a failed job read must abort the attempt, never
+    resolve to "released": the retry re-reads a consistent generation."""
+    transaction = _Transaction()
+    now = _now()
+    admitted = now - timedelta(seconds=1000)
+    row = _Ref('row', {'status': 'processing', 'processing_admitted_at': admitted, 'finalization_job_id': 'job-1'})
+
+    with pytest.raises(RuntimeError):
+        jobs._complete_orphan_conversation_txn(transaction, row, _JobsClient(unreadable=True), admitted, now)
+
+    assert transaction.updates == []
+
+
+def test_complete_unstampable_orphan_honours_job_ownership():
+    """The oversized-document path applies the same live/terminal job fence."""
+    now = _now()
+    stale_before = now - timedelta(seconds=900)
+    untouched = now - timedelta(seconds=1000)
+
+    live = _UpdateTimeRef(
+        'live-owner',
+        {'status': 'processing', 'finalization_job_id': 'job-1'},
+        update_time=untouched,
+    )
+    transaction = _Transaction()
+    assert (
+        jobs._complete_unstampable_orphan_conversation_txn(
+            transaction, live, _JobsClient({'job-1': {'status': 'leased'}}), stale_before
+        )
+        is False
+    )
+    assert transaction.updates == []
+
+    released = _UpdateTimeRef(
+        'released-owner',
+        {'status': 'processing', 'finalization_job_id': 'job-1'},
+        update_time=untouched,
+    )
+    transaction = _Transaction()
+    assert (
+        jobs._complete_unstampable_orphan_conversation_txn(
+            transaction, released, _JobsClient({'job-1': {'status': 'completed'}}), stale_before
+        )
+        is True
+    )
+    assert transaction.updates == [(released, {'status': 'completed'})]
 
 
 def test_complete_orphan_fences_a_live_processor_that_renewed_its_lease():
@@ -1371,7 +1607,7 @@ def test_complete_orphan_fences_a_live_processor_that_renewed_its_lease():
     # A live processor renewed its lease after discovery, advancing the generation.
     renewed = _Ref('renewed', {'status': 'processing', 'processing_admitted_at': now - timedelta(seconds=5)})
 
-    assert jobs._complete_orphan_conversation_txn(transaction, renewed, scanned, now) is False
+    assert jobs._complete_orphan_conversation_txn(transaction, renewed, _JobsClient(), scanned, now) is False
     assert transaction.updates == []
 
 
@@ -1383,9 +1619,9 @@ def test_complete_orphan_fences_deferred_and_terminal_and_discarded_rows():
     terminal = _Ref('terminal', {'status': 'completed', 'processing_admitted_at': admitted})
     discarded = _Ref('discarded', {'status': 'processing', 'processing_admitted_at': admitted, 'discarded': True})
 
-    assert jobs._complete_orphan_conversation_txn(transaction, deferred, admitted, now) is False
-    assert jobs._complete_orphan_conversation_txn(transaction, terminal, admitted, now) is False
-    assert jobs._complete_orphan_conversation_txn(transaction, discarded, admitted, now) is False
+    assert jobs._complete_orphan_conversation_txn(transaction, deferred, _JobsClient(), admitted, now) is False
+    assert jobs._complete_orphan_conversation_txn(transaction, terminal, _JobsClient(), admitted, now) is False
+    assert jobs._complete_orphan_conversation_txn(transaction, discarded, _JobsClient(), admitted, now) is False
     assert transaction.updates == []
 
 
