@@ -41,6 +41,7 @@ import 'package:omi/utils/debug_log_manager.dart';
 import 'package:omi/utils/firmware_update_build_policy.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
 
@@ -101,12 +102,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
         decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(14)),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-              child: Center(child: FaIcon(icon, color: t.textSecondary, size: 16)),
-            ),
+            SettingsIconChip.boxed(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
@@ -176,12 +172,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
 
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-          child: Center(child: FaIcon(icon, color: t.textSecondary, size: 16)),
-        ),
+        SettingsIconChip.boxed(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -223,12 +214,10 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
       behavior: HitTestBehavior.opaque,
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
-            child: Center(child: FaIcon(FontAwesomeIcons.hourglassHalf, color: Colors.grey.shade400, size: 16)),
-          ),
+          SettingsIconChip.boxed(
+              icon: (size) => FaIcon(FontAwesomeIcons.hourglassHalf,
+                  color: context.omi.isGlass ? context.omi.textSecondary : Colors.grey.shade400, size: size),
+              classicColor: const Color(0xFF2A2A2E)),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -271,12 +260,10 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
       behavior: HitTestBehavior.opaque,
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
-            child: Center(child: FaIcon(FontAwesomeIcons.circleHalfStroke, color: Colors.grey.shade400, size: 16)),
-          ),
+          SettingsIconChip.boxed(
+              icon: (size) => FaIcon(FontAwesomeIcons.circleHalfStroke,
+                  color: context.omi.isGlass ? context.omi.textSecondary : Colors.grey.shade400, size: size),
+              classicColor: const Color(0xFF2A2A2E)),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -313,12 +300,10 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
     final level = ClaudeEscalationLevel.fromIndex(provider.claudeEscalationLevel);
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
-          child: Center(child: FaIcon(FontAwesomeIcons.brain, color: Colors.grey.shade400, size: 16)),
-        ),
+        SettingsIconChip.boxed(
+            icon: (size) => FaIcon(FontAwesomeIcons.brain,
+                color: context.omi.isGlass ? context.omi.textSecondary : Colors.grey.shade400, size: size),
+            classicColor: const Color(0xFF2A2A2E)),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -365,12 +350,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
       children: [
         Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-              child: Center(child: FaIcon(icon, color: t.textSecondary, size: 16)),
-            ),
+            SettingsIconChip.boxed(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -702,17 +682,8 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: t.bgTertiary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: OmiIconWidget(icon: OmiIcon.mic, color: t.textSecondary, size: 16),
-                            ),
-                          ),
+                          SettingsIconChip.boxed(
+                              icon: (size) => OmiIconWidget(icon: OmiIcon.mic, color: t.textSecondary, size: size)),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -756,15 +727,8 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: t.bgTertiary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(child: OmiIconWidget(icon: OmiIcon.clock, color: t.textSecondary, size: 16)),
-                          ),
+                          SettingsIconChip.boxed(
+                              icon: (size) => OmiIconWidget(icon: OmiIcon.clock, color: t.textSecondary, size: size)),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -806,17 +770,8 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: t.bgTertiary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: FaIcon(FontAwesomeIcons.fileImport, color: t.textSecondary, size: 16),
-                            ),
-                          ),
+                          SettingsIconChip.boxed(
+                              icon: (size) => FaIcon(FontAwesomeIcons.fileImport, color: t.textSecondary, size: size)),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -855,15 +810,8 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                         // Debug Logs toggle
                         Row(
                           children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: t.bgTertiary,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Center(child: FaIcon(FontAwesomeIcons.bug, color: t.textSecondary, size: 16)),
-                            ),
+                            SettingsIconChip.boxed(
+                                icon: (size) => FaIcon(FontAwesomeIcons.bug, color: t.textSecondary, size: size)),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
@@ -1106,17 +1054,8 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: t.bgTertiary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: FaIcon(FontAwesomeIcons.fileExport, color: t.textSecondary, size: 16),
-                            ),
-                          ),
+                          SettingsIconChip.boxed(
+                              icon: (size) => FaIcon(FontAwesomeIcons.fileExport, color: t.textSecondary, size: size)),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -1202,17 +1141,8 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: t.bgTertiary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: FaIcon(FontAwesomeIcons.trash, color: t.error, size: 16),
-                            ),
-                          ),
+                          SettingsIconChip.boxed(
+                              icon: (size) => FaIcon(FontAwesomeIcons.trash, color: t.error, size: size)),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -1278,17 +1208,8 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                       children: [
                         Row(
                           children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: t.bgTertiary,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Center(
-                                child: FaIcon(FontAwesomeIcons.desktop, color: t.textSecondary, size: 16),
-                              ),
-                            ),
+                            SettingsIconChip.boxed(
+                                icon: (size) => FaIcon(FontAwesomeIcons.desktop, color: t.textSecondary, size: size)),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
@@ -1503,17 +1424,8 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                       children: [
                         Row(
                           children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: t.bgTertiary,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Center(
-                                child: FaIcon(FontAwesomeIcons.server, color: t.textSecondary, size: 16),
-                              ),
-                            ),
+                            SettingsIconChip.boxed(
+                                icon: (size) => FaIcon(FontAwesomeIcons.server, color: t.textSecondary, size: size)),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(

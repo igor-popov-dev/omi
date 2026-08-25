@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
 
@@ -48,12 +49,8 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
           // Header row with icon
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-                child: Center(child: OmiIconWidget(icon: OmiIcon.book, color: t.textSecondary, size: 16)),
-              ),
+              SettingsIconChip.boxed(
+                  icon: (size) => OmiIconWidget(icon: OmiIcon.book, color: t.textSecondary, size: size)),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/providers/phone_call_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/dialog.dart';
@@ -76,11 +77,10 @@ class PhoneCallSettingsPage extends StatelessWidget {
       decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.phone, color: t.textSecondary, size: 20),
+          SettingsIconChip.boxed(
+            icon: (size) => Icon(Icons.phone, color: t.textSecondary, size: size),
+            radius: 12,
+            classicIconSize: 20,
           ),
           const SizedBox(width: 14),
           Expanded(

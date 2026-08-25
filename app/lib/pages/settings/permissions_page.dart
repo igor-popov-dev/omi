@@ -8,6 +8,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
 
@@ -161,7 +162,10 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
+                    decoration: BoxDecoration(
+                      color: t.bgSecondary,
+                      borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+                    ),
                     child: Column(
                       children: [
                         _buildPermissionRow(
@@ -233,7 +237,7 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         child: Row(
           children: [
-            SizedBox(width: 24, height: 24, child: FaIcon(icon, color: t.textSecondary, size: 20)),
+            SettingsIconChip.plain(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
             const SizedBox(width: 16),
             Expanded(
               child: Text(

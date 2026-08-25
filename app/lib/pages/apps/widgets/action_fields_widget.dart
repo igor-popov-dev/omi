@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ActionFieldsWidget extends StatelessWidget {
@@ -58,21 +59,9 @@ class ActionFieldsWidget extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: t.bgTertiary,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Center(
-                                    child: FaIcon(
-                                      _getIconForAction(actionType.id),
-                                      color: t.textSecondary,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
+                                SettingsIconChip.boxed(
+                                    icon: (size) =>
+                                        FaIcon(_getIconForAction(actionType.id), color: t.textSecondary, size: size)),
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Text(

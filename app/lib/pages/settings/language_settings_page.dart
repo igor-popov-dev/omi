@@ -9,6 +9,7 @@ import 'package:omi/providers/home_provider.dart';
 import 'package:omi/providers/locale_provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
 
@@ -45,12 +46,8 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
         onTap: () => _showAppLanguageSelectionSheet(localeProvider),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-              child: Center(child: FaIcon(FontAwesomeIcons.textHeight, color: t.textSecondary, size: 16)),
-            ),
+            SettingsIconChip.boxed(
+                icon: (size) => FaIcon(FontAwesomeIcons.textHeight, color: t.textSecondary, size: size)),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -107,12 +104,8 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
             onTap: _isUpdatingLanguage ? null : () => _showLanguageSelectionSheet(homeProvider, captureProvider),
             child: Row(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-                  child: Center(child: OmiIconWidget(icon: OmiIcon.mic, color: t.textSecondary, size: 16)),
-                ),
+                SettingsIconChip.boxed(
+                    icon: (size) => OmiIconWidget(icon: OmiIcon.mic, color: t.textSecondary, size: size)),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -150,12 +143,8 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
           // Multi-language Detection Row
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-                child: Center(child: FaIcon(FontAwesomeIcons.language, color: t.textSecondary, size: 16)),
-              ),
+              SettingsIconChip.boxed(
+                  icon: (size) => FaIcon(FontAwesomeIcons.language, color: t.textSecondary, size: size)),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

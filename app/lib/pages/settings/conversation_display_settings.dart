@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
 
@@ -66,12 +67,7 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-            child: Center(child: FaIcon(icon, color: t.textSecondary, size: 16)),
-          ),
+          SettingsIconChip.boxed(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -115,12 +111,8 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
         children: [
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-                child: Center(child: OmiIconWidget(icon: OmiIcon.clock, color: t.textSecondary, size: 16)),
-              ),
+              SettingsIconChip.boxed(
+                  icon: (size) => OmiIconWidget(icon: OmiIcon.clock, color: t.textSecondary, size: size)),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

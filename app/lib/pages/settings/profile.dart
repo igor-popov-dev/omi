@@ -10,6 +10,7 @@ import 'package:omi/pages/settings/change_name_widget.dart';
 import 'package:omi/pages/settings/language_settings_page.dart';
 import 'package:omi/pages/settings/custom_vocabulary_page.dart';
 import 'package:omi/pages/settings/people.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/pages/speech_profile/page.dart';
 
 import 'package:omi/utils/alerts/app_snackbar.dart';
@@ -34,8 +35,17 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
   }
 
+  /// Groups rows into a section.
+  ///
+  /// Glass paints nothing here — each row is its own card (macOS "General"
+  /// list), so a second fill would peek out from behind the row corners.
+  /// Classic keeps the single rounded slab it has always drawn.
   Widget _buildSectionContainer({required List<Widget> children}) {
     final t = context.omi;
+
+    if (t.isGlass) {
+      return Column(children: children);
+    }
 
     return Container(
       decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
@@ -43,11 +53,19 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  /// Separator between two rows of a section: a hairline in Classic, nothing in
+  /// Glass (the rows are separate cards there and the gap does the job).
+  Widget _rowDivider() {
+    final t = context.omi;
+    if (t.isGlass) return const SizedBox.shrink();
+    return Divider(height: 1, color: t.divider);
+  }
+
   Widget _buildProfileItem({
     required String title,
     String? subtitle,
     String? chipValue,
-    required Widget icon,
+    required SettingsIconBuilder icon,
     required VoidCallback onTap,
     bool showSubtitle = true,
     bool showBetaTag = false,
@@ -58,12 +76,18 @@ class _ProfilePageState extends State<ProfilePage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
+        // Glass: one card per row plus a gap; Classic: the rows stack flush
+        // inside the section slab exactly as before.
+        margin: EdgeInsets.only(bottom: t.isGlass ? 8 : 0),
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           child: Row(
             children: [
-              SizedBox(width: 24, height: 24, child: icon),
+              SettingsIconChip.plain(icon: icon),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -211,13 +235,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }) {
     final t = context.omi;
 
-    return InkWell(
+    final row = InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         child: Row(
           children: [
-            SizedBox(width: 24, height: 24, child: FaIcon(icon, color: t.textSecondary, size: 20)),
+            SettingsIconChip.plain(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
@@ -240,6 +264,20 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
       ),
+    );
+
+    // Classic leaves the row bare — the section slab behind it is the only
+    // fill. Glass gives the row its own card, because the section is
+    // transparent there.
+    if (!t.isGlass) return row;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.settingsCardRadius),
+      ),
+      child: row,
     );
   }
 
@@ -506,7 +544,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   chipValue: SharedPreferencesUtil().givenName.isEmpty
                       ? context.l10n.notSet
                       : SharedPreferencesUtil().givenName,
-                  icon: OmiIconWidget(icon: OmiIcon.user, color: t.textSecondary, size: 20),
+                  icon: (size) => OmiIconWidget(icon: OmiIcon.user, color: t.textSecondary, size: size),
                   onTap: () async {
                     PlatformManager.instance.analytics.pageOpened('Profile Change Name');
                     await showDialog(
@@ -517,35 +555,35 @@ class _ProfilePageState extends State<ProfilePage> {
                     ).whenComplete(() => setState(() {}));
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildProfileItem(
                   title: context.l10n.email,
                   chipValue:
                       SharedPreferencesUtil().email.isEmpty ? context.l10n.notSet : SharedPreferencesUtil().email,
-                  icon: OmiIconWidget(icon: OmiIcon.envelope, color: t.textSecondary, size: 20),
+                  icon: (size) => OmiIconWidget(icon: OmiIcon.envelope, color: t.textSecondary, size: size),
                   onTap: () {},
                   showChevron: false,
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildProfileItem(
                   title: context.l10n.language,
-                  icon: OmiIconWidget(icon: OmiIcon.globe, color: t.textSecondary, size: 20),
+                  icon: (size) => OmiIconWidget(icon: OmiIcon.globe, color: t.textSecondary, size: size),
                   onTap: () {
                     routeToPage(context, const LanguageSettingsPage());
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildProfileItem(
                   title: context.l10n.customVocabulary,
-                  icon: OmiIconWidget(icon: OmiIcon.book, color: t.textSecondary, size: 20),
+                  icon: (size) => OmiIconWidget(icon: OmiIcon.book, color: t.textSecondary, size: size),
                   onTap: () {
                     routeToPage(context, const CustomVocabularyPage());
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildProfileItem(
                   title: context.l10n.memories,
-                  icon: OmiIconWidget(icon: OmiIcon.brain, color: t.textSecondary, size: 20),
+                  icon: (size) => OmiIconWidget(icon: OmiIcon.brain, color: t.textSecondary, size: size),
                   onTap: () {
                     routeToPage(context, const MemoriesPage());
                   },
@@ -559,21 +597,21 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 _buildProfileItem(
                   title: context.l10n.speechProfile,
-                  icon: OmiIconWidget(icon: OmiIcon.mic, color: t.textSecondary, size: 20),
+                  icon: (size) => OmiIconWidget(icon: OmiIcon.mic, color: t.textSecondary, size: size),
                   onTap: () {
                     routeToPage(context, const SpeechProfilePage());
                     PlatformManager.instance.analytics.pageOpened('Profile Speech Profile');
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildProfileItem(
                   title: context.l10n.identifyingOthers,
-                  icon: FaIcon(FontAwesomeIcons.users, color: t.textSecondary, size: 20),
+                  icon: (size) => FaIcon(FontAwesomeIcons.users, color: t.textSecondary, size: size),
                   onTap: () {
                     routeToPage(context, const UserPeoplePage());
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildProfileStyleItem(
                   icon: FontAwesomeIcons.volumeHigh,
                   title: context.l10n.voiceResponseMode,
@@ -581,19 +619,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   onTap: _showVoiceResponseModeSheet,
                 ),
                 if (PlatformService.isAndroid) ...[
-                  Divider(height: 1, color: t.divider),
+                  _rowDivider(),
                   _buildProfileItem(
                     title: context.l10n.backgroundModeTitle,
-                    icon: FaIcon(FontAwesomeIcons.towerBroadcast, color: t.textSecondary, size: 20),
+                    icon: (size) => FaIcon(FontAwesomeIcons.towerBroadcast, color: t.textSecondary, size: size),
                     showBetaTag: true,
                     chipValue: SharedPreferencesUtil().backgroundModeEnabled ? context.l10n.on : context.l10n.off,
                     onTap: _showBackgroundModeSheet,
                   ),
                 ],
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildProfileItem(
                   title: context.l10n.transcribeLaterTitle,
-                  icon: FaIcon(FontAwesomeIcons.floppyDisk, color: t.textSecondary, size: 20),
+                  icon: (size) => FaIcon(FontAwesomeIcons.floppyDisk, color: t.textSecondary, size: size),
                   showBetaTag: true,
                   chipValue: SharedPreferencesUtil().batchModeEnabled ? context.l10n.on : context.l10n.off,
                   onTap: _showOfflineModeSheet,
@@ -613,7 +651,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     return _buildProfileItem(
                       title: context.l10n.userId,
                       chipValue: truncatedUid,
-                      icon: FaIcon(FontAwesomeIcons.solidClipboard, color: t.textSecondary, size: 20),
+                      icon: (size) => FaIcon(FontAwesomeIcons.solidClipboard, color: t.textSecondary, size: size),
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: uid));
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.userIdCopied)));
@@ -621,10 +659,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     );
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildProfileItem(
                   title: context.l10n.deleteAccountTitle,
-                  icon: FaIcon(FontAwesomeIcons.exclamationTriangle, color: t.error, size: 20),
+                  icon: (size) => FaIcon(FontAwesomeIcons.exclamationTriangle, color: t.error, size: size),
                   onTap: () {
                     PlatformManager.instance.analytics.pageOpened('Profile Delete Account Dialog');
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const DeleteAccount()));

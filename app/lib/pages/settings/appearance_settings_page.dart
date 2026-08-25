@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/providers/theme_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/platform/platform_manager.dart';
@@ -28,11 +29,9 @@ class AppearanceSettingsPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(t.settingsCardRadius)),
-              child: Center(child: FaIcon(icon, color: t.textSecondary, size: 16)),
+            SettingsIconChip.boxed(
+              icon: (size) => FaIcon(icon, color: t.textSecondary, size: size),
+              radius: t.settingsCardRadius,
             ),
             const SizedBox(width: 16),
             Expanded(

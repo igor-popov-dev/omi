@@ -12,6 +12,7 @@ import 'package:omi/pages/settings/ai_app_generator_provider.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
 
@@ -1056,12 +1057,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
 
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
-          child: Center(child: FaIcon(icon, color: t.textSecondary, size: 16)),
-        ),
+        SettingsIconChip.boxed(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
         const SizedBox(width: 14),
         Expanded(
           child: Column(

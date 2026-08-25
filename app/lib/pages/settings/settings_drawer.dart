@@ -14,6 +14,7 @@ import 'package:omi/pages/settings/profile.dart';
 import 'package:omi/pages/memories/page.dart';
 import 'package:omi/pages/settings/integrations_page.dart';
 import 'package:omi/pages/settings/usage_page.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/pages/referral/referral_page.dart';
 import 'package:omi/providers/device_provider.dart';
 import 'package:omi/providers/usage_provider.dart';
@@ -36,7 +37,7 @@ import '../conversations/sync_page.dart';
 
 class _SearchableItem {
   final String title;
-  final Widget icon;
+  final SettingsIconBuilder icon;
   final VoidCallback onTap;
 
   const _SearchableItem({required this.title, required this.icon, required this.onTap});
@@ -124,7 +125,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
   Widget _buildSettingsItem({
     required String title,
-    required Widget icon,
+    required SettingsIconBuilder icon,
     required VoidCallback onTap,
     bool showBetaTag = false,
     bool showNewTag = false,
@@ -135,13 +136,21 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 1),
-        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
+        // Glass follows the macOS "General" list: every row is its own card
+        // with a gap, so the section around it stays transparent (see
+        // [_buildSectionContainer]) and no second fill shows through the
+        // corners. Classic keeps the 1px seam that made the rows read as one
+        // slab.
+        margin: EdgeInsets.only(bottom: t.isGlass ? 8 : 1),
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           child: Row(
             children: [
-              SizedBox(width: 24, height: 24, child: icon),
+              SettingsIconChip.plain(icon: icon),
               const SizedBox(width: 16),
               Expanded(
                 child: Row(
@@ -200,13 +209,30 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     );
   }
 
+  /// Groups rows into a section.
+  ///
+  /// Glass paints nothing here — each row is already a card, so a fill of its
+  /// own would peek out from behind the row corners. Classic keeps the single
+  /// rounded slab it has always drawn.
   Widget _buildSectionContainer({required List<Widget> children}) {
     final t = context.omi;
+
+    if (t.isGlass) {
+      return Column(children: children);
+    }
 
     return Container(
       decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(children: children),
     );
+  }
+
+  /// Separator between two rows of a section: a hairline in Classic, nothing in
+  /// Glass (the rows are separate cards there and the gap does the job).
+  Widget _rowDivider() {
+    final t = context.omi;
+    if (t.isGlass) return const SizedBox.shrink();
+    return Divider(height: 1, color: t.divider);
   }
 
   Widget _buildVersionInfoSection() {
@@ -296,8 +322,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   /// Classic resolves [OmiTokens.textSecondary] to `#8E8E93` — the exact tint
   /// these rows have always used — so this stays pixel-identical there and
   /// picks up the ink tone under Glass.
-  Widget _rowIcon(BuildContext context, OmiIcon icon) {
-    return OmiIconWidget(icon: icon, color: context.omi.textSecondary, size: 20);
+  SettingsIconBuilder _rowIcon(BuildContext context, OmiIcon icon) {
+    final color = context.omi.textSecondary;
+    return (size) => OmiIconWidget(icon: icon, color: color, size: size);
   }
 
   List<_SearchableItem> _buildSearchableItems(BuildContext context) {
@@ -527,7 +554,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     routeToPage(context, const ProfilePage());
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.notifications,
                   icon: _rowIcon(context, OmiIcon.bell),
@@ -535,7 +562,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     routeToPage(context, const NotificationsSettingsPage());
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 Consumer<UsageProvider>(
                   builder: (context, usageProvider, child) {
                     final sp = usageProvider.subscription?.subscription.plan;
@@ -574,7 +601,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     );
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.offlineSync,
                   icon: _rowIcon(context, OmiIcon.cloud),
@@ -591,7 +618,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     }
                     return Column(
                       children: [
-                        Divider(height: 1, color: t.divider),
+                        _rowDivider(),
                         _buildSettingsItem(
                           title: context.l10n.deviceSettings,
                           icon: _rowIcon(context, OmiIcon.bluetooth),
@@ -603,7 +630,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     );
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.integrations,
                   icon: _rowIcon(context, OmiIcon.integrations),
@@ -612,7 +639,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     Navigator.of(context).push(MaterialPageRoute(builder: (context) => const IntegrationsPage()));
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.permissions,
                   icon: _rowIcon(context, OmiIcon.shield),
@@ -639,7 +666,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       }
                     },
                   ),
-                  Divider(height: 1, color: t.divider),
+                  _rowDivider(),
                   _buildSettingsItem(
                     title: context.l10n.helpCenter,
                     icon: _rowIcon(context, OmiIcon.book),
@@ -654,7 +681,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       }
                     },
                   ),
-                  Divider(height: 1, color: t.divider),
+                  _rowDivider(),
                 ],
                 _buildSettingsItem(
                   title: context.l10n.appearance,
@@ -663,7 +690,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     routeToPage(context, const AppearanceSettingsPage());
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.developerSettings,
                   icon: _rowIcon(context, OmiIcon.code),
@@ -671,7 +698,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     await routeToPage(context, const DeveloperSettingsPage());
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.whatsNew,
                   icon: _rowIcon(context, OmiIcon.star),
@@ -680,7 +707,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     ChangelogSheet.showWithLoading(context, () => getAppChangelogs(limit: 5));
                   },
                 ),
-                Divider(height: 1, color: t.divider),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.referralProgram,
                   icon: _rowIcon(context, OmiIcon.gift),

@@ -23,6 +23,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/dialog.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
 
@@ -187,7 +188,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       child: Row(
         children: [
-          SizedBox(width: 24, height: 24, child: FaIcon(icon, color: t.textSecondary, size: 20)),
+          SettingsIconChip.plain(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -262,7 +263,10 @@ class _DeviceSettingsState extends State<DeviceSettings> {
     }
 
     return Container(
-      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+      ),
       child: Column(
         children: [
           _buildProfileStyleItem(
@@ -356,7 +360,10 @@ class _DeviceSettingsState extends State<DeviceSettings> {
     final manufacturer = device?.manufacturerName ?? 'Based Hardware';
 
     return Container(
-      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+      ),
       child: Column(
         children: [
           _buildProfileStyleItem(
@@ -871,7 +878,10 @@ class _DeviceSettingsState extends State<DeviceSettings> {
     final supportsFind = device?.type == DeviceType.omi && !FirmwareUpdateBuildPolicy.current.isOpenGlassDevice(device);
 
     return Container(
-      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+      ),
       child: Column(
         children: [
           if (supportsFind) ...[
@@ -936,7 +946,10 @@ class _DeviceSettingsState extends State<DeviceSettings> {
     final t = context.omi;
 
     return Container(
-      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+      ),
       child: Column(
         children: [
           if (provider.isConnected) ...[
