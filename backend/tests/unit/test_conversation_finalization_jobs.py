@@ -1333,6 +1333,27 @@ def test_stale_orphan_candidates_admit_a_row_whose_job_already_terminated():
     ]
 
 
+def test_stale_orphan_candidates_admit_a_legacy_row_its_job_already_released():
+    """The shape seen in the wild: no admission stamp and a job that ended as stale.
+
+    A pre-fence row keeps ``legacy=True`` so the caller migrates it by stamping the
+    fence instead of terminalizing it on sight; the released job only stops hiding
+    it from the sweep.
+    """
+    client = _OrphanClient(
+        [_processing_snapshot('uid', 'legacy-released', admitted_at=None, finalization_job_id='job-1')],
+        jobs_by_id={'job-1': {'status': 'completed', 'terminal_outcome': 'stale'}},
+    )
+
+    candidates = jobs.get_stale_processing_orphan_candidates(
+        stale_after=timedelta(seconds=900), firestore_client=client
+    )['candidates']
+
+    assert candidates == [
+        {'uid': 'uid', 'conversation_id': 'legacy-released', 'processing_admitted_at': None, 'legacy': True}
+    ]
+
+
 def test_stale_orphan_candidates_skip_a_row_whose_job_cannot_be_read():
     """An unreadable job resolves to "still owned": never terminalize on a read failure."""
     now = _now()
