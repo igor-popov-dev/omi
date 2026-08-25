@@ -286,7 +286,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
           _buildSettingRow(
             icon: FontAwesomeIcons.bell,
             title: context.l10n.dailySummary,
-            trailing: Switch(value: _enabled, onChanged: _updateEnabled, activeThumbColor: t.accent),
+            trailing: Switch(value: _enabled, onChanged: _updateEnabled, activeThumbColor: t.isGlass ? null : t.accent),
           ),
 
           Padding(

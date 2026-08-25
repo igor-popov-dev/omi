@@ -421,7 +421,7 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                                     _isPublic = value;
                                   });
                                 },
-                          activeThumbColor: t.accent,
+                          activeThumbColor: t.isGlass ? null : t.accent,
                         ),
                       ],
                     ),

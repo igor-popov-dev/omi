@@ -332,8 +332,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         Switch(
                           value: enabled,
-                          activeThumbColor: t.textPrimary,
-                          activeTrackColor: t.accent,
+                          activeThumbColor: t.isGlass ? null : t.textPrimary,
+                          activeTrackColor: t.isGlass ? null : t.accent,
                           onChanged: (enabled || canEnable) ? (v) => setEnabled(v) : null,
                         ),
                       ],
@@ -450,8 +450,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         Switch(
                           value: enabled,
-                          activeThumbColor: t.textPrimary,
-                          activeTrackColor: t.accent,
+                          activeThumbColor: t.isGlass ? null : t.textPrimary,
+                          activeTrackColor: t.isGlass ? null : t.accent,
                           onChanged: (v) => setEnabled(v),
                         ),
                       ],

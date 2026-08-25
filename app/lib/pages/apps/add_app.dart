@@ -563,7 +563,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                         onChanged: (value) {
                                           provider.setIsPrivate(value);
                                         },
-                                        activeThumbColor: t.accent,
+                                        activeThumbColor: t.isGlass ? null : t.accent,
                                       ),
                                     ],
                                   ),
@@ -608,7 +608,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                           onChanged: (value) {
                                             provider.setIsPaid(value);
                                           },
-                                          activeThumbColor: t.success,
+                                          activeThumbColor: t.isGlass ? null : t.success,
                                         ),
                                       ],
                                     ),

@@ -333,8 +333,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
               showChevron: false,
               trailing: Switch(
                 value: _autoSyncOfflineRecordings,
-                activeThumbColor: t.textPrimary,
-                activeTrackColor: t.accent,
+                activeThumbColor: t.isGlass ? null : t.textPrimary,
+                activeTrackColor: t.isGlass ? null : t.accent,
                 onChanged: (value) {
                   setState(() => _autoSyncOfflineRecordings = value);
                   SharedPreferencesUtil().autoSyncOfflineRecordings = value;

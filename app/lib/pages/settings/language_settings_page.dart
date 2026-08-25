@@ -178,7 +178,7 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                       context.read<CaptureProvider>().onTranscriptionSettingsChanged();
                     }
                   },
-                  activeThumbColor: t.success,
+                  activeThumbColor: t.isGlass ? null : t.success,
                 ),
             ],
           ),

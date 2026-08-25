@@ -100,8 +100,56 @@ ThemeData _buildGlassTheme(OmiTokens t) {
       backgroundColor: t.bgSecondary,
       contentTextStyle: TextStyle(fontSize: 16, color: t.textPrimary, fontWeight: FontWeight.w500),
     ),
+    switchTheme: _glassSwitchTheme(t),
     textTheme: _glassTextTheme(t),
     extensions: const [OmiTokens.glass],
+  );
+}
+
+/// Трек выключенного свитча — порт `NSColor.systemGray` из
+/// `OmiToggleStyle.trackFill(isOn:)` (light appearance: 142/142/147).
+///
+/// Непрозрачный намеренно, и правило «ни одной непрозрачной поверхности» из
+/// [OmiTokens.glass] этим не нарушено: правило про поверхности, а трек — такой
+/// же красящий элемент управления, как [OmiTokens.accent]/[OmiTokens.error].
+/// Полупрозрачная замена (чёрный wash) на десктопе уже была отвергнута по
+/// измерению: `Ink.hairline` над светлой панелью оставляет белому бегунку
+/// 1.55:1 — ниже порога 3:1 (WCAG 1.4.11) для графического объекта, по которому
+/// состояние и читается; `systemGray` даёт 3.28:1. Тон 0.557 < 0.7481, поэтому
+/// трек заведомо темнее страницы при любой подложке (см. «Порядок яркости» в
+/// `omi_tokens.dart`).
+const Color _glassSwitchOffTrack = Color(0xFF8E8E93);
+
+/// Свитч в Glass: белый бегунок в обоих состояниях, состояние несёт трек.
+///
+/// Порт `desktop/macos/Desktop/Sources/Theme/OmiToggleStyle.swift`: включённый
+/// трек — `Ink.accent` ([OmiTokens.accent]), выключенный — `systemGray`,
+/// бегунок — белый и там, и там. Обратная раскладка (тёмный бегунок на светлом
+/// треке), которую дают call site'ы вида `activeThumbColor: t.textPrimary`, на
+/// светлой подложке читается как «выключено» сразу у всех свитчей — ровно тот
+/// баг, который десктоп уже чинил.
+///
+/// Обводки трека тема не заводит (её рисует Material M3 у выключенного свитча),
+/// иконку на бегунке — тоже: в эталоне iOS/macOS нет ни того, ни другого, а
+/// `thumbIcon` появляется только если его задаст call site, чего в приложении
+/// нигде не делается.
+///
+/// Disabled гасится альфой сразу у обоих слоёв — так же, как iOS гасит контрол
+/// целиком; относительный контраст бегунка к треку при этом сохраняется, а
+/// требование 3:1 на неактивный контрол не распространяется. Material-свитч
+/// (в отличие от адаптивного) собственной disabled-прозрачности не имеет —
+/// `disabledOpacity` остаётся 1, — поэтому гасить обязана тема.
+SwitchThemeData _glassSwitchTheme(OmiTokens t) {
+  const double disabledAlpha = 0.5;
+  Color mute(Color c, Set<WidgetState> states) =>
+      states.contains(WidgetState.disabled) ? c.withValues(alpha: c.a * disabledAlpha) : c;
+
+  return SwitchThemeData(
+    thumbColor: WidgetStateProperty.resolveWith((states) => mute(Colors.white, states)),
+    trackColor: WidgetStateProperty.resolveWith(
+      (states) => mute(states.contains(WidgetState.selected) ? t.accent : _glassSwitchOffTrack, states),
+    ),
+    trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
   );
 }
 

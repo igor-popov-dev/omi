@@ -82,7 +82,7 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged, activeThumbColor: t.success),
+          Switch(value: value, onChanged: onChanged, activeThumbColor: t.isGlass ? null : t.success),
         ],
       ),
     );

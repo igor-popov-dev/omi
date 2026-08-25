@@ -404,7 +404,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
             trailing: Switch(
               value: _dailySummaryEnabled,
               onChanged: _updateDailySummaryEnabled,
-              activeThumbColor: t.accent,
+              activeThumbColor: t.isGlass ? null : t.accent,
             ),
           ),
 

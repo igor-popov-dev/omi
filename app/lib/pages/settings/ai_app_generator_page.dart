@@ -1072,7 +1072,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             ],
           ),
         ),
-        Switch(value: value, onChanged: onChanged, activeThumbColor: activeColor),
+        Switch(value: value, onChanged: onChanged, activeThumbColor: t.isGlass ? null : activeColor),
       ],
     );
   }

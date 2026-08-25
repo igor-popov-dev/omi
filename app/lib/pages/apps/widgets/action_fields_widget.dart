@@ -78,7 +78,7 @@ class ActionFieldsWidget extends StatelessWidget {
                                       provider.removeActionByType(actionType.id);
                                     }
                                   },
-                                  activeThumbColor: t.accent,
+                                  activeThumbColor: t.isGlass ? null : t.accent,
                                 ),
                               ],
                             ),

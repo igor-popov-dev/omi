@@ -187,7 +187,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
             ],
           ),
         ),
-        Switch(value: value, onChanged: onChanged, activeThumbColor: t.success),
+        Switch(value: value, onChanged: onChanged, activeThumbColor: t.isGlass ? null : t.success),
       ],
     );
   }
@@ -365,7 +365,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                 ],
               ),
             ),
-            Switch(value: isEnabled, onChanged: onToggle, activeThumbColor: t.success),
+            Switch(value: isEnabled, onChanged: onToggle, activeThumbColor: t.isGlass ? null : t.success),
           ],
         ),
         if (isEnabled) ...[
@@ -841,7 +841,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                                 await DebugLogManager.setEnabled(v);
                                 setState(() {});
                               },
-                              activeThumbColor: t.success,
+                              activeThumbColor: t.isGlass ? null : t.success,
                             ),
                           ],
                         ),
