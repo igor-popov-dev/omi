@@ -78,6 +78,7 @@ import 'package:omi/pages/onboarding/interactive_device_onboarding/interactive_d
 
 import 'widgets/battery_info_widget.dart';
 
+import 'package:omi/utils/theme/glass_effects.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
 class HomePageWrapper extends StatefulWidget {
@@ -146,6 +147,21 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver, TickerProviderStateMixin {
   ForegroundUtil foregroundUtil = ForegroundUtil();
+
+  /// Радиус пилюли бара «Ask Omi anything…» — общий для Classic и Glass,
+  /// им же режется размытие, чтобы blur не вылезал из скруглений.
+  static const double _chatBarRadius = 32;
+
+  /// Размытие под баром. Тот же литерал, что у пилюли навигации
+  /// (`_glassPillBlurSigma` = 32) и по той же причине: бар и пилюля стоят
+  /// впритык друг к другу внизу главной, разная сигма читалась бы как два
+  /// разных материала.
+  static const double _chatBarBlurSigma = 32;
+
+  /// Заливка бара в Glass: белый 0.30 — литерал пилюли навигации
+  /// (`_glassPillFill`). Токен `bgSecondary` здесь не годится: 0.55 серого
+  /// поверх свежего размытия снова превращают бар в непрозрачную плиту.
+  static const Color _glassChatBarFill = Color(0x4DFFFFFF);
 
   final _upgrader = MyUpgrader(debugLogging: false, debugDisplayOnce: false);
   bool scriptsInProgress = false;
@@ -959,6 +975,68 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
     );
   }
 
+  /// Оболочка бара «Ask Omi anything…».
+  ///
+  /// Classic собирается ровно как раньше — одним `Container` с заливкой
+  /// `bgSecondary`, рамкой и трёхслойным чёрным свечением.
+  ///
+  /// Glass разбирает ту же коробку на три слоя, потому что тень обязана остаться
+  /// снаружи клипа, а blur — под заливкой: тень (`DecoratedBox`) → [glassBlur]
+  /// → полупрозрачная пилюля. Заливка при этом уходит с `bgSecondary`
+  /// (0x8BBEBEC4, 0.55 серого — сплошная плита поверх размытия) на белый 0.30,
+  /// тот же литерал, что у пилюли навигации прямо под баром: два стекла в одной
+  /// точке экрана должны быть одним материалом.
+  Widget _chatBarShell(OmiTokens t, {required Widget child}) {
+    final radius = BorderRadius.circular(_chatBarRadius);
+    if (!t.isGlass) {
+      return Container(
+        height: 62,
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: radius,
+          border: Border.all(color: t.bgTertiary, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: t.bgPrimary.withValues(alpha: 0.65),
+              blurRadius: 60,
+              spreadRadius: 14,
+              offset: const Offset(0, -16),
+            ),
+            BoxShadow(
+              color: t.bgPrimary.withValues(alpha: 0.45),
+              blurRadius: 32,
+              spreadRadius: 6,
+              offset: const Offset(0, -8),
+            ),
+            BoxShadow(color: t.bgPrimary.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: child,
+      );
+    }
+    return DecoratedBox(
+      // Glass allows a single ambient shadow; она живёт снаружи ClipRRect,
+      // иначе клип срезал бы её вместе с размытием.
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, -2))],
+      ),
+      child: glassBlur(
+        borderRadius: radius,
+        sigma: _chatBarBlurSigma,
+        child: Container(
+          height: 62,
+          decoration: BoxDecoration(
+            color: _glassChatBarFill,
+            borderRadius: radius,
+            border: Border.all(color: t.bgTertiary, width: 1),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   Widget _buildChatBar(BuildContext context) {
     final t = context.omi;
     return GestureDetector(
@@ -967,31 +1045,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
         PlatformManager.instance.analytics.bottomNavigationTabClicked('Chat');
         Navigator.push(context, MaterialPageRoute(builder: (context) => const ChatPage(isPivotBottom: false)));
       },
-      child: Container(
-        height: 62,
-        decoration: BoxDecoration(
-          color: t.bgSecondary,
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: t.bgTertiary, width: 1),
-          // Glass allows a single ambient shadow; Classic keeps its three-layer black glow.
-          boxShadow: t.isGlass
-              ? const [BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, -2))]
-              : [
-                  BoxShadow(
-                    color: t.bgPrimary.withValues(alpha: 0.65),
-                    blurRadius: 60,
-                    spreadRadius: 14,
-                    offset: const Offset(0, -16),
-                  ),
-                  BoxShadow(
-                    color: t.bgPrimary.withValues(alpha: 0.45),
-                    blurRadius: 32,
-                    spreadRadius: 6,
-                    offset: const Offset(0, -8),
-                  ),
-                  BoxShadow(color: t.bgPrimary.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 2)),
-                ],
-        ),
+      child: _chatBarShell(
+        t,
         child: Row(
           children: [
             const SizedBox(width: 18),

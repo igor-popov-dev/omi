@@ -21,6 +21,7 @@ import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/utils/auth/clear_user_state.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/platform/platform_service.dart';
+import 'package:omi/utils/theme/glass_effects.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/widgets/dialog.dart';
@@ -774,142 +775,183 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     );
   }
 
+  /// Радиус шторки — скруглены только верхние углы, нижние уходят за экран.
+  static const BorderRadius _sheetRadius =
+      BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28));
+
+  /// Размытие страницы под шторкой.
+  ///
+  /// Больше, чем у плавающих пилюль (32): пилюля глушит полосу контента, а
+  /// шторка накрывает целую страницу с текстом и должна сделать его
+  /// нечитаемым целиком. Меньше фоновой подложки (48) — та размывает
+  /// фотографию, здесь же под фильтром мелкий шрифт, и 38 его уже растворяют.
+  static const double _sheetBlurSigma = 38;
+
+  /// Вуаль шторки в Glass.
+  ///
+  /// Токен `bgPrimary` (белый 0.46) остался бы честным, будь под шторкой
+  /// blur, — но его не было, и страница просвечивала прямо сквозь пункты
+  /// меню, на что и жаловался Игорь. Размытие снимает разборчивость, вуаль
+  /// добивает остаточный контраст: белый 0.62 гасит смазанные пятна текста
+  /// до фона, но пропускает достаточно, чтобы за стеклом угадывалась
+  /// подложка [GlassBackdrop], а не глухая плита.
+  ///
+  /// Плотнее токена ровно потому, что здесь стекло стоит не на подложке, а на
+  /// экране, полном собственного текста.
+  static const Color _glassSheetVeil = Color(0x9EFFFFFF);
+
   @override
   Widget build(BuildContext context) {
     final t = context.omi;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: BoxDecoration(
-        color: t.bgPrimary,
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
-        child: Column(
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              height: 4,
-              width: 36,
-              decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
-            ),
-            // Header
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-              child: _isSearching
-                  ? Padding(
-                      key: const ValueKey('search-header'),
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _searchController,
-                              focusNode: _searchFocusNode,
-                              autofocus: true,
-                              style: TextStyle(color: t.textPrimary, fontSize: 14),
-                              cursorColor: t.textPrimary,
-                              decoration: InputDecoration(
-                                hintText: context.l10n.searchSettings,
-                                hintStyle: TextStyle(color: t.textSecondary, fontSize: 14),
-                                filled: true,
-                                fillColor: t.bgSecondary,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                  borderSide: BorderSide.none,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                  borderSide: BorderSide.none,
-                                ),
-                                prefixIcon: OmiIconWidget(icon: OmiIcon.search, color: t.textSecondary, size: 24),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? GestureDetector(
-                                        onTap: () {
-                                          setState(() => _searchQuery = '');
-                                          _searchController.clear();
-                                        },
-                                        child: OmiIconWidget(icon: OmiIcon.close, color: t.textSecondary, size: 24),
-                                      )
-                                    : null,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+    final content = ClipRRect(
+      borderRadius: _sheetRadius,
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            height: 4,
+            width: 36,
+            decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
+          ),
+          // Header
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+            child: _isSearching
+                ? Padding(
+                    key: const ValueKey('search-header'),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _searchController,
+                            focusNode: _searchFocusNode,
+                            autofocus: true,
+                            style: TextStyle(color: t.textPrimary, fontSize: 14),
+                            cursorColor: t.textPrimary,
+                            decoration: InputDecoration(
+                              hintText: context.l10n.searchSettings,
+                              hintStyle: TextStyle(color: t.textSecondary, fontSize: 14),
+                              filled: true,
+                              fillColor: t.bgSecondary,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
                               ),
-                              onChanged: (value) => setState(() => _searchQuery = value),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _isSearching = false;
-                                _searchQuery = '';
-                                _searchController.clear();
-                              });
-                              _searchFocusNode.unfocus();
-                            },
-                            child: Text(context.l10n.cancel, style: TextStyle(color: t.textPrimary, fontSize: 16)),
-                          ),
-                        ],
-                      ),
-                    )
-                  : Padding(
-                      key: const ValueKey('normal-header'),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      child: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              setState(() => _isSearching = true);
-                              Future.microtask(() => _searchFocusNode.requestFocus());
-                            },
-                            child: OmiIconWidget(icon: OmiIcon.search, color: t.textPrimary, size: 22),
-                          ),
-                          Expanded(
-                            child: Center(
-                              child: Text(
-                                context.l10n.settings,
-                                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
                               ),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                              decoration: BoxDecoration(
-                                  color: (t.isGlass ? t.accent : Colors.white),
-                                  borderRadius: BorderRadius.circular(20)),
-                              child: Text(
-                                context.l10n.done,
-                                style: TextStyle(
-                                    color: (t.isGlass ? t.onAccent : Colors.black),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
                               ),
+                              prefixIcon: OmiIconWidget(icon: OmiIcon.search, color: t.textSecondary, size: 24),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? GestureDetector(
+                                      onTap: () {
+                                        setState(() => _searchQuery = '');
+                                        _searchController.clear();
+                                      },
+                                      child: OmiIconWidget(icon: OmiIcon.close, color: t.textSecondary, size: 24),
+                                    )
+                                  : null,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                             ),
+                            onChanged: (value) => setState(() => _searchQuery = value),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isSearching = false;
+                              _searchQuery = '';
+                              _searchController.clear();
+                            });
+                            _searchFocusNode.unfocus();
+                          },
+                          child: Text(context.l10n.cancel, style: TextStyle(color: t.textPrimary, fontSize: 16)),
+                        ),
+                      ],
                     ),
+                  )
+                : Padding(
+                    key: const ValueKey('normal-header'),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _isSearching = true);
+                            Future.microtask(() => _searchFocusNode.requestFocus());
+                          },
+                          child: OmiIconWidget(icon: OmiIcon.search, color: t.textPrimary, size: 22),
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              context.l10n.settings,
+                              style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                                color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(20)),
+                            child: Text(
+                              context.l10n.done,
+                              style: TextStyle(
+                                  color: (t.isGlass ? t.onAccent : Colors.black),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 16),
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _isSearching && _searchQuery.isNotEmpty
+                  ? _buildSearchResults(context)
+                  : _buildOmiModeContent(context),
             ),
-            const SizedBox(height: 16),
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _isSearching && _searchQuery.isNotEmpty
-                    ? _buildSearchResults(context)
-                    : _buildOmiModeContent(context),
-              ),
-            ),
-          ],
+          ),
+        ],
+      ),
+    );
+
+    final height = MediaQuery.of(context).size.height * 0.9;
+
+    if (!t.isGlass) {
+      return Container(
+        height: height,
+        decoration: BoxDecoration(color: t.bgPrimary, borderRadius: _sheetRadius),
+        child: content,
+      );
+    }
+
+    // Glass: под шторкой честное стекло — сначала размывается всё, что уже
+    // нарисовано ниже (страница + подложка), и только поверх ложится вуаль.
+    return SizedBox(
+      height: height,
+      child: glassBlur(
+        borderRadius: _sheetRadius,
+        sigma: _sheetBlurSigma,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: _glassSheetVeil, borderRadius: _sheetRadius),
+          child: content,
         ),
       ),
     );

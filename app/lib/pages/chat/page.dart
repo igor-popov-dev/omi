@@ -41,6 +41,7 @@ import 'package:omi/utils/other/dictation_text.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/widgets/bottom_nav_bar.dart';
+import 'package:omi/utils/theme/glass_effects.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
 enum _ChatScrollMode { followingBottom, freeScrolling }
@@ -57,6 +58,84 @@ class ChatPage extends StatefulWidget {
 }
 
 class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
+  /// Радиус пилюли композера — общий для Classic и Glass; в Glass им же режется
+  /// размытие, чтобы blur не выходил за скругления.
+  static const double _composerRadius = 32;
+
+  /// Размытие ленты сообщений под композером. Тот же литерал, что у пилюли
+  /// навигации и у бара «Ask Omi» на главной (32): все три плавающие панели
+  /// приложения — один материал, разная сигма читалась бы как разный.
+  static const double _composerBlurSigma = 32;
+
+  /// Заливка композера в Glass: белый 0.30, литерал пилюли навигации.
+  /// `bgSecondary` (0.55 серого) поверх свежего размытия снова даёт
+  /// непрозрачную плиту, ради которой размывать было незачем.
+  static const Color _glassComposerFill = Color(0x4DFFFFFF);
+
+  /// Оболочка композера.
+  ///
+  /// Classic — прежний единственный `Container`: заливка `bgSecondary`, рамка,
+  /// трёхслойный подъём тенью. Ни пикселя не меняется.
+  ///
+  /// Glass раскладывает ту же коробку на три слоя, потому что тень обязана
+  /// остаться снаружи клипа, а размытие — под заливкой: тень (`DecoratedBox`)
+  /// → [glassBlur] → полупрозрачная пилюля с рамкой.
+  Widget _composerShell(OmiTokens t, {required Widget child}) {
+    const padding = EdgeInsets.only(left: 14, right: 8, top: 7, bottom: 7);
+    final radius = BorderRadius.circular(_composerRadius);
+    if (!t.isGlass) {
+      return Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: radius,
+          border: Border.all(color: t.bgTertiary, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: t.bgPrimary.withValues(alpha: 0.65),
+              blurRadius: 60,
+              spreadRadius: 14,
+              offset: const Offset(0, -16),
+            ),
+            BoxShadow(
+              color: t.bgPrimary.withValues(alpha: 0.45),
+              blurRadius: 32,
+              spreadRadius: 6,
+              offset: const Offset(0, -8),
+            ),
+            BoxShadow(
+              color: t.bgPrimary.withValues(alpha: 0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: child,
+      );
+    }
+    return DecoratedBox(
+      // Glass allows a single ambient shadow — она живёт снаружи ClipRRect,
+      // иначе клип срезал бы её вместе с размытием.
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, -2))],
+      ),
+      child: glassBlur(
+        borderRadius: radius,
+        sigma: _composerBlurSigma,
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: _glassComposerFill,
+            borderRadius: radius,
+            border: Border.all(color: t.bgTertiary, width: 1),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   TextEditingController textController = TextEditingController();
   late ScrollController scrollController;
   late FocusNode textFieldFocusNode;
@@ -501,38 +580,8 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                         const SizedBox(width: 56),
                                       // CENTER pill — text field/waveform + right-side button stays inside.
                                       Expanded(
-                                        child: Container(
-                                          padding: const EdgeInsets.only(left: 14, right: 8, top: 7, bottom: 7),
-                                          decoration: BoxDecoration(
-                                            color: t.bgSecondary,
-                                            borderRadius: BorderRadius.circular(32),
-                                            border: Border.all(color: t.bgTertiary, width: 1),
-                                            // Glass allows a single ambient shadow; Classic keeps its three-layer lift.
-                                            boxShadow: t.isGlass
-                                                ? const [
-                                                    BoxShadow(
-                                                        color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, -2))
-                                                  ]
-                                                : [
-                                                    BoxShadow(
-                                                      color: t.bgPrimary.withValues(alpha: 0.65),
-                                                      blurRadius: 60,
-                                                      spreadRadius: 14,
-                                                      offset: const Offset(0, -16),
-                                                    ),
-                                                    BoxShadow(
-                                                      color: t.bgPrimary.withValues(alpha: 0.45),
-                                                      blurRadius: 32,
-                                                      spreadRadius: 6,
-                                                      offset: const Offset(0, -8),
-                                                    ),
-                                                    BoxShadow(
-                                                      color: t.bgPrimary.withValues(alpha: 0.25),
-                                                      blurRadius: 10,
-                                                      offset: const Offset(0, 2),
-                                                    ),
-                                                  ],
-                                          ),
+                                        child: _composerShell(
+                                          t,
                                           child: Row(
                                             crossAxisAlignment: CrossAxisAlignment.center,
                                             children: [

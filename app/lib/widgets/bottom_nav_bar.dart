@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/providers/home_provider.dart';
+import 'package:omi/utils/theme/glass_effects.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
@@ -118,19 +117,20 @@ class _BottomNavBarState extends State<BottomNavBar> {
           borderRadius: radius,
           boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, 2))],
         ),
-        child: ClipRRect(
+        // Blur идёт через общий хелпер, а не через свой BackdropFilter: так
+        // пилюля попадает под общий рубильник kGlassRealBlur вместе с
+        // остальными стеклянными панелями. Геометрия и альфы прежние.
+        child: glassBlur(
           borderRadius: radius,
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: _glassPillBlurSigma, sigmaY: _glassPillBlurSigma),
-            child: Container(
-              height: _glassPillHeight,
-              decoration: BoxDecoration(
-                color: _glassPillFill,
-                borderRadius: radius,
-                border: Border.all(color: t.glassEdge, width: 1),
-              ),
-              child: _buildTabRow(context, selectedIndex, _glassPillHeight),
+          sigma: _glassPillBlurSigma,
+          child: Container(
+            height: _glassPillHeight,
+            decoration: BoxDecoration(
+              color: _glassPillFill,
+              borderRadius: radius,
+              border: Border.all(color: t.glassEdge, width: 1),
             ),
+            child: _buildTabRow(context, selectedIndex, _glassPillHeight),
           ),
         ),
       ),
