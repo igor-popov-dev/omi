@@ -636,9 +636,27 @@ class ListenReceiver:
             await self.host.onboarding_handler.start()
         elif kind == 'skip_question' and self.host.onboarding_handler and not self.host.onboarding_handler.completed:
             await self.host.onboarding_handler.skip_current_question()
-        elif kind == 'suggested_transcript' and self.host.use_custom_stt:
+        elif kind == 'suggested_transcript':
             segments = payload.get('segments', [])
             provider = payload.get('stt_provider')
+            if not self.host.use_custom_stt:
+                # Fail-silent otherwise: a client running its own STT holds the only copy of
+                # the transcript, so a session that did not negotiate custom_stt drops it with
+                # no trace at all - the user records for hours and gets an empty conversation.
+                logger.warning(
+                    'Dropping suggested_transcript: session is not in custom STT mode '
+                    'session=%s provider=%s segments=%d',
+                    self.host.session_id,
+                    provider or 'custom',
+                    len(segments),
+                )
+                return
+            logger.info(
+                'suggested_transcript accepted session=%s provider=%s segments=%d',
+                self.host.session_id,
+                provider or 'custom',
+                len(segments),
+            )
             self._enqueue_stt_segments(segments, provider=provider or 'custom')
         elif kind == 'speaker_assigned':
             await self._handle_speaker_assigned(payload)
@@ -654,6 +672,15 @@ class ListenReceiver:
                 'retry',
             }:
                 self.host.state.finalization_reason = reason
+        else:
+            # An unhandled text frame is a silent no-op today; name it so a client that
+            # mis-labels its transcript frames is visible on the server instead of looking
+            # exactly like a client that sent nothing at all.
+            logger.info(
+                'Unhandled listen text message session=%s kind=%s',
+                self.host.session_id,
+                kind,
+            )
 
     async def _handle_speaker_assigned(self, payload: Dict[str, Any]) -> None:
         segment_ids = payload.get('segment_ids', [])

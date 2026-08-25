@@ -78,6 +78,7 @@ async def test_receiver_drops_malformed_codec_frame_and_continues_to_custom_tran
         ]
     )
     host = SimpleNamespace(
+        session_id='test-session',
         request=SimpleNamespace(websocket=websocket, codec=codec),
         state=SimpleNamespace(
             active=True,
@@ -193,3 +194,92 @@ async def test_receiver_emits_speech_positive_duration_at_session_end():
     assert telemetry.events[0]['event'] == 'Speech Positive Duration Measured'
     assert telemetry.events[0]['properties']['duration_seconds'] == 1.25
     assert telemetry.events[0]['properties']['measurement'] == 'server_vad'
+
+
+@pytest.mark.anyio
+async def test_receiver_names_the_suggested_transcript_it_drops(caplog):
+    """A client-side transcript is the only copy; dropping it must not be silent."""
+    received_segments = []
+    websocket = _FramesWebSocket(
+        [
+            {
+                'text': json.dumps(
+                    {
+                        'type': 'suggested_transcript',
+                        'stt_provider': 'test-provider',
+                        'segments': [{'id': 'lost', 'text': 'Never reached the conversation'}],
+                    }
+                )
+            },
+            {'type': 'websocket.disconnect', 'code': 1000},
+        ]
+    )
+    host = SimpleNamespace(
+        session_id='test-session',
+        request=SimpleNamespace(websocket=websocket, codec='opus', sample_rate=16000, channels=1),
+        state=SimpleNamespace(
+            active=True,
+            close_code=1001,
+            last_audio_received_time=None,
+            last_activity_time=None,
+            first_audio_byte_timestamp=None,
+            last_usage_record_timestamp=None,
+            audio_ring_buffer=None,
+            fair_use_dg_budget_exhausted=False,
+            fair_use_track_dg_usage=False,
+        ),
+        limits=SimpleNamespace(ws_receive_timeout=1.0),
+        is_multi_channel=False,
+        use_custom_stt=False,
+        audio_bytes_send=None,
+        transcripts=SimpleNamespace(enqueue=received_segments.extend),
+        start_live_transcription=lambda: None,
+    )
+    receiver = ListenReceiver(host, [], {})
+
+    with caplog.at_level('WARNING', logger='routers.listen.receiver'):
+        await receiver.receive_data()
+
+    assert received_segments == []
+    dropped = [record for record in caplog.records if 'suggested_transcript' in record.getMessage()]
+    assert len(dropped) == 1
+    assert 'segments=1' in dropped[0].getMessage()
+
+
+@pytest.mark.anyio
+async def test_receiver_names_an_unhandled_listen_text_message(caplog):
+    """A mislabelled transcript frame must not look identical to a silent client."""
+    websocket = _FramesWebSocket(
+        [
+            {'text': json.dumps({'type': 'transcript', 'segments': []})},
+            {'type': 'websocket.disconnect', 'code': 1000},
+        ]
+    )
+    host = SimpleNamespace(
+        session_id='test-session',
+        request=SimpleNamespace(websocket=websocket, codec='opus'),
+        state=SimpleNamespace(
+            active=True,
+            close_code=1001,
+            last_audio_received_time=None,
+            last_activity_time=None,
+            first_audio_byte_timestamp=None,
+            last_usage_record_timestamp=None,
+            audio_ring_buffer=None,
+        ),
+        limits=SimpleNamespace(ws_receive_timeout=1.0),
+        is_multi_channel=False,
+        use_custom_stt=True,
+        audio_bytes_send=None,
+        transcripts=SimpleNamespace(enqueue=lambda _: None),
+        start_live_transcription=lambda: None,
+        onboarding_handler=None,
+    )
+    receiver = ListenReceiver(host, [], {})
+
+    with caplog.at_level('INFO', logger='routers.listen.receiver'):
+        await receiver.receive_data()
+
+    unhandled = [record for record in caplog.records if 'Unhandled listen text message' in record.getMessage()]
+    assert len(unhandled) == 1
+    assert "kind=transcript" in unhandled[0].getMessage()
