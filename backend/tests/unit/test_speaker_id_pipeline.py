@@ -412,6 +412,9 @@ class TestDetectSpeakerFromText:
         ('vi', "Tôi là Minh", "Minh"),
         ('id', "Nama saya Budi", "Budi"),
         ('ms', "Saya Ahmad", "Ahmad"),
+        ('ru', "Я Иван.", "Иван"),
+        ('ru', "Я Иван, приятно познакомиться.", "Иван"),
+        ('uk', "Я Олег.", "Олег"),
     ]
 
     NEGATIVE_CASES = [
@@ -439,6 +442,21 @@ class TestDetectSpeakerFromText:
         "i am Gonna do it",
     ]
 
+    # Locales whose introducer is a bare subject pronoun ("Я", "saya") match any
+    # run-on sentence that capitalizes a word after the pronoun. The captured word
+    # is usually a verb or an adverb, so the English stopword list cannot catch it.
+    BARE_PRONOUN_RUN_ON_CASES = [
+        "Я вчера не успел. Я Купил билеты уже потом",
+        "Да я понял, я Сейчас просто сделаю",
+        "но я Более чем уверен, что это было так",
+        "насколько я Понимаю, там другой сервис",
+        "я Просто не успеваю за ними",
+        "Я думаю, я Кроме этого ничего не помню",
+        "Я не знаю. Я Пытаюсь понять, для каких целей",
+        "мене звати не так, я Дуже поспішаю",
+        "Kemarin saya Pergi ke pasar dulu",
+    ]
+
     @pytest.mark.parametrize("lang,text,expected_name", POSITIVE_CASES)
     def test_positive_detection(self, lang, text, expected_name):
         """Detects speaker name from self-introduction in each language."""
@@ -463,6 +481,18 @@ class TestDetectSpeakerFromText:
         """Pronouns/fillers captured by the intro patterns are not returned as names."""
         result = detect_speaker_from_text(text)
         assert result is None, f"Stopword leaked as speaker name: {text!r} -> {result}"
+
+    @pytest.mark.parametrize("text", BARE_PRONOUN_RUN_ON_CASES)
+    def test_bare_pronoun_run_on_rejected(self, text):
+        """A bare pronoun mid-sentence is not an introduction, whatever follows it.
+
+        The English stopword guard cannot cover these: the captured word is a
+        verb or an adverb, not a pronoun, and enumerating them per language is
+        endless. Every hit here would become a permanent contact under
+        `create_speakers`.
+        """
+        result = detect_speaker_from_text(text)
+        assert result is None, f"Run-on sentence read as an introduction: {text!r} -> {result}"
 
     def test_real_name_after_stopword_guard(self):
         """Genuine introductions still detect after the stopword guard."""

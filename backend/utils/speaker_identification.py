@@ -116,6 +116,24 @@ def _trim_pcm_audio(pcm_data: bytes, sample_rate: int, start_sec: float, end_sec
 SPEAKER_SAMPLE_MIN_SEGMENT_DURATION = 10.0
 SPEAKER_SAMPLE_WINDOW_HALF = SPEAKER_SAMPLE_MIN_SEGMENT_DURATION / 2
 
+# Four locales below introduce a speaker with a bare subject pronoun — "Я Иван",
+# "Saya Ahmad" — where every other introducer in this table carries a copula or a
+# naming verb ("I am", "Sono", "Jestem", "Nama saya"). A bare pronoun is also one
+# of the most common words in ordinary speech, so `pronoun + Capitalized word`
+# matches any run-on sentence whose transcript happens to capitalize a word after
+# the pronoun, and `create_speakers` turns every hit into a permanent contact.
+# #5223 fixed that failure for English by rejecting captured pronouns and fillers,
+# but SPEAKER_NAME_STOPWORDS is English-only and cannot enumerate, say, every
+# Russian verb form a speaker might use. Anchor these patterns to a standalone
+# introduction instead: the pronoun opens a sentence and the name closes it.
+_INTRO_SENTENCE_START = r"(?:^|(?<=[.!?\u2026]))\s*"
+_INTRO_SENTENCE_END = r"(?=\s*[.,!?;:\u2026]|\s*$)"
+
+
+def _bare_pronoun_intro(pronouns: str, name: str) -> str:
+    return f"{_INTRO_SENTENCE_START}(?:{pronouns})\\s+({name}){_INTRO_SENTENCE_END}"
+
+
 # Language-specific patterns for speaker identification from text
 # Each pattern should have a capture group for the name.
 # The name is expected to be the last capture group.
@@ -166,7 +184,8 @@ SPEAKER_IDENTIFICATION_PATTERNS = {
         r"\b([A-Z][a-zA-Z]*)\s+vagyok\b",
     ],
     'id': [  # Indonesian
-        r"\b(Saya|saya|Nama saya|nama saya)\s+([A-Z][a-zA-Z]*)\b",
+        _bare_pronoun_intro(r"Saya|saya", r"[A-Z][a-zA-Z]*"),
+        r"\b(Nama saya|nama saya)\s+([A-Z][a-zA-Z]*)\b",
     ],
     'it': [  # Italian
         r"\b(Sono|sono|Mi chiamo|mi chiamo|Il mio nome è|il mio nome è)\s+([A-Z][a-zA-Z]*)\b",
@@ -184,7 +203,8 @@ SPEAKER_IDENTIFICATION_PATTERNS = {
         r"\b(Es esmu|es esmu|Mans vārds ir|mans vārds ir)\s+([A-Z][a-zA-Z]*)\b",
     ],
     'ms': [  # Malay
-        r"\b(Saya|saya|Nama saya|nama saya)\s+([A-Z][a-zA-Z]*)\b",
+        _bare_pronoun_intro(r"Saya|saya", r"[A-Z][a-zA-Z]*"),
+        r"\b(Nama saya|nama saya)\s+([A-Z][a-zA-Z]*)\b",
     ],
     'nl': [  # Dutch / Flemish
         r"\b(Ik ben|ik ben|Mijn naam is|mijn naam is|Ik heet|ik heet)\s+([A-Z][a-zA-Z]*)\b",
@@ -202,7 +222,8 @@ SPEAKER_IDENTIFICATION_PATTERNS = {
         r"\b(Sunt|sunt|Mă numesc|mă numesc|Numele meu este|numele meu este)\s+([A-Z][a-zA-Z]*)\b",
     ],
     'ru': [  # Russian
-        r"\b(Я|я|Меня зовут|меня зовут|Моё имя|моё имя)\s+([А-Я][а-я]*)\b",
+        _bare_pronoun_intro(r"Я|я", r"[А-Я][а-я]*"),
+        r"\b(Меня зовут|меня зовут|Моё имя|моё имя)\s+([А-Я][а-я]*)\b",
     ],
     'sk': [  # Slovak
         r"\b(Som|som|Volám sa|volám sa)\s+([A-Z][a-zA-Z]*)\b",
@@ -217,7 +238,8 @@ SPEAKER_IDENTIFICATION_PATTERNS = {
         r"\b(Benim adım|benim adım)\s+([A-Z][a-zA-Z]*)\b",
     ],
     'uk': [  # Ukrainian
-        r"\b(Я|я|Мене звати|мене звати|Моє ім'я|моє ім'я)\s+([А-ЯІЇЄҐ][а-яіїєґ]*)\b",
+        _bare_pronoun_intro(r"Я|я", r"[А-ЯІЇЄҐ][а-яіїєґ]*"),
+        r"\b(Мене звати|мене звати|Моє ім'я|моє ім'я)\s+([А-ЯІЇЄҐ][а-яіїєґ]*)\b",
     ],
     'vi': [  # Vietnamese
         r"\b(Tôi là|tôi là|Tên tôi là|tên tôi là)\s+([A-Z][a-zA-Z]*)\b",

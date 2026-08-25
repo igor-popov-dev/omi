@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "FC-false-positive-guard-enumerated-in-one-locale",
+  "violated_contract": "When a heuristic extractor runs over every locale, the guard that rejects its false positives must be structural rather than an enumeration written in one language. An enumerated guard — a stopword set, a blocklist of filler words, a list of known-bad tokens — is only ever populated in the language whoever hit the bug was speaking, so it silently degrades to no guard at all on every other locale while the extractor keeps firing there. Nothing reports the gap: the extractor still returns a plausible-looking value, the enumeration is still internally consistent, and the tests that were added alongside the guard are written in the same one language it covers. #7807 added SPEAKER_NAME_STOPWORDS so that run-on transcripts could not turn \"I'm It was great\" into a contact named It, but SPEAKER_IDENTIFICATION_PATTERNS matches in 33 languages and the stopword set contains only English words; on Russian audio the pattern's bare pronoun captured a verb or an adverb 20 times in 2215 real segments — 0 real names — and `create_speakers` wrote each one into the user's contacts permanently.",
+  "canonical_prevention": "Close the hole in the matcher's shape instead of listing the words it must not return. Where a pattern's introducer is a bare subject pronoun rather than a copula or a naming verb, anchor it to a standalone utterance — the pronoun opens a sentence and the captured token closes it — so an ordinary run-on sentence cannot satisfy it in any language. Where an enumeration is genuinely required, key it by locale next to the patterns it guards, so adding a locale to the matcher without its guard is visible in the same diff. Test the guard against run-on input in a non-English locale: an all-English negative-case list proves nothing about the 32 other languages the extractor accepts.",
+  "canonical_prevention_artifact": [
+    "backend/utils/speaker_identification.py",
+    "backend/tests/unit/test_speaker_id_pipeline.py"
+  ],
+  "evidence_prs": [7807],
+  "scope_hints": [
+    "backend/utils/speaker_identification.py"
+  ],
+  "status": "open"
+}
