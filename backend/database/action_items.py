@@ -531,13 +531,41 @@ def _list_scan_budget(row_budget: int) -> int:
     return min(_ACTION_ITEMS_LIST_HARD_MAX, int(row_budget) + _ACTION_ITEMS_LIST_DELETED_SLACK)
 
 
+# Recency floor for a document whose ``created_at`` cannot be read as a datetime.
+# Negated in the sort key, so such a row ranks last within its bucket instead of
+# being ordered on a value the code cannot interpret.
+_LIST_SORT_CREATED_AT_FLOOR = datetime.min.replace(tzinfo=timezone.utc).timestamp()
+
+
+def _sortable_datetime(value: Any) -> Optional[datetime]:
+    """The stored date when it is a real datetime, else None.
+
+    Documents written before the write-side date normalization (#11137) can hold an
+    explicit null or an ISO string in a date field, and
+    ``_prepare_action_item_for_read`` deliberately passes those through (its
+    coercion is duck-typed on ``timestamp``). The list sort must therefore not
+    assume the type: comparing a str against a datetime raised TypeError and
+    ``str.timestamp`` raised AttributeError, both inside ``sort()`` — so a single
+    legacy row 500'd the whole page, before the route's per-item skip
+    (``_safe_action_item_responses``) could drop it.
+    """
+    return value if isinstance(value, datetime) else None
+
+
 def _action_item_list_sort_key(item: Dict[str, Any]) -> tuple:
-    """Active-first product order (see get_action_items)."""
+    """Active-first product order (see get_action_items).
+
+    A date the reader cannot interpret is treated as absent: an unusable
+    ``due_at`` sorts with the no-due-date tail, an unusable ``created_at`` sorts
+    oldest-last. The row still ships; only its rank is degraded.
+    """
+    due_at = _sortable_datetime(item.get('due_at'))
+    created_at = _sortable_datetime(item.get('created_at'))
     return (
         bool(item.get('completed')),
-        item.get('due_at') is None,
-        item.get('due_at') or datetime.max.replace(tzinfo=timezone.utc),
-        -(item.get('created_at', datetime.min.replace(tzinfo=timezone.utc)).timestamp()),
+        due_at is None,
+        due_at or datetime.max.replace(tzinfo=timezone.utc),
+        -(created_at.timestamp() if created_at is not None else _LIST_SORT_CREATED_AT_FLOOR),
     )
 
 
