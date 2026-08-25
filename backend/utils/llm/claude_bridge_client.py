@@ -21,6 +21,8 @@ import json
 import logging
 import os
 import re
+import threading
+import time
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import httpx
@@ -70,6 +72,101 @@ class ClaudeBridgeUpstreamError(RuntimeError):
         self.message = message
         self.code = code
         self.resets_at = resets_at
+
+
+# --- Subscription-window circuit breaker -------------------------------------
+#
+# When the personal subscription window is spent, the bridge answers every call
+# with the same refusal and a `resets_at` epoch. The backend does not know that:
+# on 2026-08-25 between 03:00 and 04:00 it made 259 consecutive rejected calls
+# (measured from the CLI journals, marathon/lane5-finding-quota-burn.md), each
+# one spawning a `claude -p` process on the mini just to be told the door is
+# locked. Background finalization is the bulk of it and retries on its own
+# schedule, so the storm lasts as long as the outage does.
+#
+# While a refusal carries a future `resets_at`, calls fail fast with the same
+# ClaudeBridgeUpstreamError (still `provider_unavailable`, so the durable
+# finalizer keeps deferring the conversation instead of discarding it). The
+# breaker is half-open: one real call is allowed through every
+# CLAUDE_BRIDGE_QUOTA_PROBE_SECONDS, because the window slides and can reopen
+# earlier than the announced reset. Any successful answer clears it.
+CLAUDE_BRIDGE_QUOTA_BREAKER_ENV_VAR = 'CLAUDE_BRIDGE_QUOTA_BREAKER'
+CLAUDE_BRIDGE_QUOTA_PROBE_ENV_VAR = 'CLAUDE_BRIDGE_QUOTA_PROBE_SECONDS'
+DEFAULT_QUOTA_PROBE_SECONDS = 60.0
+
+_quota_lock = threading.Lock()
+_quota_block: Optional[Dict[str, Any]] = None
+
+
+def _quota_breaker_enabled() -> bool:
+    return os.environ.get(CLAUDE_BRIDGE_QUOTA_BREAKER_ENV_VAR, '1').strip().lower() not in ('0', 'false', 'no')
+
+
+def _quota_probe_seconds() -> float:
+    raw = os.environ.get(CLAUDE_BRIDGE_QUOTA_PROBE_ENV_VAR, '').strip()
+    if not raw:
+        return DEFAULT_QUOTA_PROBE_SECONDS
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        logger.warning(
+            '%s=%r is not a number, using default %.0fs',
+            CLAUDE_BRIDGE_QUOTA_PROBE_ENV_VAR,
+            raw,
+            DEFAULT_QUOTA_PROBE_SECONDS,
+        )
+        return DEFAULT_QUOTA_PROBE_SECONDS
+
+
+def reset_quota_breaker() -> None:
+    """Forget a recorded outage (used by tests and by a successful answer)."""
+    global _quota_block
+    with _quota_lock:
+        _quota_block = None
+
+
+def _record_quota_block(error: 'ClaudeBridgeUpstreamError') -> None:
+    """Remember a refusal that announced when the window reopens."""
+    global _quota_block
+    if not _quota_breaker_enabled() or not isinstance(error.resets_at, (int, float)):
+        return
+    now = time.time()
+    if error.resets_at <= now:
+        return
+    with _quota_lock:
+        _quota_block = {
+            'resets_at': float(error.resets_at),
+            'message': error.message,
+            'code': error.code,
+            # The refusal that opened the breaker counts as this interval's probe.
+            'last_probe_at': now,
+        }
+    logger.warning(
+        'claude bridge quota window closed until %s — failing fast until then (code=%s)',
+        time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(error.resets_at)),
+        error.code,
+    )
+
+
+def _quota_gate() -> None:
+    """Fail fast while the window is known-closed, letting one probe through per interval."""
+    global _quota_block
+    if not _quota_breaker_enabled():
+        return
+    now = time.time()
+    with _quota_lock:
+        block = _quota_block
+        if block is None:
+            return
+        if block['resets_at'] <= now:
+            _quota_block = None
+            logger.info('claude bridge quota window reset reached — retrying for real')
+            return
+        if now - block['last_probe_at'] >= _quota_probe_seconds():
+            block['last_probe_at'] = now
+            return
+        message, code, resets_at = block['message'], block['code'], block['resets_at']
+    raise ClaudeBridgeUpstreamError(message, code=code, resets_at=int(resets_at))
 
 
 CLAUDE_BRIDGE_URL_ENV_VAR = 'CLAUDE_BRIDGE_URL'
@@ -143,6 +240,7 @@ class ClaudeBridgeChatModel(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
+        _quota_gate()
         question, context = _messages_to_question_and_context(messages)
         payload: Dict[str, Any] = {
             'question': question,
@@ -168,11 +266,13 @@ class ClaudeBridgeChatModel(BaseChatModel):
                     elif event_type == 'error':
                         # No answer exists: whatever deltas arrived before this are a
                         # truncated fragment at best, so they are dropped, not returned.
-                        raise ClaudeBridgeUpstreamError(
+                        upstream_error = ClaudeBridgeUpstreamError(
                             event.get('message') or 'claude bridge upstream error',
                             code=event.get('code') or 'upstream_error',
                             resets_at=event.get('resets_at'),
                         )
+                        _record_quota_block(upstream_error)
+                        raise upstream_error
                     elif event_type == 'done':
                         # The bridge currently emits one delta covering the whole answer
                         # (no --include-partial-messages yet — see ask-claude-bridge.md),
@@ -182,6 +282,8 @@ class ClaudeBridgeChatModel(BaseChatModel):
                         if full_text is not None:
                             text_parts = [full_text]
 
+        # An answer proves the window is open again, whatever the announced reset said.
+        reset_quota_breaker()
         message = AIMessage(content=''.join(text_parts))
         return ChatResult(generations=[ChatGeneration(message=message)])
 

@@ -532,6 +532,130 @@ def _submit_conversation_action_items_shadow(
     )
 
 
+# Tokens that carry no retrievable content on their own, in the languages this deployment
+# actually sees. A conversation made up of nothing else is not a conversation: it is the
+# transcriber reacting to room noise, and asking a model about it costs a call (and, when
+# the model answers "keep", a second one to write a summary that says "this recording has
+# no content"). Deliberately short and boring — a token only belongs here if it is
+# meaningless in EVERY context. Anything that could name a person, a place or a task
+# (including one-word answers like a name) must fall through to the model.
+_ACKNOWLEDGEMENT_TOKENS = frozenset(
+    {
+        # English
+        'a',
+        'ah',
+        'aha',
+        'eh',
+        'em',
+        'er',
+        'erm',
+        'hm',
+        'hmm',
+        'huh',
+        'k',
+        'kay',
+        'm',
+        'mhm',
+        'mm',
+        'mmm',
+        'no',
+        'nope',
+        'o',
+        'oh',
+        'ok',
+        'okay',
+        'oops',
+        'right',
+        'uh',
+        'uhh',
+        'uhhuh',
+        'um',
+        'umm',
+        'wow',
+        'yeah',
+        'yep',
+        'yes',
+        'yup',
+        # Russian
+        'а',
+        'ага',
+        'аха',
+        'ай',
+        'угу',
+        'да',
+        'нет',
+        'не',
+        'ну',
+        'о',
+        'ой',
+        'окей',
+        'ок',
+        'кей',
+        'ладно',
+        'так',
+        'вот',
+        'э',
+        'эм',
+        'эй',
+        'м',
+        'мм',
+        'ммм',
+        'хм',
+        'хмм',
+        'ух',
+    }
+)
+
+
+# Keeps letters and digits, drops everything else (punctuation, dashes, ellipses). Written
+# without a regex character class so it holds for Cyrillic as well as ASCII.
+def _content_tokens(text: str) -> List[str]:
+    cleaned = ''.join(c if c.isalnum() else ' ' for c in text.lower())
+    return cleaned.split()
+
+
+def _strip_speaker_label(line: str) -> str:
+    """Drop the rendered `[00:12 - 00:15] Speaker 0: ` prefix, and nothing that could be speech.
+
+    What reaches this module is never raw speech: `TranscriptSegment.segments_as_string`
+    labels every line with a speaker, and the action-item renderer prepends a segment id as
+    well. Tokenising that verbatim leaves "speaker" and "0" looking like content words.
+
+    Only two label shapes are stripped, both of which the renderers emit: `Speaker <n>`, and
+    a single-token name (the configured user name, or a person's name). A multi-word prefix
+    is left alone, so a spoken colon in "Купи молоко: угу" keeps its content and still goes
+    to the model. The residual risk is a one-word label that is itself the only content —
+    "Молоко: угу" — which the transcriber would have to invent a colon to produce.
+    """
+    stripped = line.strip()
+    # A leading bracket holds a timestamp or a segment id, never speech.
+    if stripped.startswith('['):
+        closing = stripped.find(']')
+        if closing != -1:
+            stripped = stripped[closing + 1 :].lstrip()
+    label, separator, spoken = stripped.partition(':')
+    if not separator or not spoken.strip():
+        return stripped
+    words = label.split()
+    labelled = len(words) == 1 or (len(words) == 2 and words[0].lower() == 'speaker' and words[1].isdigit())
+    return spoken.strip() if labelled else stripped
+
+
+def _is_content_free(transcript: str) -> bool:
+    """True when the transcript cannot possibly carry anything worth retrieving later.
+
+    Two shapes, both produced by the transcriber rather than by a speaker: nothing but
+    acknowledgements, and nothing but punctuation. The second is not hypothetical — the
+    hallucination filter upstream leaves behind strings like "..." on room noise, and
+    `transcript.strip()` is truthy for them, so they used to reach the model too.
+    """
+    spoken = ' '.join(_strip_speaker_label(line) for line in (transcript or '').splitlines())
+    tokens = _content_tokens(spoken)
+    if not tokens:
+        return True
+    return all(t in _ACKNOWLEDGEMENT_TOKENS for t in tokens)
+
+
 def should_discard_conversation(
     transcript: str,
     photos: Optional[List[ConversationPhoto]] = None,
@@ -545,6 +669,14 @@ def should_discard_conversation(
     if word_count > 100:
         return False
     has_photos = photos and ConversationPhoto.photos_as_string(photos) != 'None'
+
+    # The mirror image of the fast path above, and the far more common one on a self-hosted
+    # setup: a transcript that is nothing but acknowledgements. A recorder left running in a
+    # room whose noise floor sits above the silence gate produces these all day ("Угу.",
+    # "Yeah."), and every one of them used to cost a model call. Wake-word conversations are
+    # exempt: there the user addressed the assistant on purpose, and a bare "yes" is an answer.
+    if not has_photos and not trusted_wake_word_markers and _is_content_free(transcript):
+        return True
 
     context_parts: List[str] = []
     if transcript and transcript.strip():
