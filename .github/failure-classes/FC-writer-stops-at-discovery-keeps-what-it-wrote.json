@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "FC-writer-stops-at-discovery-keeps-what-it-wrote",
+  "violated_contract": "A producer that discovers mid-stream that the record it is writing for no longer exists must release what it has already written for that record, not merely stop writing. The discovery is normally made by the write itself -- the attempt to attach the artifact is the probe -- so by the time the producer knows, the artifact is already durable. Stopping at that point strands exactly the work produced between the deletion and the discovery, and it is unreachable by construction: the record that named it is gone, so no reader, no endpoint and no record-enumerating sweep will ever visit it again. Nothing fails and nothing is logged as lost, which is why the guard that stops the stream reads as a complete fix.",
+  "canonical_prevention": "At the point where the producer's own write reports the record missing, release that record's artifacts through the same cascade its deletion uses, fail-open, and only then drop the stream. Prove it with a test where the write reports the record gone and asserts the artifacts are released, and one where a refused release still stops the stream instead of retrying the write.",
+  "canonical_prevention_artifact": [
+    "backend/routers/pusher.py",
+    "backend/tests/unit/test_pusher_deleted_conversation_sync.py"
+  ],
+  "evidence_prs": [
+    11742
+  ],
+  "scope_hints": [
+    "backend/routers/pusher.py",
+    "backend/utils/other/storage.py"
+  ],
+  "status": "open"
+}
