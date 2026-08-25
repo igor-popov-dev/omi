@@ -204,6 +204,21 @@ CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     'memory_l1': ('opus', 'claude-bridge'),
     'memory_l2': ('opus', 'claude-bridge'),
     'proactive_notification': ('opus', 'claude-bridge'),
+    # Google сняла gemini-2.5-flash-lite с НОВЫХ ключей AI Studio: живой вызов ключом Игоря
+    # (25.08) отвечает 404 «...is no longer available to new users. Please update your code to
+    # use models/gemini-3.5-flash-lite», хотя ListModels модель всё ещё перечисляет. Наш
+    # ключ заведён в августе 2026 -> все шесть gemini-фич на self-host были мертвы
+    # (backend-real.log: 15 отказов utils.onboarding + 2 routers.apps). Профили апстрима
+    # НЕ трогаем: у них ключи старые, там модель ещё отвечает.
+    # thinking_budget сюда не уедет сам собой — гейт в providers.py ключён на
+    # префикс 'gemini-2.5'; это важно: 3.5-flash-lite отвечает 400 на thinking_budget=0
+    # (проверено живым вызовом тем же клиентом).
+    'session_titles': ('gemini-3.5-flash-lite', 'gemini'),
+    'followup': ('gemini-3.5-flash-lite', 'gemini'),
+    'onboarding': ('gemini-3.5-flash-lite', 'gemini'),
+    'app_integration': ('gemini-3.5-flash-lite', 'gemini'),
+    'trends': ('gemini-3.5-flash-lite', 'gemini'),
+    'translation': ('gemini-3.5-flash-lite', 'gemini'),
 }
 
 # Pinned features — (model, provider) fixed regardless of profile or env override.
