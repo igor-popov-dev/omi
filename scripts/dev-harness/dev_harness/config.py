@@ -362,8 +362,12 @@ def _harness_service_extra(cfg: HarnessConfig) -> dict[str, str]:
         # WeSpeaker embedding HTTP service (marathon/wespeaker_server.py, lane1) deployed
         # on mini at :8767; overridable so a non-mini harness instance can point elsewhere
         # or unset it to fall back to the backend's built-in (unhosted) embedding path.
+        # Адрес — ПЕТЛЯ, а не LAN-IP: сервис слушает *:8767 на этой же машине, а вот адрес
+        # mini в локальной сети уехал по DHCP (было 192.168.1.33, стало 192.168.1.2) — и
+        # опознание говорящих молча падало с ConnectError (backend-real.log, 25.08 19:05,
+        # "Speaker ID match failed speaker=0 type=ConnectError").
         "HOSTED_SPEAKER_EMBEDDING_API_URL": os.environ.get(
-            "HOSTED_SPEAKER_EMBEDDING_API_URL", "http://192.168.1.33:8767"
+            "HOSTED_SPEAKER_EMBEDDING_API_URL", "http://127.0.0.1:8767"
         ),
         # fake-gcs-server (marathon/deploy, lane2) on mini loopback backs speech-profile
         # blob storage — without it BUCKET_SPEECH_PROFILES stays unset and every profile
