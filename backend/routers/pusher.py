@@ -46,7 +46,11 @@ from utils.webhooks import (
     get_audio_bytes_webhook_seconds,
 )
 from utils.cloud_tasks import is_audio_merge_dispatch_enabled
-from utils.other.storage import maybe_invalidate_conversation_playback, upload_audio_chunks_batch
+from utils.other.storage import (
+    delete_conversation_audio_files,
+    maybe_invalidate_conversation_playback,
+    upload_audio_chunks_batch,
+)
 from utils.journey_metrics_contract import ClientKind, bounded_client_kind
 from utils.metrics import (
     PUSHER_ACTIVE_WS_CONNECTIONS,
@@ -275,6 +279,16 @@ async def _websocket_util_trigger(
                                 outcome='exhausted',
                                 log=logger,
                             )
+                            # The batch that raced the delete is already in the bucket. Once the
+                            # conversation row is gone nothing can reference, play or delete that
+                            # audio again, so release it here — this is the last place its id is
+                            # still known. Failing to delete must not change the drop decision.
+                            try:
+                                await run_blocking(
+                                    storage_executor, cast(Any, delete_conversation_audio_files), uid, conv_id
+                                )
+                            except Exception as e:
+                                logger.error(f"Error releasing audio of deleted conversation: {e} {uid} {conv_id}")
                 except Exception as e:
                     logger.error(f"Error updating audio files: {e} {uid} {conv_id}")
                 audio_budget.release(len(chunk_data))
