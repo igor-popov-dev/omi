@@ -9,6 +9,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class ShowAppOptionsSheet extends StatelessWidget {
   final App app;
@@ -46,7 +47,7 @@ class ShowAppOptionsSheet extends StatelessWidget {
                     context.l10n.keepItemPublic(context.l10n.itemApp),
                     style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
                   ),
-                  trailing: Switch(
+                  trailing: OmiSwitch(
                     value: provider.appPublicToggled,
                     onChanged: (value) {
                       if (value) {

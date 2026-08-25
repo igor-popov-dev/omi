@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:omi/widgets/omi_switch.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -558,12 +559,12 @@ class _AddAppPageState extends State<AddAppPage> {
                                           ],
                                         ),
                                       ),
-                                      Switch(
+                                      OmiSwitch(
                                         value: provider.makeAppPublic,
                                         onChanged: (value) {
                                           provider.setIsPrivate(value);
                                         },
-                                        activeThumbColor: t.isGlass ? null : t.accent,
+                                        classicActiveThumbColor: t.accent,
                                       ),
                                     ],
                                   ),
@@ -603,12 +604,12 @@ class _AddAppPageState extends State<AddAppPage> {
                                             ],
                                           ),
                                         ),
-                                        Switch(
+                                        OmiSwitch(
                                           value: provider.isPaid,
                                           onChanged: (value) {
                                             provider.setIsPaid(value);
                                           },
-                                          activeThumbColor: t.isGlass ? null : t.success,
+                                          classicActiveThumbColor: t.success,
                                         ),
                                       ],
                                     ),

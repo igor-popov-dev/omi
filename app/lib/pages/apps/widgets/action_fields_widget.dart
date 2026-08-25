@@ -8,6 +8,7 @@ import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class ActionFieldsWidget extends StatelessWidget {
   const ActionFieldsWidget({super.key});
@@ -69,7 +70,7 @@ class ActionFieldsWidget extends StatelessWidget {
                                     style: TextStyle(color: t.textPrimary, fontSize: 16),
                                   ),
                                 ),
-                                Switch(
+                                OmiSwitch(
                                   value: isSelected,
                                   onChanged: (value) {
                                     if (value) {
@@ -78,7 +79,7 @@ class ActionFieldsWidget extends StatelessWidget {
                                       provider.removeActionByType(actionType.id);
                                     }
                                   },
-                                  activeThumbColor: t.isGlass ? null : t.accent,
+                                  classicActiveThumbColor: t.accent,
                                 ),
                               ],
                             ),

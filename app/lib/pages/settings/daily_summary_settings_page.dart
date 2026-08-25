@@ -12,6 +12,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class DailySummarySettingsPage extends StatefulWidget {
   const DailySummarySettingsPage({super.key});
@@ -286,7 +287,7 @@ class _DailySummarySettingsPageState extends State<DailySummarySettingsPage> {
           _buildSettingRow(
             icon: FontAwesomeIcons.bell,
             title: context.l10n.dailySummary,
-            trailing: Switch(value: _enabled, onChanged: _updateEnabled, activeThumbColor: t.isGlass ? null : t.accent),
+            trailing: OmiSwitch(value: _enabled, onChanged: _updateEnabled, classicActiveThumbColor: t.accent),
           ),
 
           Padding(

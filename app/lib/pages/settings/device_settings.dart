@@ -26,6 +26,7 @@ import 'package:omi/widgets/dialog.dart';
 import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class DeviceSettings extends StatefulWidget {
   const DeviceSettings({super.key});
@@ -331,10 +332,10 @@ class _DeviceSettingsState extends State<DeviceSettings> {
               title: context.l10n.autoSync,
               subtitle: context.l10n.autoSyncDescription,
               showChevron: false,
-              trailing: Switch(
+              trailing: OmiSwitch(
                 value: _autoSyncOfflineRecordings,
-                activeThumbColor: t.isGlass ? null : t.textPrimary,
-                activeTrackColor: t.isGlass ? null : t.accent,
+                classicActiveThumbColor: t.textPrimary,
+                classicActiveTrackColor: t.accent,
                 onChanged: (value) {
                   setState(() => _autoSyncOfflineRecordings = value);
                   SharedPreferencesUtil().autoSyncOfflineRecordings = value;

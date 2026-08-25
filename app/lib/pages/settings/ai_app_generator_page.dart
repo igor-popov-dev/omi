@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:omi/widgets/omi_switch.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
 
 import 'package:omi/backend/schema/app.dart';
@@ -1072,7 +1073,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             ],
           ),
         ),
-        Switch(value: value, onChanged: onChanged, activeThumbColor: t.isGlass ? null : activeColor),
+        OmiSwitch(value: value, onChanged: onChanged, classicActiveThumbColor: activeColor),
       ],
     );
   }

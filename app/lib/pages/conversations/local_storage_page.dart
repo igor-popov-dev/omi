@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/providers/sync_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_theme.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
 class LocalStoragePage extends StatefulWidget {
@@ -175,6 +176,7 @@ class _LocalStoragePageState extends State<LocalStoragePage> {
                           value: isEnabled,
                           onChanged: _isSaving ? null : _toggleLocalStorage,
                           activeTrackColor: t.accent,
+                          inactiveTrackColor: t.isGlass ? kGlassSwitchOffTrack : null,
                         ),
                       ),
                     ],

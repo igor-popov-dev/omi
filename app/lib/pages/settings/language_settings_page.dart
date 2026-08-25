@@ -12,6 +12,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class LanguageSettingsPage extends StatefulWidget {
   const LanguageSettingsPage({super.key});
@@ -170,7 +171,7 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                   ),
                 )
               else
-                Switch(
+                OmiSwitch(
                   value: isAutoTranslationEnabled,
                   onChanged: (value) async {
                     final success = await userProvider.setSingleLanguageMode(!value);
@@ -178,7 +179,7 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                       context.read<CaptureProvider>().onTranscriptionSettingsChanged();
                     }
                   },
-                  activeThumbColor: t.isGlass ? null : t.success,
+                  classicActiveThumbColor: t.success,
                 ),
             ],
           ),

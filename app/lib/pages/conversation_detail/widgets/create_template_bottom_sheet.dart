@@ -20,6 +20,7 @@ import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/theme/glass_effects.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class CreateTemplateBottomSheet extends StatefulWidget {
   final String? conversationId;
@@ -412,7 +413,7 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                             ],
                           ),
                         ),
-                        Switch(
+                        OmiSwitch(
                           value: _isPublic,
                           onChanged: _isCreating
                               ? null
@@ -421,7 +422,7 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
                                     _isPublic = value;
                                   });
                                 },
-                          activeThumbColor: t.isGlass ? null : t.accent,
+                          classicActiveThumbColor: t.accent,
                         ),
                       ],
                     ),

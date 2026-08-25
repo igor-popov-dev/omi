@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:omi/backend/http/api/users.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/widgets/omi_switch.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
 import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
@@ -401,10 +402,10 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
           _buildSettingRow(
             icon: FontAwesomeIcons.bell,
             title: context.l10n.enable,
-            trailing: Switch(
+            trailing: OmiSwitch(
               value: _dailySummaryEnabled,
               onChanged: _updateDailySummaryEnabled,
-              activeThumbColor: t.isGlass ? null : t.accent,
+              classicActiveThumbColor: t.accent,
             ),
           ),
 

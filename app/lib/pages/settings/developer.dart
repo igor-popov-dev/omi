@@ -22,6 +22,7 @@ import 'package:omi/pages/settings/conversation_display_settings.dart';
 import 'package:omi/pages/settings/conversation_timeout_dialog.dart';
 import 'package:omi/pages/settings/free_form_voice_timeout_dialog.dart';
 import 'package:omi/pages/settings/voice_orb_theme_dialog.dart';
+import 'package:omi/widgets/omi_switch.dart';
 import 'package:omi/widgets/omi_voice_orb.dart';
 import 'package:omi/services/voice_hub/free_form_voice_timeout.dart';
 import 'package:omi/pages/settings/data_privacy_page.dart';
@@ -187,7 +188,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
             ],
           ),
         ),
-        Switch(value: value, onChanged: onChanged, activeThumbColor: t.isGlass ? null : t.success),
+        OmiSwitch(value: value, onChanged: onChanged, classicActiveThumbColor: t.success),
       ],
     );
   }
@@ -365,7 +366,7 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                 ],
               ),
             ),
-            Switch(value: isEnabled, onChanged: onToggle, activeThumbColor: t.isGlass ? null : t.success),
+            OmiSwitch(value: isEnabled, onChanged: onToggle, classicActiveThumbColor: t.success),
           ],
         ),
         if (isEnabled) ...[
@@ -835,13 +836,13 @@ class _DeveloperSettingsPageState extends State<_DeveloperSettingsPageView> {
                                 ],
                               ),
                             ),
-                            Switch(
+                            OmiSwitch(
                               value: SharedPreferencesUtil().devLogsToFileEnabled,
                               onChanged: (v) async {
                                 await DebugLogManager.setEnabled(v);
                                 setState(() {});
                               },
-                              activeThumbColor: t.isGlass ? null : t.success,
+                              classicActiveThumbColor: t.success,
                             ),
                           ],
                         ),

@@ -9,6 +9,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class ConversationDisplaySettings extends StatefulWidget {
   const ConversationDisplaySettings({super.key});
@@ -82,7 +83,7 @@ class _ConversationDisplaySettingsState extends State<ConversationDisplaySetting
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged, activeThumbColor: t.isGlass ? null : t.success),
+          OmiSwitch(value: value, onChanged: onChanged, classicActiveThumbColor: t.success),
         ],
       ),
     );

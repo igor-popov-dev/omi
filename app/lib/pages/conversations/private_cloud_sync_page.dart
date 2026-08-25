@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_theme.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PrivateCloudSyncPage extends StatefulWidget {
@@ -182,6 +183,7 @@ class _PrivateCloudSyncPageState extends State<PrivateCloudSyncPage> {
                                     value: isEnabled,
                                     onChanged: _isSaving ? null : _togglePrivateCloudSync,
                                     activeTrackColor: t.accent,
+                                    inactiveTrackColor: t.isGlass ? kGlassSwitchOffTrack : null,
                                   ),
                                 ),
                               ],

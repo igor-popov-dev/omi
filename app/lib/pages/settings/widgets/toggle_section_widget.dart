@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class ToggleSectionWidget extends StatefulWidget {
   final bool isSectionEnabled;
@@ -52,10 +53,10 @@ class _ToggleSectionWidgetState extends State<ToggleSectionWidget> {
                   ],
                 ),
               ),
-              Switch(
+              OmiSwitch(
                 value: widget.isSectionEnabled,
                 onChanged: widget.onSectionEnabledChanged,
-                activeThumbColor: t.isGlass ? null : t.accent,
+                classicActiveThumbColor: t.accent,
               ),
             ],
           ),

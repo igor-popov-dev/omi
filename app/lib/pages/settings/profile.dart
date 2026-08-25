@@ -21,6 +21,7 @@ import 'package:omi/utils/platform/platform_service.dart';
 import 'delete_account.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/utils/theme/omi_icons.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -330,10 +331,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                           ),
                         ),
-                        Switch(
+                        OmiSwitch(
                           value: enabled,
-                          activeThumbColor: t.isGlass ? null : t.textPrimary,
-                          activeTrackColor: t.isGlass ? null : t.accent,
+                          classicActiveThumbColor: t.textPrimary,
+                          classicActiveTrackColor: t.accent,
                           onChanged: (enabled || canEnable) ? (v) => setEnabled(v) : null,
                         ),
                       ],
@@ -448,10 +449,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                           ),
                         ),
-                        Switch(
+                        OmiSwitch(
                           value: enabled,
-                          activeThumbColor: t.isGlass ? null : t.textPrimary,
-                          activeTrackColor: t.isGlass ? null : t.accent,
+                          classicActiveThumbColor: t.textPrimary,
+                          classicActiveTrackColor: t.accent,
                           onChanged: (v) => setEnabled(v),
                         ),
                       ],

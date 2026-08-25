@@ -118,9 +118,25 @@ ThemeData _buildGlassTheme(OmiTokens t) {
 /// состояние и читается; `systemGray` даёт 3.28:1. Тон 0.557 < 0.7481, поэтому
 /// трек заведомо темнее страницы при любой подложке (см. «Порядок яркости» в
 /// `omi_tokens.dart`).
-const Color _glassSwitchOffTrack = Color(0xFF8E8E93);
+///
+/// Публичный, потому что этот же цвет обязаны взять и Cupertino-свитчи: их
+/// собственный дефолт (`CupertinoColors.secondarySystemFill`, светлая тема —
+/// `0x28787880`) заметно бледнее, и рядом с Material-свитчем «выключено»
+/// читалось бы двумя разными серыми.
+const Color kGlassSwitchOffTrack = Color(0xFF8E8E93);
 
 /// Свитч в Glass: белый бегунок в обоих состояниях, состояние несёт трек.
+///
+/// Тема задаёт цвета, но не форму: Glass стоит на `useMaterial3: false`, и
+/// Material рисует свитч конфигом M2 (трек 33×14, бегунок радиусом 10 наружу).
+/// Поэтому обычные свитчи приложения идут через `OmiSwitch`
+/// (`lib/widgets/omi_switch.dart`), который в Glass подставляет
+/// `CupertinoSwitch` с этими же цветами. Сюда попадает то, до чего обёртка не
+/// достаёт: `SwitchListTile` (свой свитч он строит сам) и любой Material-свитч,
+/// добавленный мимо обёртки, — тема остаётся страховкой, чтобы такой свитч не
+/// свалился в дефолты M2, где включённый бегунок красится в
+/// `colorScheme.secondary`, а на Glass это [OmiTokens.bgTertiary] —
+/// полупрозрачный серый, то есть «включено» неотличимо от «выключено».
 ///
 /// Порт `desktop/macos/Desktop/Sources/Theme/OmiToggleStyle.swift`: включённый
 /// трек — `Ink.accent` ([OmiTokens.accent]), выключенный — `systemGray`,
@@ -147,7 +163,7 @@ SwitchThemeData _glassSwitchTheme(OmiTokens t) {
   return SwitchThemeData(
     thumbColor: WidgetStateProperty.resolveWith((states) => mute(Colors.white, states)),
     trackColor: WidgetStateProperty.resolveWith(
-      (states) => mute(states.contains(WidgetState.selected) ? t.accent : _glassSwitchOffTrack, states),
+      (states) => mute(states.contains(WidgetState.selected) ? t.accent : kGlassSwitchOffTrack, states),
     ),
     trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
   );
