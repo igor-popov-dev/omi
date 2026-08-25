@@ -38,6 +38,15 @@ import 'package:flutter/widgets.dart';
 ///    этот вызов, а не рубильник целиком.
 ///  * `lib/pages/settings/settings_drawer.dart` — фон шторки настроек,
 ///    radius 28 сверху, sigma 38.
+///  * `lib/pages/conversation_detail/widgets/summarized_apps_sheet.dart` —
+///    панель «Шаблон сводки» на странице разговора, углы прямые (панель
+///    приезжает снизу без скруглений), sigma 38.
+///  * `lib/pages/conversation_detail/widgets/create_template_bottom_sheet.dart`
+///    — панель «Создать свой шаблон», открывается из предыдущей,
+///    radius 24 сверху, sigma 38.
+///  * `lib/pages/conversations/widgets/move_to_folder_sheet.dart` — панель
+///    «Переместить в папку», radius 20 сверху, sigma 38. Вуаль здесь осталась
+///    токеном `bgSecondary` — он плотнее `bgPrimary` и поверх блюра хватает.
 ///
 /// Поиски (`search`-панели) сознательно оставлены без realtime-blur — решение
 /// Игоря, не недосмотр.

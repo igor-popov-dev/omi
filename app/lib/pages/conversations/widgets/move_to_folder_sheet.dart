@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/backend/schema/folder.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/providers/folder_provider.dart';
-import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/glass_effects.dart';
 import 'package:omi/utils/theme/omi_emoji.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
@@ -16,87 +16,108 @@ class MoveToFolderSheet extends StatelessWidget {
 
   const MoveToFolderSheet({super.key, required this.conversationId, this.currentFolderId});
 
+  /// Радиус панели — скруглены только верхние углы, нижние уходят за экран.
+  static const BorderRadius _sheetRadius = BorderRadius.vertical(top: Radius.circular(20));
+
+  /// Размытие списка/страницы под панелью — то же 38, что у шторки настроек
+  /// и у панели «Шаблон сводки»: панель открывается поверх ленты разговоров с
+  /// её заголовками, и они должны раствориться, а не просвечивать сквозь
+  /// названия папок.
+  static const double _sheetBlurSigma = 38;
+
+  // Вуаль остаётся токеном `bgSecondary` (серый 0.55): он и так плотнее, чем
+  // `bgPrimary` у соседних панелей, и поверх размытия уже даёт непроницаемое
+  // стекло. Здесь добавляется только сам блюр — цвет панели не меняется.
+
   @override
   Widget build(BuildContext context) {
     final t = context.omi;
-    return Container(
-      decoration: BoxDecoration(
-        color: t.bgSecondary,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Consumer<FolderProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
-            return SizedBox(
-              height: 200,
-              child: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(t.accent),
-                ),
+    final content = Consumer<FolderProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return SizedBox(
+            height: 200,
+            child: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(t.accent),
               ),
-            );
-          }
-
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      context.l10n.moveToFolder,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: t.textPrimary,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Icon(Icons.close, color: t.textPrimary.withValues(alpha: 0.69), size: 24),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Folder list
-              if (provider.folders.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(
-                    child: Text(
-                      context.l10n.noFoldersAvailable,
-                      style: TextStyle(color: t.textPrimary.withValues(alpha: 0.69)),
-                    ),
-                  ),
-                )
-              else
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.only(bottom: 20),
-                    itemCount: provider.folders.length,
-                    itemBuilder: (context, index) {
-                      final folder = provider.folders[index];
-                      final isCurrentFolder = folder.id == currentFolderId;
-
-                      return _FolderListItem(
-                        folder: folder,
-                        isCurrentFolder: isCurrentFolder,
-                        onTap: isCurrentFolder ? null : () => _moveToFolder(context, provider, folder.id),
-                      );
-                    },
-                  ),
-                ),
-            ],
+            ),
           );
-        },
-      ),
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    context.l10n.moveToFolder,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: t.textPrimary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(Icons.close, color: t.textPrimary.withValues(alpha: 0.69), size: 24),
+                  ),
+                ],
+              ),
+            ),
+
+            // Folder list
+            if (provider.folders.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Text(
+                    context.l10n.noFoldersAvailable,
+                    style: TextStyle(color: t.textPrimary.withValues(alpha: 0.69)),
+                  ),
+                ),
+              )
+            else
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.only(bottom: 20),
+                  itemCount: provider.folders.length,
+                  itemBuilder: (context, index) {
+                    final folder = provider.folders[index];
+                    final isCurrentFolder = folder.id == currentFolderId;
+
+                    return _FolderListItem(
+                      folder: folder,
+                      isCurrentFolder: isCurrentFolder,
+                      onTap: isCurrentFolder ? null : () => _moveToFolder(context, provider, folder.id),
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
+
+    final decoration = BoxDecoration(color: t.bgSecondary, borderRadius: _sheetRadius);
+
+    if (!t.isGlass) {
+      return DecoratedBox(decoration: decoration, child: content);
+    }
+
+    // Glass: сначала размывается всё, что уже нарисовано ниже, и только
+    // поверх ложится вуаль.
+    return glassBlur(
+      borderRadius: _sheetRadius,
+      sigma: _sheetBlurSigma,
+      child: DecoratedBox(decoration: decoration, child: content),
     );
   }
 

@@ -18,6 +18,7 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/extensions/string.dart';
+import 'package:omi/utils/theme/glass_effects.dart';
 import 'package:omi/utils/theme/omi_tokens.dart';
 
 class SummarizedAppsBottomSheet extends StatelessWidget {
@@ -64,15 +65,62 @@ class _SheetContainer extends StatelessWidget {
 
   const _SheetContainer({required this.scrollController, required this.children});
 
+  /// Внутренние поля панели. Вынесены в константу, потому что Glass-ветка
+  /// собирает ту же геометрию вручную (`ColoredBox` + `Padding`) — ровно то,
+  /// что раскрывает в себе `Container(color:, padding:)` в Classic.
+  static const EdgeInsets _sheetPadding = EdgeInsets.fromLTRB(16, 8, 16, 16);
+
+  /// Панель приезжает снизу и рисуется без скруглений — так было и до блюра,
+  /// поэтому размытие режется тем же прямым прямоугольником: геометрия не
+  /// должна поехать ни на пиксель, меняется только то, что видно сквозь неё.
+  static const BorderRadius _sheetRadius = BorderRadius.zero;
+
+  /// Размытие страницы под панелью — как у шторки настроек (38), а не как у
+  /// плавающих пилюль (32): панель закрывает 70% экрана разговора, под ней
+  /// целые абзацы сводки, и их надо растворить целиком, а не приглушить.
+  static const double _sheetBlurSigma = 38;
+
+  /// Вуаль панели в Glass.
+  ///
+  /// Токен `bgPrimary` (белый 0.46) рассчитан на подложку [GlassBackdrop], а
+  /// здесь панель стоит поверх страницы, полной собственного текста: без блюра
+  /// сводка читалась прямо сквозь названия шаблонов. Блюр снимает
+  /// разборчивость, вуаль добивает остаточный контраст — тот же белый 0.62,
+  /// что и у шторки настроек, чтобы два стекла в одном приложении не
+  /// расходились по плотности.
+  static const Color _glassSheetVeil = Color(0x9EFFFFFF);
+
   @override
   Widget build(BuildContext context) {
     final t = context.omi;
+
+    if (!t.isGlass) {
+      return GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Container(
+          color: t.bgPrimary,
+          padding: _sheetPadding,
+          child: Column(children: children),
+        ),
+      );
+    }
+
+    // Glass: сначала размывается всё, что уже нарисовано ниже (страница +
+    // подложка), и только поверх ложится вуаль. `ColoredBox` вместо
+    // `DecoratedBox` — он непрозрачен для хит-теста, и тап по фону панели
+    // по-прежнему её закрывает, как это делал `Container(color:)`.
     return GestureDetector(
       onTap: () => Navigator.pop(context),
-      child: Container(
-        color: t.bgPrimary,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Column(children: children),
+      child: glassBlur(
+        borderRadius: _sheetRadius,
+        sigma: _sheetBlurSigma,
+        child: ColoredBox(
+          color: _glassSheetVeil,
+          child: Padding(
+            padding: _sheetPadding,
+            child: Column(children: children),
+          ),
+        ),
       ),
     );
   }
