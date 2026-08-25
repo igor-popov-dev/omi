@@ -6,6 +6,10 @@ uploaded to ``chunks/{uid}/{conversation_id}/``, where nothing can ever referenc
 delete them — 41% of sampled chunk prefixes in prod belonged to conversations that no
 longer exist. Once ``update_conversation`` reports the owner is gone, the session must stop
 uploading for that conversation.
+
+The batch that races the delete is still uploaded — the session only learns the owner is
+gone by trying to attach that batch to it. Stopping there leaves exactly that batch behind
+forever, so the session also releases the conversation's audio at the moment it finds out.
 """
 
 import asyncio
@@ -95,15 +99,23 @@ def private_cloud_session(monkeypatch):
     )
     monkeypatch.setattr(pusher, 'record_fallback', lambda **kwargs: fallbacks.append(kwargs))
 
-    def run(conversation_exists: bool):
+    released: list[tuple[str, str]] = []
+
+    def run(conversation_exists: bool, release_fails: bool = False):
         def update_conversation(uid, conversation_id, update_data):
             first_flush_handled.set()
             return conversation_exists
 
+        def release(uid, conversation_id):
+            released.append((uid, conversation_id))
+            if release_fails:
+                raise RuntimeError('bucket unavailable')
+
         monkeypatch.setattr(pusher.conversations_db, 'update_conversation', update_conversation)
+        monkeypatch.setattr(pusher, 'delete_conversation_audio_files', release)
         return SequencedWebSocket(first_flush_handled)
 
-    return {'run': run, 'uploaded': uploaded, 'fallbacks': fallbacks}
+    return {'run': run, 'uploaded': uploaded, 'fallbacks': fallbacks, 'released': released}
 
 
 @pytest.mark.asyncio
@@ -114,6 +126,8 @@ async def test_deleted_conversation_stops_further_audio_uploads(private_cloud_se
 
     # The first batch races the delete and is unavoidable; the second must not be uploaded.
     assert private_cloud_session['uploaded'] == [CONVERSATION_ID]
+    # ...and the raced batch does not stay in the bucket.
+    assert private_cloud_session['released'] == [(UID, CONVERSATION_ID)]
     assert private_cloud_session['fallbacks'] == [
         {
             'component': 'pusher',
@@ -134,3 +148,19 @@ async def test_live_conversation_keeps_syncing_audio(private_cloud_session):
 
     assert private_cloud_session['uploaded'] == [CONVERSATION_ID, CONVERSATION_ID]
     assert private_cloud_session['fallbacks'] == []
+    assert private_cloud_session['released'] == []
+
+
+@pytest.mark.asyncio
+async def test_failed_release_still_stops_the_sync(private_cloud_session):
+    """A bucket that refuses the delete must not resurrect the deleted conversation.
+
+    The row is already gone; retrying the upload would only add another unreachable object.
+    """
+    websocket = private_cloud_session['run'](conversation_exists=False, release_fails=True)
+
+    await pusher._websocket_util_trigger(websocket, UID, SAMPLE_RATE)
+
+    assert private_cloud_session['released'] == [(UID, CONVERSATION_ID)]
+    assert private_cloud_session['uploaded'] == [CONVERSATION_ID]
+    assert [fallback['to_mode'] for fallback in private_cloud_session['fallbacks']] == ['drop']
