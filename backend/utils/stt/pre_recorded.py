@@ -780,6 +780,24 @@ class ModulatePrerecordedProvider(PrerecordedSTTProvider):
 SELFHOST_PRERECORDED_PATH_ENV = 'OMI_SELFHOST_PRERECORDED_STT_PATH'
 
 
+SELFHOST_PRERECORDED_URL_ENV = 'OMI_SELFHOST_PRERECORDED_STT_URL'
+
+
+def _prerecorded_api_url() -> str:
+    """Base URL for one pre-recorded transcription call.
+
+    Self-host patch (not for upstream): on our machine the streaming and the
+    pre-recorded halves are two different services. `HOSTED_PARAKEET_API_URL`
+    is pinned to the WebSocket shim (it is the only thing the live `parakeet`
+    provider protocol talks to), and that shim has no HTTP transcribe route at
+    all — pre-recorded audio sent there gets a 404 and the whole sync job fails.
+    So the batch path takes its own base URL when this variable is set, and
+    falls back to the hosted variable everywhere it is not.
+    """
+    override = (os.getenv(SELFHOST_PRERECORDED_URL_ENV) or '').strip()
+    return override or os.environ['HOSTED_PARAKEET_API_URL']
+
+
 def _prerecorded_transcribe_path(*, v2: bool) -> str:
     """The path appended to HOSTED_PARAKEET_API_URL for one transcription call."""
     override = (os.getenv(SELFHOST_PRERECORDED_PATH_ENV) or '').strip()
@@ -839,7 +857,7 @@ def parakeet_prerecorded_from_bytes(
     )
 
     require_provider_environment(PrerecordedSTTService.PARAKEET)
-    api_url = os.environ['HOSTED_PARAKEET_API_URL']
+    api_url = _prerecorded_api_url()
 
     try:
         if encoding:

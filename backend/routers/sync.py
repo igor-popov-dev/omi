@@ -131,6 +131,7 @@ from utils.sync.backfill import (
     release_backfill_slot,
     reserve_backfill_speech,
     retry_after_next_utc_day,
+    selfhost_inline_backfill_enabled,
     try_acquire_backfill_slot,
 )
 from utils.sync.content_id import compute_sync_content_id
@@ -1109,8 +1110,14 @@ async def sync_local_files_v2(
         owned_paths = list(paths)
         paths = []  # Prevent finally cleanup of files now owned by bg task
 
-        if lane_decision.lane == SyncLane.BACKFILL and not cloud_task_eligible:
+        if (
+            lane_decision.lane == SyncLane.BACKFILL
+            and not cloud_task_eligible
+            and not selfhost_inline_backfill_enabled()
+        ):
             # Fail closed: backfill may run only on the dedicated queue/service.
+            # Self-host has no queue to fail closed onto — see
+            # utils/sync/backfill.selfhost_inline_backfill_enabled.
             # BYOK cannot be serialized into Cloud Tasks, so it is retained on
             # device until an isolated BYOK path exists.
             await run_blocking(sync_executor, _cleanup_files, owned_paths)

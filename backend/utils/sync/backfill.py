@@ -24,6 +24,24 @@ def _admission_limits_enabled() -> bool:
     return os.getenv('SYNC_BACKFILL_ADMISSION_LIMITS', 'false').lower() == 'true'
 
 
+def selfhost_inline_backfill_enabled() -> bool:
+    """Self-host patch, not for upstream: run historical recovery inline.
+
+    Upstream fails closed — backfill may run ONLY on the dedicated Cloud Tasks
+    queue (routers/sync.py, `cloud_task_eligible`). A deployment without Cloud
+    Tasks therefore answers every historical upload with 503 backfill_capacity,
+    and the recordings stay on the device forever: the client dutifully keeps
+    them and retries into the same wall.
+
+    The rule protects a shared hosted fleet, where one user's multi-hour
+    backlog must not eat the capacity that live conversations need. A self-host
+    instance has no fleet and no queue — its own backlog is the only work there
+    is — so it processes backfill on the same inline path fresh uploads already
+    use. False by default: the hosted deployment keeps failing closed.
+    """
+    return os.getenv('OMI_SELFHOST_INLINE_BACKFILL', 'false').lower() == 'true'
+
+
 def per_user_daily_limit_ms() -> int:
     return max(0, int(float(os.getenv('SYNC_BACKFILL_USER_DAILY_HOURS', '4')) * 60 * 60 * 1000))
 
