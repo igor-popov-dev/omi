@@ -336,10 +336,12 @@ def get_users_for_daily_summary(timezones: list[str], target_local_hour: int) ->
                 if legacy_token and legacy_token not in tokens:
                     tokens.append(str(legacy_token))
 
-                # Skip users with no tokens
-                if not tokens:
-                    continue
-
+                # Users with no tokens are still selected: the daily summary is content
+                # (its own screen, home card, list and share link), not just a push. Skipping
+                # them here made an unusable delivery channel silently suppress the recap
+                # itself, which is unrecoverable — the cron is the only writer, so a user who
+                # declined notification permission never gets a summary at all. Delivery is
+                # decided by the caller, which sends only when tokens exist.
                 time_zone = user_data.get('time_zone')
                 chunk_users.append((uid, tokens, time_zone))
 

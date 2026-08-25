@@ -1,6 +1,7 @@
 import asyncio
 import json
 import types
+from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -551,3 +552,53 @@ def test_usage_quota_endpoint_reads_customer_firestore_like_desktop_enforcement(
     snapshot_mock.assert_called_once_with(
         'uid1', platform='desktop', firestore_client=sentinel_customer_client, provision=False
     )
+
+
+def _daily_summary_test_patches(tokens):
+    # POST /v1/users/daily-summary-settings/test generates and stores the recap, then pushes it.
+    # Only the token lookup differs between the two cases below.
+    conversation = MagicMock()
+    return [
+        patch.object(users_router, 'enforce_chat_quota', MagicMock()),
+        patch.object(users_router.notification_db, 'get_user_time_zone', MagicMock(return_value='UTC')),
+        patch.object(users_router.notification_db, 'get_all_tokens', MagicMock(return_value=tokens)),
+        patch.object(users_router.conversations_db, 'get_conversations', MagicMock(return_value=[{'id': 'c1'}])),
+        patch.object(users_router, 'deserialize_conversations', MagicMock(return_value=[conversation])),
+        patch.object(
+            users_router,
+            'generate_comprehensive_daily_summary',
+            MagicMock(return_value={'day_emoji': '🌙', 'headline': 'A day', 'overview': 'It happened'}),
+        ),
+        patch.object(users_router.daily_summaries_db, 'create_daily_summary', MagicMock(return_value='summary-1')),
+    ]
+
+
+def test_daily_summary_test_generates_the_recap_without_registered_devices():
+    # The recap is content (its own screen, home card, list and share link), so a user who
+    # declined notification permission used to get a 400 here and no summary at all. Generate
+    # and store it regardless; report the skipped push in the message.
+    send_notification = MagicMock()
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(users_router, 'send_notification', send_notification))
+        for patcher in _daily_summary_test_patches(tokens=[]):
+            stack.enter_context(patcher)
+        result = users_router.test_daily_summary(request=None, uid='uid1', x_app_platform=None)
+
+    assert result['status'] == 'ok'
+    assert result['summary_id'] == 'summary-1'
+    assert 'notification not sent' in result['message']
+    send_notification.assert_not_called()
+
+
+def test_daily_summary_test_still_pushes_when_the_user_has_a_device():
+    send_notification = MagicMock()
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(users_router, 'send_notification', send_notification))
+        for patcher in _daily_summary_test_patches(tokens=['token-1']):
+            stack.enter_context(patcher)
+        result = users_router.test_daily_summary(request=None, uid='uid1', x_app_platform=None)
+
+    assert result['summary_id'] == 'summary-1'
+    assert 'notification not sent' not in result['message']
+    send_notification.assert_called_once()
+    assert send_notification.call_args.kwargs['tokens'] == ['token-1']

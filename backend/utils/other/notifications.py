@@ -201,7 +201,14 @@ def _send_summary_notification(user_data: Tuple[Any, ...]) -> None:
     # carries the same payload as a real JSON object for receivers to migrate to.
     postprocess_executor.submit(asyncio.run, day_summary_webhook(uid, str(summary_data), summary_data))
 
+    # Delivery is best-effort and separate from the summary above, which is already stored and
+    # readable in the app. A user without registered devices (notification permission declined,
+    # or an iOS client that never reached saveFcmToken) still gets the recap on their screen.
     tokens = user_data[1] if len(user_data) > 1 else None
+    if not tokens:
+        logger.info(f'Daily summary stored for uid={uid} date={date_str} without a push: no notification tokens')
+        return
+
     send_notification(
         uid, daily_summary_title, summary_body, NotificationMessage.get_message_as_dict(ai_message), tokens=tokens
     )

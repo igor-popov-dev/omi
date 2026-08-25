@@ -1557,9 +1557,6 @@ def test_daily_summary(
     time_zone_name = notification_db.get_user_time_zone(uid)
     tokens = notification_db.get_all_tokens(uid)
 
-    if not tokens:
-        raise HTTPException(status_code=400, detail='No notification tokens found for user')
-
     # Parse date or use today
     target_date = None
     if request and request.date:
@@ -1628,7 +1625,7 @@ def test_daily_summary(
     # Store in database
     summary_id = daily_summaries_db.create_daily_summary(uid, summary_data)
 
-    # Send notification
+    # Notify the user's devices, if any
     daily_summary_title = f"{summary_data.get('day_emoji', '📅')} {summary_data.get('headline', 'Your Daily Summary')}"
     summary_body = summary_data.get('overview', 'Tap to see your daily summary')
     if len(summary_body) > 150:
@@ -1642,13 +1639,16 @@ def test_daily_summary(
         navigate_to=f"/daily-summary/{summary_id}",
     )
 
-    send_notification(
-        uid, daily_summary_title, summary_body, NotificationMessage.get_message_as_dict(ai_message), tokens=tokens
-    )
+    # Delivery is optional: the recap above is stored and readable with no registered device.
+    if tokens:
+        send_notification(
+            uid, daily_summary_title, summary_body, NotificationMessage.get_message_as_dict(ai_message), tokens=tokens
+        )
+    skipped = '' if tokens else '; notification not sent (no registered devices)'
 
     return {
         'status': 'ok',
-        'message': f'Daily summary generated for {date_str}',
+        'message': f'Daily summary generated for {date_str}{skipped}',
         'summary_id': summary_id,
         'conversations_count': len(conversations),
     }

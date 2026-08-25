@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "FC-delivery-channel-gates-content-creation",
+  "violated_contract": "Content that the product renders in its own surfaces — a screen, a card, a list, a share link — must be created independently of whether any push channel can reach the user. Selecting recipients by the presence of a delivery token, and then letting that same selection be the only writer of the content, turns an optional and revocable channel into a precondition for the feature existing: a user who declines notification permission gets a permanently empty surface while the feature's toggle still reads as enabled, and no error is surfaced anywhere.",
+  "canonical_prevention": "Split generation from delivery: the job selects users by the feature's own preference, always generates and stores the artifact, and calls the notifier only when tokens exist. User-initiated 'test' endpoints for the same feature return the generated artifact and report the skipped push instead of failing the request. Regression tests assert a token-less user is selected, gets the artifact stored, and receives no push.",
+  "canonical_prevention_artifact": [
+    "backend/tests/unit/test_daily_summary_without_notification_tokens.py",
+    "backend/tests/routers/test_users.py"
+  ],
+  "evidence_prs": [
+    7219,
+    8354
+  ],
+  "scope_hints": [
+    "backend/database/notifications.py",
+    "backend/utils/other/notifications.py",
+    "backend/routers/users.py"
+  ],
+  "status": "open"
+}
