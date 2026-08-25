@@ -562,7 +562,32 @@ def delete_empty_recording_conversation(
         # Parent deletion is transactionally fenced with content writes; photos
         # are a subcollection and need their physical cleanup afterwards.
         conversations_db.delete_conversation_photos(uid, conversation_id)
+        _delete_orphaned_recording_audio(uid, conversation_id)
     return deleted
+
+
+def _delete_orphaned_recording_audio(uid: str, conversation_id: str) -> None:
+    """Drop private-cloud audio that the deleted generation can never own again.
+
+    Private cloud sync uploads its batches while the recording is still open, so
+    a generation that turns out to be empty has usually already written chunks
+    keyed by its conversation id. Deleting the row strands them: no row points
+    at them, the user-facing delete never sees them, and every lifecycle sweep
+    reads rows, so nothing else ever looks at the objects again. They stay in
+    the bucket for the life of the account. The user-initiated delete already
+    cascades to exactly these objects; this is that cascade for the generation
+    the server discards on the user's behalf.
+
+    A storage failure is logged and swallowed. The row is already gone, so
+    raising would report the deletion as failed and hand the caller a
+    conversation it can neither finalize nor delete again.
+    """
+    try:
+        from utils.other.storage import delete_conversation_audio_files
+
+        delete_conversation_audio_files(uid, conversation_id)
+    except Exception:
+        logger.exception('empty recording audio cleanup failed %s %s', uid, conversation_id)
 
 
 def open_live_recording_session(
