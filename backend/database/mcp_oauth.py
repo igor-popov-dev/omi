@@ -48,6 +48,10 @@ SUPPORTED_SCOPES = [
 ACCESS_TOKEN_TTL_SECONDS = int(os.getenv("MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS", "3600"))
 AUTH_CODE_TTL_SECONDS = int(os.getenv("MCP_OAUTH_AUTH_CODE_TTL_SECONDS", "600"))
 REFRESH_TOKEN_TTL_DAYS = int(os.getenv("MCP_OAUTH_REFRESH_TOKEN_TTL_DAYS", "365"))
+# RFC 9700 4.14.2: a refresh token replayed within a short leeway of its first use is
+# normally a client retrying after a lost token response, not an attacker. Zero keeps
+# the strict "any reuse revokes the family" behaviour.
+REFRESH_TOKEN_REUSE_LEEWAY_SECONDS = int(os.getenv("MCP_OAUTH_REFRESH_TOKEN_REUSE_LEEWAY_SECONDS", "0"))
 PKCE_ALLOWED_RE = re.compile(r"^[A-Za-z0-9._~-]{43,128}$")
 SUPPORTED_TOKEN_AUTH_METHODS = ["client_secret_post", "none"]
 PUBLIC_CHATGPT_CLIENT_IDS = {"omi-chatgpt-prod", "omi-chatgpt-dev"}
@@ -820,6 +824,21 @@ def _is_unexpired(value: object, now: datetime) -> bool:
         return False
 
 
+def _within_reuse_leeway(used_at: object, now: datetime) -> bool:
+    """True when a spent refresh token is being retried right after its first use.
+
+    The window is measured from the first use, so repeated replays cannot extend
+    it, and a ``used_at`` in the future (clock skew, corrupted document) falls
+    back to replay handling rather than granting an unbounded window.
+    """
+    if REFRESH_TOKEN_REUSE_LEEWAY_SECONDS <= 0 or not isinstance(used_at, datetime):
+        return False
+    try:
+        return timedelta(0) <= now - used_at <= timedelta(seconds=REFRESH_TOKEN_REUSE_LEEWAY_SECONDS)
+    except (TypeError, ValueError):
+        return False
+
+
 def _validated_access_token_identity(
     data: Dict[str, Any], grant: Dict[str, Any], resource: str, *, now: datetime
 ) -> Optional[Dict[str, Any]]:
@@ -921,7 +940,8 @@ def rotate_refresh_token(
         ):
             return None
         grant.setdefault("id", data.get("grant_id"))
-        if data.get("used_at") or data.get("replaced_by"):
+        used_at = data.get("used_at")
+        if (used_at or data.get("replaced_by")) and not _within_reuse_leeway(used_at, now):
             replay_grant_id = data.get("grant_id")
             transaction.set(grant_ref, {"revoked_at": now, "status": "revoked", "replay_detected": True}, merge=True)
             transaction.set(ref, {"replay_detected_at": now, "revoked_at": now}, merge=True)
@@ -945,7 +965,7 @@ def rotate_refresh_token(
         ) = _build_token_pair_writes(grant, requested_scopes, data.get("token_family_id"))
         transaction.set(access_ref, access_data)
         transaction.set(refresh_ref, refresh_data)
-        transaction.update(ref, {"used_at": now, "replaced_by": hash_secret(new_refresh_token)})
+        transaction.update(ref, {"used_at": used_at or now, "replaced_by": hash_secret(new_refresh_token)})
         transaction.set(grant_ref, {"last_used_at": now}, merge=True)
         return _token_pair_response(access_token, new_refresh_token, requested_scopes)
 

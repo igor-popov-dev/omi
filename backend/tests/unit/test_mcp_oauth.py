@@ -841,6 +841,64 @@ def test_refresh_token_rotates_and_old_refresh_reuse_revokes_grant():
     )
 
 
+def test_refresh_token_reuse_within_leeway_survives_a_lost_token_response(monkeypatch):
+    """A retry after the token response was lost in transit must not kill the connector."""
+    monkeypatch.setattr(mcp_oauth, 'REFRESH_TOKEN_REUSE_LEEWAY_SECONDS', 10)
+    scopes = ['memories.read']
+    grant = mcp_oauth.create_or_update_grant('user-leeway', 'omi-chatgpt-prod', mcp_oauth.MCP_RESOURCE_URL, scopes)
+    first_pair = mcp_oauth.issue_token_pair(grant, scopes=scopes)
+
+    lost_pair = mcp_oauth.rotate_refresh_token(
+        first_pair['refresh_token'], 'omi-chatgpt-prod', mcp_oauth.MCP_RESOURCE_URL
+    )
+    retried_pair = mcp_oauth.rotate_refresh_token(
+        first_pair['refresh_token'], 'omi-chatgpt-prod', mcp_oauth.MCP_RESOURCE_URL
+    )
+
+    assert retried_pair is not None
+    assert retried_pair['refresh_token'] not in (first_pair['refresh_token'], lost_pair['refresh_token'])
+    assert mcp_oauth.get_active_grant(grant['id']) is not None
+    assert (
+        mcp_oauth.validate_access_token(retried_pair['access_token'], mcp_oauth.MCP_RESOURCE_URL)['uid']
+        == 'user-leeway'
+    )
+    # The pair issued for the response that never arrived belongs to the same family
+    # and stays usable, so whichever of the two the client ended up with works.
+    assert mcp_oauth.validate_access_token(lost_pair['access_token'], mcp_oauth.MCP_RESOURCE_URL) is not None
+    assert (
+        mcp_oauth.rotate_refresh_token(lost_pair['refresh_token'], 'omi-chatgpt-prod', mcp_oauth.MCP_RESOURCE_URL)
+        is not None
+    )
+
+
+def test_refresh_token_reuse_leeway_is_measured_from_the_first_use(monkeypatch):
+    """Repeated replays cannot walk the window forward; past it the family is revoked."""
+    monkeypatch.setattr(mcp_oauth, 'REFRESH_TOKEN_REUSE_LEEWAY_SECONDS', 10)
+    scopes = ['memories.read']
+    grant = mcp_oauth.create_or_update_grant('user-leeway-2', 'omi-chatgpt-prod', mcp_oauth.MCP_RESOURCE_URL, scopes)
+    first_pair = mcp_oauth.issue_token_pair(grant, scopes=scopes)
+    spent_ref = mcp_oauth.db.collection('mcp_oauth_refresh_tokens').document(
+        mcp_oauth.hash_secret(first_pair['refresh_token'])
+    )
+
+    mcp_oauth.rotate_refresh_token(first_pair['refresh_token'], 'omi-chatgpt-prod', mcp_oauth.MCP_RESOURCE_URL)
+    first_use = spent_ref.get().to_dict()['used_at']
+    mcp_oauth.rotate_refresh_token(first_pair['refresh_token'], 'omi-chatgpt-prod', mcp_oauth.MCP_RESOURCE_URL)
+    assert spent_ref.get().to_dict()['used_at'] == first_use
+
+    spent_ref.set({'used_at': first_use - timedelta(seconds=30)}, merge=True)
+    assert (
+        mcp_oauth.rotate_refresh_token(first_pair['refresh_token'], 'omi-chatgpt-prod', mcp_oauth.MCP_RESOURCE_URL)
+        is None
+    )
+    assert mcp_oauth.get_active_grant(grant['id']) is None
+
+
+def test_refresh_token_reuse_leeway_is_disabled_by_default():
+    assert mcp_oauth.REFRESH_TOKEN_REUSE_LEEWAY_SECONDS == 0
+    assert not mcp_oauth._within_reuse_leeway(mcp_oauth._now(), mcp_oauth._now())
+
+
 def test_revoke_user_grant_invalidates_tokens():
     scopes = ['memories.read']
     grant = mcp_oauth.create_or_update_grant('user-3', 'omi-chatgpt-prod', mcp_oauth.MCP_RESOURCE_URL, scopes)
