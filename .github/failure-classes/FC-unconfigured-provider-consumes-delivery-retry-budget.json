@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "FC-unconfigured-provider-consumes-delivery-retry-budget",
+  "violated_contract": "A provider that is documented to fail open when the deployment has not configured it must not be handed durable deliveries. A strict consumer reads that fail-open skip as a delivery failure, spends the event's whole bounded attempt budget on a call that cannot succeed, and settles it into a terminal state with no replay path — so configuring the provider later recovers nothing, and the gap is invisible because every individual component behaved as designed.",
+  "canonical_prevention": "Resolve which providers the deployment can actually deliver to before leasing, so an unconfigured provider's events stay queued and unattempted rather than dead-lettered, and report the skipped provider as a content-free field on the worker/maintenance receipt so the gap is observable instead of silent.",
+  "canonical_prevention_artifact": [
+    "backend/tests/unit/test_memory_outbox_worker.py"
+  ],
+  "evidence_prs": [
+    9715
+  ],
+  "scope_hints": [
+    "backend/database/memory_outbox_worker.py",
+    "backend/utils/memory/short_term_promotion.py",
+    "backend/utils/memory/canonical_vector_sync.py"
+  ],
+  "status": "open"
+}

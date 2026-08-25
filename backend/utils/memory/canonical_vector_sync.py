@@ -16,6 +16,22 @@ from models.product_memory import (
 logger = logging.getLogger(__name__)
 
 
+def canonical_vector_provider_configured() -> bool:
+    """Report whether this deployment has a usable canonical vector index.
+
+    The vector helpers already degrade to a warning when the index is absent,
+    but the outbox consumer requires a strict ``True`` and would otherwise spend
+    every delivery attempt on a provider the install never configured.
+    """
+    try:
+        from database.vector_db import index
+
+        return index is not None
+    except Exception:
+        logger.exception("canonical vector provider probe failed")
+        return False
+
+
 def delete_canonical_memory_vector(uid: str, memory_id: str) -> bool:
     """Delete all provider identities for one user's canonical memory."""
     try:

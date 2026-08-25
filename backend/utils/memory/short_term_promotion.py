@@ -17,6 +17,7 @@ from database import knowledge_graph as kg_db
 from database._client import db as default_db_client
 from database.memory_collections import MemoryCollections
 from database.memory_outbox_worker import (
+    SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES,
     CanonicalMemoryOutboxSideEffects,
     CanonicalMemoryOutboxWorkerConfig,
     run_canonical_memory_outbox_worker_tick,
@@ -29,7 +30,7 @@ from jobs.short_term_lifecycle_worker import (
 )
 from models.product_memory import MemoryItem, MemoryItemStatus, MemoryLayer, ProcessingState
 from utils.memory.atom_keyword_index import delete_atom_keyword_doc, sync_atom_keyword_index_for_item
-from models.memory_apply import MemoryControlState
+from models.memory_apply import MemoryControlState, MemoryOutboxEventType
 from utils.memory.canonical_consolidation import (
     CONSOLIDATION_ATTEMPT_LEASE_SECONDS,
     ConsolidationAgentDecision,
@@ -43,7 +44,11 @@ from utils.memory.canonical_required_processing import (
     RequiredMemoryProcessor,
     run_required_memory_processing,
 )
-from utils.memory.canonical_vector_sync import delete_canonical_memory_vector, sync_canonical_memory_vector
+from utils.memory.canonical_vector_sync import (
+    canonical_vector_provider_configured,
+    delete_canonical_memory_vector,
+    sync_canonical_memory_vector,
+)
 from utils.memory.memory_system import (
     MemorySystem as MemorySystem,  # compatibility export for legacy test doubles
     ensure_canonical_apply_control_state,
@@ -138,6 +143,13 @@ def _canonical_outbox_side_effects(*, db_client: Any) -> CanonicalMemoryOutboxSi
     )
 
 
+def _deliverable_outbox_event_types() -> frozenset[str]:
+    """Drop vector delivery when this deployment has no vector index configured."""
+    if canonical_vector_provider_configured():
+        return SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES
+    return SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES - {MemoryOutboxEventType.vector_sync.value}
+
+
 def _canonical_outbox_worker_config(*, run_id: str) -> CanonicalMemoryOutboxWorkerConfig:
     return CanonicalMemoryOutboxWorkerConfig(
         worker_id=f"canonical-maintenance:{run_id}"[:200],
@@ -147,6 +159,7 @@ def _canonical_outbox_worker_config(*, run_id: str) -> CanonicalMemoryOutboxWork
         max_attempts=5,
         base_backoff_seconds=30,
         max_backoff_seconds=1800,
+        deliverable_event_types=_deliverable_outbox_event_types(),
     )
 
 
@@ -171,6 +184,9 @@ def _drain_canonical_outbox(
         "retryable_failure_count": 0,
         "dead_letter_count": 0,
         "ack_failed_count": 0,
+        "undeliverable_event_types": sorted(
+            SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES - frozenset(config.deliverable_event_types)
+        ),
         "actions": [],
         "errors": [],
     }
@@ -216,6 +232,9 @@ def _merge_canonical_outbox_summaries(*summaries: Dict[str, Any]) -> Dict[str, A
         "retryable_failure_count": 0,
         "dead_letter_count": 0,
         "ack_failed_count": 0,
+        "undeliverable_event_types": sorted(
+            {event_type for summary in summaries for event_type in (summary.get("undeliverable_event_types") or [])}
+        ),
         "actions": [],
         "errors": [],
     }

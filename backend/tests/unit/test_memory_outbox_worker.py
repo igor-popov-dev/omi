@@ -9,6 +9,7 @@ import pytest
 
 from database.memory_collections import MemoryCollections
 from database.memory_outbox_worker import (
+    SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES,
     CanonicalMemoryOutboxSideEffects,
     CanonicalMemoryOutboxWorkerConfig,
     lease_canonical_memory_outbox_events,
@@ -22,7 +23,11 @@ from models.memory_apply import (
 )
 from models.memory_evidence import SourceState
 from models.product_memory import MemoryItem, MemoryItemStatus, MemoryTier, ProcessingState
-from utils.memory.short_term_promotion import _canonical_outbox_side_effects
+from utils.memory.short_term_promotion import (
+    _canonical_outbox_side_effects,
+    _canonical_outbox_worker_config,
+    _drain_canonical_outbox,
+)
 
 NOW = datetime(2026, 7, 27, 12, 0, tzinfo=timezone.utc)
 UID = "uid-outbox"
@@ -1154,3 +1159,142 @@ def test_delivered_ack_write_failure_leaves_processing_lease_for_safe_replay():
     stored = db.docs[_event_path("ack-failure")]
     assert stored["status"] == MemoryOutboxStatus.processing.value
     assert stored["lease_expires_at"] == NOW + timedelta(seconds=60)
+
+
+def _vector_only_config(**overrides):
+    return _config(deliverable_event_types=SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES - {"vector_sync"}, **overrides)
+
+
+def test_unconfigured_provider_events_stay_queued_instead_of_burning_attempts():
+    """An unconfigured provider must not consume a delivery's retry budget.
+
+    ``dead_letter`` is terminal and has no replay path, so an attempt spent on a
+    provider the deployment never configured is a permanent, silent gap.
+    """
+
+    projection = _event("proj", event_type=MemoryOutboxEventType.projection_sync)
+    vector = _event("vec", event_type=MemoryOutboxEventType.vector_sync)
+    db = _db(projection, vector, items={"mem-1": _item()})
+    calls = []
+
+    result = run_canonical_memory_outbox_worker_tick(
+        db_client=db,
+        uid=UID,
+        config=_vector_only_config(),
+        side_effects=_recording_side_effects(calls, results={"vector_upsert": False}),
+        now=NOW,
+    )
+
+    assert result["delivered_count"] == 1
+    assert result["dead_letter_count"] == 0
+    assert result["retryable_failure_count"] == 0
+    assert result["undeliverable_event_types"] == ["vector_sync"]
+    assert [call[0] for call in calls] == ["projection_upsert"]
+
+    assert db.docs[_event_path("proj")]["status"] == MemoryOutboxStatus.delivered.value
+    queued = db.docs[_event_path("vec")]
+    assert queued["status"] == MemoryOutboxStatus.pending.value
+    assert queued["attempt_count"] == 0
+    assert queued.get("lease_owner") is None
+
+
+def test_default_config_still_dead_letters_a_failing_provider():
+    vector = _event(
+        "vec",
+        event_type=MemoryOutboxEventType.vector_sync,
+        attempt_count=2,
+    )
+    db = _db(vector, items={"mem-1": _item()})
+    calls = []
+
+    result = run_canonical_memory_outbox_worker_tick(
+        db_client=db,
+        uid=UID,
+        config=_config(max_attempts=3),
+        side_effects=_recording_side_effects(calls, results={"vector_upsert": False}),
+        now=NOW,
+    )
+
+    assert result["dead_letter_count"] == 1
+    assert result["undeliverable_event_types"] == []
+    assert db.docs[_event_path("vec")]["status"] == MemoryOutboxStatus.dead_letter.value
+
+
+def test_lease_skips_undeliverable_event_types_including_expired_leases():
+    vector_expired = _event(
+        "vec-expired",
+        event_type=MemoryOutboxEventType.vector_sync,
+        status=MemoryOutboxStatus.processing,
+        available_at=NOW - timedelta(minutes=1),
+    )
+    vector_expired["lease_owner"] = "old-worker"
+    vector_expired["lease_epoch"] = 5
+    vector_expired["lease_expires_at"] = NOW - timedelta(seconds=1)
+    projection = _event("proj", available_at=NOW - timedelta(minutes=2))
+    db = _db(projection, vector_expired, items={"mem-1": _item()})
+
+    leases = lease_canonical_memory_outbox_events(
+        db_client=db,
+        uid=UID,
+        worker_id="worker-1",
+        limit=5,
+        scan_limit=10,
+        lease_seconds=30,
+        event_types=SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES - {"vector_sync"},
+        now=NOW,
+    )
+
+    assert [lease.document_id for lease in leases] == ["proj"]
+
+
+@pytest.mark.parametrize("event_types", [frozenset(), frozenset({"graph_sync"})])
+def test_tick_rejects_unusable_deliverable_event_types(event_types):
+    db = _db(_event("proj"), items={"mem-1": _item()})
+
+    with pytest.raises(ValueError):
+        run_canonical_memory_outbox_worker_tick(
+            db_client=db,
+            uid=UID,
+            config=_config(deliverable_event_types=event_types),
+            side_effects=_recording_side_effects([]),
+            now=NOW,
+        )
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [(True, {"projection_sync", "vector_sync"}), (False, {"projection_sync"})],
+)
+def test_maintenance_config_drops_vector_delivery_without_a_vector_index(configured, expected):
+    with patch(
+        "utils.memory.short_term_promotion.canonical_vector_provider_configured",
+        return_value=configured,
+    ):
+        config = _canonical_outbox_worker_config(run_id="run-1")
+
+    assert set(config.deliverable_event_types) == expected
+
+
+def test_maintenance_drain_reports_the_provider_it_cannot_deliver_to():
+    """The maintenance receipt must name the skipped provider, not stay silent."""
+    projection = _event("proj", event_type=MemoryOutboxEventType.projection_sync)
+    vector = _event("vec", event_type=MemoryOutboxEventType.vector_sync)
+    db = _db(projection, vector, items={"mem-1": _item()})
+
+    calls = []
+    with (
+        patch(
+            "utils.memory.short_term_promotion.canonical_vector_provider_configured",
+            return_value=False,
+        ),
+        patch(
+            "utils.memory.short_term_promotion._canonical_outbox_side_effects",
+            return_value=_recording_side_effects(calls),
+        ),
+    ):
+        aggregate = _drain_canonical_outbox(UID, db_client=db, run_id="run-1", now=NOW, max_ticks=2)
+
+    assert aggregate["undeliverable_event_types"] == ["vector_sync"]
+    assert aggregate["delivered_count"] == 1
+    assert aggregate["dead_letter_count"] == 0
+    assert db.docs[_event_path("vec")]["status"] == MemoryOutboxStatus.pending.value

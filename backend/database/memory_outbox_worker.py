@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Callable, Collection, Dict, FrozenSet, Iterable, List, Optional, Tuple, cast
 
 from google.cloud.firestore_v1 import FieldFilter
 from google.cloud.firestore_v1 import transactional as _firestore_transactional  # type: ignore[reportAssignmentType,reportUnknownMemberType]
@@ -41,12 +41,13 @@ from models.product_memory import (
     ProcessingState,
 )
 
-_SUPPORTED_EVENT_TYPES = frozenset(
+SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES = frozenset(
     {
         MemoryOutboxEventType.projection_sync.value,
         MemoryOutboxEventType.vector_sync.value,
     }
 )
+_SUPPORTED_EVENT_TYPES = SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES
 _DUE_STATUSES = (
     MemoryOutboxStatus.pending.value,
     MemoryOutboxStatus.retryable_failure.value,
@@ -75,6 +76,7 @@ class CanonicalMemoryOutboxWorkerConfig:
     max_attempts: int = 5
     base_backoff_seconds: int = 30
     max_backoff_seconds: int = 1800
+    deliverable_event_types: FrozenSet[str] = _SUPPORTED_EVENT_TYPES
 
 
 @dataclass(frozen=True)
@@ -177,6 +179,7 @@ def run_canonical_memory_outbox_worker_tick(
             limit=config.limit,
             scan_limit=config.scan_limit,
             lease_seconds=config.lease_seconds,
+            event_types=config.deliverable_event_types,
             now=observed_now,
         )
     except Exception:
@@ -259,6 +262,7 @@ def lease_canonical_memory_outbox_events(
     limit: int = 25,
     scan_limit: int = 100,
     lease_seconds: int = 300,
+    event_types: Optional[Collection[str]] = None,
     now: Optional[datetime] = None,
 ) -> List[LeasedMemoryOutboxEvent]:
     """Claim due normal events and expired normal-event leases.
@@ -280,6 +284,7 @@ def lease_canonical_memory_outbox_events(
         raise ValueError("scan_limit must be at least limit")
     if lease_seconds < 1:
         raise ValueError("lease_seconds must be positive")
+    deliverable_types = _resolve_deliverable_event_types(event_types)
 
     collection_path = MemoryCollections(uid=uid).memory_outbox
     collection = db_client.collection(collection_path)
@@ -291,9 +296,11 @@ def lease_canonical_memory_outbox_events(
             {"status": status, "available_at": observed_now},
             field_filter_factory=FieldFilter,
         ).limit(scan_limit)
-        _collect_supported_snapshots(snapshots, query.stream(), collection_path=collection_path)
+        _collect_supported_snapshots(
+            snapshots, query.stream(), collection_path=collection_path, event_types=deliverable_types
+        )
 
-    for event_type in _SUPPORTED_EVENT_TYPES:
+    for event_type in sorted(deliverable_types):
         query = EXPIRED_MEMORY_OUTBOX_LEASE_QUERY.build(
             collection,
             {
@@ -303,7 +310,9 @@ def lease_canonical_memory_outbox_events(
             },
             field_filter_factory=FieldFilter,
         ).limit(scan_limit)
-        _collect_supported_snapshots(snapshots, query.stream(), collection_path=collection_path)
+        _collect_supported_snapshots(
+            snapshots, query.stream(), collection_path=collection_path, event_types=deliverable_types
+        )
 
     ordered = sorted(snapshots.items(), key=lambda item: _candidate_sort_key(item[0], item[1]))
     lease_expires_at = observed_now + timedelta(seconds=lease_seconds)
@@ -330,10 +339,12 @@ def _collect_supported_snapshots(
     snapshots: Iterable[Any],
     *,
     collection_path: str,
+    event_types: Optional[Collection[str]] = None,
 ) -> None:
+    deliverable_types = _resolve_deliverable_event_types(event_types)
     for snapshot in snapshots:
         raw = _snapshot_dict(snapshot)
-        if _enum_value(raw.get("event_type")) not in _SUPPORTED_EVENT_TYPES:
+        if _enum_value(raw.get("event_type")) not in deliverable_types:
             continue
         path = _snapshot_path(snapshot, collection_path)
         output[path] = snapshot
@@ -811,6 +822,28 @@ def _validate_tick_inputs(
         raise ValueError("config.base_backoff_seconds must be positive")
     if config.max_backoff_seconds < config.base_backoff_seconds:
         raise ValueError("config.max_backoff_seconds must be at least base_backoff_seconds")
+    _resolve_deliverable_event_types(config.deliverable_event_types)
+
+
+def _resolve_deliverable_event_types(event_types: Optional[Collection[str]]) -> FrozenSet[str]:
+    """Return the supported event types this deployment can actually deliver.
+
+    Vector helpers fail open when no Pinecone index is configured (#9715), which
+    this strict consumer would otherwise read as a delivery failure.  A provider
+    the deployment never configured must therefore not receive events at all:
+    spending their bounded retry budget ends in ``dead_letter``, which is
+    terminal and has no replay path, so each burned event is a permanent and
+    silent gap in that provider once it is configured.
+    """
+    if event_types is None:
+        return _SUPPORTED_EVENT_TYPES
+    resolved = frozenset(_enum_value(event_type) for event_type in event_types)
+    if not resolved:
+        raise ValueError("at least one deliverable event type is required")
+    unsupported = resolved - _SUPPORTED_EVENT_TYPES
+    if unsupported:
+        raise ValueError(f"unsupported deliverable event types: {sorted(unsupported)}")
+    return resolved
 
 
 def _empty_summary(*, uid: str, config: CanonicalMemoryOutboxWorkerConfig) -> Dict[str, Any]:
@@ -824,6 +857,7 @@ def _empty_summary(*, uid: str, config: CanonicalMemoryOutboxWorkerConfig) -> Di
         "retryable_failure_count": 0,
         "dead_letter_count": 0,
         "ack_failed_count": 0,
+        "undeliverable_event_types": sorted(_SUPPORTED_EVENT_TYPES - frozenset(config.deliverable_event_types)),
         "actions": [],
         "errors": [],
     }
@@ -876,6 +910,7 @@ def _enum_value(value: Any) -> Any:
 
 
 __all__ = [
+    "SUPPORTED_MEMORY_OUTBOX_EVENT_TYPES",
     "CanonicalMemoryOutboxSideEffects",
     "CanonicalMemoryOutboxWorkerConfig",
     "LeasedMemoryOutboxEvent",
