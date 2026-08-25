@@ -204,6 +204,18 @@ CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     'memory_l1': ('opus', 'claude-bridge'),
     'memory_l2': ('opus', 'claude-bridge'),
     'proactive_notification': ('opus', 'claude-bridge'),
+    # Полоса 2, 25.08: «итог дня» (daily recap) на self-host был тёмным дважды — его
+    # некому запустить (это отдельная почасовая Cloud Run Job, modal/job.py -> start_job,
+    # у нас её нет) И некому посчитать: обе фичи прибиты к OpenAI, ключа которого у нас
+    # нет. Проверено на данных Игоря: daily_summaries пусто за все дни, при 43-66
+    # разговорах в сутки. Обе идут через .invoke() + разбор ПЛАЙН-текста
+    # (json.loads в generate_comprehensive_daily_summary, голый текст в
+    # generate_daily_summary) — .with_structured_output() здесь нет, значит мост их
+    # обслуживает без доработок. Размер запроса меряли: 7-18k токенов на сутки.
+    # В _BRIDGE_TOOLS_FEATURES НЕ добавлять: рекап читает фоновые транскрипты — это
+    # ровно тот вход, которому инструменты давать нельзя (решение Игоря 22.08).
+    'daily_summary': ('opus', 'claude-bridge'),
+    'daily_summary_simple': ('opus', 'claude-bridge'),
     # Google сняла gemini-2.5-flash-lite с НОВЫХ ключей AI Studio: живой вызов ключом Игоря
     # (25.08) отвечает 404 «...is no longer available to new users. Please update your code to
     # use models/gemini-3.5-flash-lite», хотя ListModels модель всё ещё перечисляет. Наш
