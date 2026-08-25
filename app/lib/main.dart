@@ -92,6 +92,8 @@ import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:omi/utils/notification_channel_strings.dart';
+import 'package:omi/utils/theme/glass_backdrop.dart';
+import 'package:omi/utils/theme/omi_theme.dart';
 
 /// Параметры Firebase для текущего флейвора — считаются одинаково во ВСЕХ движках.
 FirebaseOptions _firebaseOptionsForFlavor() => Env.profile == AppEnvironmentProfile.localDev
@@ -556,13 +558,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               };
               final content = child!;
               final guidedContent = BluetoothGuidanceListener(child: content);
+              // Т8: матовое стекло существует только в Glass — в Classic слой
+              // не вставляется в дерево вовсе.
+              final themed = themeProvider.isGlass ? GlassBackdrop(child: guidedContent) : guidedContent;
               return PlatformService.isIOS && Env.posthogApiKey != null
-                  ? RageClickContextTracker(child: guidedContent)
-                  : guidedContent;
+                  ? RageClickContextTracker(child: themed)
+                  : themed;
             },
             home: AnnotatedRegion<SystemUiOverlayStyle>(
-              // Glass is a light theme, so the status bar needs dark icons.
-              value: themeProvider.isGlass ? SystemUiOverlayStyle.dark : SystemUiOverlayStyle.light,
+              // Glass is a light theme, so the status bar and the Android
+              // navigation bar both need dark icons on transparent bars; see
+              // [omiSystemUiOverlayStyle]. This region spans the whole app, so
+              // it is what drives the navigation bar at the bottom of the
+              // screen — an AppBar only ever overrides the status bar half.
+              value: omiSystemUiOverlayStyle(themeProvider.isGlass),
               child: TalkerWrapper(
                 talker: Logger.instance.talker,
                 options: const TalkerWrapperOptions(enableErrorAlerts: false, enableExceptionAlerts: false),
