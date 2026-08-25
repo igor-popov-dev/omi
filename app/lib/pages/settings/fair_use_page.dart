@@ -405,7 +405,10 @@ class _FairUsePageState extends State<FairUsePage> {
           const SizedBox(height: 4),
           Text(
             context.l10n.fairUseAboutBody,
-            style: TextStyle(color: t.divider, fontSize: 12, height: 1.4),
+            // [OmiTokens.divider] is a separator tone, not an ink tone: under
+            // Glass it is a hairline and disappears as body copy. Classic keeps
+            // the exact shade it renders today.
+            style: TextStyle(color: t.isGlass ? t.textSecondary : t.divider, fontSize: 12, height: 1.4),
           ),
         ],
       ),

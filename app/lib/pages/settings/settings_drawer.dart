@@ -201,7 +201,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ],
                 ),
               ),
-              OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
+              OmiIconWidget(icon: OmiIcon.chevronRight, color: t.isGlass ? t.textTertiary : t.divider, size: 20),
             ],
           ),
         ),

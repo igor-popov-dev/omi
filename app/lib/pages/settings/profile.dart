@@ -141,7 +141,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 if (showChevron) const SizedBox(width: 8),
               ],
-              if (showChevron) OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
+              if (showChevron)
+                OmiIconWidget(icon: OmiIcon.chevronRight, color: t.isGlass ? t.textTertiary : t.divider, size: 20),
             ],
           ),
         ),
@@ -260,7 +261,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(width: 8),
             ],
-            OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
+            OmiIconWidget(icon: OmiIcon.chevronRight, color: t.isGlass ? t.textTertiary : t.divider, size: 20),
           ],
         ),
       ),

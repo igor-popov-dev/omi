@@ -35,7 +35,13 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: t.bgTertiary,
+        // Dialogs sit on [OmiTokens.bgSecondary] everywhere else in the app
+        // (`widgets/omi_confirm_dialog.dart`, `widgets/confirmation_dialog.dart`,
+        // `widgets/language_picker.dart`); bgTertiary is a nested-surface tone
+        // and loses contrast once it goes translucent under Glass. Classic keeps
+        // bgTertiary: that is what this dialog has rendered as since the token
+        // migration, and the Glass work must not shift Classic by a pixel.
+        backgroundColor: t.isGlass ? t.bgSecondary : t.bgTertiary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [

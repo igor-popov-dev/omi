@@ -250,7 +250,7 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
               style: TextStyle(color: isGranted ? t.textTertiary : t.textPrimary, fontSize: 15),
             ),
             const SizedBox(width: 4),
-            OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
+            OmiIconWidget(icon: OmiIcon.chevronRight, color: t.isGlass ? t.textTertiary : t.divider, size: 20),
           ],
         ),
       ),

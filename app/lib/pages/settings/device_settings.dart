@@ -221,7 +221,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             if (showChevronResolved) const SizedBox(width: 8),
           ],
           if (trailing != null) trailing,
-          if (showChevronResolved) OmiIconWidget(icon: OmiIcon.chevronRight, color: t.divider, size: 20),
+          if (showChevronResolved)
+            OmiIconWidget(icon: OmiIcon.chevronRight, color: t.isGlass ? t.textTertiary : t.divider, size: 20),
         ],
       ),
     );
