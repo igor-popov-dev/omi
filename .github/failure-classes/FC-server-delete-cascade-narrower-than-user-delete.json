@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "FC-server-delete-cascade-narrower-than-user-delete",
+  "violated_contract": "Every path that deletes a record must release the durable artifacts keyed by that record's identity. When a server-initiated deletion -- a sweep, a discard, a cleanup the user never asked for -- cascades to a narrower set than the user-initiated delete of the same record, the omitted artifacts survive with nothing pointing at them: no row names them, no API path reaches them, and every later sweep enumerates rows, so no reader ever visits them again. Nothing fails and no error is logged; the account simply keeps paying for storage it can never see. The leak scales with the discard rate rather than with use, so it is worst exactly when the feature is producing least.",
+  "canonical_prevention": "Give the record one cascade and call it from every deletion path, server-initiated as well as user-initiated, keeping the storage half fail-open so a bucket outage cannot report an already-deleted row as undeletable. Prove it with a test that deletes through the server path and asserts the same artifacts are released as through the user path, and that a refused deletion releases nothing.",
+  "canonical_prevention_artifact": [
+    "backend/utils/conversations/lifecycle.py",
+    "backend/tests/unit/test_empty_recording_audio_cleanup.py"
+  ],
+  "evidence_prs": [
+    11742
+  ],
+  "scope_hints": [
+    "backend/utils/conversations/**",
+    "backend/routers/conversations.py",
+    "backend/utils/other/storage.py"
+  ],
+  "status": "open"
+}
