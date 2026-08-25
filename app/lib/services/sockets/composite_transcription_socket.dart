@@ -194,11 +194,20 @@ class CompositeTranscriptionSocket implements IPureSocket {
       }
 
       final encoded = jsonEncode(payload);
-      if (_status != PureSocketStatus.connected) {
-        _holdTranscript(encoded, segments is List ? segments.length : 1);
+      final segmentCount = segments is List ? segments.length : 1;
+      // The secondary's own status matters as much as ours: it drops before its
+      // close callback reaches us, and in that gap the composite still believes
+      // both halves are up.
+      if (_status != PureSocketStatus.connected || secondarySocket.status != PureSocketStatus.connected) {
+        _holdTranscript(encoded, segmentCount);
         return;
       }
-      secondarySocket.send(encoded);
+      try {
+        secondarySocket.send(encoded);
+      } catch (e) {
+        CustomSttLogService.instance.error('Composite', 'Omi socket refused the transcript: $e');
+        _holdTranscript(encoded, segmentCount);
+      }
     } catch (e) {
       CustomSttLogService.instance.error('Composite', 'Error forwarding transcript: $e');
     }

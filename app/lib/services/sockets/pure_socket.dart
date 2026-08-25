@@ -218,8 +218,31 @@ class PureSocket implements IPureSocket {
     _listener?.onConnected();
   }
 
+  /// How many outgoing messages have been discarded since the last one that had
+  /// somewhere to go. Audio frames arrive dozens of times a second, so the drop
+  /// is reported on its first occurrence and then only every [_dropLogInterval].
+  int _droppedSends = 0;
+  static const int _dropLogInterval = 100;
+
   @override
   void send(message) {
-    _channel?.sink.add(message);
+    final channel = _channel;
+    if (channel == null) {
+      // Silent otherwise: a transcript or a control frame handed to a socket
+      // with no channel simply ceases to exist, and the caller — which may be
+      // holding the only copy — is told nothing.
+      _droppedSends += 1;
+      if (_droppedSends == 1 || _droppedSends % _dropLogInterval == 0) {
+        DebugLogManager.logWarning('pure_socket_send_dropped', {
+          'url': url,
+          'status': _status.toString(),
+          'dropped_since_last_send': _droppedSends,
+          'message_type': message is List<int> ? 'binary' : 'text',
+        });
+      }
+      return;
+    }
+    _droppedSends = 0;
+    channel.sink.add(message);
   }
 }

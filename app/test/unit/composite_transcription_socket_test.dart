@@ -111,6 +111,52 @@ void main() {
       expect(held.length, 0);
     });
 
+    test('holds a transcript when the Omi socket dropped but has not told us yet', () async {
+      // The close callback is not instantaneous: the secondary can already be gone
+      // while the composite still reports both halves up. A transcript sent into
+      // that gap went nowhere and said nothing.
+      final held = HeldTranscripts(clock: () => DateTime(2026, 8, 25, 5, 0));
+      final primary = _FakeSocket();
+      final secondary = _FakeSocket();
+      final socket = CompositeTranscriptionSocket(
+        primarySocket: primary,
+        secondarySocket: secondary,
+        held: held,
+      );
+      expect(await socket.connect(), isTrue);
+
+      secondary.dropSilently();
+      expect(socket.status, PureSocketStatus.connected);
+      primary.emitMessage(
+        jsonEncode([
+          {'text': 'said into a socket that had already gone'},
+        ]),
+      );
+
+      expect(secondary.sent, isEmpty);
+      expect(held.length, 1);
+    });
+
+    test('holds a transcript the Omi socket refuses to take', () async {
+      final held = HeldTranscripts(clock: () => DateTime(2026, 8, 25, 5, 0));
+      final primary = _FakeSocket();
+      final secondary = _FakeSocket()..throwOnSend = true;
+      final socket = CompositeTranscriptionSocket(
+        primarySocket: primary,
+        secondarySocket: secondary,
+        held: held,
+      );
+      expect(await socket.connect(), isTrue);
+
+      primary.emitMessage(
+        jsonEncode([
+          {'text': 'refused by a closed sink'},
+        ]),
+      );
+
+      expect(held.length, 1);
+    });
+
     test('drops a held transcript that outlived the conversation it came from', () async {
       var now = DateTime(2026, 8, 25, 5, 0);
       final held = HeldTranscripts(maxAge: const Duration(minutes: 2), clock: () => now);
@@ -351,7 +397,12 @@ class _FakeSocket implements IPureSocket {
   void onMessage(dynamic message) => _listener?.onMessage(message);
 
   @override
-  void send(dynamic message) => sent.add(message);
+  void send(dynamic message) {
+    if (throwOnSend) {
+      throw StateError('Cannot add event after closing');
+    }
+    sent.add(message);
+  }
 
   @override
   void setListener(IPureSocketListener listener) => _listener = listener;
@@ -360,6 +411,11 @@ class _FakeSocket implements IPureSocket {
   Future<void> stop() => disconnect();
 
   void emitMessage(dynamic message) => _listener?.onMessage(message);
+
+  bool throwOnSend = false;
+
+  /// Goes away without telling its listener - the race the composite has to survive.
+  void dropSilently() => _status = PureSocketStatus.disconnected;
 
   void emitClosed(int closeCode) {
     _status = PureSocketStatus.disconnected;
