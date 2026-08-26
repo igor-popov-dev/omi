@@ -8,6 +8,7 @@ import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/services/connectivity_service.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/services/wals.dart';
+import 'package:omi/utils/offline_sync_policy.dart';
 import 'package:omi/utils/debug_log_manager.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/other/time_utils.dart';
@@ -220,11 +221,11 @@ class SyncProvider extends ChangeNotifier implements IWalServiceListener, IWalSy
   /// for being too old. Surfaced explicitly so a failure is never mistaken for
   /// a recording that simply hasn't synced yet.
   int get needsAttentionWalsCount => _countWhere(
-        (s) =>
-            s == WalSyncDisplayState.failed ||
-            s == WalSyncDisplayState.corrupted ||
-            s == WalSyncDisplayState.outsideRecoveryWindow,
-      );
+    (s) =>
+        s == WalSyncDisplayState.failed ||
+        s == WalSyncDisplayState.corrupted ||
+        s == WalSyncDisplayState.outsideRecoveryWindow,
+  );
 
   int get retryingWalsCount => _countWhere((s) => s == WalSyncDisplayState.retrying);
 
@@ -344,12 +345,12 @@ class SyncProvider extends ChangeNotifier implements IWalServiceListener, IWalSy
     @visibleForTesting Future<void> Function(LocalWalSyncImpl phone)? waitForWalReady,
     @visibleForTesting Future<void> Function()? startRecovery,
     @visibleForTesting Future<void> Function(WakeTrigger trigger)? wakeTransfer,
-  })  : _walServiceOverride = walService,
-        _uploadGate = uploadGate ?? SyncUploadGate.instance,
-        _startBackgroundSync = startBackgroundSync,
-        _waitForWalReady = waitForWalReady ?? ((phone) => phone.walReady),
-        _startRecovery = startRecovery ?? (() => RecordingTransferCoordinator.instance.wake(WakeTrigger.startup)),
-        _wakeTransfer = wakeTransfer ?? ((trigger) => RecordingTransferCoordinator.instance.wake(trigger)) {
+  }) : _walServiceOverride = walService,
+       _uploadGate = uploadGate ?? SyncUploadGate.instance,
+       _startBackgroundSync = startBackgroundSync,
+       _waitForWalReady = waitForWalReady ?? ((phone) => phone.walReady),
+       _startRecovery = startRecovery ?? (() => RecordingTransferCoordinator.instance.wake(WakeTrigger.startup)),
+       _wakeTransfer = wakeTransfer ?? ((trigger) => RecordingTransferCoordinator.instance.wake(trigger)) {
     _walService.subscribe(this, this);
     _audioPlayerUtils.addListener(_onAudioPlayerStateChanged);
     _rateLimitWasActive = SyncRateLimiter.instance.isLimited;
@@ -396,7 +397,8 @@ class SyncProvider extends ChangeNotifier implements IWalServiceListener, IWalSy
         refreshPending: refreshWals,
         drain: _drainEligibleWals,
         autoUploadEnabled: () =>
-            !SharedPreferencesUtil().useCustomStt && SharedPreferencesUtil().autoSyncOfflineRecordings,
+            !offlineSyncNeedsConsent(SharedPreferencesUtil().useCustomStt) &&
+            SharedPreferencesUtil().autoSyncOfflineRecordings,
         connectivityChanges: ConnectivityService().onConnectionChange,
         initiallyConnected: ConnectivityService().isConnected,
       );

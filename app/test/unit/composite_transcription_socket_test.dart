@@ -8,6 +8,7 @@ import 'package:omi/backend/schema/bt_device/bt_device.dart';
 import 'package:omi/env/env.dart';
 import 'package:omi/models/custom_stt_config.dart';
 import 'package:omi/models/stt_provider.dart';
+import 'package:omi/services/sockets/held_transcripts.dart';
 import 'package:omi/services/sockets/pure_socket.dart';
 import 'package:omi/services/sockets/transcription_service.dart';
 
@@ -64,6 +65,145 @@ void main() {
         ],
         'stt_provider': 'customLive',
       });
+    });
+
+    test('hands a transcript that arrived while the Omi socket was down to its replacement', () async {
+      // What this reproduces: the socket pool does not reuse a socket that lost its
+      // connection, it stops the old one and builds a new one. A transcript decoded in
+      // that window used to be dropped on the floor without a single log line, and it
+      // is the only copy — the audio it came from is already gone.
+      final held = HeldTranscripts(clock: () => DateTime(2026, 8, 25, 5, 0));
+      final primary = _FakeSocket();
+      final secondary = _FakeSocket();
+      final socket = CompositeTranscriptionSocket(primarySocket: primary, secondarySocket: secondary, held: held);
+      expect(await socket.connect(), isTrue);
+
+      secondary.emitClosed(1001);
+      primary.emitMessage(
+        jsonEncode([
+          {'text': 'said while the socket was down'},
+        ]),
+      );
+
+      expect(secondary.sent, isEmpty);
+      expect(held.length, 1);
+
+      final replacementPrimary = _FakeSocket();
+      final replacementSecondary = _FakeSocket();
+      final replacement = CompositeTranscriptionSocket(
+        primarySocket: replacementPrimary,
+        secondarySocket: replacementSecondary,
+        held: held,
+      );
+      expect(await replacement.connect(), isTrue);
+
+      expect(replacementSecondary.sent, hasLength(1));
+      expect(jsonDecode(replacementSecondary.sent.single as String), {
+        'type': 'suggested_transcript',
+        'segments': [
+          {'text': 'said while the socket was down'},
+        ],
+      });
+      expect(held.length, 0);
+    });
+
+    test('holds a transcript when the Omi socket dropped but has not told us yet', () async {
+      // The close callback is not instantaneous: the secondary can already be gone
+      // while the composite still reports both halves up. A transcript sent into
+      // that gap went nowhere and said nothing.
+      final held = HeldTranscripts(clock: () => DateTime(2026, 8, 25, 5, 0));
+      final primary = _FakeSocket();
+      final secondary = _FakeSocket();
+      final socket = CompositeTranscriptionSocket(primarySocket: primary, secondarySocket: secondary, held: held);
+      expect(await socket.connect(), isTrue);
+
+      secondary.dropSilently();
+      expect(socket.status, PureSocketStatus.connected);
+      primary.emitMessage(
+        jsonEncode([
+          {'text': 'said into a socket that had already gone'},
+        ]),
+      );
+
+      expect(secondary.sent, isEmpty);
+      expect(held.length, 1);
+    });
+
+    test('holds a transcript the Omi socket refuses to take', () async {
+      final held = HeldTranscripts(clock: () => DateTime(2026, 8, 25, 5, 0));
+      final primary = _FakeSocket();
+      final secondary = _FakeSocket()..throwOnSend = true;
+      final socket = CompositeTranscriptionSocket(primarySocket: primary, secondarySocket: secondary, held: held);
+      expect(await socket.connect(), isTrue);
+
+      primary.emitMessage(
+        jsonEncode([
+          {'text': 'refused by a closed sink'},
+        ]),
+      );
+
+      expect(held.length, 1);
+    });
+
+    test('drops a held transcript that outlived the conversation it came from', () async {
+      var now = DateTime(2026, 8, 25, 5, 0);
+      final held = HeldTranscripts(maxAge: const Duration(minutes: 2), clock: () => now);
+      final primary = _FakeSocket();
+      final secondary = _FakeSocket();
+      final socket = CompositeTranscriptionSocket(primarySocket: primary, secondarySocket: secondary, held: held);
+      expect(await socket.connect(), isTrue);
+
+      secondary.emitClosed(1001);
+      primary.emitMessage(
+        jsonEncode([
+          {'text': 'belongs to a conversation that has since closed'},
+        ]),
+      );
+      expect(held.length, 1);
+
+      now = now.add(const Duration(minutes: 5));
+      final replacementSecondary = _FakeSocket();
+      final replacement = CompositeTranscriptionSocket(
+        primarySocket: _FakeSocket(),
+        secondarySocket: replacementSecondary,
+        held: held,
+      );
+      expect(await replacement.connect(), isTrue);
+
+      expect(replacementSecondary.sent, isEmpty);
+      expect(held.length, 0);
+    });
+
+    test('keeps the newest transcripts when the hold overflows', () async {
+      final held = HeldTranscripts(maxEntries: 2, clock: () => DateTime(2026, 8, 25, 5, 0));
+      final primary = _FakeSocket();
+      final secondary = _FakeSocket();
+      final socket = CompositeTranscriptionSocket(primarySocket: primary, secondarySocket: secondary, held: held);
+      expect(await socket.connect(), isTrue);
+      secondary.emitClosed(1001);
+
+      for (final text in ['first', 'second', 'third']) {
+        primary.emitMessage(
+          jsonEncode([
+            {'text': text},
+          ]),
+        );
+      }
+
+      expect(held.length, 2);
+
+      final replacementSecondary = _FakeSocket();
+      final replacement = CompositeTranscriptionSocket(
+        primarySocket: _FakeSocket(),
+        secondarySocket: replacementSecondary,
+        held: held,
+      );
+      expect(await replacement.connect(), isTrue);
+
+      final delivered = replacementSecondary.sent
+          .map((payload) => (jsonDecode(payload as String)['segments'] as List).single['text'])
+          .toList();
+      expect(delivered, ['second', 'third']);
     });
 
     test('keeps forwarding non-audio control messages to Omi when audio forwarding is disabled', () async {
@@ -237,7 +377,12 @@ class _FakeSocket implements IPureSocket {
   void onMessage(dynamic message) => _listener?.onMessage(message);
 
   @override
-  void send(dynamic message) => sent.add(message);
+  void send(dynamic message) {
+    if (throwOnSend) {
+      throw StateError('Cannot add event after closing');
+    }
+    sent.add(message);
+  }
 
   @override
   void setListener(IPureSocketListener listener) => _listener = listener;
@@ -246,4 +391,14 @@ class _FakeSocket implements IPureSocket {
   Future<void> stop() => disconnect();
 
   void emitMessage(dynamic message) => _listener?.onMessage(message);
+
+  bool throwOnSend = false;
+
+  /// Goes away without telling its listener - the race the composite has to survive.
+  void dropSilently() => _status = PureSocketStatus.disconnected;
+
+  void emitClosed(int closeCode) {
+    _status = PureSocketStatus.disconnected;
+    _listener?.onClosed(closeCode);
+  }
 }

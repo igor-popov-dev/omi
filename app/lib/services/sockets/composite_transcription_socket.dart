@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:omi/services/custom_stt_log_service.dart';
+import 'package:omi/services/sockets/held_transcripts.dart';
 import 'package:omi/services/sockets/pure_socket.dart';
 import 'package:omi/utils/debug_log_manager.dart';
 import 'package:omi/utils/hard_secret_detector.dart';
@@ -15,6 +16,10 @@ class CompositeTranscriptionSocket implements IPureSocket {
   final String? sttProvider;
   final bool forwardRawAudioToSecondary;
 
+  /// Where transcripts wait when the Omi socket is not up. Survives this object
+  /// on purpose: a reconnect replaces the socket rather than reusing it.
+  final HeldTranscripts held;
+
   PureSocketStatus _status = PureSocketStatus.notConnected;
   IPureSocketListener? _listener;
 
@@ -27,7 +32,8 @@ class CompositeTranscriptionSocket implements IPureSocket {
     this.suggestedTranscriptType = 'suggested_transcript',
     this.sttProvider,
     this.forwardRawAudioToSecondary = true,
-  }) {
+    HeldTranscripts? held,
+  }) : held = held ?? HeldTranscripts.shared {
     _primaryListener = _PrimarySocketListener(this);
     _secondaryListener = _SecondarySocketListener(this);
 
@@ -65,6 +71,7 @@ class CompositeTranscriptionSocket implements IPureSocket {
         'secondary_status': secondarySocket.status.toString(),
         'forward_raw_audio_to_secondary': forwardRawAudioToSecondary,
       });
+      _flushPendingTranscripts();
       onConnected();
       return true;
     }
@@ -159,10 +166,6 @@ class CompositeTranscriptionSocket implements IPureSocket {
   }
 
   void _forwardAsSuggestedTranscript(dynamic message) {
-    if (_status != PureSocketStatus.connected) {
-      return;
-    }
-
     try {
       dynamic segments = message is String ? jsonDecode(message) : message;
       if (segments is List) {
@@ -189,9 +192,69 @@ class CompositeTranscriptionSocket implements IPureSocket {
         payload['stt_provider'] = sttProvider;
       }
 
-      secondarySocket.send(jsonEncode(payload));
+      final encoded = jsonEncode(payload);
+      final segmentCount = segments is List ? segments.length : 1;
+      // The secondary's own status matters as much as ours: it drops before its
+      // close callback reaches us, and in that gap the composite still believes
+      // both halves are up.
+      if (_status != PureSocketStatus.connected || secondarySocket.status != PureSocketStatus.connected) {
+        _holdTranscript(encoded, segmentCount);
+        return;
+      }
+      try {
+        secondarySocket.send(encoded);
+      } catch (e) {
+        CustomSttLogService.instance.error('Composite', 'Omi socket refused the transcript: $e');
+        _holdTranscript(encoded, segmentCount);
+      }
     } catch (e) {
       CustomSttLogService.instance.error('Composite', 'Error forwarding transcript: $e');
+    }
+  }
+
+  void _holdTranscript(String payload, int segmentCount) {
+    final droppedPayloads = held.hold(payload);
+
+    CustomSttLogService.instance.warning(
+      'Composite',
+      'Omi socket unavailable, holding transcript ($segmentCount segment(s), ${held.length} held)',
+    );
+    DebugLogManager.logWarning('composite_transcript_held', {
+      'segment_count': segmentCount,
+      'held_count': held.length,
+      'composite_status': _status.toString(),
+    });
+
+    if (droppedPayloads > 0) {
+      CustomSttLogService.instance.error(
+        'Composite',
+        'Held transcripts overflowed, lost $droppedPayloads oldest payload(s)',
+      );
+      DebugLogManager.logWarning('composite_transcript_dropped', {
+        'dropped_payloads': droppedPayloads,
+        'max_pending': held.maxEntries,
+      });
+    }
+  }
+
+  void _flushPendingTranscripts() {
+    final drained = held.drain();
+    if (drained.expired > 0) {
+      CustomSttLogService.instance.error(
+        'Composite',
+        'Dropped ${drained.expired} held transcript(s) older than the conversation they came from',
+      );
+      DebugLogManager.logWarning('composite_transcript_expired', {'expired_count': drained.expired});
+    }
+    if (drained.payloads.isEmpty) {
+      return;
+    }
+
+    CustomSttLogService.instance.info('Composite', 'Delivering ${drained.payloads.length} held transcript(s)');
+    DebugLogManager.logEvent('composite_transcripts_flushed', {'count': drained.payloads.length});
+
+    for (final payload in drained.payloads) {
+      secondarySocket.send(payload);
     }
   }
 

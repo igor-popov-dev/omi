@@ -30,6 +30,14 @@ abstract class Env {
   // install (or reinstall after a signing-key change) points at our STT
   // router without the user configuring it by hand. Empty by default.
   static const defaultSttUrl = String.fromEnvironment('OMI_DEFAULT_STT_URL');
+  // Self-host patch, not for upstream: upstream closes every automatic drain of
+  // offline recordings for custom-STT users, because those files would be
+  // transcribed on Omi's servers and billed to the plan (see
+  // utils/offline_sync_policy.dart). On our backend the pre-recorded path goes
+  // to the same STT router as live speech, so the trade-off does not exist and
+  // the drains must stay open. False by default: every other build keeps
+  // upstream behaviour.
+  static const bool selfHostOwnsOfflineStt = bool.fromEnvironment('OMI_SELFHOST_OFFLINE_STT');
   // Self-host patch, not for upstream: base URL of our call adapter
   // (https://vox.peshkomdomoy.online), which holds the live transcript of a
   // Voximplant call. The app cannot open its own transcript socket on that path —

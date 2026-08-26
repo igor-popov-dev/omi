@@ -127,8 +127,7 @@ class _NullSocketCaptureProvider extends CaptureProvider {
     required bool force,
     String? source,
     CustomSttConfig? customSttConfig,
-  }) async =>
-      null;
+  }) async => null;
 }
 
 class _CountingSocketCaptureProvider extends CaptureProvider {
@@ -694,6 +693,94 @@ void main() {
 
       expect(find.byType(SnackBar), findsNothing);
       expect(find.text(expectedText), findsNothing);
+      provider.dispose();
+    });
+  });
+
+  group('auth close codes stop the blind reconnect loop', () {
+    Future<void> _pumpAppWithScaffold(WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: globalNavigatorKey,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(body: SizedBox.shrink()),
+        ),
+      );
+      await tester.pump();
+    }
+
+    test('4001 refreshes the token so the next attempt carries a new one', () async {
+      var refreshes = 0;
+      final provider = CaptureProvider(authTokenRefresher: () async => refreshes++);
+      provider.onConnectionStateChanged(true);
+      provider.updateRecordingState(RecordingState.record);
+
+      provider.onClosed(4001);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(refreshes, 1);
+      // A stale token is a recoverable rejection: the keepalive must stay armed
+      // so the refreshed credential actually gets used.
+      expect(provider.keepAliveScheduledForTesting, isTrue);
+      provider.updateRecordingState(RecordingState.stop);
+      provider.dispose();
+    });
+
+    test('a network drop does not touch the token', () async {
+      var refreshes = 0;
+      final provider = CaptureProvider(authTokenRefresher: () async => refreshes++);
+      provider.onConnectionStateChanged(true);
+      provider.updateRecordingState(RecordingState.record);
+
+      provider.onClosed(1006);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(refreshes, 0);
+      expect(provider.keepAliveScheduledForTesting, isTrue);
+      provider.updateRecordingState(RecordingState.stop);
+      provider.dispose();
+    });
+
+    for (final closeCode in const [4004, 4005]) {
+      test('$closeCode stops reconnecting instead of retrying every 15s', () async {
+        var refreshes = 0;
+        final provider = CaptureProvider(authTokenRefresher: () async => refreshes++);
+        provider.onConnectionStateChanged(true);
+        provider.updateRecordingState(RecordingState.record);
+
+        provider.onClosed(closeCode);
+        await Future<void>.delayed(Duration.zero);
+
+        // No credential this session can present will be accepted, so retrying
+        // only hammers the server and leaves the user with no explanation.
+        expect(provider.keepAliveScheduledForTesting, isFalse);
+        expect(refreshes, 0);
+        provider.updateRecordingState(RecordingState.stop);
+        provider.dispose();
+      });
+    }
+
+    testWidgets('a terminal rejection tells the user to sign in again', (tester) async {
+      final provider = CaptureProvider();
+      provider.onConnectionStateChanged(true);
+      provider.updateRecordingState(RecordingState.record);
+
+      await _pumpAppWithScaffold(tester);
+
+      provider.onClosed(4004);
+      provider.updateRecordingState(RecordingState.stop);
+      await tester.pump();
+
+      final context = tester.element(find.byType(Scaffold));
+      expect(find.text(AppLocalizations.of(context).sessionExpiredSignInAgain), findsOneWidget);
+      // The "reconnecting" reassurance would be a lie here — nothing is retrying.
+      expect(find.text(AppLocalizations.of(context).transcriptionPausedReconnecting), findsNothing);
       provider.dispose();
     });
   });
@@ -1383,12 +1470,11 @@ void main() {
       _GatedSocketCaptureProvider provider, {
       BleAudioCodec codec = BleAudioCodec.pcm16,
       int sampleRate = 16000,
-    }) =>
-        provider.changeAudioRecordProfile(
-          audioCodec: codec,
-          sampleRate: sampleRate,
-          source: ConversationSource.phone.name,
-        );
+    }) => provider.changeAudioRecordProfile(
+      audioCodec: codec,
+      sampleRate: sampleRate,
+      source: ConversationSource.phone.name,
+    );
 
     test('drops a reconnect attempt while one is still in flight', () async {
       final provider = _GatedSocketCaptureProvider();
@@ -1542,9 +1628,7 @@ void main() {
     test('the cycle self-terminates at its cap when nothing interrupts it', () {
       fakeAsync((async) {
         var loadCalls = 0;
-        final provider = CaptureProvider(
-          inProgressConversationLoader: () async => loadCalls++,
-        );
+        final provider = CaptureProvider(inProgressConversationLoader: () async => loadCalls++);
         provider.updateRecordingDevice(_device(id: 'AA:BB:CC:DD:EE:FF', type: DeviceType.omi));
         provider.updateRecordingState(RecordingState.deviceRecord);
 
