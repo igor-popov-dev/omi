@@ -498,6 +498,12 @@ class _ResumeSessionController(LiveConversationController):
         pass
 
 
+@pytest.mark.skip(
+    reason="Проверяет апстримовскую оптимизацию conversation-existence-read (один "
+    "get_conversation на resume вместо двух), которой в нашей приватной ветке пока нет. "
+    "Тест приехал вместе с правкой durable-привязки 26.08; снять skip, когда заберём "
+    "саму оптимизацию."
+)
 async def test_resume_reuses_the_lifecycle_snapshot_instead_of_reading_twice(recording_store, monkeypatch):
     monkeypatch.setattr(lifecycle_service, 'recording_session_mode', lambda: 'enforce')
 
@@ -637,7 +643,12 @@ async def test_lifecycle_event_stays_suppressed_when_no_binding_was_ever_stored(
     host = _OrphanRecoveryHost(firestore_client=recording_store, conversation=_completed_conversation('conversation'))
     controller = LiveConversationController(host)
 
-    await controller.emit_recording_lifecycle_event('conversation', 'completed')
+    # Приватное расхождение с upstream: у нас `completed` НЕ подавляется даже без
+    # привязки (правка полосы 2 — иначе приложение не узнаёт о готовом разговоре и
+    # разговор виснет «в обработке» навсегда). Подавление осталось для in-flight
+    # фаз, где привязка действительно обязательна: клиент приписывает `processing`
+    # той записи, что идёт прямо сейчас. Проверяем именно эту фазу.
+    await controller.emit_recording_lifecycle_event('conversation', 'processing')
 
     assert host.events == []
     assert host.recording_session_ids_by_conversation == {}
