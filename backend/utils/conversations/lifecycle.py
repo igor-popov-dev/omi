@@ -459,6 +459,26 @@ def open_recording_session(
     return dict(binding)
 
 
+def recover_recording_session_binding(
+    uid: str,
+    conversation_id: str,
+    *,
+    firestore_client: Any = None,
+) -> str | None:
+    """Return the durable recording identity for a conversation, or None.
+
+    Callers hold an in-memory map that only covers recordings their own
+    session opened; this is the read-back for the conversations they
+    finalize on someone else's behalf.
+    """
+    binding = recording_sessions_db.get_recording_session_for_conversation(
+        uid,
+        conversation_id,
+        firestore_client=firestore_client,
+    )
+    return binding['recording_session_id'] if binding else None
+
+
 def record_recording_session_event(
     uid: str,
     recording_session_id: str,

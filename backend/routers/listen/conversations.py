@@ -78,16 +78,47 @@ class LiveConversationController:
             )
         )
 
-    async def emit_recording_lifecycle_event(self, conversation_id: str, phase: str) -> None:
+    async def _recording_session_id_for_event(self, conversation_id: str) -> Optional[str]:
+        """Resolve the binding a lifecycle event must advance and be sent under.
+
+        The in-memory map only covers recordings this socket opened, but a
+        session also finalizes conversations it never bound: a silence
+        rollover's predecessor, a reconnect's replay, and orphan recovery
+        (#9809), whose rows come from sessions that are already gone. Their
+        bindings are durable, so fall back to the stored one and cache it for
+        the second event of the same finalization.
+        """
         recording_session_id = recording_session_id_for_lifecycle_event(
             self.host.recording_session_ids_by_conversation, conversation_id
         )
+        if recording_session_id:
+            return recording_session_id
+        try:
+            recording_session_id = await self.host.persistence.call(
+                lifecycle_service.recover_recording_session_binding,
+                self.host.request.uid,
+                conversation_id,
+            )
+        except Exception:
+            logger.exception(
+                'durable recording binding lookup failed conversation=%s uid=%s',
+                conversation_id,
+                self.host.request.uid,
+            )
+            return None
+        if recording_session_id:
+            self.host.recording_session_ids_by_conversation[conversation_id] = recording_session_id
+        return recording_session_id
+
+    async def emit_recording_lifecycle_event(self, conversation_id: str, phase: str) -> None:
+        recording_session_id = await self._recording_session_id_for_event(conversation_id)
         if not recording_session_id and phase != 'completed':
             # `processing` is a live-recording signal: clients attribute it to the
             # capture that is running right now (the mobile client stamps the
             # session's pending WAL audio with the conversation id it carries).
             # A conversation this socket never opened must not claim that
-            # attribution, so the in-flight phase stays suppressed.
+            # attribution, so the in-flight phase stays suppressed. Reached only
+            # when the durable lookup above came back empty too.
             logger.warning('Suppressing lifecycle event without durable binding conversation=%s', conversation_id)
             return
         data = await self.host.persistence.call(

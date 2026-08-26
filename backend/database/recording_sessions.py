@@ -10,9 +10,10 @@ persists the recording identity and its outbound event sequence.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, Mapping, TypedDict
 
 from google.cloud import firestore
+from google.cloud.firestore_v1 import FieldFilter
 
 from database import conversations as conversations_db
 from database._client import get_firestore_client
@@ -31,6 +32,7 @@ _PHASE_ORDER: dict[str, int] = {
     'discarded': 2,
 }
 _TERMINAL_PHASES = frozenset({'completed', 'failed', 'discarded'})
+_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
 
 
 class RecordingSessionBinding(TypedDict):
@@ -153,6 +155,53 @@ def get_recording_session(
     if data.get('uid') != uid or data.get('recording_session_id') != recording_session_id:
         raise ValueError('recording session identity does not match its document binding')
     return _binding(data, recording_session_id, mapping_conflict=False)
+
+
+def _recording_generation_key(data: Mapping[str, Any]) -> tuple[datetime, str]:
+    created_at = data.get('created_at')
+    if not isinstance(created_at, datetime):
+        created_at = _EPOCH
+    elif created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    return (created_at, str(data.get('recording_session_id') or ''))
+
+
+def get_recording_session_for_conversation(
+    uid: str,
+    conversation_id: str,
+    *,
+    firestore_client: Any = None,
+) -> RecordingSessionBinding | None:
+    """Recover a conversation's binding when no live socket holds it in memory.
+
+    Lifecycle callbacks outlive the WebSocket that opened the recording:
+    orphan recovery (#9809), silence rollover, and post-reconnect replay all
+    finalize conversations the current session never bound, so its in-memory
+    map cannot answer for them.  The binding itself is durable, so read it
+    back rather than dropping the client's terminal event.  The newest
+    recording generation wins: a resumed conversation accumulates one session
+    per reconnect and the last one is the recording a client is waiting on.
+    Terminal and out-of-order events stay fenced by ``record_lifecycle_event``.
+    """
+    if not uid or not conversation_id:
+        raise ValueError('uid and conversation_id are required')
+    sessions = (
+        _client(firestore_client)
+        .collection('users')
+        .document(uid)
+        .collection(RECORDING_SESSIONS_COLLECTION)
+        .where(filter=FieldFilter('conversation_id', '==', conversation_id))
+    )
+    latest: dict[str, Any] | None = None
+    for snapshot in sessions.stream():
+        data = snapshot.to_dict() or {}
+        if data.get('uid') != uid or not data.get('recording_session_id'):
+            continue
+        if latest is None or _recording_generation_key(data) > _recording_generation_key(latest):
+            latest = data
+    if latest is None:
+        return None
+    return _binding(latest, str(latest['recording_session_id']), mapping_conflict=False)
 
 
 def tombstone_and_delete_empty_conversation(
