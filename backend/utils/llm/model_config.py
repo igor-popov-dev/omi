@@ -188,22 +188,24 @@ _BRIDGE_TOOLS_FEATURES = {'chat_responses'}
 CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     **_TWO_TIER_MODEL_PROFILE,
     'chat_responses': ('opus', 'claude-bridge'),
-    'conv_discard': ('opus', 'claude-bridge'),
-    # Решение Игоря 23.08: весь self-host работает на Opus — подписка Max ($200)
-    # должна выдержать. Если окно начнёт выгорать, дешевле всего вернуть на Sonnet
-    # служебные фичи (memory_*, conv_discard, conv_folder): их вызывают на КАЖДОМ
-    # разговоре, а результат пользователь глазами не читает.
-    'conv_structure': ('opus', 'claude-bridge'),
-    'conv_action_items': ('opus', 'claude-bridge'),
-    'conv_app_result': ('opus', 'claude-bridge'),
-    'conv_folder': ('opus', 'claude-bridge'),
-    'memories': ('opus', 'claude-bridge'),
-    'learnings': ('opus', 'claude-bridge'),
-    'memory_category': ('opus', 'claude-bridge'),
-    'memory_conflict': ('opus', 'claude-bridge'),
-    'memory_l1': ('opus', 'claude-bridge'),
-    'memory_l2': ('opus', 'claude-bridge'),
-    'proactive_notification': ('opus', 'claude-bridge'),
+    'conv_discard': ('sonnet', 'claude-bridge'),
+    # Решение Игоря 26.08 (отменяет «везде Opus» от 23.08): на Opus остаётся ТОЛЬКО
+    # чат — chat_responses выше и голосовой канал моста (ASK_CLAUDE_MODEL/warm-сессия,
+    # ask_claude_bridge.py). Все служебные фичи ниже — фоновая обработка транскриптов,
+    # память, папки, итог дня, проактивный ментор — работают на Sonnet: их зовут на
+    # КАЖДОМ разговоре (замер полосы 5: 86% недельного окна выгорал Opus), а результат
+    # пользователь глазами не читает.
+    'conv_structure': ('sonnet', 'claude-bridge'),
+    'conv_action_items': ('sonnet', 'claude-bridge'),
+    'conv_app_result': ('sonnet', 'claude-bridge'),
+    'conv_folder': ('sonnet', 'claude-bridge'),
+    'memories': ('sonnet', 'claude-bridge'),
+    'learnings': ('sonnet', 'claude-bridge'),
+    'memory_category': ('sonnet', 'claude-bridge'),
+    'memory_conflict': ('sonnet', 'claude-bridge'),
+    'memory_l1': ('sonnet', 'claude-bridge'),
+    'memory_l2': ('sonnet', 'claude-bridge'),
+    'proactive_notification': ('sonnet', 'claude-bridge'),
     # Полоса 2, 25.08: «итог дня» (daily recap) на self-host был тёмным дважды — его
     # некому запустить (это отдельная почасовая Cloud Run Job, modal/job.py -> start_job,
     # у нас её нет) И некому посчитать: обе фичи прибиты к OpenAI, ключа которого у нас
@@ -214,8 +216,8 @@ CLAUDE_BRIDGE_PROFILE: Dict[str, Tuple[str, str]] = {
     # обслуживает без доработок. Размер запроса меряли: 7-18k токенов на сутки.
     # В _BRIDGE_TOOLS_FEATURES НЕ добавлять: рекап читает фоновые транскрипты — это
     # ровно тот вход, которому инструменты давать нельзя (решение Игоря 22.08).
-    'daily_summary': ('opus', 'claude-bridge'),
-    'daily_summary_simple': ('opus', 'claude-bridge'),
+    'daily_summary': ('sonnet', 'claude-bridge'),
+    'daily_summary_simple': ('sonnet', 'claude-bridge'),
     # Google сняла gemini-2.5-flash-lite с НОВЫХ ключей AI Studio: живой вызов ключом Игоря
     # (25.08) отвечает 404 «...is no longer available to new users. Please update your code to
     # use models/gemini-3.5-flash-lite», хотя ListModels модель всё ещё перечисляет. Наш
