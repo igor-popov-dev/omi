@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class ToggleSectionWidget extends StatefulWidget {
   final bool isSectionEnabled;
@@ -22,13 +24,15 @@ class ToggleSectionWidget extends StatefulWidget {
 class _ToggleSectionWidgetState extends State<ToggleSectionWidget> {
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: t.bgSecondary,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2C2C2E), width: 1),
+        border: Border.all(color: t.bgTertiary, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,17 +46,17 @@ class _ToggleSectionWidgetState extends State<ToggleSectionWidget> {
                   children: [
                     Text(
                       widget.sectionTitle,
-                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
-                    Text(widget.sectionDescription, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13)),
+                    Text(widget.sectionDescription, style: TextStyle(color: t.textSecondary, fontSize: 13)),
                   ],
                 ),
               ),
-              Switch(
+              OmiSwitch(
                 value: widget.isSectionEnabled,
                 onChanged: widget.onSectionEnabledChanged,
-                activeThumbColor: const Color(0xFF8B5CF6),
+                classicActiveThumbColor: t.accent,
               ),
             ],
           ),

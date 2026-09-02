@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:omi/widgets/extensions/string.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class InfoCardWidget extends StatelessWidget {
   final VoidCallback onTap;
@@ -23,6 +25,8 @@ class InfoCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -35,7 +39,7 @@ class InfoCardWidget extends StatelessWidget {
           bottom: 6,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xFF1F1F25).withValues(alpha: 0.8),
+          color: t.textSecondary,
           borderRadius: BorderRadius.circular(16.0),
         ),
         child: Column(
@@ -45,11 +49,11 @@ class InfoCardWidget extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 const Spacer(),
                 (maxLines != null || description.decodeString.characters.length > 200)
-                    ? const Icon(Icons.arrow_forward, size: 20)
+                    ? const OmiIconWidget(icon: OmiIcon.arrowRight, size: 20)
                     : const SizedBox.shrink(),
               ],
             ),
@@ -60,7 +64,7 @@ class InfoCardWidget extends StatelessWidget {
                   : (description.decodeString.characters.length > 200
                       ? '${description.decodeString.characters.take(200).toString().trim()}...'
                       : description.decodeString),
-              style: const TextStyle(color: Colors.grey, fontSize: 15, height: 1.4),
+              style: TextStyle(color: t.textSecondary, fontSize: 15, height: 1.4),
               maxLines: maxLines,
               overflow: maxLines != null ? TextOverflow.ellipsis : null,
             ),
@@ -72,9 +76,9 @@ class InfoCardWidget extends StatelessWidget {
                 children: capabilityChips!
                     .map(
                       (chip) => Chip(
-                        label: Text(chip, style: const TextStyle(color: Colors.white)),
+                        label: Text(chip, style: TextStyle(color: t.textPrimary)),
                         backgroundColor: Colors.transparent,
-                        shape: const StadiumBorder(side: BorderSide(color: Color(0xFF35343B))),
+                        shape: StadiumBorder(side: BorderSide(color: t.bgTertiary)),
                       ),
                     )
                     .toList(),
@@ -88,9 +92,9 @@ class InfoCardWidget extends StatelessWidget {
                 children: connectionChips!
                     .map(
                       (chip) => Chip(
-                        label: Text(chip, style: const TextStyle(color: Colors.white)),
+                        label: Text(chip, style: TextStyle(color: t.textPrimary)),
                         backgroundColor: Colors.transparent,
-                        shape: const StadiumBorder(side: BorderSide(color: Color(0xFF35343B))),
+                        shape: StadiumBorder(side: BorderSide(color: t.bgTertiary)),
                       ),
                     )
                     .toList(),

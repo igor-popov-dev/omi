@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:omi/widgets/omi_switch.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
 
 import 'package:omi/backend/schema/app.dart';
@@ -12,6 +13,9 @@ import 'package:omi/pages/settings/ai_app_generator_provider.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AiAppGeneratorPage extends StatelessWidget {
   const AiAppGeneratorPage({super.key});
@@ -68,12 +72,14 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
   }
 
   Widget _buildInputView(AiAppGeneratorProvider provider) {
+    final t = context.omi;
+
     final isGenerating = provider.isGenerating;
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: const Color(0xFF0D0D0D),
+        backgroundColor: t.bgPrimary,
         body: SafeArea(
           child: Column(
             children: [
@@ -92,10 +98,10 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1C1C1E),
+                          color: t.bgSecondary,
                           borderRadius: BorderRadius.circular(18),
                         ),
-                        child: const Center(child: FaIcon(FontAwesomeIcons.xmark, color: Colors.white, size: 16)),
+                        child: Center(child: FaIcon(FontAwesomeIcons.xmark, color: t.textPrimary, size: 16)),
                       ),
                     ),
                   ],
@@ -112,7 +118,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                           // "Try something like..." text
                           Text(
                             context.l10n.trySomethingLike,
-                            style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                            style: TextStyle(color: t.textSecondary, fontSize: 15),
                           ),
                           const SizedBox(height: 20),
 
@@ -146,7 +152,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                               child: Text(
                                 provider.errorMessage!,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(color: Color(0xFFDC2626), fontSize: 14),
+                                style: TextStyle(color: t.error, fontSize: 14),
                               ),
                             ),
                           ],
@@ -164,6 +170,8 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
   }
 
   Widget _buildGenerationProgressView(AiAppGeneratorProvider provider) {
+    final t = context.omi;
+
     final steps = [
       (context.l10n.creatingPlan, GenerationStep.creatingPlan),
       (context.l10n.developingLogic, GenerationStep.developingLogic),
@@ -183,9 +191,9 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
+              color: t.bgSecondary,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF2A2A2E), width: 1),
+              border: Border.all(color: t.bgTertiary, width: 1),
             ),
             child: Column(
               children: [
@@ -197,7 +205,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2E),
+                        color: t.bgTertiary,
                         borderRadius: BorderRadius.circular(24),
                         image: provider.generatedIconBytes != null
                             ? DecorationImage(image: MemoryImage(provider.generatedIconBytes!), fit: BoxFit.cover)
@@ -206,15 +214,15 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                       child: provider.generatedIconBytes == null
                           ? Center(
                               child: provider.currentStep.index >= GenerationStep.generatingIcon.index
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       width: 28,
                                       height: 28,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2.5,
-                                        valueColor: AlwaysStoppedAnimation(Color(0xFF6366F1)),
+                                        valueColor: AlwaysStoppedAnimation(t.accent),
                                       ),
                                     )
-                                  : FaIcon(FontAwesomeIcons.wandMagicSparkles, color: Colors.grey.shade600, size: 28),
+                                  : FaIcon(FontAwesomeIcons.wandMagicSparkles, color: t.textSecondary, size: 28),
                             )
                           : null,
                     ),
@@ -225,9 +233,9 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1C1C1E),
+                            color: t.bgSecondary,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF2A2A2E)),
+                            border: Border.all(color: t.bgTertiary),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -238,15 +246,15 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   value: (provider.currentStepIndex + 1) / provider.totalSteps,
-                                  backgroundColor: Colors.grey.shade800,
-                                  valueColor: const AlwaysStoppedAnimation(Color(0xFF6366F1)),
+                                  backgroundColor: t.textSecondary,
+                                  valueColor: AlwaysStoppedAnimation(t.accent),
                                 ),
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 '${((provider.currentStepIndex + 1) / provider.totalSteps * 100).round()}%',
-                                style: const TextStyle(
-                                  color: Colors.white70,
+                                style: TextStyle(
+                                  color: t.textSecondary,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -263,16 +271,17 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                 provider.generatedName != null
                     ? Text(
                         provider.generatedName!,
-                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: t.textPrimary, fontSize: 22, fontWeight: FontWeight.w600),
                         textAlign: TextAlign.center,
                       )
                     : ShimmerWithTimeout(
-                        baseColor: const Color(0xFF2A2A2E),
-                        highlightColor: const Color(0xFF3A3A3E),
+                        baseColor: t.bgTertiary,
+                        highlightColor: t.bgTertiary,
                         child: Container(
                           height: 24,
                           width: 160,
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
+                          decoration: BoxDecoration(
+                              color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(6)),
                         ),
                       ),
                 const SizedBox(height: 12),
@@ -282,21 +291,22 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                     ? Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                          color: t.accent.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           provider.getCategoryDisplayName(),
-                          style: const TextStyle(color: Color(0xFF8B5CF6), fontSize: 12, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: t.accent, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       )
                     : ShimmerWithTimeout(
-                        baseColor: const Color(0xFF2A2A2E),
-                        highlightColor: const Color(0xFF3A3A3E),
+                        baseColor: t.bgTertiary,
+                        highlightColor: t.bgTertiary,
                         child: Container(
                           height: 28,
                           width: 100,
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(
+                              color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
               ],
@@ -310,9 +320,9 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C1C1E),
+              color: t.bgSecondary,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF2A2A2E), width: 1),
+              border: Border.all(color: t.bgTertiary, width: 1),
             ),
             child: Column(
               children: steps.asMap().entries.map((entry) {
@@ -334,28 +344,28 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: isCompleted
-                                ? const Color(0xFF6366F1)
+                                ? t.accent
                                 : isActive
-                                    ? const Color(0xFF6366F1).withValues(alpha: 0.2)
-                                    : const Color(0xFF2A2A2E),
-                            border: isActive ? Border.all(color: const Color(0xFF6366F1), width: 2) : null,
+                                    ? t.accent.withValues(alpha: 0.2)
+                                    : t.bgTertiary,
+                            border: isActive ? Border.all(color: t.accent, width: 2) : null,
                           ),
                           child: Center(
                             child: isCompleted
-                                ? const FaIcon(FontAwesomeIcons.check, color: Colors.white, size: 12)
+                                ? FaIcon(FontAwesomeIcons.check, color: t.textPrimary, size: 12)
                                 : isActive
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         width: 14,
                                         height: 14,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation(Color(0xFF6366F1)),
+                                          valueColor: AlwaysStoppedAnimation(t.accent),
                                         ),
                                       )
                                     : Container(
                                         width: 8,
                                         height: 8,
-                                        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey.shade600),
+                                        decoration: BoxDecoration(shape: BoxShape.circle, color: t.textSecondary),
                                       ),
                           ),
                         ),
@@ -369,7 +379,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                               Text(
                                 stepName,
                                 style: TextStyle(
-                                  color: isActive || isCompleted ? Colors.white : Colors.grey.shade600,
+                                  color: isActive || isCompleted ? t.textPrimary : t.textSecondary,
                                   fontSize: 15,
                                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                                 ),
@@ -377,11 +387,11 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                               if (isActive) ...[
                                 const SizedBox(height: 2),
                                 ShimmerWithTimeout(
-                                  baseColor: Colors.grey.shade600,
-                                  highlightColor: Colors.grey.shade400,
+                                  baseColor: t.textSecondary,
+                                  highlightColor: t.textSecondary,
                                   child: Text(
                                     context.l10n.processing,
-                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                                    style: TextStyle(color: t.textSecondary, fontSize: 12),
                                   ),
                                 ),
                               ],
@@ -401,7 +411,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                               width: 2,
                               height: 24,
                               decoration: BoxDecoration(
-                                color: isCompleted ? const Color(0xFF6366F1) : const Color(0xFF2A2A2E),
+                                color: isCompleted ? t.accent : t.bgTertiary,
                                 borderRadius: BorderRadius.circular(1),
                               ),
                             ),
@@ -422,9 +432,9 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1C1E),
+                color: t.bgSecondary,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF2A2A2E), width: 1),
+                border: Border.all(color: t.bgTertiary, width: 1),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,7 +442,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                   Text(
                     context.l10n.features,
                     style: TextStyle(
-                      color: Colors.grey.shade500,
+                      color: t.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
@@ -446,10 +456,10 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2E),
+                          color: t.bgTertiary,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(cap, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        child: Text(cap, style: TextStyle(color: t.textSecondary, fontSize: 13)),
                       );
                     }).toList(),
                   ),
@@ -462,18 +472,20 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
   }
 
   Widget _buildSuggestionCard(String title, AiAppGeneratorProvider provider) {
+    final t = context.omi;
+
     return Container(
       width: 260,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             title,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, height: 1.4),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500, height: 1.4),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
@@ -487,16 +499,16 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(20)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(20)),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     context.l10n.tryIt,
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 14, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(width: 4),
-                  FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade400, size: 12),
+                  FaIcon(FontAwesomeIcons.chevronRight, color: t.textSecondary, size: 12),
                 ],
               ),
             ),
@@ -507,39 +519,45 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
   }
 
   Widget _buildShimmerCard() {
+    final t = context.omi;
+
     return ShimmerWithTimeout(
-      baseColor: const Color(0xFF1C1C1E),
-      highlightColor: const Color(0xFF2A2A2E),
+      baseColor: t.bgSecondary,
+      highlightColor: t.bgTertiary,
       child: Container(
         width: 260,
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               height: 16,
               width: 200,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+              decoration:
+                  BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(4)),
             ),
             const SizedBox(height: 10),
             Container(
               height: 16,
               width: 160,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+              decoration:
+                  BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(4)),
             ),
             const SizedBox(height: 10),
             Container(
               height: 16,
               width: 120,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+              decoration:
+                  BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(4)),
             ),
             const Spacer(),
             Container(
               height: 36,
               width: 80,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              decoration:
+                  BoxDecoration(color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(20)),
             ),
           ],
         ),
@@ -548,6 +566,8 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
   }
 
   Widget _buildBottomInputBar(AiAppGeneratorProvider provider) {
+    final t = context.omi;
+
     final hasText = _promptController.text.trim().isNotEmpty;
     final isGenerating = provider.isGenerating;
 
@@ -555,7 +575,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Container(
         padding: EdgeInsets.only(left: 20, right: (hasText || isGenerating) ? 12 : 20, top: 6, bottom: 6),
-        decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(28)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(28)),
         child: Row(
           children: [
             // Text input
@@ -564,8 +584,8 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                   ? Padding(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       child: ShimmerWithTimeout(
-                        baseColor: Colors.grey.shade600,
-                        highlightColor: Colors.grey.shade400,
+                        baseColor: t.textSecondary,
+                        highlightColor: t.textSecondary,
                         child: Text(
                           provider.state == GenerationState.generatingApp
                               ? context.l10n.creatingYourApp
@@ -580,10 +600,10 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                       maxLines: 3,
                       minLines: 1,
                       textInputAction: TextInputAction.newline,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.6),
+                      style: TextStyle(color: t.textPrimary, fontSize: 16, height: 1.6),
                       decoration: InputDecoration(
                         hintText: context.l10n.whatShouldWeMake,
-                        hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                        hintStyle: TextStyle(color: t.textSecondary, fontSize: 16),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(vertical: 8),
                       ),
@@ -595,14 +615,14 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             if (hasText || isGenerating) ...[
               const SizedBox(width: 12),
               isGenerating
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 44,
                       height: 44,
                       child: Padding(
-                        padding: EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(10),
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation(Color(0xFF6366F1)),
+                          valueColor: AlwaysStoppedAnimation(t.accent),
                         ),
                       ),
                     )
@@ -612,10 +632,10 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1),
+                          color: t.accent,
                           borderRadius: BorderRadius.circular(22),
                         ),
-                        child: const Center(child: FaIcon(FontAwesomeIcons.arrowUp, color: Colors.white, size: 18)),
+                        child: Center(child: FaIcon(FontAwesomeIcons.arrowUp, color: t.textPrimary, size: 18)),
                       ),
                     ),
             ],
@@ -626,8 +646,10 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
   }
 
   Widget _buildGeneratedAppView(AiAppGeneratorProvider provider) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: t.bgPrimary,
       body: SafeArea(
         child: Column(
           children: [
@@ -642,22 +664,23 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1C1C1E),
+                        color: t.bgSecondary,
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: const Center(child: FaIcon(FontAwesomeIcons.arrowLeft, color: Colors.white, size: 16)),
+                      child: Center(child: FaIcon(FontAwesomeIcons.arrowLeft, color: t.textPrimary, size: 16)),
                     ),
                   ),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)]),
+                      color: t.isGlass ? t.warning : null,
+                      gradient: t.isGlass ? null : const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)]),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
+                    child: Text(
                       'BETA',
-                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                      style: TextStyle(color: t.textPrimary, fontSize: 10, fontWeight: FontWeight.w700),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -670,10 +693,10 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1C1C1E),
+                        color: t.bgSecondary,
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: const Center(child: FaIcon(FontAwesomeIcons.xmark, color: Colors.white, size: 16)),
+                      child: Center(child: FaIcon(FontAwesomeIcons.xmark, color: t.textPrimary, size: 16)),
                     ),
                   ),
                 ],
@@ -706,13 +729,15 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
   }
 
   Widget _buildAppPreviewCard(AiAppGeneratorProvider provider) {
+    final t = context.omi;
+
     final capabilities = provider.generatedCapabilities ?? [];
     final hasChat = capabilities.contains('chat');
     final hasMemories = capabilities.contains('memories');
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -730,14 +755,14 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                       width: 100,
                       height: 100,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2A2A2E),
+                        color: t.bgTertiary,
                         borderRadius: BorderRadius.circular(24),
                         image: provider.generatedIconBytes != null
                             ? DecorationImage(image: MemoryImage(provider.generatedIconBytes!), fit: BoxFit.cover)
                             : null,
                       ),
                       child: provider.generatedIconBytes == null
-                          ? const Center(child: FaIcon(FontAwesomeIcons.cube, color: Colors.grey, size: 32))
+                          ? Center(child: FaIcon(FontAwesomeIcons.cube, color: t.textSecondary, size: 32))
                           : null,
                     ),
                     Positioned(
@@ -748,7 +773,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1),
+                            color: t.accent,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -758,7 +783,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                               ),
                             ],
                           ),
-                          child: const FaIcon(FontAwesomeIcons.arrowsRotate, color: Colors.white, size: 14),
+                          child: FaIcon(FontAwesomeIcons.arrowsRotate, color: t.textPrimary, size: 14),
                         ),
                       ),
                     ),
@@ -778,12 +803,12 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                         children: [
                           Text(
                             provider.generatedName ?? context.l10n.appName,
-                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+                            style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             provider.getCategoryDisplayName(),
-                            style: TextStyle(color: Colors.grey.shade400, fontSize: 14, fontWeight: FontWeight.w500),
+                            style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -797,7 +822,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                              color: t.accent.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Row(
@@ -805,14 +830,14 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                               children: [
                                 FaIcon(
                                   provider.makePublic ? FontAwesomeIcons.globe : FontAwesomeIcons.lock,
-                                  color: const Color(0xFF8B5CF6),
+                                  color: t.accent,
                                   size: 12,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   provider.makePublic ? context.l10n.publicLabel : context.l10n.privateLabel,
-                                  style: const TextStyle(
-                                    color: Color(0xFF8B5CF6),
+                                  style: TextStyle(
+                                    color: t.accent,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -826,17 +851,17 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF22C55E).withValues(alpha: 0.15),
+                                color: t.success.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const FaIcon(FontAwesomeIcons.dollarSign, color: Color(0xFF22C55E), size: 12),
+                                  OmiIconWidget(icon: OmiIcon.dollar, color: t.success, size: 12),
                                   Text(
                                     '\$${provider.price.toStringAsFixed(0)} / Month',
-                                    style: const TextStyle(
-                                      color: Color(0xFF22C55E),
+                                    style: TextStyle(
+                                      color: t.success,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -848,13 +873,13 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF22C55E).withValues(alpha: 0.15),
+                                color: t.success.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: Text(
                                 context.l10n.free,
-                                style: const TextStyle(
-                                  color: Color(0xFF22C55E),
+                                style: TextStyle(
+                                  color: t.success,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -875,9 +900,9 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Description',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
               GestureDetector(
@@ -888,7 +913,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                 },
                 child: Text(
                   provider.generatedDescription ?? '',
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.6),
+                  style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.6),
                   maxLines: _isDescriptionExpanded ? null : 3,
                   overflow: _isDescriptionExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
                 ),
@@ -900,9 +925,9 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
 
           // Features section
           if (hasMemories || hasChat) ...[
-            const Text(
+            Text(
               'Features',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+              style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
 
@@ -923,6 +948,8 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
   }
 
   Widget _buildFeatureRow({required FaIconData icon, required String description}) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -930,14 +957,14 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
           Container(
             width: 40,
             height: 40,
-            decoration: const BoxDecoration(color: Color(0xFF2A2A2E), shape: BoxShape.circle),
-            child: Center(child: FaIcon(icon, color: Colors.white, size: 16)),
+            decoration: BoxDecoration(color: t.bgTertiary, shape: BoxShape.circle),
+            child: Center(child: FaIcon(icon, color: t.textPrimary, size: 16)),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
               description,
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -946,9 +973,11 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
   }
 
   Widget _buildAppSettings(AiAppGeneratorProvider provider) {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -959,12 +988,12 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             subtitle: provider.makePublic ? context.l10n.anyoneCanDiscover : context.l10n.onlyYouCanUse,
             value: provider.makePublic,
             onChanged: (v) => provider.setMakePublic(v),
-            activeColor: const Color(0xFF6366F1),
+            activeColor: t.accent,
           ),
 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Divider(color: Colors.grey.shade800, height: 1),
+            child: Divider(color: t.textSecondary, height: 1),
           ),
 
           // Paid toggle
@@ -974,7 +1003,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             subtitle: provider.isPaid ? context.l10n.usersPayToUse : context.l10n.freeForEveryone,
             value: provider.isPaid,
             onChanged: (v) => provider.setIsPaid(v),
-            activeColor: const Color(0xFF22C55E),
+            activeColor: t.success,
           ),
 
           // Price input
@@ -982,21 +1011,21 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(14)),
               child: Row(
                 children: [
-                  const Text(
+                  Text(
                     '\$',
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
                         hintText: context.l10n.pricePlaceholder,
-                        hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 20),
+                        hintStyle: TextStyle(color: t.textSecondary, fontSize: 20),
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
@@ -1007,7 +1036,7 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
                       },
                     ),
                   ),
-                  Text(context.l10n.perMonthLabel, style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                  Text(context.l10n.perMonthLabel, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                 ],
               ),
             ),
@@ -1025,14 +1054,11 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
     required ValueChanged<bool> onChanged,
     required Color activeColor,
   }) {
+    final t = context.omi;
+
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
-          child: Center(child: FaIcon(icon, color: Colors.grey.shade400, size: 16)),
-        ),
+        SettingsIconChip.boxed(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -1040,19 +1066,21 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
             children: [
               Text(
                 title,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 2),
-              Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+              Text(subtitle, style: TextStyle(color: t.textSecondary, fontSize: 13)),
             ],
           ),
         ),
-        Switch(value: value, onChanged: onChanged, activeThumbColor: activeColor),
+        OmiSwitch(value: value, onChanged: onChanged, classicActiveThumbColor: activeColor),
       ],
     );
   }
 
   Widget _buildCreateButton(AiAppGeneratorProvider provider) {
+    final t = context.omi;
+
     final isDisabled = provider.isLoading || provider.generatedIconBytes == null;
 
     return Container(
@@ -1063,36 +1091,36 @@ class _AiAppGeneratorPageState extends State<_AiAppGeneratorPageView> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: isDisabled ? const Color(0xFF2A2A2E) : const Color(0xFF6366F1),
+            color: isDisabled ? t.bgTertiary : t.accent,
             borderRadius: BorderRadius.circular(16),
           ),
           child: provider.state == GenerationState.submitting
               ? Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                        valueColor: AlwaysStoppedAnimation(t.textPrimary),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       context.l10n.creating,
-                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                     ),
                   ],
                 )
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const FaIcon(FontAwesomeIcons.circleCheck, color: Colors.white, size: 18),
+                    FaIcon(FontAwesomeIcons.circleCheck, color: t.textPrimary, size: 18),
                     const SizedBox(width: 10),
                     Text(
                       context.l10n.createApp,
-                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),

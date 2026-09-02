@@ -7,6 +7,8 @@ import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/platform/platform_service.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class IntegrationSettingsPage extends StatefulWidget {
   final String appName;
@@ -42,22 +44,24 @@ class _IntegrationSettingsPageState extends State<IntegrationSettingsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
+        final t = context.omi;
+
         return AlertDialog(
-          backgroundColor: const Color(0xFF1C1C1E),
+          backgroundColor: t.bgSecondary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(context.l10n.disconnectFromApp(widget.appName), style: const TextStyle(color: Colors.white)),
+          title: Text(context.l10n.disconnectFromApp(widget.appName), style: TextStyle(color: t.textPrimary)),
           content: Text(
             context.l10n.disconnectFromAppDesc(widget.appName),
-            style: const TextStyle(color: Color(0xFF8E8E93)),
+            style: TextStyle(color: t.textSecondary),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text(context.l10n.cancel, style: const TextStyle(color: Color(0xFF8E8E93))),
+              child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text(context.l10n.disconnect, style: const TextStyle(color: Colors.red)),
+              child: Text(context.l10n.disconnect, style: TextStyle(color: t.error)),
             ),
           ],
         );
@@ -93,24 +97,26 @@ class _IntegrationSettingsPageState extends State<IntegrationSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: t.bgPrimary,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: t.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           context.l10n.appSettings(widget.appName),
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
         actions: [
           if (widget.showRefresh)
             IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white),
+              icon: Icon(Icons.refresh, color: t.textPrimary),
               onPressed: widget.onRefresh,
               tooltip: context.l10n.refresh,
             ),
@@ -126,18 +132,18 @@ class _IntegrationSettingsPageState extends State<IntegrationSettingsPage> {
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 24),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
+                  color: t.success.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                  border: Border.all(color: t.success.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                    OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         context.l10n.connectedToApp(widget.appName),
-                        style: const TextStyle(color: Colors.green, fontSize: 14),
+                        style: TextStyle(color: t.success, fontSize: 14),
                       ),
                     ),
                   ],
@@ -145,12 +151,12 @@ class _IntegrationSettingsPageState extends State<IntegrationSettingsPage> {
               ),
               Text(
                 context.l10n.account,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Text(
                 widget.infoText ?? context.l10n.actionItemsSyncedTo(widget.appName),
-                style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
+                style: TextStyle(color: t.textSecondary, fontSize: 14),
               ),
               const SizedBox(height: 32),
               // Wrap children in Expanded with SingleChildScrollView to handle overflow
@@ -165,18 +171,18 @@ class _IntegrationSettingsPageState extends State<IntegrationSettingsPage> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
+                    color: t.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                    border: Border.all(color: t.error.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.logout, color: Colors.red, size: 20),
+                      Icon(Icons.logout, color: t.error, size: 20),
                       const SizedBox(width: 12),
                       Text(
                         context.l10n.disconnectFromApp(widget.appName).replaceAll('?', ''),
-                        style: const TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.w500),
+                        style: TextStyle(color: t.error, fontSize: 16, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),

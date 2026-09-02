@@ -71,8 +71,10 @@ import 'free_form_voice_mode.dart';
 import 'gemini_hub_session.dart';
 import 'hub_controller.dart';
 import 'hub_ptt_capture.dart';
-import 'hub_session.dart' show VoiceToolDeclaration;
+import 'hub_session.dart' show VoiceToolDeclaration, VoicePlayerFactory;
 import 'native_voice_player.dart';
+import 'voice_output_envelope.dart';
+import 'voice_output_tap.dart';
 import 'voice_turn_coordinator.dart' show VoiceTurnPresenter;
 import 'voice_turn_driver.dart';
 
@@ -237,11 +239,18 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
 /// this ("keeps the conversation, so the model really can continue it") was
 /// tested against a fake session, so nothing caught that production threw the
 /// handle away on the way to the real one.
-GeminiHubSession buildProductionGeminiSession(HubSessionSpec spec, {required bool freeFormMode}) {
+GeminiHubSession buildProductionGeminiSession(
+  HubSessionSpec spec, {
+  required bool freeFormMode,
+  // Обёрнутая фабрика (`envelopeTappedPlayerFactory`) снимает громкость с
+  // исходящего голоса для живой иконки. По умолчанию — голый нативный плеер,
+  // чтобы вызывающие, которым иконка не нужна, ничего не знали об огибающей.
+  VoicePlayerFactory? playerFactory,
+}) {
   return GeminiHubSession(
     token: spec.token,
     instructions: spec.instructions,
-    playerFactory: nativeVoicePlayerFactory,
+    playerFactory: playerFactory ?? nativeVoicePlayerFactory,
     events: spec.events,
     tools: spec.tools,
     resumptionHandle: spec.resumptionHandle,
@@ -305,6 +314,9 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
   // Игоря 24.08). В production сюда приходит CaptureController.stopFreeFormVoiceMode
   // (стоп + сброс UI + досылка диалога в чат); без него гасим только сам режим.
   void Function()? onConversationEnd,
+  // Живая иконка голосового режима дышит по громкости ответа; без огибающей
+  // она просто держит темп фазы.
+  VoiceOutputEnvelope? outputEnvelope,
 }) {
   late final HubController hub;
   // Same `late final` idiom as `hub` above and in
@@ -377,7 +389,12 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     ),
     buildInstructions: buildProductionHubInstructions,
     mintToken: mintGeminiHubToken,
-    createSession: (spec) => buildProductionGeminiSession(spec, freeFormMode: true),
+    createSession: (spec) => buildProductionGeminiSession(
+      spec,
+      freeFormMode: true,
+      playerFactory:
+          outputEnvelope == null ? null : envelopeTappedPlayerFactory(nativeVoicePlayerFactory, outputEnvelope),
+    ),
     fetchTools: fetchHubTools,
     // Анти-зомби 24.08: хаб сам себя пересоздавал через цикл «idle-close 1008
     // → re-warm» ещё полчаса после выключения режима — жёг поминутный биллинг

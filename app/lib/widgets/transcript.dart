@@ -15,6 +15,7 @@ import 'package:omi/models/stt_provider.dart';
 import 'package:omi/utils/constants.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 // Use speaker colors from person.dart for bubble colors
 final List<Color> _speakerColors = speakerColors;
@@ -152,16 +153,18 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
   int _previousSearchResultIndex = -1;
 
   Color _getSpeakerBubbleColor(bool isUser, int speakerId, Person? person) {
+    final t = context.omi;
     if (isUser) {
-      return const Color(0xFF8B5CF6).withValues(alpha: 0.8);
+      return t.accent.withValues(alpha: 0.8);
     }
     final colorIndex = (person?.colorIdx ?? speakerId) % _speakerColors.length;
     return _speakerColors[colorIndex].withValues(alpha: 0.8);
   }
 
   Color _getSpeakerAvatarColor(bool isUser, int speakerId, Person? person) {
+    final t = context.omi;
     if (isUser) {
-      return const Color(0xFF8B5CF6).withValues(alpha: 0.3);
+      return t.accent.withValues(alpha: 0.3);
     }
     if (speakerId == omiSpeakerId) {
       return Colors.purple.withValues(alpha: 0.3);
@@ -629,6 +632,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
 
   // Create highlighted text spans
   List<InlineSpan> _highlightSearchMatchesWithKeys(String text, String searchQuery, int segmentIndex) {
+    final t = context.omi;
     if (searchQuery.isEmpty) {
       return [TextSpan(text: text)];
     }
@@ -665,13 +669,13 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
           child: Container(
             key: matchKey,
             decoration: BoxDecoration(
-              color: isCurrentResult ? Colors.orange.withValues(alpha: 0.9) : Colors.deepPurple.withValues(alpha: 0.6),
+              color: isCurrentResult ? t.warning.withValues(alpha: 0.9) : t.accent.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(2),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 1),
             child: Text(
               text.substring(matchStart, matchEnd),
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -698,6 +702,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final searchBarHeight = widget.searchQuery.isNotEmpty ? 100.0 : 0.0;
     final transcriptList = NotificationListener<ScrollMetricsNotification>(
       onNotification: _onScrollMetrics,
@@ -771,8 +776,8 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                       key: const ValueKey('transcript_jump_to_latest'),
                       heroTag: null,
                       tooltip: context.l10n.jumpToLatestMessage,
-                      backgroundColor: const Color(0xFF35343B),
-                      foregroundColor: Colors.white,
+                      backgroundColor: t.bgTertiary,
+                      foregroundColor: t.textPrimary,
                       onPressed: () => _scrollToBottomGently(force: true),
                       child: const Icon(Icons.keyboard_arrow_down_rounded),
                     ),
@@ -806,6 +811,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
   }
 
   Widget _buildSegmentItem(int segmentIdx) {
+    final t = context.omi;
     final data = widget.segments[segmentIdx];
     final Person? person = data.personId != null ? _getPersonById(data.personId) : null;
     final isTagging = widget.taggingSegmentIds.contains(data.id);
@@ -872,8 +878,8 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                                       )),
                               style: TextStyle(
                                 color: data.speakerId == omiSpeakerId || person != null
-                                    ? Colors.grey.shade300
-                                    : Colors.grey.shade400,
+                                    ? t.textSecondary
+                                    : t.textSecondary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -881,12 +887,12 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                           ),
                           if (isTagging) ...[
                             const SizedBox(width: 6),
-                            const SizedBox(
+                            SizedBox(
                               width: 12,
                               height: 12,
                               child: CircularProgressIndicator(
                                 strokeWidth: 1.5,
-                                valueColor: AlwaysStoppedAnimation(Colors.white),
+                                valueColor: AlwaysStoppedAnimation(t.textPrimary),
                               ),
                             ),
                           ],
@@ -919,7 +925,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
+                                color: t.bgPrimary.withValues(alpha: 0.15),
                                 blurRadius: 4,
                                 offset: const Offset(0, 1),
                               ),
@@ -949,8 +955,8 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                                           style: TextStyle(
                                             letterSpacing: 0.0,
                                             color: isUser
-                                                ? Colors.white.withValues(alpha: 0.8)
-                                                : Colors.grey.shade300.withValues(alpha: 0.8),
+                                                ? t.textPrimary.withValues(alpha: 0.8)
+                                                : t.textSecondary.withValues(alpha: 0.8),
                                             fontSize: 14,
                                             fontStyle: FontStyle.italic,
                                             height: 1.3,
@@ -974,8 +980,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                                           Text(
                                             SttProviderConfig.getDisplayName(data.sttProvider),
                                             style: TextStyle(
-                                              color:
-                                                  isUser ? Colors.white.withValues(alpha: 0.5) : Colors.grey.shade500,
+                                              color: isUser ? t.textPrimary.withValues(alpha: 0.5) : t.textSecondary,
                                               fontSize: 10,
                                               fontStyle: FontStyle.italic,
                                             ),
@@ -984,8 +989,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                                             Text(
                                               ' · ',
                                               style: TextStyle(
-                                                color:
-                                                    isUser ? Colors.white.withValues(alpha: 0.5) : Colors.grey.shade500,
+                                                color: isUser ? t.textPrimary.withValues(alpha: 0.5) : t.textSecondary,
                                                 fontSize: 10,
                                               ),
                                             ),
@@ -1001,8 +1005,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                                             child: Icon(
                                               Icons.play_circle_outline,
                                               size: 16,
-                                              color:
-                                                  isUser ? Colors.white.withValues(alpha: 0.7) : Colors.grey.shade400,
+                                              color: isUser ? t.textPrimary.withValues(alpha: 0.7) : t.textSecondary,
                                             ),
                                           ),
                                           const SizedBox(width: 6),
@@ -1011,8 +1014,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
                                           Text(
                                             data.getTimestampString(),
                                             style: TextStyle(
-                                              color:
-                                                  isUser ? Colors.white.withValues(alpha: 0.7) : Colors.grey.shade400,
+                                              color: isUser ? t.textPrimary.withValues(alpha: 0.7) : t.textSecondary,
                                               fontSize: 11,
                                             ),
                                           ),
@@ -1058,12 +1060,13 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
   }
 
   Widget _buildSegmentText(TranscriptSegment data, int segmentIdx, bool isUser) {
+    final t = context.omi;
     final richText = RichText(
       textAlign: TextAlign.left,
       text: TextSpan(
         style: TextStyle(
           letterSpacing: 0.0,
-          color: isUser ? Colors.white : Colors.grey.shade100,
+          color: t.textPrimary,
           fontSize: 15,
           height: 1.4,
         ),
@@ -1076,6 +1079,7 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
   }
 
   Widget _buildTranslationNotice() {
+    final t = context.omi;
     return GestureDetector(
       onTap: () {
         showDialog(
@@ -1096,16 +1100,16 @@ class _TranscriptWidgetState extends State<TranscriptWidget> {
           },
         );
       },
-      child: const Opacity(
+      child: Opacity(
         opacity: 0.5,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, size: 12, color: Colors.grey),
-            SizedBox(width: 4),
+            Icon(Icons.check_circle, size: 12, color: t.textSecondary),
+            const SizedBox(width: 4),
             Text(
               'translated by omi',
-              style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+              style: TextStyle(fontSize: 12, color: t.textSecondary, fontStyle: FontStyle.italic),
             ),
           ],
         ),
@@ -1130,6 +1134,7 @@ class LiteTranscriptWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final processedText = _processText(segments);
     if (processedText == null) {
       return const SizedBox.shrink();
@@ -1143,7 +1148,7 @@ class LiteTranscriptWidget extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: Theme.of(
           context,
-        ).textTheme.bodyMedium!.copyWith(color: Colors.grey.shade300.withValues(alpha: 0.6), height: 1.3),
+        ).textTheme.bodyMedium!.copyWith(color: t.textSecondary.withValues(alpha: 0.6), height: 1.3),
         textAlign: TextAlign.right,
       ),
     );

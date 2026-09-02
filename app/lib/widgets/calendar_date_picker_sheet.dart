@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/platform/platform_manager.dart';
-import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 typedef CalendarYearBuilder = Widget Function({
   required int year,
@@ -19,6 +19,7 @@ typedef CalendarYearBuilder = Widget Function({
 });
 
 CalendarDatePicker2Config getDefaultCalendarConfig({
+  required OmiTokens t,
   DateTime? firstDate,
   DateTime? lastDate,
   DateTime? currentDate,
@@ -34,13 +35,13 @@ CalendarDatePicker2Config getDefaultCalendarConfig({
     lastDate: lastDate ?? now.add(const Duration(days: 365 * 5)),
     disableMonthPicker: disableMonthPicker,
     yearBuilder: yearBuilder,
-    selectedDayHighlightColor: ResponsiveHelper.purplePrimary,
-    dayTextStyle: const TextStyle(color: ResponsiveHelper.textPrimary),
-    selectedDayTextStyle: const TextStyle(color: ResponsiveHelper.textPrimary, fontWeight: FontWeight.bold),
-    todayTextStyle: const TextStyle(color: ResponsiveHelper.purplePrimary, fontWeight: FontWeight.bold),
-    weekdayLabelTextStyle: const TextStyle(color: ResponsiveHelper.textTertiary, fontWeight: FontWeight.w500),
-    controlsTextStyle: const TextStyle(color: ResponsiveHelper.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-    disabledDayTextStyle: const TextStyle(color: ResponsiveHelper.textQuaternary),
+    selectedDayHighlightColor: t.accent,
+    dayTextStyle: TextStyle(color: t.textPrimary),
+    selectedDayTextStyle: TextStyle(color: t.textPrimary, fontWeight: FontWeight.bold),
+    todayTextStyle: TextStyle(color: t.accent, fontWeight: FontWeight.bold),
+    weekdayLabelTextStyle: TextStyle(color: t.textTertiary, fontWeight: FontWeight.w500),
+    controlsTextStyle: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+    disabledDayTextStyle: TextStyle(color: t.textTertiary),
   );
 }
 
@@ -63,11 +64,12 @@ Future<void> showConversationDateRangePicker(BuildContext context) async {
   await showCupertinoModalPopup<void>(
     context: context,
     builder: (BuildContext context) {
+      final t = context.omi;
       return Container(
         height: 420,
         padding: const EdgeInsets.only(top: 6.0),
         margin: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        color: const Color(0xFF1F1F25),
+        color: t.bgSecondary,
         child: SafeArea(
           top: false,
           child: Column(
@@ -75,9 +77,9 @@ Future<void> showConversationDateRangePicker(BuildContext context) async {
               // Header with Cancel/Remove Filter and Done buttons
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1F1F25),
-                  border: Border(bottom: BorderSide(color: Color(0xFF35343B), width: 0.5)),
+                decoration: BoxDecoration(
+                  color: t.bgSecondary,
+                  border: Border(bottom: BorderSide(color: t.bgTertiary, width: 0.5)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -95,7 +97,7 @@ Future<void> showConversationDateRangePicker(BuildContext context) async {
                       },
                       child: Text(
                         hasExistingFilter ? context.l10n.removeFilter : context.l10n.cancel,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: TextStyle(color: t.textPrimary, fontSize: 16),
                       ),
                     ),
                     const Spacer(),
@@ -114,7 +116,7 @@ Future<void> showConversationDateRangePicker(BuildContext context) async {
                       },
                       child: Text(
                         context.l10n.done,
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -123,9 +125,10 @@ Future<void> showConversationDateRangePicker(BuildContext context) async {
               // Date range picker
               Expanded(
                 child: Material(
-                  color: ResponsiveHelper.backgroundSecondary,
+                  color: t.bgSecondary,
                   child: CalendarDatePicker2(
                     config: getDefaultCalendarConfig(
+                      t: t,
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
                       currentDate: DateTime.now(),
@@ -167,20 +170,21 @@ Future<void> showConversationSearchDateRangePicker(BuildContext context) async {
   await showCupertinoModalPopup<void>(
     context: context,
     builder: (BuildContext context) {
+      final t = context.omi;
       return Container(
         height: 420,
         padding: const EdgeInsets.only(top: 6.0),
         margin: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        color: const Color(0xFF1F1F25),
+        color: t.bgSecondary,
         child: SafeArea(
           top: false,
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1F1F25),
-                  border: Border(bottom: BorderSide(color: Color(0xFF35343B), width: 0.5)),
+                decoration: BoxDecoration(
+                  color: t.bgSecondary,
+                  border: Border(bottom: BorderSide(color: t.bgTertiary, width: 0.5)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -202,7 +206,7 @@ Future<void> showConversationSearchDateRangePicker(BuildContext context) async {
                       },
                       child: Text(
                         hasExistingFilter ? context.l10n.removeFilter : context.l10n.cancel,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: TextStyle(color: t.textPrimary, fontSize: 16),
                       ),
                     ),
                     const Spacer(),
@@ -225,7 +229,7 @@ Future<void> showConversationSearchDateRangePicker(BuildContext context) async {
                       },
                       child: Text(
                         context.l10n.done,
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -233,9 +237,10 @@ Future<void> showConversationSearchDateRangePicker(BuildContext context) async {
               ),
               Expanded(
                 child: Material(
-                  color: ResponsiveHelper.backgroundSecondary,
+                  color: t.bgSecondary,
                   child: CalendarDatePicker2(
                     config: getDefaultCalendarConfig(
+                      t: t,
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
                       currentDate: DateTime.now(),

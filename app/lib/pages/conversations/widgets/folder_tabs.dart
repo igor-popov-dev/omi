@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:collection/collection.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/backend/schema/folder.dart';
 import 'package:omi/pages/conversations/widgets/create_folder_sheet.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/providers/folder_provider.dart';
-import 'package:omi/utils/folders/folder_icon_mapper.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class FolderTabs extends StatefulWidget {
   final List<Folder> folders;
@@ -81,12 +81,13 @@ class _FolderTabsState extends State<FolderTabs> {
   }
 
   Widget _buildStarredTab() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: _FolderTab(
         label: context.l10n.starred,
         icon: '⭐',
-        color: Colors.amber,
+        color: t.warning,
         isSelected: widget.showStarredOnly,
         skipFolderTracking: true,
         onTap: () {
@@ -210,6 +211,7 @@ class _FolderTab extends StatelessWidget {
   });
 
   void _showContextMenu(BuildContext context) {
+    final t = context.omi;
     if (folder == null) return; // No context menu for "All" tab
 
     HapticFeedback.mediumImpact();
@@ -219,7 +221,7 @@ class _FolderTab extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1F1F25),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => _FolderContextMenu(folder: folder!),
     );
@@ -227,8 +229,9 @@ class _FolderTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     // Use a visible color for "All" tab (white), otherwise use folder color
-    final effectiveColor = color ?? Colors.white;
+    final effectiveColor = color ?? t.textPrimary;
 
     return GestureDetector(
       onTap: () {
@@ -243,7 +246,7 @@ class _FolderTab extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? effectiveColor.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.12),
+          color: isSelected ? effectiveColor.withValues(alpha: 0.15) : t.textSecondary.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -252,14 +255,14 @@ class _FolderTab extends StatelessWidget {
             if (icon != null) ...[
               Padding(
                 padding: const EdgeInsets.only(bottom: 2),
-                child: FaIcon(folderIconToFa(icon), size: 12, color: isSelected ? effectiveColor : Colors.grey[400]),
+                child: OmiFolderIcon(icon, size: 12, color: isSelected ? effectiveColor : t.textSecondary),
               ),
               const SizedBox(width: 5),
             ],
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? effectiveColor : Colors.grey[400],
+                color: isSelected ? effectiveColor : t.textSecondary,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 fontSize: 13,
               ),
@@ -275,6 +278,7 @@ class _FolderTab extends StatelessWidget {
 class _AddFolderButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       margin: const EdgeInsets.only(left: 8, right: 16),
       child: GestureDetector(
@@ -286,8 +290,8 @@ class _AddFolderButton extends StatelessWidget {
         child: Container(
           width: 32,
           height: 32,
-          decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.12), shape: BoxShape.circle),
-          child: Icon(Icons.add, size: 18, color: Colors.grey[400]),
+          decoration: BoxDecoration(color: t.textSecondary.withValues(alpha: 0.12), shape: BoxShape.circle),
+          child: Icon(Icons.add, size: 18, color: t.textSecondary),
         ),
       ),
     );
@@ -306,6 +310,7 @@ class _FolderContextMenu extends StatelessWidget {
   }
 
   Future<void> _handleDelete(BuildContext context) async {
+    final t = context.omi;
     // Capture references before context becomes invalid
     final folderProvider = Provider.of<FolderProvider>(context, listen: false);
     final conversationProvider = Provider.of<ConversationProvider>(context, listen: false);
@@ -348,6 +353,7 @@ class _FolderContextMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -358,7 +364,7 @@ class _FolderContextMenu extends StatelessWidget {
             Container(
               width: 40,
               height: 4,
-              decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
             ),
             const SizedBox(height: 16),
 
@@ -367,12 +373,12 @@ class _FolderContextMenu extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: folder.colorValue.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(t.cardRadius),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  FaIcon(folderIconToFa(folder.icon), size: 18, color: folder.colorValue),
+                  OmiFolderIcon(folder.icon, size: 18, color: folder.colorValue),
                   const SizedBox(width: 8),
                   Text(
                     folder.name,
@@ -385,19 +391,19 @@ class _FolderContextMenu extends StatelessWidget {
 
             // Edit option
             ListTile(
-              leading: const Icon(Icons.edit_outlined, color: Colors.white),
-              title: Text(context.l10n.editFolder, style: const TextStyle(color: Colors.white)),
+              leading: Icon(Icons.edit_outlined, color: t.textPrimary),
+              title: Text(context.l10n.editFolder, style: TextStyle(color: t.textPrimary)),
               onTap: () => _handleEdit(context),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
             ),
 
             // Delete option (only for non-system folders)
             if (!folder.isSystem)
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: Text(context.l10n.deleteFolder, style: const TextStyle(color: Colors.red)),
+                leading: Icon(Icons.delete_outline, color: t.error),
+                title: Text(context.l10n.deleteFolder, style: TextStyle(color: t.error)),
                 onTap: () => _handleDelete(context),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
               ),
 
             // Cancel
@@ -406,7 +412,7 @@ class _FolderContextMenu extends StatelessWidget {
               width: double.infinity,
               child: TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+                child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary, fontSize: 16)),
               ),
             ),
           ],
@@ -425,10 +431,11 @@ class _DeleteFolderSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
-      decoration: const BoxDecoration(
-        color: ResponsiveHelper.backgroundSecondary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Consumer<FolderProvider>(
         builder: (context, provider, _) {
@@ -447,11 +454,11 @@ class _DeleteFolderSheet extends StatelessWidget {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
+                        color: t.error.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(t.rowRadius),
                       ),
                       child: Center(
-                        child: FaIcon(folderIconToFa(folder.icon), size: 20, color: Colors.red.withValues(alpha: 0.8)),
+                        child: OmiFolderIcon(folder.icon, size: 20, color: t.error.withValues(alpha: 0.8)),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -461,23 +468,23 @@ class _DeleteFolderSheet extends StatelessWidget {
                         children: [
                           Text(
                             context.l10n.deleteQuoted(folder.name),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: ResponsiveHelper.textPrimary,
+                              color: t.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             context.l10n.moveConversationsTo(folder.conversationCount),
-                            style: const TextStyle(fontSize: 13, color: ResponsiveHelper.textTertiary),
+                            style: TextStyle(fontSize: 13, color: t.textPrimary.withValues(alpha: 0.69)),
                           ),
                         ],
                       ),
                     ),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.close, color: ResponsiveHelper.textTertiary, size: 24),
+                      child: Icon(Icons.close, color: t.textPrimary.withValues(alpha: 0.69), size: 24),
                     ),
                   ],
                 ),
@@ -495,7 +502,7 @@ class _DeleteFolderSheet extends StatelessWidget {
                       icon: '🚫',
                       name: context.l10n.noFolder,
                       description: context.l10n.removeFromAllFolders,
-                      color: Colors.grey,
+                      color: t.textSecondary,
                       onTap: () => onDelete(null),
                     ),
 
@@ -540,18 +547,19 @@ class _MoveOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: ResponsiveHelper.backgroundTertiary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ResponsiveHelper.backgroundTertiary, width: 1),
+        color: t.bgTertiary,
+        borderRadius: BorderRadius.circular(t.rowRadius),
+        border: Border.all(color: t.bgTertiary, width: 1),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(t.rowRadius),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -563,7 +571,7 @@ class _MoveOption extends StatelessWidget {
                     color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Center(child: FaIcon(folderIconToFa(icon), size: 18, color: color)),
+                  child: Center(child: OmiFolderIcon(icon, size: 18, color: color)),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -572,10 +580,10 @@ class _MoveOption extends StatelessWidget {
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
-                          color: ResponsiveHelper.textPrimary,
+                          color: t.textPrimary,
                         ),
                       ),
                       if (description != null && description!.isNotEmpty)
@@ -585,7 +593,7 @@ class _MoveOption extends StatelessWidget {
                             description!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 12, color: ResponsiveHelper.textTertiary),
+                            style: TextStyle(fontSize: 12, color: t.textPrimary.withValues(alpha: 0.69)),
                           ),
                         ),
                     ],
@@ -608,20 +616,21 @@ class FolderChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: folder.colorValue.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(t.rowRadius),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
-              child: FaIcon(folderIconToFa(folder.icon), size: 10, color: folder.colorValue),
+              child: OmiFolderIcon(folder.icon, size: 10, color: folder.colorValue),
             ),
             const SizedBox(width: 4),
             Text(

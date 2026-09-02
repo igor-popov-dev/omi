@@ -4,7 +4,6 @@ import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:flutter/material.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/backend/schema/app.dart';
@@ -13,6 +12,8 @@ import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 /// A category section widget with unlimited horizontal scrolling for capability pages.
 /// Unlike CategorySection which shows max 9 items, this shows all apps in the category.
@@ -42,6 +43,8 @@ class CapabilityCategorySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     if (apps.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -68,15 +71,15 @@ class CapabilityCategorySection extends StatelessWidget {
               children: [
                 Text(
                   categoryName,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: t.textPrimary),
                 ),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: t.textSecondary, borderRadius: BorderRadius.circular(8)),
                   child: Text(
                     '${apps.length}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade300, fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 12, color: t.textSecondary, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
@@ -128,6 +131,8 @@ class CapabilitySectionAppItemCard extends StatelessWidget {
         return currentApp.enabled;
       },
       builder: (context, isEnabled, child) {
+        final t = context.omi;
+
         return GestureDetector(
           onTap: () async {
             PlatformManager.instance.analytics.pageOpened('App Detail');
@@ -160,13 +165,13 @@ class CapabilitySectionAppItemCard extends StatelessWidget {
                   placeholder: (context, url) => Container(
                     width: 60,
                     height: 60,
-                    decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
                   ),
                   errorWidget: (context, url, error) => Container(
                     width: 60,
                     height: 60,
-                    decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.error_outline, color: Colors.white54, size: 24),
+                    decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
+                    child: OmiIconWidget(icon: OmiIcon.errorCircle, color: t.textSecondary, size: 24),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -180,7 +185,7 @@ class CapabilitySectionAppItemCard extends StatelessWidget {
                         app.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white, fontSize: 17),
+                        style: TextStyle(fontWeight: FontWeight.w500, color: t.textPrimary, fontSize: 17),
                       ),
                       Padding(
                         padding: const EdgeInsets.only(top: 2.0),
@@ -188,21 +193,21 @@ class CapabilitySectionAppItemCard extends StatelessWidget {
                           categoryTitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          style: TextStyle(color: t.textSecondary, fontSize: 13),
                         ),
                       ),
                       if (app.ratingAvg != null) ...[
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            const FaIcon(FontAwesomeIcons.solidStar, color: Colors.white, size: 9),
+                            OmiIconWidget(icon: OmiIcon.star, color: t.textPrimary, size: 9),
                             const SizedBox(width: 4),
                             Text(
                               app.getRatingAvg()!,
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.grey.shade300),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: t.textSecondary),
                             ),
                             const SizedBox(width: 4),
-                            Text('(${app.ratingCount})', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                            Text('(${app.ratingCount})', style: TextStyle(fontSize: 11, color: t.textSecondary)),
                           ],
                         ),
                       ],
@@ -217,7 +222,7 @@ class CapabilitySectionAppItemCard extends StatelessWidget {
                   width: 60,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: isEnabled ? Colors.grey.shade700 : Colors.white,
+                    color: isEnabled ? t.textSecondary : (t.isGlass ? t.accent : Colors.white),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
@@ -226,7 +231,7 @@ class CapabilitySectionAppItemCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: isEnabled ? Colors.white : Colors.black,
+                        color: isEnabled ? t.textPrimary : (t.isGlass ? t.onAccent : Colors.black),
                       ),
                     ),
                   ),

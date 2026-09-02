@@ -12,12 +12,14 @@ import 'package:omi/providers/action_items_provider.dart';
 import 'package:omi/providers/goals_provider.dart';
 import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/services/app_review_service.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/debouncer.dart';
 
 import 'task_categorization.dart';
 import 'widgets/action_item_form_sheet.dart';
 import 'widgets/action_item_shimmer_widget.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 // Re-export Goal from goals.dart for use in this file
 export 'package:omi/backend/http/api/goals.dart' show Goal;
@@ -197,6 +199,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
   }
 
   Widget _buildFab() {
+    final t = context.omi;
     return Consumer<ActionItemsProvider>(
       builder: (context, provider, _) {
         // The selection action bar is mounted at the bottom of the Stack —
@@ -205,15 +208,15 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
         if (provider.isSelectionMode) return const SizedBox.shrink();
         return Positioned(
           right: 20,
-          bottom: 100,
+          bottom: BottomNavMetrics.listBottomPadding(context, classic: 100),
           child: FloatingActionButton(
             heroTag: 'action_items_fab',
             onPressed: () {
               HapticFeedback.lightImpact();
               _showCreateActionItemSheet(defaultDueDate: _getDefaultDueDateForCategory(TaskCategory.today));
             },
-            backgroundColor: Colors.deepPurple,
-            child: const Icon(Icons.add, color: Colors.white),
+            backgroundColor: t.accent,
+            child: Icon(Icons.add, color: t.textPrimary),
           ),
         );
       },
@@ -221,6 +224,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
   }
 
   Widget _buildPageHeader(ActionItemsProvider provider) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
@@ -237,13 +241,13 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
               },
               decoration: InputDecoration(
                 hintText: context.l10n.searchActionItems,
-                hintStyle: const TextStyle(color: Colors.white60, fontSize: 14),
+                hintStyle: TextStyle(color: t.textPrimary.withValues(alpha: 0.6), fontSize: 14),
                 filled: true,
-                fillColor: const Color(0xFF1F1F25),
+                fillColor: t.bgSecondary,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                prefixIcon: const Icon(Icons.search, color: Colors.white60),
+                prefixIcon: Icon(Icons.search, color: t.textPrimary.withValues(alpha: 0.6)),
                 suffixIcon: ValueListenableBuilder<TextEditingValue>(
                   valueListenable: _searchController,
                   builder: (_, val, __) => val.text.isNotEmpty
@@ -253,13 +257,13 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                             _searchDebouncer.cancel();
                             provider.clearSearchQuery();
                           },
-                          child: const Icon(Icons.close, color: Colors.white),
+                          child: Icon(Icons.close, color: t.textPrimary),
                         )
                       : const SizedBox.shrink(),
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               ),
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: t.textPrimary),
             ),
           ),
           const SizedBox(width: 8),
@@ -270,6 +274,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
   }
 
   Widget _buildOverflowMenu(ActionItemsProvider provider) {
+    final t = context.omi;
     final showingCompleted = provider.showCompletedView;
     final hasItems = provider.actionItems.isNotEmpty;
     final allSelected = hasItems && provider.selectedCount == provider.actionItems.length;
@@ -316,24 +321,25 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
         child: Container(
           width: 48,
           height: 48,
-          decoration: const BoxDecoration(color: Color(0xFF1F1F25), shape: BoxShape.circle),
-          child: const Center(child: Icon(Icons.more_horiz_rounded, color: Colors.white70, size: 20)),
+          decoration: BoxDecoration(color: t.bgSecondary, shape: BoxShape.circle),
+          child: Center(child: Icon(Icons.more_horiz_rounded, color: t.textPrimary.withValues(alpha: 0.7), size: 20)),
         ),
       ),
     );
   }
 
   Widget _buildNoSearchResultsContent() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off_rounded, size: 48, color: Colors.grey[600]),
+          Icon(Icons.search_off_rounded, size: 48, color: t.textTertiary),
           const SizedBox(height: 12),
           Text(
             context.l10n.noResultsFound,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -390,24 +396,25 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
   }
 
   Future<void> _confirmClearCompleted(ActionItemsProvider provider, List<ActionItemWithMetadata> items) async {
+    final t = context.omi;
     HapticFeedback.lightImpact();
     final shouldClear = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1F1F22),
+        backgroundColor: t.bgSecondary,
         title: Text(
           context.l10n.tasksClearCompleted,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        content: Text(context.l10n.tasksCleanTodayMessage, style: TextStyle(color: Colors.grey[300], fontSize: 14)),
+        content: Text(context.l10n.tasksCleanTodayMessage, style: TextStyle(color: t.textSecondary, fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(context.l10n.cancel, style: TextStyle(color: Colors.grey[400])),
+            child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: t.error),
             child: Text(context.l10n.delete, style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
         ],
@@ -509,6 +516,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     super.build(context);
 
     return Consumer<ActionItemsProvider>(
@@ -517,7 +525,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
         final categorizedItems = _categorizeItems(provider.actionItems, showCompleted);
 
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           body: Stack(
             children: [
               GestureDetector(
@@ -527,8 +535,8 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                     HapticFeedback.mediumImpact();
                     return provider.forceRefreshActionItems();
                   },
-                  color: Colors.deepPurple,
-                  backgroundColor: Colors.white,
+                  color: t.accent,
+                  backgroundColor: t.textPrimary,
                   child: provider.isLoading && provider.actionItems.isEmpty
                       ? _buildLoadingState()
                       : categorizedItems.values.every((l) => l.isEmpty)
@@ -554,10 +562,10 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
     return CustomScrollView(
       controller: _scrollController,
       physics: const NeverScrollableScrollPhysics(),
-      slivers: const [
-        SliverPadding(padding: EdgeInsets.only(top: 16)),
-        ActionItemsShimmerList(itemCount: 7),
-        SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+      slivers: [
+        const SliverPadding(padding: EdgeInsets.only(top: 16)),
+        const ActionItemsShimmerList(itemCount: 7),
+        SliverPadding(padding: EdgeInsets.only(bottom: BottomNavMetrics.listBottomPadding(context, classic: 100))),
       ],
     );
   }
@@ -576,6 +584,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
   }
 
   Widget _buildEmptyTasksContent() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 0, 32, 120),
       child: Column(
@@ -593,7 +602,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
-                    colors: [Colors.deepPurple.withValues(alpha: 0.35), Colors.deepPurple.withValues(alpha: 0.0)],
+                    colors: [t.accent.withValues(alpha: 0.35), t.accent.withValues(alpha: 0.0)],
                     stops: const [0.0, 1.0],
                   ),
                 ),
@@ -603,29 +612,29 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                 height: 88,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(26),
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF7B5CFF), Color(0xFF5733E0)],
+                    colors: [t.accent, t.accent],
                   ),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+                  border: Border.all(color: t.rowFill, width: 1),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.deepPurple.withValues(alpha: 0.45),
+                      color: t.accent.withValues(alpha: 0.45),
                       blurRadius: 30,
                       spreadRadius: 2,
                       offset: const Offset(0, 12),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.task_alt_rounded, size: 42, color: Colors.white),
+                child: Icon(Icons.task_alt_rounded, size: 42, color: t.textPrimary),
               ),
             ],
           ),
           const SizedBox(height: 28),
           Text(
             context.l10n.noTasksYet,
-            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3),
+            style: TextStyle(color: t.textPrimary, fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3),
           ),
           const SizedBox(height: 10),
           ConstrainedBox(
@@ -633,7 +642,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
             child: Text(
               context.l10n.tasksEmptyStateMessage,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 15, height: 1.5),
+              style: TextStyle(color: t.textPrimary.withValues(alpha: 0.55), fontSize: 15, height: 1.5),
             ),
           ),
           const SizedBox(height: 28),
@@ -651,21 +660,21 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: t.textPrimary,
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 6)),
+                  BoxShadow(color: t.bgPrimary.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 6)),
                 ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.add_rounded, color: Color(0xFF1F1F25), size: 20),
+                  Icon(Icons.add_rounded, color: t.bgSecondary, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     context.l10n.createActionItem,
-                    style: const TextStyle(
-                      color: Color(0xFF1F1F25),
+                    style: TextStyle(
+                      color: t.bgSecondary,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.1,
@@ -735,12 +744,13 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
         ],
 
         // Bottom padding
-        const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+        SliverPadding(padding: EdgeInsets.only(bottom: BottomNavMetrics.listBottomPadding(context, classic: 100))),
       ],
     );
   }
 
   Widget _buildGoalsRow() {
+    final t = context.omi;
     return Consumer2<GoalsProvider, ActionItemsProvider>(
       builder: (context, goalsProvider, actionProvider, child) {
         if (goalsProvider.isLoading) return const SizedBox.shrink();
@@ -760,7 +770,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                   children: [
                     Text(
                       context.l10n.goals,
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     const Spacer(),
                     if (!actionProvider.isSelectionMode) ...[
@@ -775,10 +785,10 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              color: Colors.grey.withValues(alpha: 0.12),
+                              color: t.textSecondary.withValues(alpha: 0.12),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.add, size: 18, color: Colors.grey[400]),
+                            child: Icon(Icons.add, size: 18, color: t.textSecondary),
                           ),
                         ),
                     ],
@@ -800,6 +810,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
     required List<ActionItemWithMetadata> items,
     required ActionItemsProvider provider,
   }) {
+    final t = context.omi;
     final title = _getCategoryTitle(context, category);
     final orderedItems = _getOrderedItems(category, items);
 
@@ -818,8 +829,8 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
           return AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
-              color: isHovering ? const Color(0xFF252528) : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
+              color: isHovering ? t.bgTertiary : Colors.transparent,
+              borderRadius: BorderRadius.circular(t.rowRadius),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -838,14 +849,14 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                             children: [
                               Icon(
                                 _noDeadlineExpanded ? Icons.expand_less : Icons.expand_more,
-                                color: Colors.grey[500],
+                                color: t.textSecondary,
                                 size: 16,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 title.toUpperCase(),
                                 style: TextStyle(
-                                  color: Colors.grey[500],
+                                  color: t.textSecondary,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.8,
@@ -853,7 +864,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                               ),
                               if (orderedItems.isNotEmpty) ...[
                                 const SizedBox(width: 8),
-                                Text('${orderedItems.length}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                Text('${orderedItems.length}', style: TextStyle(color: t.textTertiary, fontSize: 12)),
                               ],
                             ],
                           ),
@@ -862,7 +873,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                         Text(
                           title.toUpperCase(),
                           style: TextStyle(
-                            color: Colors.grey[500],
+                            color: t.textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.8,
@@ -874,20 +885,20 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text('${orderedItems.length}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                              Text('${orderedItems.length}', style: TextStyle(color: t.textTertiary, fontSize: 12)),
                               const SizedBox(width: 8),
                               GestureDetector(
                                 onTap: () => _confirmClearCompleted(provider, orderedItems),
-                                child: Icon(Icons.close, size: 14, color: Colors.grey[600]),
+                                child: Icon(Icons.close, size: 14, color: t.textTertiary),
                               ),
                             ],
                           )
                         else if (orderedItems.isNotEmpty)
-                          Text('${orderedItems.length}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                          Text('${orderedItems.length}', style: TextStyle(color: t.textTertiary, fontSize: 12)),
                       ] else if (provider.showCompletedView && orderedItems.isNotEmpty && _noDeadlineExpanded)
                         GestureDetector(
                           onTap: () => _confirmClearCompleted(provider, orderedItems),
-                          child: Icon(Icons.close, size: 14, color: Colors.grey[600]),
+                          child: Icon(Icons.close, size: 14, color: t.textTertiary),
                         ),
                     ],
                   ),
@@ -915,6 +926,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
   }
 
   Widget _buildOverdueSection({required List<ActionItemWithMetadata> items, required ActionItemsProvider provider}) {
+    final t = context.omi;
     final orderedItems = _getOrderedItems(TaskCategory.overdue, items);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -934,19 +946,19 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(_overdueExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.grey[500], size: 16),
+                      Icon(_overdueExpanded ? Icons.expand_less : Icons.expand_more, color: t.textSecondary, size: 16),
                       const SizedBox(width: 4),
                       Text(
                         context.l10n.tasksOverdue.toUpperCase(),
                         style: TextStyle(
-                          color: Colors.grey[500],
+                          color: t.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.8,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text('${orderedItems.length}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                      Text('${orderedItems.length}', style: TextStyle(color: t.textTertiary, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -970,6 +982,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
     List<ActionItemWithMetadata> categoryItems,
     bool isDragging,
   ) {
+    final t = context.omi;
     final isHoveredFirst = _hoveredItemId == '_first_${category.name}';
 
     return DragTarget<ActionItemWithMetadata>(
@@ -1013,7 +1026,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
           height: showIndicator ? 6 : (isDragging ? 20 : 4),
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: showIndicator ? Colors.deepPurple : Colors.transparent,
+            color: showIndicator ? t.accent : Colors.transparent,
             borderRadius: BorderRadius.circular(2),
           ),
         );
@@ -1049,6 +1062,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
     required TaskCategory category,
     required List<ActionItemWithMetadata> categoryItems,
   }) {
+    final t = context.omi;
     final indentLevel = _getIndentLevel(item);
     final indentWidth = indentLevel * 28.0;
     final isHovered = _hoveredItemId == item.id;
@@ -1131,7 +1145,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
               Container(
                 height: 2,
                 margin: EdgeInsets.only(left: barLeft, right: 4),
-                decoration: BoxDecoration(color: Colors.deepPurple, borderRadius: BorderRadius.circular(1)),
+                decoration: BoxDecoration(color: t.accent, borderRadius: BorderRadius.circular(1)),
               ),
             _buildDraggableTaskItem(item, provider, indentLevel, indentWidth, categoryItems),
             // Drop indicator below
@@ -1139,7 +1153,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
               Container(
                 height: 2,
                 margin: EdgeInsets.only(left: barLeft, right: 4),
-                decoration: BoxDecoration(color: Colors.deepPurple, borderRadius: BorderRadius.circular(1)),
+                decoration: BoxDecoration(color: t.accent, borderRadius: BorderRadius.circular(1)),
               ),
           ],
         );
@@ -1188,6 +1202,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
     double indentWidth,
     List<ActionItemWithMetadata> categoryItems,
   ) {
+    final t = context.omi;
     final taskContent = _buildTaskItemContent(item, provider, indentWidth, categoryItems);
 
     // In selection mode: no drag, no swipe — just tappable content.
@@ -1228,10 +1243,10 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
             width: MediaQuery.of(context).size.width - 64,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF2C2C2E),
-              borderRadius: BorderRadius.circular(12),
+              color: t.bgTertiary,
+              borderRadius: BorderRadius.circular(t.rowRadius),
               boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4)),
+                BoxShadow(color: t.bgPrimary.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4)),
               ],
             ),
             child: Row(
@@ -1241,7 +1256,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                 Expanded(
                   child: Text(
                     item.description,
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    style: TextStyle(color: t.textPrimary, fontSize: 15),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1274,16 +1289,16 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
           alignment: Alignment.centerLeft,
           padding: const EdgeInsets.only(left: 20.0),
           decoration: BoxDecoration(
-            color: item.completed ? Colors.grey[700] : Colors.green[700],
+            color: item.completed ? t.textTertiary : t.success,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(item.completed ? Icons.undo : Icons.check, color: Colors.white),
+          child: Icon(item.completed ? Icons.undo : Icons.check, color: t.textPrimary),
         ),
         secondaryBackground: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20.0),
-          decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
-          child: const Icon(Icons.delete, color: Colors.white),
+          decoration: BoxDecoration(color: t.error, borderRadius: BorderRadius.circular(8)),
+          child: Icon(Icons.delete, color: t.textPrimary),
         ),
         onDismissed: (direction) {
           if (direction == DismissDirection.endToStart) {
@@ -1342,6 +1357,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
     double indentWidth,
     List<ActionItemWithMetadata> categoryItems,
   ) {
+    final t = context.omi;
     final indentLevel = _getIndentLevel(item);
     final goalTitle = _getGoalTitleForTask(item);
     final isSelected = provider.isSelectionMode && provider.isItemSelected(item.id);
@@ -1360,7 +1376,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
         duration: const Duration(milliseconds: 150),
         margin: EdgeInsets.zero,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.deepPurple.withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected ? t.accent.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
@@ -1375,7 +1391,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                   child: Container(
                     width: 1.5,
                     height: 20,
-                    decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(1)),
+                    decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(1)),
                   ),
                 ),
               // Completion circle — always shown. Read-only in selection mode
@@ -1402,27 +1418,27 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                       Text(
                         item.description,
                         style: TextStyle(
-                          color: item.completed ? Colors.grey[500] : Colors.white,
+                          color: item.completed ? t.textSecondary : t.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                           letterSpacing: -0.2,
                           decoration: item.completed ? TextDecoration.lineThrough : null,
-                          decorationColor: Colors.grey[600],
+                          decorationColor: t.textTertiary,
                         ),
                       ),
                       if (goalTitle != null) ...[
                         const SizedBox(height: 4),
-                        Text(goalTitle, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                        Text(goalTitle, style: TextStyle(color: t.textTertiary, fontSize: 12)),
                       ],
                       if (item.exported && item.exportPlatform != null) ...[
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.check_circle_outline, size: 12, color: Colors.grey[600]),
+                            Icon(Icons.check_circle_outline, size: 12, color: t.textTertiary),
                             const SizedBox(width: 4),
                             Text(
                               'Exported to ${_exportPlatformLabel(item.exportPlatform!)}',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                              style: TextStyle(color: t.textTertiary, fontSize: 11),
                             ),
                           ],
                         ),
@@ -1444,19 +1460,20 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
   }
 
   Widget _buildCheckbox(bool isCompleted) {
+    final t = context.omi;
     if (isCompleted) {
       return Container(
         width: 22,
         height: 22,
-        decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.amber),
-        child: const Icon(Icons.check, size: 14, color: Colors.black),
+        decoration: BoxDecoration(shape: BoxShape.circle, color: t.warning),
+        child: Icon(Icons.check, size: 14, color: t.bgPrimary),
       );
     }
     // Incomplete: dashed outline circle (Joi-inspired). Quieter than a solid
     // gray ring so the task title carries the visual weight.
     return CustomPaint(
       size: const Size(22, 22),
-      painter: _DashedCirclePainter(color: Colors.grey[500]!, strokeWidth: 1.5, dashLength: 3, gapLength: 3),
+      painter: _DashedCirclePainter(color: t.textSecondary, strokeWidth: 1.5, dashLength: 3, gapLength: 3),
     );
   }
 
@@ -1464,16 +1481,17 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
   /// — different shape from the leading completion circle so users can't
   /// confuse "selected for bulk action" with "marked as done".
   Widget _buildSelectionSquare(bool isSelected) {
+    final t = context.omi;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       width: 22,
       height: 22,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: isSelected ? Colors.deepPurple : Colors.grey[600]!, width: 2),
-        color: isSelected ? Colors.deepPurple : Colors.transparent,
+        border: Border.all(color: isSelected ? t.accent : t.textTertiary, width: 2),
+        color: isSelected ? t.accent : Colors.transparent,
       ),
-      child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+      child: isSelected ? Icon(Icons.check, size: 14, color: t.textPrimary) : null,
     );
   }
 
@@ -1509,6 +1527,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
   }
 
   Widget _buildGoalItem(Goal goal, ActionItemsProvider provider) {
+    final t = context.omi;
     final progress = goal.targetValue > 0 ? goal.currentValue / goal.targetValue : 0.0;
     final progressText = '(${goal.currentValue.toInt()}/${goal.targetValue.toInt()})';
     final displayTitle = '${goal.title} $progressText';
@@ -1538,7 +1557,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
                   child: CustomPaint(
                     painter: _CircularProgressPainter(
                       progress: progress.clamp(0.0, 1.0),
-                      color: progress >= 1.0 ? Colors.amber : Colors.grey.shade600,
+                      color: progress >= 1.0 ? t.warning : t.textTertiary,
                     ),
                   ),
                 ),
@@ -1549,7 +1568,7 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
               child: Text(
                 displayTitle,
                 style: TextStyle(
-                  color: progress >= 1.0 ? Colors.grey.shade600 : Colors.white,
+                  color: progress >= 1.0 ? t.textTertiary : t.textPrimary,
                   fontSize: 15,
                   decoration: progress >= 1.0 ? TextDecoration.lineThrough : null,
                   height: 1.4,
@@ -1573,14 +1592,14 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
         return await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
-                backgroundColor: const Color(0xFF1F1F25),
-                title: Text(context.l10n.deleteGoal, style: const TextStyle(color: Colors.white)),
-                content: Text('Delete "${goal.title}"?', style: const TextStyle(color: Colors.white70)),
+                backgroundColor: t.bgSecondary,
+                title: Text(context.l10n.deleteGoal, style: TextStyle(color: t.textPrimary)),
+                content: Text('Delete "${goal.title}"?', style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7))),
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
                   TextButton(
                     onPressed: () => Navigator.pop(context, true),
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    style: TextButton.styleFrom(foregroundColor: t.error),
                     child: Text(context.l10n.delete),
                   ),
                 ],
@@ -1594,10 +1613,10 @@ class _ActionItemsPageState extends State<ActionItemsPage> with AutomaticKeepAli
       },
       background: Container(
         margin: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(color: t.error, borderRadius: BorderRadius.circular(8)),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
+        child: Icon(Icons.delete_outline, color: t.textPrimary),
       ),
       child: goalContent,
     );
@@ -1659,12 +1678,13 @@ class _GoalCreateSheetState extends State<_GoalCreateSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(24),
         child: SafeArea(
@@ -1675,11 +1695,11 @@ class _GoalCreateSheetState extends State<_GoalCreateSheet> {
                 width: 40,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
               ),
               Text(
                 context.l10n.addGoal,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 24),
               // Title field
@@ -1688,18 +1708,19 @@ class _GoalCreateSheetState extends State<_GoalCreateSheet> {
                 children: [
                   Text(
                     context.l10n.goalTitle,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                    style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: titleController,
                     autofocus: true,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: t.textPrimary, fontSize: 16),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.08),
+                      fillColor: t.rowFill,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(t.rowRadius), borderSide: BorderSide.none),
                     ),
                   ),
                 ],
@@ -1715,19 +1736,19 @@ class _GoalCreateSheetState extends State<_GoalCreateSheet> {
                       children: [
                         Text(
                           context.l10n.current,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                          style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                         ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: currentController,
                           keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: TextStyle(color: t.textPrimary, fontSize: 16),
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: Colors.white.withValues(alpha: 0.08),
+                            fillColor: t.rowFill,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(t.rowRadius),
                               borderSide: BorderSide.none,
                             ),
                           ),
@@ -1742,19 +1763,19 @@ class _GoalCreateSheetState extends State<_GoalCreateSheet> {
                       children: [
                         Text(
                           context.l10n.target,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                          style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                         ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: targetController,
                           keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: TextStyle(color: t.textPrimary, fontSize: 16),
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: Colors.white.withValues(alpha: 0.08),
+                            fillColor: t.rowFill,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(t.rowRadius),
                               borderSide: BorderSide.none,
                             ),
                           ),
@@ -1784,10 +1805,10 @@ class _GoalCreateSheetState extends State<_GoalCreateSheet> {
                     widget.onSave(title, current, target);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF22C55E),
-                    foregroundColor: Colors.white,
+                    backgroundColor: t.success,
+                    foregroundColor: t.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                   ),
                   child: Text(context.l10n.addGoal),
                 ),
@@ -1835,12 +1856,13 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.all(24),
         child: SafeArea(
@@ -1851,11 +1873,11 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
                 width: 40,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
               ),
               Text(
                 context.l10n.editGoal,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 24),
               // Title field
@@ -1864,18 +1886,19 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
                 children: [
                   Text(
                     context.l10n.goalTitle,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                    style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: titleController,
                     autofocus: true,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: t.textPrimary, fontSize: 16),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.08),
+                      fillColor: t.rowFill,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(t.rowRadius), borderSide: BorderSide.none),
                     ),
                   ),
                 ],
@@ -1891,19 +1914,19 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
                       children: [
                         Text(
                           context.l10n.current,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                          style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                         ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: currentController,
                           keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: TextStyle(color: t.textPrimary, fontSize: 16),
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: Colors.white.withValues(alpha: 0.08),
+                            fillColor: t.rowFill,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(t.rowRadius),
                               borderSide: BorderSide.none,
                             ),
                           ),
@@ -1918,19 +1941,19 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
                       children: [
                         Text(
                           context.l10n.target,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                          style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                         ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: targetController,
                           keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          style: TextStyle(color: t.textPrimary, fontSize: 16),
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: Colors.white.withValues(alpha: 0.08),
+                            fillColor: t.rowFill,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(t.rowRadius),
                               borderSide: BorderSide.none,
                             ),
                           ),
@@ -1952,11 +1975,11 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (context) => AlertDialog(
-                            backgroundColor: const Color(0xFF1F1F25),
-                            title: Text(context.l10n.deleteGoal, style: const TextStyle(color: Colors.white)),
+                            backgroundColor: t.bgSecondary,
+                            title: Text(context.l10n.deleteGoal, style: TextStyle(color: t.textPrimary)),
                             content: Text(
                               'Delete "${widget.goal.title}"?',
-                              style: const TextStyle(color: Colors.white70),
+                              style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7)),
                             ),
                             actions: [
                               TextButton(
@@ -1965,7 +1988,7 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
                               ),
                               TextButton(
                                 onPressed: () => Navigator.pop(context, true),
-                                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                style: TextButton.styleFrom(foregroundColor: t.error),
                                 child: Text(context.l10n.delete),
                               ),
                             ],
@@ -1976,7 +1999,7 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
                         }
                       },
                       style: TextButton.styleFrom(
-                        foregroundColor: Colors.red,
+                        foregroundColor: t.error,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       child: Text(context.l10n.delete),
@@ -2003,10 +2026,10 @@ class _GoalEditSheetState extends State<_GoalEditSheet> {
                         widget.onSave(title, current, target);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF22C55E),
-                        foregroundColor: Colors.white,
+                        backgroundColor: t.success,
+                        foregroundColor: t.textPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                       ),
                       child: Text(context.l10n.save),
                     ),

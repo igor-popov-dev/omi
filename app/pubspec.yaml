@@ -147,6 +147,7 @@ dependencies:
   vector_math: ^2.2.0
   marionette_flutter: ^0.3.0
   quick_actions: ^1.0.0
+  lucide_icons_flutter: ^3.1.17
 
 dependency_overrides:
   js: ^0.7.1
@@ -230,6 +231,23 @@ flutter:
         - asset: assets/fonts/SFPRODISPLAYBLACKITALIC.OTF
           weight: 900
           style: italic
+    # Open Runde (SIL OFL 1.1, see assets/fonts/OpenRunde-OFL.txt) — glass theme headlines.
+    - family: "Open Runde"
+      fonts:
+        - asset: assets/fonts/OpenRunde-Regular.otf
+          weight: 400
+        - asset: assets/fonts/OpenRunde-Medium.otf
+          weight: 500
+        - asset: assets/fonts/OpenRunde-Semibold.otf
+          weight: 600
+        - asset: assets/fonts/OpenRunde-Bold.otf
+          weight: 700
+    # Monochrome emoji fallback for the Glass theme (SIL OFL, see
+    # assets/fonts/NotoEmoji-OFL.txt). Emoji that have no Lucide glyph in
+    # lib/utils/theme/omi_emoji.dart are drawn with this outline font.
+    - family: "Noto Emoji"
+      fonts:
+        - asset: assets/fonts/NotoEmoji-VariableFont_wght.ttf
 
 flutter_gen:
   output: lib/gen/

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MergeConfirmationDialog extends StatelessWidget {
   final int count;
@@ -22,6 +23,7 @@ class MergeConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final hasWarning = warningMessage != null && warningMessage!.isNotEmpty;
 
     if (Platform.isIOS) {
@@ -33,7 +35,7 @@ class MergeConfirmationDialog extends StatelessWidget {
             Text(context.l10n.mergeConversationsMessage(count)),
             if (hasWarning) ...[
               const SizedBox(height: 12),
-              Text('⚠️ $warningMessage', style: const TextStyle(color: CupertinoColors.systemOrange, fontSize: 13)),
+              Text('⚠️ $warningMessage', style: TextStyle(color: t.warning, fontSize: 13)),
             ],
           ],
         ),
@@ -45,11 +47,11 @@ class MergeConfirmationDialog extends StatelessWidget {
     }
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       title: Text(
         context.l10n.mergeConversations,
-        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+        style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -57,22 +59,22 @@ class MergeConfirmationDialog extends StatelessWidget {
         children: [
           Text(
             context.l10n.mergeConversationsMessage(count),
-            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+            style: TextStyle(color: t.textSecondary, fontSize: 15),
           ),
           if (hasWarning) ...[
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
+                color: t.warning.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
+                  Icon(Icons.warning_amber_rounded, color: t.warning, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(warningMessage!, style: const TextStyle(color: Colors.orange, fontSize: 13)),
+                    child: Text(warningMessage!, style: TextStyle(color: t.warning, fontSize: 13)),
                   ),
                 ],
               ),
@@ -83,13 +85,13 @@ class MergeConfirmationDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: onCancel,
-          child: Text(context.l10n.cancel, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 17)),
+          child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary, fontSize: 17)),
         ),
         TextButton(
           onPressed: onConfirm,
           child: Text(
             context.l10n.merge,
-            style: const TextStyle(color: Color(0xFF7C3AED), fontSize: 17, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.accent, fontSize: 17, fontWeight: FontWeight.w600),
           ),
         ),
       ],

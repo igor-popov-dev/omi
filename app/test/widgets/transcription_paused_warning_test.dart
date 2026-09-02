@@ -17,6 +17,7 @@ import 'package:omi/providers/phone_call_provider.dart';
 import 'package:omi/backend/schema/phone_call.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/utils/enums.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class _StubDeviceProvider extends ChangeNotifier implements DeviceProvider {
   @override
@@ -134,15 +135,13 @@ void main() {
 
       expect(find.text(pausedText), findsWidgets);
       expect(find.text(listeningText), findsNothing);
-      // Phone-mic paused affordance: orange status dot + play (resume) control.
+      // Phone-mic paused affordance: warning-colored status dot + play (resume) control.
+      final warning = context.omi.warning;
       expect(
         find.byWidgetPredicate((w) {
           if (w is! Container) return false;
           final d = w.decoration;
-          return d is BoxDecoration &&
-              d.color == const Color(0xFFFF9500) &&
-              d.shape == BoxShape.circle &&
-              w.constraints?.maxWidth == 6;
+          return d is BoxDecoration && d.color == warning && d.shape == BoxShape.circle && w.constraints?.maxWidth == 6;
         }),
         findsOneWidget,
       );

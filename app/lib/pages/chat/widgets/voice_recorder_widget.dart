@@ -5,6 +5,7 @@ import 'package:omi/widgets/shimmer_with_timeout.dart';
 
 import 'package:omi/providers/voice_recorder_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Compact waveform pill that lives inside the chat input row, between the
 /// stop button and the send button. Mirrors the visual treatment of the
@@ -46,6 +47,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<VoiceRecorderProvider>(
       builder: (context, provider, child) {
         switch (provider.state) {
@@ -56,7 +58,10 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
                 children: [
                   Expanded(
                     child: CustomPaint(
-                      painter: AudioWavePainter(levels: provider.audioLevels),
+                      painter: AudioWavePainter(
+                        levels: provider.audioLevels,
+                        waveColor: t.textPrimary.withValues(alpha: 0.85),
+                      ),
                       child: const SizedBox.expand(),
                     ),
                   ),
@@ -83,11 +88,11 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
                   Expanded(
                     child: Center(
                       child: ShimmerWithTimeout(
-                        baseColor: const Color(0xFF35343B),
-                        highlightColor: Colors.white,
+                        baseColor: t.bgTertiary,
+                        highlightColor: t.textPrimary,
                         child: Text(
                           context.l10n.transcribing,
-                          style: const TextStyle(color: Colors.white, fontSize: 15),
+                          style: TextStyle(color: t.textPrimary, fontSize: 15),
                         ),
                       ),
                     ),
@@ -117,16 +122,17 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
                   Expanded(
                     child: Text(
                       context.l10n.voiceNoSpeechDetected,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                          color: t.textPrimary.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   GestureDetector(
                     onTap: provider.recordAgain,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(Icons.mic_none, color: Colors.white, size: 20),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(Icons.mic_none, color: t.textPrimary, size: 20),
                     ),
                   ),
                   // Same exit as the error bar below: not wanting to speak again
@@ -153,7 +159,7 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
                         ? context.l10n.voiceRecordingFound
                         : context.l10n.error,
                     style: TextStyle(
-                      color: provider.state == VoiceRecorderState.pendingRecovery ? Colors.white : Colors.redAccent,
+                      color: provider.state == VoiceRecorderState.pendingRecovery ? t.textPrimary : t.error,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -163,16 +169,19 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
                     child: SizedBox(
                       height: 32,
                       child: CustomPaint(
-                        painter: AudioWavePainter(levels: provider.audioLevels),
+                        painter: AudioWavePainter(
+                          levels: provider.audioLevels,
+                          waveColor: t.textPrimary.withValues(alpha: 0.85),
+                        ),
                         child: const SizedBox.expand(),
                       ),
                     ),
                   ),
                   GestureDetector(
                     onTap: provider.retry,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(Icons.refresh, color: Colors.white, size: 20),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(Icons.refresh, color: t.textPrimary, size: 20),
                     ),
                   ),
                   // Self-host patch, not for upstream: a failed transcription had
@@ -203,14 +212,18 @@ class _VoiceRecorderWidgetState extends State<VoiceRecorderWidget> with SingleTi
 class AudioWavePainter extends CustomPainter {
   final List<double> levels;
 
-  AudioWavePainter({required List<double> levels}) : levels = List<double>.from(levels);
+  /// Wave color. A painter has no BuildContext, so the token is resolved by the
+  /// caller; the fallback is the Classic value for callers without a theme.
+  final Color? waveColor;
+
+  AudioWavePainter({required List<double> levels, this.waveColor}) : levels = List<double>.from(levels);
 
   @override
   void paint(Canvas canvas, Size size) {
     if (levels.isEmpty || size.width <= 0 || size.height <= 0) return;
 
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.85)
+      ..color = waveColor ?? const Color(0xD9FFFFFF)
       ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round;
 

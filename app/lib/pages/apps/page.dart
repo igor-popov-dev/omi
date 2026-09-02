@@ -10,6 +10,7 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/providers/connectivity_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AppsPage extends StatefulWidget {
   final bool showAppBar;
@@ -57,10 +58,10 @@ class AppsPageState extends State<AppsPage> with AutomaticKeepAliveClientMixin {
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: widget.showAppBar
           ? AppBar(
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: context.omi.bgPrimary,
               automaticallyImplyLeading: true,
               title: Text(context.l10n.apps),
               centerTitle: true,
@@ -116,6 +117,8 @@ class EmptyAppsWidget extends StatelessWidget {
       selector: (context, provider) =>
           (apps: provider.apps, isConnected: context.read<ConnectivityProvider>().isConnected),
       builder: (context, state, child) {
+        final t = context.omi;
+
         return state.apps.isEmpty
             ? SliverToBoxAdapter(
                 child: Padding(
@@ -123,7 +126,7 @@ class EmptyAppsWidget extends StatelessWidget {
                   child: Center(
                     child: Text(
                       state.isConnected ? context.l10n.noAppsFound : context.l10n.unableToFetchApps,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      style: TextStyle(color: t.textPrimary, fontSize: 16),
                       textAlign: TextAlign.center,
                     ),
                   ),

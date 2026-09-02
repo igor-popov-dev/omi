@@ -7,6 +7,7 @@ import 'package:omi/env/env.dart';
 import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PaymentWebViewPage extends StatefulWidget {
   final String checkoutUrl;
@@ -65,6 +66,8 @@ class _PaymentWebViewPageState extends State<PaymentWebViewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     // Pop on build if the server-driven visibility flag is off, in case any
     // caller reached here through a stale route.
     if (!context.watch<UsageProvider>().showSubscriptionUI) {
@@ -75,17 +78,17 @@ class _PaymentWebViewPageState extends State<PaymentWebViewPage> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
         title: Text(widget.title ?? context.l10n.completeYourUpgrade),
-        backgroundColor: Colors.black,
+        backgroundColor: t.bgPrimary,
         elevation: 0,
         leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop(false)),
       ),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_isLoading) const Center(child: CircularProgressIndicator(color: Colors.deepPurple)),
+          if (_isLoading) Center(child: CircularProgressIndicator(color: t.accent)),
         ],
       ),
     );

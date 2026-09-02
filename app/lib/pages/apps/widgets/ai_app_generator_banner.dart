@@ -5,12 +5,15 @@ import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:omi/pages/settings/ai_app_generator_page.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AiAppGeneratorBanner extends StatelessWidget {
   const AiAppGeneratorBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -24,13 +27,19 @@ class AiAppGeneratorBanner extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [const Color(0xFF6366F1).withValues(alpha: 0.3), const Color(0xFF4F46E5).withValues(alpha: 0.3)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: t.isGlass ? t.accent.withValues(alpha: 0.08) : null,
+          gradient: t.isGlass
+              ? null
+              : LinearGradient(
+                  colors: [
+                    const Color(0xFF6366F1).withValues(alpha: 0.3),
+                    const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
           borderRadius: BorderRadius.circular(18.0),
-          border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3), width: 1),
+          border: Border.all(color: t.accent.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           children: [
@@ -39,19 +48,20 @@ class AiAppGeneratorBanner extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+                color: t.isGlass ? t.accent : null,
+                gradient: t.isGlass ? null : const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Center(child: FaIcon(FontAwesomeIcons.wandMagicSparkles, color: Colors.white, size: 16)),
+              child: Center(child: FaIcon(FontAwesomeIcons.wandMagicSparkles, color: t.textPrimary, size: 16)),
             ),
 
             const SizedBox(width: 12),
 
             // Message
-            const Expanded(
+            Expanded(
               child: Text(
                 'Build apps using AI in 1 click!',
-                style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
               ),
             ),
 
@@ -59,12 +69,13 @@ class AiAppGeneratorBanner extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)]),
+                color: t.isGlass ? t.warning : null,
+                gradient: t.isGlass ? null : const LinearGradient(colors: [Color(0xFFFF6B35), Color(0xFFFF8C42)]),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
+              child: Text(
                 'BETA',
-                style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                style: TextStyle(color: t.textPrimary, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5),
               ),
             ),
           ],

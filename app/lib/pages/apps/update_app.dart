@@ -16,6 +16,8 @@ import 'widgets/capabilities_chips_widget.dart';
 import 'widgets/external_trigger_fields_widget.dart';
 import 'widgets/payment_details_widget.dart';
 import 'widgets/prompt_text_field.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class UpdateAppPage extends StatefulWidget {
   final App app;
@@ -38,16 +40,18 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
   Widget build(BuildContext context) {
     return Consumer<AddAppProvider>(
       builder: (context, provider, child) {
+        final t = context.omi;
+
         return GestureDetector(
           onTap: () {
             FocusScope.of(context).unfocus();
           },
           child: Scaffold(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             extendBody: true,
             appBar: AppBar(
               title: Text(context.l10n.manageYourApp),
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: context.omi.bgPrimary,
               actions: [
                 if (provider.selectedCapabilities.any((c) => c.id == 'external_integration') &&
                     provider.chatToolsManifestUrlController.text.isNotEmpty)
@@ -58,12 +62,12 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                             await provider.refreshManifest();
                           },
                     icon: provider.isRefreshingManifest
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                             ),
                           )
                         : const Icon(Icons.refresh),
@@ -84,9 +88,9 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                          CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
                           const SizedBox(height: 14),
-                          Text(context.l10n.updatingYourApp, style: const TextStyle(color: Colors.white)),
+                          Text(context.l10n.updatingYourApp, style: TextStyle(color: t.textPrimary)),
                         ],
                       ),
                     );
@@ -98,9 +102,9 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                          CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
                           const SizedBox(height: 14),
-                          Text(context.l10n.fetchingYourAppDetails, style: const TextStyle(color: Colors.white)),
+                          Text(context.l10n.fetchingYourAppDetails, style: TextStyle(color: t.textPrimary)),
                         ],
                       ),
                     );
@@ -139,7 +143,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                             const SizedBox(height: 18),
                             Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1F1F25),
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(12.0),
                               ),
                               padding: const EdgeInsets.all(14.0),
@@ -150,7 +154,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                     padding: const EdgeInsets.only(left: 8.0),
                                     child: Text(
                                       context.l10n.previewAndScreenshots,
-                                      style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                                      style: TextStyle(color: t.textSecondary, fontSize: 16),
                                     ),
                                   ),
                                   const SizedBox(height: 18),
@@ -172,18 +176,18 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                               height: height,
                                               margin: const EdgeInsets.only(right: 8),
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFF35343B),
+                                                color: t.bgTertiary,
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: provider.isUploadingThumbnail
                                                   ? ShimmerWithTimeout(
-                                                      baseColor: Colors.grey[900]!,
-                                                      highlightColor: Colors.grey[800]!,
+                                                      baseColor: t.bgSecondary,
+                                                      highlightColor: t.bgTertiary,
                                                       child: Container(
                                                         width: width,
                                                         height: height,
                                                         decoration: BoxDecoration(
-                                                          color: Colors.black,
+                                                          color: t.bgPrimary,
                                                           borderRadius: BorderRadius.circular(8),
                                                         ),
                                                         child: const Icon(Icons.photo, size: 32),
@@ -213,19 +217,19 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                                   margin: const EdgeInsets.only(right: 8),
                                                   decoration: BoxDecoration(
                                                     borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(color: const Color(0xFF424242), width: 1),
+                                                    border: Border.all(color: t.divider, width: 1),
                                                     image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
                                                   ),
                                                 ),
                                                 placeholder: (context, url) => ShimmerWithTimeout(
-                                                  baseColor: Colors.grey[900]!,
-                                                  highlightColor: Colors.grey[800]!,
+                                                  baseColor: t.bgSecondary,
+                                                  highlightColor: t.bgTertiary,
                                                   child: Container(
                                                     width: 120,
                                                     height: 180,
                                                     margin: const EdgeInsets.only(right: 8),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.black,
+                                                      color: t.bgPrimary,
                                                       borderRadius: BorderRadius.circular(8),
                                                     ),
                                                   ),
@@ -235,7 +239,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                                   height: 180,
                                                   margin: const EdgeInsets.only(right: 8),
                                                   decoration: BoxDecoration(
-                                                    color: Colors.grey[900],
+                                                    color: t.bgSecondary,
                                                     borderRadius: BorderRadius.circular(8),
                                                   ),
                                                   child: const Icon(Icons.error),
@@ -253,7 +257,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                                     color: Colors.black.withValues(alpha: 0.6),
                                                     shape: BoxShape.circle,
                                                   ),
-                                                  child: const Icon(Icons.close, size: 16),
+                                                  child: const OmiIconWidget(icon: OmiIcon.close, size: 16),
                                                 ),
                                               ),
                                             ),
@@ -268,7 +272,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                             const SizedBox(height: 18),
                             Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1F1F25),
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(12.0),
                               ),
                               padding: const EdgeInsets.all(14.0),
@@ -279,7 +283,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                     padding: const EdgeInsets.only(left: 8.0),
                                     child: Text(
                                       context.l10n.appCapabilities,
-                                      style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                                      style: TextStyle(color: t.textSecondary, fontSize: 16),
                                     ),
                                   ),
                                   const SizedBox(height: 10),
@@ -303,7 +307,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                       },
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF1F1F25),
+                                          color: t.bgSecondary,
                                           borderRadius: BorderRadius.circular(12.0),
                                         ),
                                         padding: const EdgeInsets.all(14.0),
@@ -338,7 +342,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                   const SizedBox(height: 18),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1F1F25),
+                                      color: t.bgSecondary,
                                       borderRadius: BorderRadius.circular(12.0),
                                     ),
                                     padding: const EdgeInsets.all(14.0),
@@ -350,7 +354,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                           padding: const EdgeInsets.only(left: 8.0),
                                           child: Text(
                                             context.l10n.notificationScopes,
-                                            style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                                            style: TextStyle(color: t.textSecondary, fontSize: 16),
                                           ),
                                         ),
                                         const SizedBox(height: 10),
@@ -367,7 +371,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                   const SizedBox(height: 12),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1F1F25),
+                                      color: t.bgSecondary,
                                       borderRadius: BorderRadius.circular(18.0),
                                     ),
                                     padding: const EdgeInsets.all(14.0),
@@ -379,11 +383,11 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                           child: Text.rich(
                                             TextSpan(
                                               text: 'GitHub Repository URL',
-                                              style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
-                                              children: const [
+                                              style: TextStyle(color: t.textSecondary, fontSize: 16),
+                                              children: [
                                                 TextSpan(
                                                   text: ' *',
-                                                  style: TextStyle(color: Colors.red),
+                                                  style: TextStyle(color: t.error),
                                                 ),
                                               ],
                                             ),
@@ -394,7 +398,7 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                           padding: const EdgeInsets.only(left: 8.0),
                                           child: Text(
                                             'Link to your app\'s source code repository',
-                                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                            style: TextStyle(color: t.textSecondary, fontSize: 13),
                                           ),
                                         ),
                                         const SizedBox(height: 12),
@@ -402,22 +406,22 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                                           controller: provider.sourceCodeUrlController,
                                           decoration: InputDecoration(
                                             hintText: 'https://github.com/username/repo',
-                                            hintStyle: const TextStyle(color: Colors.grey),
+                                            hintStyle: TextStyle(color: t.textSecondary),
                                             border: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(12),
-                                              borderSide: const BorderSide(color: Colors.grey),
+                                              borderSide: BorderSide(color: t.textSecondary),
                                             ),
                                             enabledBorder: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(12),
-                                              borderSide: BorderSide(color: Colors.grey.shade800),
+                                              borderSide: BorderSide(color: t.textSecondary),
                                             ),
                                             focusedBorder: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(12),
-                                              borderSide: const BorderSide(color: Colors.white),
+                                              borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                                             ),
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                           ),
-                                          style: const TextStyle(color: Colors.white),
+                                          style: TextStyle(color: t.textPrimary),
                                           keyboardType: TextInputType.url,
                                           validator: (value) {
                                             if (value == null || value.trim().isEmpty) {
@@ -456,9 +460,11 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                     padding: const EdgeInsets.only(left: 30.0, right: 30, bottom: 50, top: 10),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12.0),
-                      color: const Color(0xFF1F1F25),
+                      color: t.bgSecondary,
                       gradient: LinearGradient(
-                        colors: [Colors.black, Colors.black.withValues(alpha: 0)],
+                        colors: t.isGlass
+                            ? [t.bgSecondary, t.bgSecondary.withValues(alpha: 0)]
+                            : [Colors.black, Colors.black.withValues(alpha: 0)],
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                       ),
@@ -492,11 +498,13 @@ class _UpdateAppPageState extends State<UpdateAppPage> {
                         padding: const EdgeInsets.all(12.0),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12.0),
-                          color: (provider.isValid && provider.hasChanges) ? Colors.white : Colors.grey.shade700,
+                          color: (provider.isValid && provider.hasChanges)
+                              ? (t.isGlass ? t.accent : Colors.white)
+                              : t.textSecondary,
                         ),
                         child: Text(
                           context.l10n.updateApp,
-                          style: const TextStyle(color: Colors.black, fontSize: 16),
+                          style: TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16),
                           textAlign: TextAlign.center,
                         ),
                       ),

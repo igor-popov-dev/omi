@@ -15,6 +15,7 @@ import 'package:omi/utils/device.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/other/time_utils.dart';
 import 'package:omi/widgets/waveform_section.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class WalItemDetailPage extends StatefulWidget {
   final Wal wal;
@@ -96,6 +97,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
@@ -104,12 +106,12 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_horiz, color: Colors.white),
+            icon: Icon(Icons.more_horiz, color: t.textPrimary),
             onPressed: () => _showOptionsMenu(context),
           ),
         ],
       ),
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       body: _needsTransfer ? _buildDeviceTransferUI() : _buildPlaybackUI(),
     );
   }
@@ -142,11 +144,12 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
   }
 
   Widget _buildDeviceTransferUI() {
+    final t = context.omi;
     final isFlashPage = widget.wal.storage == WalStorage.flashPage;
     final storageLabel =
         isFlashPage ? context.l10n.storageLocationLimitlessPendant : context.l10n.storageLocationSdCard;
     final storageIcon = isFlashPage ? Icons.memory : Icons.sd_card;
-    final storageColor = isFlashPage ? Colors.teal : Colors.deepPurpleAccent;
+    final storageColor = isFlashPage ? Colors.teal : t.accent;
 
     return Consumer<SyncProvider>(
       builder: (context, syncProvider, child) {
@@ -181,7 +184,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                   Text(
                     dateTimeFormat('H:mm', DateTime.fromMillisecondsSinceEpoch(widget.wal.timerStart * 1000)),
                     style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                          color: Colors.grey.shade400,
+                          color: t.textSecondary,
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                         ),
@@ -192,7 +195,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: storageColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(t.rowRadius),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -223,14 +226,14 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                         width: 120,
                         height: 120,
                         decoration: BoxDecoration(
-                          color: Colors.deepPurple.withValues(alpha: 0.1),
+                          color: t.accent.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Center(
                           child: Icon(
                             isTransferring ? Icons.downloading : Icons.sd_card,
                             size: 56,
-                            color: Colors.deepPurpleAccent,
+                            color: t.accent,
                           ),
                         ),
                       ),
@@ -250,7 +253,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                             : context.l10n.transferRequiredDescription,
                         style: Theme.of(
                           context,
-                        ).textTheme.bodyMedium!.copyWith(color: Colors.grey.shade400, fontSize: 14),
+                        ).textTheme.bodyMedium!.copyWith(color: t.textSecondary, fontSize: 14),
                         textAlign: TextAlign.center,
                       ),
 
@@ -261,8 +264,8 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
                             value: transferProgress > 0 ? transferProgress : null,
-                            backgroundColor: Colors.grey.shade800,
-                            color: Colors.deepPurpleAccent,
+                            backgroundColor: t.textTertiary,
+                            color: t.accent,
                             minHeight: 6,
                           ),
                         ),
@@ -272,13 +275,13 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                           children: [
                             Text(
                               '${(transferProgress * 100).toInt()}%',
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 14, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                             ),
                             if (transferSpeedKBps != null && transferSpeedKBps > 0) ...[
                               const SizedBox(width: 16),
                               Text(
                                 '${transferSpeedKBps.toStringAsFixed(1)} KB/s',
-                                style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                                style: TextStyle(color: t.textSecondary, fontSize: 14),
                               ),
                             ],
                           ],
@@ -287,7 +290,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                           const SizedBox(height: 8),
                           Text(
                             'ETA: ${_formatTransferEta(transferEtaSeconds)}',
-                            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                            style: TextStyle(color: t.textSecondary, fontSize: 13),
                           ),
                         ],
                       ],
@@ -306,17 +309,17 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                 child: ElevatedButton(
                   onPressed: isTransferring ? _handleCancelTransfer : _handleTransferToPhone,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isTransferring ? Colors.orange : Colors.deepPurpleAccent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    backgroundColor: isTransferring ? t.warning : t.accent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.cardRadius)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(isTransferring ? Icons.close : Icons.download, color: Colors.white, size: 22),
+                      Icon(isTransferring ? Icons.close : Icons.download, color: t.textPrimary, size: 22),
                       const SizedBox(width: 12),
                       Text(
                         isTransferring ? context.l10n.cancelTransfer : context.l10n.transferToPhone,
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -330,6 +333,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
   }
 
   Widget _buildPlaybackUI() {
+    final t = context.omi;
     return Consumer<SyncProvider>(
       builder: (context, syncProvider, child) {
         final playbackState = _getPlaybackState(syncProvider);
@@ -350,7 +354,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                   Text(
                     dateTimeFormat('H:mm', DateTime.fromMillisecondsSinceEpoch(widget.wal.timerStart * 1000)),
                     style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                          color: Colors.grey.shade400,
+                          color: t.textSecondary,
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                         ),
@@ -360,17 +364,17 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      color: t.textSecondary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(t.rowRadius),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.security, color: Colors.grey.shade400, size: 14),
+                        Icon(Icons.security, color: t.textSecondary, size: 14),
                         const SizedBox(width: 6),
                         Text(
                           context.l10n.privateAndSecureOnDevice,
-                          style: TextStyle(color: Colors.grey.shade400, fontSize: 12, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: t.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -429,7 +433,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
                         : (isPlaying ? FontAwesomeIcons.pause : FontAwesomeIcons.play),
                     size: 80,
                     backgroundColor: Theme.of(context).colorScheme.secondary,
-                    iconColor: Colors.white,
+                    iconColor: t.textPrimary,
                     onPressed: playbackState.canPlayOrShare && !playbackState.isProcessing
                         ? () => _handlePlayPause(context.read<SyncProvider>())
                         : null,
@@ -466,6 +470,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
     Color? backgroundColor,
     Color? iconColor,
   }) {
+    final t = context.omi;
     return Container(
       width: size,
       height: size,
@@ -475,12 +480,13 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
       ),
       child: IconButton(
         onPressed: onPressed,
-        icon: FaIcon(icon, color: iconColor ?? Colors.white, size: size * 0.4),
+        icon: FaIcon(icon, color: iconColor ?? t.textPrimary, size: size * 0.4),
       ),
     );
   }
 
   Future<void> _handleTransferToPhone() async {
+    final t = context.omi;
     if (!mounted) return;
 
     try {
@@ -488,20 +494,21 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
       await syncProvider.transferWalToPhone(widget.wal);
 
       if (mounted) {
-        _showSnackBar(context.l10n.transferCompleteMessage, Colors.green);
+        _showSnackBar(context.l10n.transferCompleteMessage, t.success);
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar(context.l10n.transferFailedMessage(e.toString()), Colors.red);
+        _showSnackBar(context.l10n.transferFailedMessage(e.toString()), t.error);
       }
     }
   }
 
   void _handleCancelTransfer() {
+    final t = context.omi;
     final syncProvider = context.read<SyncProvider>();
     syncProvider.cancelSync();
-    _showSnackBar(context.l10n.transferCancelled, Colors.orange);
+    _showSnackBar(context.l10n.transferCancelled, t.warning);
     // Pop back since the WAL state will change
     Navigator.of(context).pop();
   }
@@ -519,20 +526,21 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
   }
 
   void _showOptionsMenu(BuildContext context) {
+    final t = context.omi;
     final syncProvider = context.read<SyncProvider>();
     final currentWal = syncProvider.getWalById(widget.wal.id) ?? widget.wal;
     final isTransferring = currentWal.isSyncing;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1F1F25),
+      backgroundColor: t.bgSecondary,
       builder: (sheetContext) => Container(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.info_outline, color: Colors.white),
+              leading: Icon(Icons.info_outline, color: t.textPrimary),
               title: Text(context.l10n.recordingInfo, style: Theme.of(sheetContext).textTheme.bodyMedium),
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -541,12 +549,12 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
             ),
             if (_needsTransfer) ...[
               ListTile(
-                leading: Icon(Icons.download, color: isTransferring ? Colors.grey : Colors.white),
+                leading: Icon(Icons.download, color: isTransferring ? t.textSecondary : t.textPrimary),
                 title: Text(
                   isTransferring ? context.l10n.transferInProgress : context.l10n.transferToPhone,
                   style: Theme.of(
                     sheetContext,
-                  ).textTheme.bodyMedium!.copyWith(color: isTransferring ? Colors.grey : Colors.white),
+                  ).textTheme.bodyMedium!.copyWith(color: isTransferring ? t.textSecondary : t.textPrimary),
                 ),
                 onTap: isTransferring
                     ? null
@@ -557,7 +565,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
               ),
             ] else ...[
               ListTile(
-                leading: const FaIcon(FontAwesomeIcons.share, color: Colors.white, size: 18),
+                leading: FaIcon(FontAwesomeIcons.share, color: t.textPrimary, size: 18),
                 title: Text(context.l10n.shareRecording, style: Theme.of(sheetContext).textTheme.bodyMedium),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -566,12 +574,12 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
               ),
             ],
             ListTile(
-              leading: Icon(Icons.delete, color: isTransferring ? Colors.grey : Colors.red),
+              leading: Icon(Icons.delete, color: isTransferring ? t.textSecondary : t.error),
               title: Text(
                 context.l10n.deleteRecording,
                 style: Theme.of(
                   sheetContext,
-                ).textTheme.bodyMedium!.copyWith(color: isTransferring ? Colors.grey : Colors.red),
+                ).textTheme.bodyMedium!.copyWith(color: isTransferring ? t.textSecondary : t.error),
               ),
               onTap: isTransferring
                   ? null
@@ -587,13 +595,14 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
   }
 
   void _showDeleteDialog(BuildContext context) async {
+    final t = context.omi;
     final uploading = widget.wal.syncDisplayState == WalSyncDisplayState.uploaded;
     final confirmed = await OmiConfirmDialog.show(
       context,
       title: uploading ? context.l10n.deleteWhileProcessingTitle : context.l10n.deleteRecording,
       message: uploading ? context.l10n.deleteWhileProcessingMessage : context.l10n.deleteRecordingConfirmation,
       confirmLabel: context.l10n.delete,
-      confirmColor: Colors.red,
+      confirmColor: t.error,
     );
 
     if (confirmed == true && context.mounted) {
@@ -614,6 +623,7 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
   }
 
   void _showFileDetailsDialog(BuildContext context) {
+    final t = context.omi;
     final theme = Theme.of(context);
     final recordingDate = DateTime.fromMillisecondsSinceEpoch(widget.wal.timerStart * 1000);
     final estimatedSize = _estimateFileSize();
@@ -621,8 +631,8 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: t.bgSecondary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.cardRadius)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -664,12 +674,13 @@ class _WalItemDetailPageState extends State<WalItemDetailPage> {
   }
 
   Widget _buildDetailRow(String label, String value) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Theme.of(context).textTheme.labelMedium!.copyWith(color: Colors.grey.shade400)),
+          Text(label, style: Theme.of(context).textTheme.labelMedium!.copyWith(color: t.textSecondary)),
           const SizedBox(height: 2),
           Text(value, style: Theme.of(context).textTheme.bodyMedium),
         ],

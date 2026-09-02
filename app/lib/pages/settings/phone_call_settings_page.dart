@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/providers/phone_call_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/dialog.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PhoneCallSettingsPage extends StatelessWidget {
   const PhoneCallSettingsPage({super.key});
@@ -11,14 +13,16 @@ class PhoneCallSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.phoneCallSettingsTitle),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         elevation: 0,
       ),
       body: Consumer<PhoneCallProvider>(
         builder: (context, provider, _) {
+          final t = context.omi;
+
           return Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -26,10 +30,10 @@ class PhoneCallSettingsPage extends StatelessWidget {
               children: [
                 Text(
                   context.l10n.yourVerifiedNumbers,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: t.textPrimary),
                 ),
                 const SizedBox(height: 6),
-                Text(context.l10n.verifiedNumbersDescription, style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+                Text(context.l10n.verifiedNumbersDescription, style: TextStyle(fontSize: 14, color: t.textSecondary)),
                 const SizedBox(height: 24),
                 if (provider.verifiedNumbers.isEmpty)
                   _buildEmptyState(context)
@@ -48,10 +52,12 @@ class PhoneCallSettingsPage extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Center(
-        child: Text(context.l10n.noVerifiedNumbers, style: TextStyle(fontSize: 15, color: Colors.grey[600])),
+        child: Text(context.l10n.noVerifiedNumbers, style: TextStyle(fontSize: 15, color: t.textTertiary)),
       ),
     );
   }
@@ -63,17 +69,18 @@ class PhoneCallSettingsPage extends StatelessWidget {
     String phoneNumber,
     String verifiedAt,
   ) {
+    final t = context.omi;
+
     var timeAgo = _formatVerifiedAt(context, verifiedAt);
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.phone, color: Colors.grey[400], size: 20),
+          SettingsIconChip.boxed(
+            icon: (size) => Icon(Icons.phone, color: t.textSecondary, size: size),
+            radius: 12,
+            classicIconSize: 20,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -82,16 +89,16 @@ class PhoneCallSettingsPage extends StatelessWidget {
               children: [
                 Text(
                   phoneNumber,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: t.textPrimary),
                 ),
                 const SizedBox(height: 2),
-                Text(timeAgo, style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+                Text(timeAgo, style: TextStyle(fontSize: 13, color: t.textSecondary)),
               ],
             ),
           ),
           GestureDetector(
             onTap: () => _confirmDelete(context, provider, id, phoneNumber),
-            child: Icon(Icons.delete_outline, color: Colors.red[400], size: 22),
+            child: Icon(Icons.delete_outline, color: t.error, size: 22),
           ),
         ],
       ),

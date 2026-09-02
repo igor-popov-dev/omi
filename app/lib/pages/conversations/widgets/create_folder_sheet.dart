@@ -2,7 +2,6 @@ import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/backend/schema/folder.dart';
@@ -10,6 +9,8 @@ import 'package:omi/providers/folder_provider.dart';
 import 'package:omi/utils/folders/folder_icon_mapper.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Available folder colors for selection.
 const List<Color> folderColors = [
@@ -67,11 +68,12 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
   }
 
   Future<void> _handleSubmit() async {
+    final t = context.omi;
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(context.l10n.pleaseEnterFolderName), backgroundColor: Colors.red));
+      ).showSnackBar(SnackBar(content: Text(context.l10n.pleaseEnterFolderName), backgroundColor: t.error));
       return;
     }
 
@@ -120,7 +122,7 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(isEditing ? context.l10n.failedToUpdateFolder : context.l10n.failedToCreateFolder),
-            backgroundColor: Colors.red,
+            backgroundColor: t.error,
           ),
         );
       }
@@ -133,12 +135,13 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: ResponsiveHelper.backgroundSecondary,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Column(
@@ -151,27 +154,27 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
               children: [
                 Text(
                   isEditing ? context.l10n.editFolder : context.l10n.newFolder,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: ResponsiveHelper.textPrimary,
+                    color: t.textPrimary,
                   ),
                 ),
                 TextButton(
                   onPressed: _isLoading ? null : _handleSubmit,
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 16,
                           width: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(ResponsiveHelper.purplePrimary),
+                            valueColor: AlwaysStoppedAnimation<Color>(t.accent),
                           ),
                         )
                       : Text(
                           isEditing ? context.l10n.save : context.l10n.create,
-                          style: const TextStyle(
-                            color: ResponsiveHelper.purplePrimary,
+                          style: TextStyle(
+                            color: t.accent,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -185,19 +188,19 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: ResponsiveHelper.backgroundTertiary,
-                borderRadius: BorderRadius.circular(12),
+                color: t.bgTertiary,
+                borderRadius: BorderRadius.circular(t.rowRadius),
               ),
               child: TextField(
                 controller: _nameController,
                 autofocus: true,
-                style: const TextStyle(color: ResponsiveHelper.textPrimary, fontSize: 16, height: 1.3),
+                style: TextStyle(color: t.textPrimary, fontSize: 16, height: 1.3),
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                   isDense: true,
                   hintText: context.l10n.folderName,
-                  hintStyle: const TextStyle(color: ResponsiveHelper.textTertiary, fontSize: 16),
+                  hintStyle: TextStyle(color: t.textPrimary.withValues(alpha: 0.69), fontSize: 16),
                 ),
                 textCapitalization: TextCapitalization.words,
                 maxLength: 30,
@@ -211,18 +214,18 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: ResponsiveHelper.backgroundTertiary,
-                borderRadius: BorderRadius.circular(12),
+                color: t.bgTertiary,
+                borderRadius: BorderRadius.circular(t.rowRadius),
               ),
               child: TextField(
                 controller: _descriptionController,
-                style: const TextStyle(color: ResponsiveHelper.textSecondary, fontSize: 14, height: 1.4),
+                style: TextStyle(color: t.textPrimary.withValues(alpha: 0.9), fontSize: 14, height: 1.4),
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                   isDense: true,
                   hintText: context.l10n.descriptionOptional,
-                  hintStyle: const TextStyle(color: ResponsiveHelper.textTertiary, fontSize: 14),
+                  hintStyle: TextStyle(color: t.textPrimary.withValues(alpha: 0.69), fontSize: 14),
                 ),
                 maxLines: 2,
                 maxLength: 100,
@@ -234,7 +237,7 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
             // Icon selection
             Text(
               context.l10n.icon,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: ResponsiveHelper.textTertiary),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: t.textPrimary.withValues(alpha: 0.69)),
             ),
             const SizedBox(height: 8),
             SingleChildScrollView(
@@ -246,7 +249,7 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
             // Color selection
             Text(
               context.l10n.color,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: ResponsiveHelper.textTertiary),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: t.textPrimary.withValues(alpha: 0.69)),
             ),
             const SizedBox(height: 8),
             SingleChildScrollView(
@@ -261,6 +264,7 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
   }
 
   Widget _buildIconOption(String icon) {
+    final t = context.omi;
     final isSelected = _selectedIcon == icon;
     return GestureDetector(
       onTap: () {
@@ -272,15 +276,15 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
         height: 40,
         margin: const EdgeInsets.only(right: 8),
         decoration: BoxDecoration(
-          color: isSelected ? _selectedColor.withValues(alpha: 0.2) : ResponsiveHelper.backgroundTertiary,
+          color: isSelected ? _selectedColor.withValues(alpha: 0.2) : t.bgTertiary,
           borderRadius: BorderRadius.circular(10),
           border: isSelected ? Border.all(color: _selectedColor, width: 1.5) : null,
         ),
         child: Center(
-          child: FaIcon(
-            folderIconToFa(icon),
+          child: OmiFolderIcon(
+            icon,
             size: 16,
-            color: isSelected ? _selectedColor : ResponsiveHelper.textSecondary,
+            color: isSelected ? _selectedColor : t.textPrimary.withValues(alpha: 0.9),
           ),
         ),
       ),
@@ -288,6 +292,7 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
   }
 
   Widget _buildColorOption(Color color) {
+    final t = context.omi;
     final isSelected = _selectedColor.toARGB32() == color.toARGB32();
     return GestureDetector(
       onTap: () {
@@ -301,9 +306,9 @@ class _CreateFolderBottomSheetState extends State<CreateFolderBottomSheet> {
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
-          border: Border.all(color: isSelected ? Colors.white : Colors.transparent, width: 2),
+          border: Border.all(color: isSelected ? t.textPrimary : Colors.transparent, width: 2),
         ),
-        child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
+        child: isSelected ? Icon(Icons.check, color: t.textPrimary, size: 16) : null,
       ),
     );
   }

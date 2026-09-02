@@ -3188,8 +3188,6 @@
     "rayBanMetaMicPickerLoadError": "Не удалось загрузить Bluetooth-микрофоны. Убедитесь, что Bluetooth включён, и повторите попытку.",
     "rayBanMetaMicPickerConnectError": "Не удалось подключиться к этому микрофону. Убедитесь, что он подключён в настройках iPhone.",
     "copyMessage": "Копировать сообщение",
-    "copyCode": "Копировать код",
-    "codeCopied": "Код скопирован в буфер обмена",
     "deleteOnDeviceModel": "Удалить модель",
     "deleteOnDeviceModelConfirm": "Вы уверены, что хотите удалить эту модель?",
     "downgradeAnyway": "Всё равно перейти",
@@ -3277,6 +3275,12 @@
     "sttLiveTranscribing": "Речь распознаётся…",
     "sttWaitingForSpeech": "Слушаю — жду речи",
     "sttReconnecting": "Связь с распознаванием потеряна — переподключаюсь…",
+    "appearance": "Оформление",
+    "appearanceClassic": "Классическая",
+    "appearanceGlass": "Glass",
+    "appearanceGlassBeta": "Glass (бета)",
+    "copyCode": "Копировать код",
+    "codeCopied": "Код скопирован в буфер обмена",
     "voiceMessageShowText": "Показать текст",
     "voiceMessageHideText": "Скрыть текст"
 }

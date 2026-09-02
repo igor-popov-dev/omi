@@ -49,6 +49,7 @@ class _FakeSession implements HubSession {
   int toreDown = 0;
   final List<({String callId, String output})> toolResults = [];
   int cleared = 0;
+  int muted = 0;
 
   Completer<void>? _warmCompleter;
 
@@ -110,6 +111,11 @@ class _FakeSession implements HubSession {
   @override
   void clearPlayback() {
     cleared += 1;
+  }
+
+  @override
+  void muteCurrentResponse() {
+    muted += 1;
   }
 
   @override

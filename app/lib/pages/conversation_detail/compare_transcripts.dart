@@ -4,6 +4,7 @@ import 'package:omi/backend/http/api/conversations.dart';
 import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/transcript.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CompareTranscriptsPage extends StatefulWidget {
   final ServerConversation conversation;
@@ -29,11 +30,12 @@ class _CompareTranscriptsPageState extends State<CompareTranscriptsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.compareTranscripts),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
       ),
       body: DefaultTabController(
         length: 4,
@@ -53,7 +55,7 @@ class _CompareTranscriptsPageState extends State<CompareTranscriptsPage> {
                 Tab(text: 'SpeechMatics'),
                 Tab(text: 'Whisper-x'),
               ],
-              indicator: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(16)),
+              indicator: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(t.cardRadius)),
             ),
             Expanded(
               child: Padding(

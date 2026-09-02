@@ -9691,12 +9691,6 @@ class AppLocalizationsTh extends AppLocalizations {
   String get copyMessage => 'คัดลอกข้อความ';
 
   @override
-  String get copyCode => 'Copy code';
-
-  @override
-  String get codeCopied => 'Code copied to clipboard';
-
-  @override
   String get searchSettings => 'ค้นหาการตั้งค่า…';
 
   @override
@@ -9836,6 +9830,18 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get appearanceClassic => 'Classic';
+
+  @override
+  String get appearanceGlass => 'Glass';
+
+  @override
+  String get appearanceGlassBeta => 'Glass (beta)';
+
+  @override
   String get voiceNoSpeechDetected => 'No speech detected — record again';
 
   @override
@@ -9851,10 +9857,4 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
-
-  @override
-  String get voiceMessageShowText => 'Show text';
-
-  @override
-  String get voiceMessageHideText => 'Hide text';
 }

@@ -24,15 +24,16 @@ import 'package:omi/models/local_recording.dart';
 import 'package:omi/providers/folder_provider.dart';
 import 'package:omi/providers/home_provider.dart';
 import 'package:omi/services/app_review_service.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
-import 'package:omi/utils/ui_guidelines.dart';
 import 'widgets/conversations_group_widget.dart';
 import 'widgets/upstream_sync_card.dart';
 import 'widgets/conversation_list_item.dart';
 import 'widgets/date_list_item.dart';
 import 'widgets/empty_conversations.dart';
 import 'widgets/recording_list_item.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 enum _ConversationListRowKind { topSpacer, dateHeader, conversation, recording, groupSpacer }
 
@@ -348,6 +349,7 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
   }
 
   Widget _buildConversationShimmer() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Column(
@@ -355,12 +357,12 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
         children: [
           // Date header shimmer
           ShimmerWithTimeout(
-            baseColor: AppStyles.backgroundSecondary,
-            highlightColor: AppStyles.backgroundTertiary,
+            baseColor: t.bgSecondary,
+            highlightColor: t.bgTertiary,
             child: Container(
               width: 100,
               height: 16,
-              decoration: BoxDecoration(color: AppStyles.backgroundSecondary, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(8)),
             ),
           ),
           const SizedBox(height: 12),
@@ -370,13 +372,13 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
             (index) => Padding(
               padding: const EdgeInsets.only(bottom: 16.0),
               child: ShimmerWithTimeout(
-                baseColor: AppStyles.backgroundSecondary,
-                highlightColor: AppStyles.backgroundTertiary,
+                baseColor: t.bgSecondary,
+                highlightColor: t.bgTertiary,
                 child: Container(
                   height: 80,
                   decoration: BoxDecoration(
-                    color: AppStyles.backgroundSecondary,
-                    borderRadius: BorderRadius.circular(12),
+                    color: t.bgSecondary,
+                    borderRadius: BorderRadius.circular(t.rowRadius),
                   ),
                 ),
               ),
@@ -401,6 +403,7 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
   }
 
   Widget _buildNoConversationsHero(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 0, 32, 120),
       child: Column(
@@ -417,10 +420,13 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
                 height: 160,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [Colors.deepPurple.withValues(alpha: 0.35), Colors.deepPurple.withValues(alpha: 0.0)],
-                    stops: const [0.0, 1.0],
-                  ),
+                  // The purple aura is a Classic-only flourish; Glass has no glows.
+                  gradient: t.isGlass
+                      ? null
+                      : RadialGradient(
+                          colors: [t.accent.withValues(alpha: 0.35), t.accent.withValues(alpha: 0.0)],
+                          stops: const [0.0, 1.0],
+                        ),
                 ),
               ),
               Container(
@@ -428,29 +434,36 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
                 height: 88,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(26),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF7B5CFF), Color(0xFF5733E0)],
-                  ),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.deepPurple.withValues(alpha: 0.45),
-                      blurRadius: 30,
-                      spreadRadius: 2,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
+                  // Glass: flat accent, single ambient shadow. Classic: the original
+                  // purple gradient and glow, unchanged.
+                  color: t.isGlass ? t.accent : null,
+                  gradient: t.isGlass
+                      ? null
+                      : const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF7B5CFF), Color(0xFF5733E0)],
+                        ),
+                  border: Border.all(color: t.rowFill, width: 1),
+                  boxShadow: t.isGlass
+                      ? const [BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, -2))]
+                      : [
+                          BoxShadow(
+                            color: t.accent.withValues(alpha: 0.45),
+                            blurRadius: 30,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
                 ),
-                child: const Icon(Icons.forum_rounded, size: 42, color: Colors.white),
+                child: Icon(Icons.forum_rounded, size: 42, color: t.textPrimary),
               ),
             ],
           ),
           const SizedBox(height: 28),
-          const Text(
+          Text(
             'No conversations yet',
-            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3),
+            style: TextStyle(color: t.textPrimary, fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.3),
           ),
           const SizedBox(height: 10),
           ConstrainedBox(
@@ -458,7 +471,7 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
             child: Text(
               'Conversations you record show up here. Tap a tile on the home tab to start your first one.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 15, height: 1.5),
+              style: TextStyle(color: t.textPrimary.withValues(alpha: 0.55), fontSize: 15, height: 1.5),
             ),
           ),
         ],
@@ -476,15 +489,16 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
   }
 
   Widget _buildLoadMoreShimmer() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.only(top: 16.0),
       child: ShimmerWithTimeout(
-        baseColor: AppStyles.backgroundSecondary,
-        highlightColor: AppStyles.backgroundTertiary,
+        baseColor: t.bgSecondary,
+        highlightColor: t.bgTertiary,
         child: Container(
           height: 60,
           margin: const EdgeInsets.symmetric(horizontal: 16.0),
-          decoration: BoxDecoration(color: AppStyles.backgroundSecondary, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.rowRadius)),
         ),
       ),
     );
@@ -492,6 +506,7 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     Logger.debug('building conversations page');
     super.build(context);
     return Selector2<ConversationProvider, LocalRecordingsProvider, _ConversationPageSnapshot>(
@@ -544,8 +559,8 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
               Provider.of<LocalRecordingsProvider>(context, listen: false).refresh(),
             ]);
           },
-          color: Colors.deepPurpleAccent,
-          backgroundColor: Colors.white,
+          color: t.accent,
+          backgroundColor: t.textPrimary,
           child: CustomScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
@@ -624,7 +639,7 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
                         children: [
                           Text(
                             convoProvider.showDailySummaries ? context.l10n.dailyRecaps : context.l10n.conversations,
-                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -723,7 +738,14 @@ class _ConversationsPageState extends State<ConversationsPage> with AutomaticKee
                     }
                   }),
                 ),
-              SliverToBoxAdapter(child: SizedBox(height: convoProvider.isSelectionModeActive ? 160 : 100)),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: BottomNavMetrics.listBottomPadding(
+                    context,
+                    classic: convoProvider.isSelectionModeActive ? 160 : 100,
+                  ),
+                ),
+              ),
             ],
           ),
         );

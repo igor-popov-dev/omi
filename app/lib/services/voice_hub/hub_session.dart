@@ -562,6 +562,14 @@ abstract class HubSession {
   /// `BaseHubSession`.
   void clearPlayback();
 
+  /// Ручной barge-in из UI: замолчать и не доигрывать остаток ЭТОГО ответа.
+  ///
+  /// Отличие от [clearPlayback] — в «и не доигрывать»: сервер продолжает
+  /// присылать сгенерированное, и один только сброс буфера дал бы паузу, а не
+  /// тишину. Реализация по умолчанию сводится к сбросу буфера: сессия без
+  /// собственного гейта ответа большего сделать не может.
+  void muteCurrentResponse();
+
   /// Close the socket. The object stays reusable — `ensureWarm()`
   /// re-establishes it.
   void teardown();
@@ -950,6 +958,9 @@ abstract class BaseHubSession implements HubSession {
   /// Barge-in: drop everything buffered in the player immediately.
   @override
   void clearPlayback() => _player?.clear();
+
+  @override
+  void muteCurrentResponse() => clearPlayback();
 
   /// Turn boundary: play any queued sub-cushion tail instead of withholding it.
   void flushPlayback() => _player?.flush();

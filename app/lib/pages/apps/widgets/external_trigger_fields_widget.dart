@@ -8,6 +8,7 @@ import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/pages/apps/widgets/action_fields_widget.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/other/validators.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ExternalTriggerFieldsWidget extends StatelessWidget {
   const ExternalTriggerFieldsWidget({super.key});
@@ -43,6 +44,8 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AddAppProvider>(
       builder: (context, provider, child) {
+        final t = context.omi;
+
         if (!provider.isCapabilitySelectedById('external_integration')) {
           return const SizedBox.shrink();
         }
@@ -56,7 +59,7 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
               // Scopes Card
               const SizedBox(height: 18),
               Container(
-                decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(18.0)),
+                decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(18.0)),
                 padding: const EdgeInsets.all(14.0),
                 child: const Padding(padding: EdgeInsets.only(left: 2.0), child: ActionFieldsWidget()),
               ),
@@ -69,7 +72,7 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
                   provider.checkValidity();
                 },
                 child: Container(
-                  decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(18.0)),
+                  decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(18.0)),
                   padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 20.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,14 +82,14 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('External Integration', style: TextStyle(color: Colors.grey.shade300, fontSize: 16)),
+                            Text('External Integration', style: TextStyle(color: t.textSecondary, fontSize: 16)),
                             GestureDetector(
                               onTap: () {
                                 launchUrl(Uri.parse('https://docs.omi.me/doc/developer/apps/Integrations'));
                               },
                               child: FaIcon(
                                 FontAwesomeIcons.solidCircleQuestion,
-                                color: Colors.grey.shade500,
+                                color: t.textSecondary,
                                 size: 18,
                               ),
                             ),
@@ -113,14 +116,14 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           const SizedBox(height: 12),
-                                          const Text(
+                                          Text(
                                             'Trigger Events',
-                                            style: TextStyle(color: Colors.white, fontSize: 18),
+                                            style: TextStyle(color: t.textPrimary, fontSize: 18),
                                           ),
                                           const SizedBox(height: 18),
                                           ListView.separated(
                                             separatorBuilder: (context, index) {
-                                              return Divider(color: Colors.grey.shade600, height: 1);
+                                              return Divider(color: t.textSecondary, height: 1);
                                             },
                                             shrinkWrap: true,
                                             itemCount: provider.getTriggerEvents().length + 1, // +1 for None option
@@ -141,7 +144,7 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
                                                         const SizedBox(width: 6),
                                                         Text(
                                                           "None",
-                                                          style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                                                          style: TextStyle(color: t.textSecondary, fontSize: 16),
                                                         ),
                                                         const Spacer(),
                                                         Checkbox(
@@ -150,7 +153,7 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
                                                             provider.setTriggerEvent(null);
                                                             Navigator.pop(context);
                                                           },
-                                                          side: BorderSide(color: Colors.grey.shade300),
+                                                          side: BorderSide(color: t.textSecondary),
                                                           shape: const CircleBorder(),
                                                         ),
                                                       ],
@@ -171,7 +174,7 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
                                                       const SizedBox(width: 6),
                                                       Text(
                                                         provider.getTriggerEvents()[index].getLocalizedTitle(context),
-                                                        style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                                                        style: TextStyle(color: t.textSecondary, fontSize: 16),
                                                       ),
                                                       const Spacer(),
                                                       Checkbox(
@@ -182,7 +185,7 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
                                                             provider.getTriggerEvents()[index].id,
                                                           );
                                                         },
-                                                        side: BorderSide(color: Colors.grey.shade300),
+                                                        side: BorderSide(color: t.textSecondary),
                                                         shape: const CircleBorder(),
                                                       ),
                                                     ],
@@ -206,7 +209,7 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.transparent,
                             borderRadius: BorderRadius.circular(12.0),
-                            border: Border.all(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+                            border: Border.all(color: t.textTertiary, width: 1),
                           ),
                           width: double.infinity,
                           child: Row(
@@ -215,12 +218,12 @@ class ExternalTriggerFieldsWidget extends StatelessWidget {
                                 child: Text(
                                   provider.mapTriggerEventIdToName(provider.triggerEvent) ?? 'Trigger Event',
                                   style: TextStyle(
-                                    color: provider.triggerEvent != null ? Colors.grey.shade100 : Colors.grey.shade400,
+                                    color: provider.triggerEvent != null ? t.textSecondary : t.textSecondary,
                                     fontSize: 16,
                                   ),
                                 ),
                               ),
-                              FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade400, size: 14),
+                              FaIcon(FontAwesomeIcons.chevronRight, color: t.textSecondary, size: 14),
                             ],
                           ),
                         ),

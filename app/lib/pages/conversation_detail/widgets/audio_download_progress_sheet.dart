@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 enum AudioDownloadState { preparing, downloading, processing, success, error }
 
@@ -32,12 +33,13 @@ class AudioDownloadProgressSheet extends StatefulWidget {
     VoidCallback? onRetry,
     VoidCallback? onCancel,
   }) {
+    final t = context.omi;
     return showModalBottomSheet(
       context: context,
       isDismissible: state == AudioDownloadState.error,
       enableDrag: state == AudioDownloadState.error,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
+      barrierColor: t.bgPrimary.withValues(alpha: 0.5),
       builder: (ctx) => AudioDownloadProgressSheet(
         state: state,
         progress: progress,
@@ -79,15 +81,16 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return ScaleTransition(
       scale: _scaleAnimation,
       child: Container(
         margin: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: t.bgSecondary,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 30, offset: const Offset(0, 10)),
+            BoxShadow(color: t.bgPrimary.withValues(alpha: 0.4), blurRadius: 30, offset: const Offset(0, 10)),
           ],
         ),
         child: Padding(
@@ -107,6 +110,7 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
   }
 
   Widget _buildProgressIndicator() {
+    final t = context.omi;
     if (widget.state == AudioDownloadState.success) {
       return TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.0, end: 1.0),
@@ -117,8 +121,8 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
             child: Container(
               width: 64,
               height: 64,
-              decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.15), shape: BoxShape.circle),
-              child: const Icon(Icons.check, size: 36, color: Colors.green),
+              decoration: BoxDecoration(color: t.success.withValues(alpha: 0.15), shape: BoxShape.circle),
+              child: Icon(Icons.check, size: 36, color: t.success),
             ),
           );
         },
@@ -129,8 +133,8 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
       return Container(
         width: 64,
         height: 64,
-        decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.15), shape: BoxShape.circle),
-        child: const Icon(Icons.error_outline, size: 36, color: Colors.red),
+        decoration: BoxDecoration(color: t.error.withValues(alpha: 0.15), shape: BoxShape.circle),
+        child: Icon(Icons.error_outline, size: 36, color: t.error),
       );
     }
 
@@ -146,14 +150,14 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
             child: CircularProgressIndicator(
               value: widget.state == AudioDownloadState.downloading ? widget.progress : null,
               strokeWidth: 3,
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-              backgroundColor: const Color(0xFF3A3A3C),
+              valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
+              backgroundColor: t.bgTertiary,
             ),
           ),
           if (widget.state == AudioDownloadState.downloading && widget.progress > 0)
             Text(
               '${(widget.progress * 100).toInt()}%',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.textPrimary),
             ),
         ],
       ),
@@ -161,6 +165,7 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
   }
 
   Widget _buildTitle() {
+    final t = context.omi;
     String title;
 
     switch (widget.state) {
@@ -186,19 +191,20 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
       child: Text(
         title,
         key: ValueKey(title),
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white, letterSpacing: 0.3),
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: t.textPrimary, letterSpacing: 0.3),
         textAlign: TextAlign.center,
       ),
     );
   }
 
   Widget _buildErrorActions() {
+    final t = context.omi;
     return Column(
       children: [
         const SizedBox(height: 12),
         Text(
           widget.errorMessage ?? context.l10n.audioDownloadFailed,
-          style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+          style: TextStyle(fontSize: 14, color: t.textSecondary),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
@@ -208,10 +214,10 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
               child: OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey[300],
-                  side: const BorderSide(color: Color(0xFF3A3A3C)),
+                  foregroundColor: t.textSecondary,
+                  side: BorderSide(color: t.bgTertiary),
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                 ),
                 child: Text(context.l10n.close),
               ),
@@ -225,11 +231,11 @@ class _AudioDownloadProgressSheetState extends State<AudioDownloadProgressSheet>
                     widget.onRetry?.call();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF1C1C1E),
+                    backgroundColor: t.textPrimary,
+                    foregroundColor: t.bgSecondary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                   ),
                   child: Text(context.l10n.retry),
                 ),

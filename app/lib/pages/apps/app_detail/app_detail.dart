@@ -39,6 +39,8 @@ import 'package:omi/backend/schema/app.dart';
 import 'package:omi/pages/apps/widgets/show_app_options_sheet.dart';
 import 'widgets/capabilities_card.dart';
 import 'widgets/info_card_widget.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AppDetailPage extends StatefulWidget {
   final App app;
@@ -156,6 +158,8 @@ class _AppDetailPageState extends State<AppDetailPage> {
   }
 
   Future<void> _cancelSubscription() async {
+    final t = context.omi;
+
     setState(() => _isCancelingSubscription = true);
 
     try {
@@ -171,20 +175,20 @@ class _AppDetailPageState extends State<AppDetailPage> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.subscriptionCancelledSuccessfully), backgroundColor: Colors.green),
+            SnackBar(content: Text(context.l10n.subscriptionCancelledSuccessfully), backgroundColor: t.success),
           );
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(context.l10n.failedToCancelSubscription), backgroundColor: Colors.red));
+          ).showSnackBar(SnackBar(content: Text(context.l10n.failedToCancelSubscription), backgroundColor: t.error));
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.errorWithMessage(e.toString())), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.errorWithMessage(e.toString())), backgroundColor: t.error),
         );
       }
     } finally {
@@ -332,6 +336,8 @@ class _AppDetailPageState extends State<AppDetailPage> {
   }
 
   Widget _buildPermissionsCard(App app) {
+    final t = context.omi;
+
     if (!app.worksExternally()) {
       return const SizedBox.shrink();
     }
@@ -416,7 +422,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
         bottom: 6,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F1F25).withValues(alpha: 0.8),
+        color: t.textSecondary,
         borderRadius: BorderRadius.circular(16.0),
       ),
       child: Column(
@@ -424,7 +430,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
         children: [
           Text(
             context.l10n.permissionsAndTriggers,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 18),
           ...permissionItems.asMap().entries.map((entry) {
@@ -438,6 +444,8 @@ class _AppDetailPageState extends State<AppDetailPage> {
   }
 
   Widget _buildPermissionItem(_PermissionItem permission, bool isLast) {
+    final t = context.omi;
+
     return Container(
       margin: EdgeInsets.only(bottom: isLast ? 0 : 8),
       child: Row(
@@ -461,7 +469,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
           Expanded(
             child: Text(
               permission.title,
-              style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+              style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -470,11 +478,13 @@ class _AppDetailPageState extends State<AppDetailPage> {
   }
 
   Color _getPermissionTypeColor(String type) {
+    final t = context.omi;
+
     switch (type.toLowerCase()) {
       case 'access':
-        return Colors.green;
+        return t.success;
       case 'create':
-        return Colors.orange;
+        return t.warning;
       case 'trigger':
         return Colors.blue;
       default:
@@ -491,6 +501,8 @@ class _AppDetailPageState extends State<AppDetailPage> {
   }
 
   Widget _buildChatToolsCard(App app) {
+    final t = context.omi;
+
     if (app.chatTools == null || app.chatTools!.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -505,7 +517,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
         bottom: 6,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F1F25).withValues(alpha: 0.8),
+        color: t.textSecondary,
         borderRadius: BorderRadius.circular(16.0),
       ),
       child: Column(
@@ -513,7 +525,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
         children: [
           Text(
             context.l10n.chatFeatures,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
           Wrap(spacing: 12, runSpacing: 12, children: app.chatTools!.map((tool) => _buildChatToolChip(tool)).toList()),
@@ -523,13 +535,15 @@ class _AppDetailPageState extends State<AppDetailPage> {
   }
 
   Widget _buildChatToolChip(ChatTool tool) {
-    const color = Colors.grey;
+    final t = context.omi;
+
+    final color = t.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
       child: Text(
         _formatToolName(tool.name),
-        style: const TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500),
+        style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -539,6 +553,8 @@ class _AppDetailPageState extends State<AppDetailPage> {
     // Watch for changes to the app in AppProvider and update local state
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
+        final t = context.omi;
+
         // Check if app has been updated in the provider
         final updatedApp = appProvider.apps.firstWhereOrNull((a) => a.id == app.id);
         if (updatedApp != null) {
@@ -565,21 +581,21 @@ class _AppDetailPageState extends State<AppDetailPage> {
         bool hasAuthSteps = isIntegration && app.externalIntegration?.authSteps.isNotEmpty == true;
         return Scaffold(
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             elevation: 0,
             automaticallyImplyLeading: false,
             leading: Container(
               width: 36,
               height: 36,
               margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: t.textTertiary, shape: BoxShape.circle),
               child: IconButton(
                 padding: EdgeInsets.zero,
                 onPressed: () {
                   HapticFeedback.mediumImpact();
                   Navigator.pop(context);
                 },
-                icon: const FaIcon(FontAwesomeIcons.arrowLeft, size: 16.0, color: Colors.white),
+                icon: FaIcon(FontAwesomeIcons.arrowLeft, size: 16.0, color: t.textPrimary),
               ),
             ),
             actions: [
@@ -588,7 +604,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                   width: 36,
                   height: 36,
                   margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: t.textTertiary, shape: BoxShape.circle),
                   child: IconButton(
                     padding: EdgeInsets.zero,
                     onPressed: chatButtonLoading
@@ -636,15 +652,15 @@ class _AppDetailPageState extends State<AppDetailPage> {
                             }
                           },
                     icon: chatButtonLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                             ),
                           )
-                        : const FaIcon(FontAwesomeIcons.solidComments, size: 16.0, color: Colors.white),
+                        : FaIcon(FontAwesomeIcons.solidComments, size: 16.0, color: t.textPrimary),
                   ),
                 ),
               ],
@@ -653,10 +669,10 @@ class _AppDetailPageState extends State<AppDetailPage> {
                   width: 36,
                   height: 36,
                   margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: t.textTertiary, shape: BoxShape.circle),
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const FaIcon(FontAwesomeIcons.gear, size: 16.0, color: Colors.white),
+                    icon: OmiIconWidget(icon: OmiIcon.settings, size: 16.0, color: t.textPrimary),
                     onPressed: () {
                       HapticFeedback.mediumImpact();
                       Navigator.push(context, MaterialPageRoute(builder: (context) => AppHomeWebPage(app: app)));
@@ -672,10 +688,10 @@ class _AppDetailPageState extends State<AppDetailPage> {
                           width: 36,
                           height: 36,
                           margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
+                          decoration: BoxDecoration(color: t.textTertiary, shape: BoxShape.circle),
                           child: IconButton(
                             padding: EdgeInsets.zero,
-                            icon: const FaIcon(FontAwesomeIcons.arrowUpFromBracket, size: 16.0, color: Colors.white),
+                            icon: FaIcon(FontAwesomeIcons.arrowUpFromBracket, size: 16.0, color: t.textPrimary),
                             onPressed: () async {
                               HapticFeedback.mediumImpact();
                               PlatformManager.instance.analytics.track('App Shared', properties: {'appId': app.id});
@@ -706,12 +722,12 @@ class _AppDetailPageState extends State<AppDetailPage> {
                           height: 36,
                           margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
-                            color: Colors.grey.withValues(alpha: 0.3),
+                            color: t.textTertiary,
                             shape: BoxShape.circle,
                           ),
                           child: IconButton(
                             padding: EdgeInsets.zero,
-                            icon: const FaIcon(FontAwesomeIcons.edit, size: 16.0, color: Colors.white),
+                            icon: FaIcon(FontAwesomeIcons.edit, size: 16.0, color: t.textPrimary),
                             onPressed: () async {
                               HapticFeedback.mediumImpact();
                               await showModalBottomSheet(
@@ -732,7 +748,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                   : const SizedBox(width: 8),
             ],
           ),
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           body: SingleChildScrollView(
             controller: _scrollController,
             child: Skeletonizer(
@@ -773,8 +789,8 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                 children: [
                                   Text(
                                     app.name.decodeString,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: t.textPrimary,
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -787,13 +803,13 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                       Flexible(
                                         child: Text(
                                           app.author.decodeString,
-                                          style: const TextStyle(color: Colors.grey, fontSize: 16),
+                                          style: TextStyle(color: t.textSecondary, fontSize: 16),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                       if (app.official) ...[
                                         const SizedBox(width: 4),
-                                        const FaIcon(FontAwesomeIcons.solidCircleCheck, size: 14, color: Colors.white),
+                                        FaIcon(FontAwesomeIcons.solidCircleCheck, size: 14, color: t.textPrimary),
                                       ],
                                     ],
                                   ),
@@ -812,20 +828,20 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                     child: Row(
                                       children: [
                                         if (app.ratingCount > 0) ...[
-                                          const FaIcon(FontAwesomeIcons.solidStar, size: 11, color: Colors.white),
+                                          OmiIconWidget(icon: OmiIcon.star, size: 11, color: t.textPrimary),
                                           const SizedBox(width: 4),
                                           Text(
                                             '${app.getRatingAvg()} (${app.ratingCount})',
-                                            style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                                            style: TextStyle(fontSize: 13, color: t.textSecondary),
                                           ),
                                           if (app.installs > 0) ...[
-                                            Text('  ·  ', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                                            Text('  ·  ', style: TextStyle(fontSize: 13, color: t.textSecondary)),
                                           ],
                                         ],
                                         if (app.installs > 0)
                                           Text(
                                             '${(app.installs / 10).round() * 10}+ users',
-                                            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                                            style: TextStyle(fontSize: 13, color: t.textSecondary),
                                           ),
                                       ],
                                     ),
@@ -838,7 +854,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                       width: 32,
                                       height: 32,
                                       onPressed: () async {},
-                                      color: const Color(0xFF35343B),
+                                      color: t.bgTertiary,
                                     )
                                   : app.enabled
                                       ? AnimatedLoadingButton(
@@ -846,7 +862,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                           width: 90,
                                           height: 32,
                                           onPressed: () => _toggleApp(app.id, false),
-                                          color: Colors.grey.shade700,
+                                          color: t.textSecondary,
                                         )
                                       : (app.isPaid && !app.isUserPaid
                                           ? AnimatedLoadingButton(
@@ -874,11 +890,12 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                                   await _toggleApp(app.id, true);
                                                 }
                                               },
-                                              color: Colors.white,
+                                              color: t.textPrimary,
                                               // AnimatedLoadingButton defaults both to white; on a
                                               // white surface the label and spinner vanish.
-                                              textStyle: const TextStyle(fontSize: 16, color: Colors.black),
-                                              loaderColor: Colors.black,
+                                              textStyle: TextStyle(
+                                                  fontSize: 16, color: (t.isGlass ? t.onAccent : Colors.black)),
+                                              loaderColor: t.bgPrimary,
                                             )
                                           : AnimatedLoadingButton(
                                               width: 75,
@@ -910,11 +927,12 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                                   _toggleApp(app.id, true);
                                                 }
                                               },
-                                              color: Colors.white,
+                                              color: t.textPrimary,
                                               // AnimatedLoadingButton defaults both to white; on a
                                               // white surface the label and spinner vanish.
-                                              textStyle: const TextStyle(fontSize: 16, color: Colors.black),
-                                              loaderColor: Colors.black,
+                                              textStyle: TextStyle(
+                                                  fontSize: 16, color: (t.isGlass ? t.onAccent : Colors.black)),
+                                              loaderColor: t.bgPrimary,
                                             )),
                             ],
                           ),
@@ -953,7 +971,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                               width: double.infinity,
                               padding: const EdgeInsets.only(top: 12),
                               child: _isCancelingSubscription
-                                  ? const Row(
+                                  ? Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         SizedBox(
@@ -961,24 +979,24 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                           height: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                                            valueColor: AlwaysStoppedAnimation<Color>(t.error),
                                           ),
                                         ),
-                                        SizedBox(width: 8),
+                                        const SizedBox(width: 8),
                                         Text(
                                           'Cancelling...',
                                           style: TextStyle(
-                                            color: Colors.red,
+                                            color: t.error,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
                                       ],
                                     )
-                                  : const Text(
+                                  : Text(
                                       'Cancel Subscription',
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.w500),
+                                      style: TextStyle(color: t.error, fontSize: 16, fontWeight: FontWeight.w500),
                                     ),
                             ),
                           ),
@@ -992,13 +1010,13 @@ class _AppDetailPageState extends State<AppDetailPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const FaIcon(FontAwesomeIcons.circleInfo, color: Colors.grey, size: 18),
+                                FaIcon(FontAwesomeIcons.circleInfo, color: t.textSecondary, size: 18),
                                 const SizedBox(width: 10),
                                 SizedBox(
                                   width: MediaQuery.of(context).size.width * 0.78,
-                                  child: const Text(
+                                  child: Text(
                                     'You are a beta tester for this app. It is not public yet. It will be public once approved.',
-                                    style: TextStyle(color: Colors.grey),
+                                    style: TextStyle(color: t.textSecondary),
                                   ),
                                 ),
                               ],
@@ -1013,13 +1031,13 @@ class _AppDetailPageState extends State<AppDetailPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const FaIcon(FontAwesomeIcons.circleInfo, color: Colors.grey, size: 18),
+                                FaIcon(FontAwesomeIcons.circleInfo, color: t.textSecondary, size: 18),
                                 const SizedBox(width: 10),
                                 SizedBox(
                                   width: MediaQuery.of(context).size.width * 0.78,
-                                  child: const Text(
+                                  child: Text(
                                     'Your app is under review and visible only to you. It will be public once approved.',
-                                    style: TextStyle(color: Colors.grey),
+                                    style: TextStyle(color: t.textSecondary),
                                   ),
                                 ),
                               ],
@@ -1034,13 +1052,13 @@ class _AppDetailPageState extends State<AppDetailPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const FaIcon(FontAwesomeIcons.circleExclamation, color: Colors.grey, size: 18),
+                                FaIcon(FontAwesomeIcons.circleExclamation, color: t.textSecondary, size: 18),
                                 const SizedBox(width: 10),
                                 SizedBox(
                                   width: MediaQuery.of(context).size.width * 0.78,
-                                  child: const Text(
+                                  child: Text(
                                     'Your app has been rejected. Please update the app details and resubmit for review.',
-                                    style: TextStyle(color: Colors.grey),
+                                    style: TextStyle(color: t.textSecondary),
                                   ),
                                 ),
                               ],
@@ -1059,10 +1077,10 @@ class _AppDetailPageState extends State<AppDetailPage> {
                               bottom: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1F1F25).withValues(alpha: 0.8),
+                              color: t.textSecondary,
                               borderRadius: BorderRadius.circular(16.0),
                               border: Border.all(
-                                color: setupCompleted ? Colors.green.withValues(alpha: 0.3) : Colors.transparent,
+                                color: setupCompleted ? t.success.withValues(alpha: 0.3) : Colors.transparent,
                                 width: 1,
                               ),
                             ),
@@ -1090,18 +1108,16 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                         width: 32,
                                         height: 32,
                                         decoration: BoxDecoration(
-                                          color: setupCompleted
-                                              ? Colors.green.withValues(alpha: 0.2)
-                                              : Colors.grey.withValues(alpha: 0.2),
+                                          color: setupCompleted ? t.success.withValues(alpha: 0.2) : t.rowFillHover,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Center(
                                           child: setupCompleted
-                                              ? const FaIcon(FontAwesomeIcons.check, size: 14, color: Colors.green)
+                                              ? FaIcon(FontAwesomeIcons.check, size: 14, color: t.success)
                                               : Text(
                                                   '${i + 1}',
                                                   style: TextStyle(
-                                                    color: Colors.grey.shade400,
+                                                    color: t.textSecondary,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
@@ -1114,10 +1130,10 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                           children: [
                                             Text(
                                               step.name,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
-                                                color: Colors.white,
+                                                color: t.textPrimary,
                                               ),
                                             ),
                                             const SizedBox(height: 4),
@@ -1125,7 +1141,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                               setupCompleted ? context.l10n.setupCompleted : context.l10n.tapToComplete,
                                               style: TextStyle(
                                                 fontSize: 13,
-                                                color: setupCompleted ? Colors.green : Colors.grey.shade500,
+                                                color: setupCompleted ? t.success : t.textSecondary,
                                               ),
                                             ),
                                           ],
@@ -1134,7 +1150,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                       FaIcon(
                                         FontAwesomeIcons.arrowUpRightFromSquare,
                                         size: 16,
-                                        color: Colors.grey.shade500,
+                                        color: t.textSecondary,
                                       ),
                                     ],
                                   ),
@@ -1180,9 +1196,9 @@ class _AppDetailPageState extends State<AppDetailPage> {
                             }
                             checkSetupCompleted();
                           },
-                          trailing: const Padding(
-                            padding: EdgeInsets.only(right: 12.0),
-                            child: FaIcon(FontAwesomeIcons.chevronRight, size: 20, color: Colors.grey),
+                          trailing: Padding(
+                            padding: const EdgeInsets.only(right: 12.0),
+                            child: FaIcon(FontAwesomeIcons.chevronRight, size: 20, color: t.textSecondary),
                           ),
                           title: const Text(
                             'Integration Instructions',
@@ -1191,9 +1207,9 @@ class _AppDetailPageState extends State<AppDetailPage> {
                         )
                       : const SizedBox.shrink(),
                   if (app.thumbnailUrls.isNotEmpty) ...[
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 16),
-                      child: Text('Preview', style: TextStyle(color: Colors.white, fontSize: 18)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16),
+                      child: Text('Preview', style: TextStyle(color: t.textPrimary, fontSize: 18)),
                     ),
                     SizedBox(
                       height: 250,
@@ -1226,7 +1242,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                 borderRadius: BorderRadius.circular(12),
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: const Color(0xFF424242), width: 1),
+                                    border: Border.all(color: t.divider, width: 1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: ClipRRect(
@@ -1237,11 +1253,11 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                       placeholder: (context, url) => SizedBox(
                                         width: 150,
                                         child: ShimmerWithTimeout(
-                                          baseColor: Colors.grey[900]!,
-                                          highlightColor: Colors.grey[800]!,
+                                          baseColor: t.bgSecondary,
+                                          highlightColor: t.bgTertiary,
                                           child: Container(
                                             decoration: BoxDecoration(
-                                              color: Colors.black,
+                                              color: t.bgPrimary,
                                               borderRadius: BorderRadius.circular(12),
                                             ),
                                           ),
@@ -1250,7 +1266,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                       errorWidget: (context, url, error) => Container(
                                         width: 150,
                                         decoration: BoxDecoration(
-                                          color: Colors.grey[900],
+                                          color: t.bgSecondary,
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: const FaIcon(FontAwesomeIcons.circleExclamation),
@@ -1376,7 +1392,7 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                   bottom: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1F1F25).withValues(alpha: 0.8),
+                                  color: t.textSecondary,
                                   borderRadius: BorderRadius.circular(16.0),
                                 ),
                                 child: Column(
@@ -1385,17 +1401,17 @@ class _AppDetailPageState extends State<AppDetailPage> {
                                   children: [
                                     Row(
                                       children: [
-                                        const Text(
+                                        Text(
                                           'Reviews',
                                           style: TextStyle(
-                                            color: Colors.white,
+                                            color: t.textPrimary,
                                             fontSize: 16,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                         const Spacer(),
                                         app.reviews.isNotEmpty
-                                            ? const Icon(Icons.arrow_forward, size: 20)
+                                            ? const OmiIconWidget(icon: OmiIcon.arrowRight, size: 20)
                                             : const SizedBox.shrink(),
                                       ],
                                     ),
@@ -1443,6 +1459,8 @@ class _AppDetailPageState extends State<AppDetailPage> {
   /// Nothing surfaced this state before, so a disabled app read as healthy here
   /// while every install failed, and the owner had no control that could clear it.
   Widget _buildDisabledNotice() {
+    final t = context.omi;
+
     final isOwner = app.isOwner(SharedPreferencesUtil().uid);
     final reason = app.disabledReason == 'webhook_failures'
         ? context.l10n.appDisabledWebhookFailures
@@ -1460,13 +1478,13 @@ class _AppDetailPageState extends State<AppDetailPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const FaIcon(FontAwesomeIcons.triangleExclamation, color: Colors.grey, size: 18),
+            FaIcon(FontAwesomeIcons.triangleExclamation, color: t.textSecondary, size: 18),
             const SizedBox(width: 10),
             SizedBox(
               width: MediaQuery.of(context).size.width * 0.78,
               child: Text(
                 '${context.l10n.appDisabledTitle} $reason$when$lastError',
-                style: const TextStyle(color: Colors.grey),
+                style: TextStyle(color: t.textSecondary),
               ),
             ),
           ],
@@ -1477,20 +1495,20 @@ class _AppDetailPageState extends State<AppDetailPage> {
             width: MediaQuery.of(context).size.width * 0.78,
             child: Text(
               context.l10n.appDisabledOwnerHint,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
+              style: TextStyle(color: t.textSecondary, fontSize: 13),
             ),
           ),
           const SizedBox(height: 10),
           TextButton(
             onPressed: _reEnabling ? null : _reEnableApp,
             style: TextButton.styleFrom(
-              backgroundColor: Colors.grey.shade900,
+              backgroundColor: t.textSecondary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: _reEnabling
-                ? const SizedBox(
-                    width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(context.l10n.appReEnable, style: const TextStyle(color: Colors.white)),
+                ? SizedBox(
+                    width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary))
+                : Text(context.l10n.appReEnable, style: TextStyle(color: t.textPrimary)),
           ),
         ],
       ],
@@ -1689,12 +1707,14 @@ class RatingDistributionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           ratingAvg.toStringAsFixed(1),
-          style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.grey.shade400, height: 1),
+          style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: t.textSecondary, height: 1),
         ),
         const SizedBox(width: 16),
         Column(
@@ -1704,10 +1724,10 @@ class RatingDistributionWidget extends StatelessWidget {
               children: List.generate(5, (index) {
                 return Padding(
                   padding: EdgeInsets.only(right: index < 4 ? 4 : 0),
-                  child: FaIcon(
-                    FontAwesomeIcons.solidStar,
+                  child: OmiIconWidget(
+                    icon: OmiIcon.star,
                     size: 14,
-                    color: index < ratingAvg.round() ? Colors.white : Colors.grey.shade700,
+                    color: index < ratingAvg.round() ? t.textPrimary : t.textSecondary,
                   ),
                 );
               }),
@@ -1715,7 +1735,7 @@ class RatingDistributionWidget extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               ratingCount == 1 ? '1 rating' : '$ratingCount ratings',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 13, color: t.textSecondary),
             ),
           ],
         ),
@@ -1891,12 +1911,14 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
   }
 
   Widget _buildEditableReview() {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: t.rowFillHover,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+        border: Border.all(color: t.textTertiary),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1905,7 +1927,7 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
             children: [
               Text(
                 widget.userReview == null ? 'Add Your Review' : 'Edit Your Review',
-                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
               ),
               const Spacer(),
               if (widget.userReview != null)
@@ -1917,7 +1939,7 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
                       editRating = widget.userReview?.score ?? 0;
                     });
                   },
-                  child: Text('Cancel', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                  child: Text('Cancel', style: TextStyle(color: t.textSecondary, fontSize: 12)),
                 ),
             ],
           ),
@@ -1931,10 +1953,10 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
                 },
                 child: Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: FaIcon(
-                    FontAwesomeIcons.solidStar,
+                  child: OmiIconWidget(
+                    icon: OmiIcon.star,
                     size: 24,
-                    color: index < editRating ? Colors.white : Colors.grey.shade600,
+                    color: index < editRating ? t.textPrimary : t.textSecondary,
                   ),
                 ),
               );
@@ -1946,15 +1968,15 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
             controller: reviewController,
             maxLines: 3,
             maxLength: 250,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: t.textPrimary, fontSize: 14),
             decoration: InputDecoration(
               hintText: context.l10n.writeReviewOptional,
-              hintStyle: TextStyle(color: Colors.grey.shade500),
+              hintStyle: TextStyle(color: t.textSecondary),
               filled: true,
-              fillColor: Colors.black.withValues(alpha: 0.3),
+              fillColor: t.isGlass ? t.rowFill : Colors.black.withValues(alpha: 0.3),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.all(12),
-              counterStyle: TextStyle(color: Colors.grey.shade500),
+              counterStyle: TextStyle(color: t.textSecondary),
             ),
           ),
           const SizedBox(height: 12),
@@ -1965,19 +1987,19 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
               key: const ValueKey('app_detail_submit_review_button'),
               onPressed: isSubmitting ? null : _submitReview,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
+                backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: isSubmitting
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         // The button surface is now white, so a white spinner would be invisible.
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                        valueColor: AlwaysStoppedAnimation<Color>(t.bgPrimary),
                       ),
                     )
                   : Text(
@@ -1993,6 +2015,8 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
   }
 
   Widget _buildReviewItem(BuildContext context, AppReview review, {bool isUserReview = false}) {
+    final t = context.omi;
+
     final l10n = AppLocalizations.of(context);
     final displayName =
         isUserReview ? l10n.yourReview : (review.username.isNotEmpty ? review.username : l10n.anonymousUser);
@@ -2011,8 +2035,8 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
                 seed: avatarSeed,
                 username: review.username,
                 size: 36,
-                backgroundColor: isUserReview ? Colors.white.withValues(alpha: 0.2) : null,
-                foregroundColor: isUserReview ? Colors.white : null,
+                backgroundColor: isUserReview ? t.rowFillHover : null,
+                foregroundColor: isUserReview ? t.textPrimary : null,
               ),
               const SizedBox(width: 12),
               // Name, date, and stars
@@ -2025,7 +2049,7 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
                         Text(
                           displayName,
                           style: TextStyle(
-                            color: isUserReview ? Colors.white : Colors.grey,
+                            color: isUserReview ? t.textPrimary : t.textSecondary,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -2033,9 +2057,9 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
                         const SizedBox(width: 8),
                         Text(
                           timeago.format(review.ratedAt),
-                          style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                          style: TextStyle(color: t.textSecondary, fontSize: 12),
                         ),
-                        if (isUserReview) ...[const Spacer(), Icon(Icons.edit, size: 14, color: Colors.grey.shade500)],
+                        if (isUserReview) ...[const Spacer(), Icon(Icons.edit, size: 14, color: t.textSecondary)],
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -2044,10 +2068,10 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
                       children: List.generate(5, (index) {
                         return Padding(
                           padding: const EdgeInsets.only(right: 4),
-                          child: FaIcon(
-                            FontAwesomeIcons.solidStar,
+                          child: OmiIconWidget(
+                            icon: OmiIcon.star,
                             size: 14,
-                            color: index < review.score.round() ? Colors.white : Colors.grey.shade700,
+                            color: index < review.score.round() ? t.textPrimary : t.textSecondary,
                           ),
                         );
                       }),
@@ -2064,7 +2088,7 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
               padding: const EdgeInsets.only(left: 48),
               child: Text(
                 review.review.decodeString,
-                style: const TextStyle(color: Colors.grey, fontSize: 14, height: 1.4),
+                style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.4),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),

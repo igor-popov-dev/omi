@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
 
@@ -153,19 +154,20 @@ class _HorizontalCodeScrollerState extends State<_HorizontalCodeScroller> {
 }
 
 Widget getMarkdownWidget(BuildContext context, String message, {Function(String)? onAskOmi}) {
+  final t = context.omi;
   return MarkdownBody(
     data: message.trimRight(),
     selectable: false,
     builders: {'pre': _CodeBlockBuilder()},
     styleSheet: MarkdownStyleSheet(
-      p: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
+      p: TextStyle(color: t.textPrimary, fontSize: 16, height: 1.4),
       a: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline),
-      listBullet: const TextStyle(color: Colors.white, fontSize: 16),
-      blockquote: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4, backgroundColor: Colors.transparent),
-      blockquoteDecoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(4)),
+      listBullet: TextStyle(color: t.textPrimary, fontSize: 16),
+      blockquote: TextStyle(color: t.textPrimary, fontSize: 16, height: 1.4, backgroundColor: Colors.transparent),
+      blockquoteDecoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(4)),
       code: _kCodeTextStyle,
       codeblockPadding: _kCodeBlockPadding,
-      codeblockDecoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(8)),
+      codeblockDecoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(8)),
     ),
     onTapLink: (text, href, title) {
       if (href != null) {

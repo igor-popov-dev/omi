@@ -18,6 +18,9 @@ import 'package:omi/utils/daily_summary_journey.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/utils/share_links.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DailySummaryDetailPage extends StatefulWidget {
   final String summaryId;
@@ -89,10 +92,12 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(child: CircularProgressIndicator(color: t.textPrimary))
           : _summary == null
               ? _buildNotFound()
               : _buildContent(),
@@ -118,6 +123,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Future<void> _openConversation(String? conversationId) async {
+    final t = context.omi;
+
     if (conversationId == null || conversationId.isEmpty) return;
 
     // Track conversation click
@@ -133,7 +140,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+      builder: (context) => Center(child: CircularProgressIndicator(color: t.textPrimary)),
     );
 
     try {
@@ -186,6 +193,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
 
   /// Bottom sheet menu opened by the SliverAppBar's 3-dot icon.
   Future<void> _showActionsSheet() async {
+    final t = context.omi;
+
     if (_summary == null) return;
 
     if (PlatformService.isApple) {
@@ -220,17 +229,17 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1F),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetCtx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.refresh, color: Colors.white),
+              leading: Icon(Icons.refresh, color: t.textPrimary),
               title: Text(
                 context.l10n.regenerateRecap,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
               ),
               onTap: () {
                 Navigator.pop(sheetCtx);
@@ -238,10 +247,10 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
               },
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: Color(0xFFFF6B6B)),
+              leading: Icon(Icons.delete_outline, color: t.error),
               title: Text(
                 context.l10n.deleteRecap,
-                style: const TextStyle(color: Color(0xFFFF6B6B), fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.error, fontWeight: FontWeight.w600),
               ),
               onTap: () {
                 Navigator.pop(sheetCtx);
@@ -262,6 +271,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   /// Shows a blocking spinner because the call can take several seconds and
   /// the user is staring at stale content until it returns.
   Future<void> _regenerateRecap() async {
+    final t = context.omi;
+
     if (_isRegenerating || _summary == null) return;
     setState(() => _isRegenerating = true);
 
@@ -276,7 +287,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+      builder: (_) => Center(child: CircularProgressIndicator(color: t.textPrimary)),
     );
 
     final result = await regenerateDailySummary(widget.summaryId);
@@ -313,13 +324,15 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildNotFound() {
+    final t = context.omi;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text('📭', style: TextStyle(fontSize: 64)),
           const SizedBox(height: 16),
-          Text(context.l10n.summaryNotFound, style: TextStyle(color: Colors.grey.shade400, fontSize: 18)),
+          Text(context.l10n.summaryNotFound, style: TextStyle(color: t.textSecondary, fontSize: 18)),
           const SizedBox(height: 24),
           TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.goBack)),
         ],
@@ -365,15 +378,17 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildHeader(DailySummary summary) {
+    final t = context.omi;
+
     return SliverAppBar(
       expandedHeight: 150,
       pinned: true,
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       leading: IconButton(
         icon: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3), shape: BoxShape.circle),
-          child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+          child: OmiIconWidget(icon: OmiIcon.arrowLeft, color: t.textPrimary, size: 20),
         ),
         onPressed: () => Navigator.pop(context),
       ),
@@ -388,15 +403,15 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
               alignment: Alignment.center,
               decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3), shape: BoxShape.circle),
               child: _isSharing
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                       ),
                     )
-                  : const Icon(Icons.share_outlined, color: Colors.white, size: 20),
+                  : OmiIconWidget(icon: OmiIcon.share, color: t.textPrimary, size: 20),
             ),
           ),
         ),
@@ -405,12 +420,12 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3), shape: BoxShape.circle),
             child: _isDeleting
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    child: CircularProgressIndicator(color: t.textPrimary, strokeWidth: 2),
                   )
-                : const Icon(Icons.more_horiz, color: Colors.white, size: 20),
+                : Icon(Icons.more_horiz, color: t.textPrimary, size: 20),
           ),
           onPressed: _isDeleting ? null : _showActionsSheet,
         ),
@@ -418,15 +433,18 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
       ],
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF2D1F5B), // Deep purple at top
-                Color(0xFF000000), // Almost black at bottom
-              ],
-            ),
+          decoration: BoxDecoration(
+            color: t.isGlass ? t.bgSecondary : null,
+            gradient: t.isGlass
+                ? null
+                : const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF2D1F5B), // Deep purple at top
+                      Color(0xFF000000), // Almost black at bottom
+                    ],
+                  ),
           ),
           child: SafeArea(
             bottom: false,
@@ -441,7 +459,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                   Text(
                     summary.formattedDate,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
+                      color: t.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -451,13 +469,13 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(summary.dayEmoji, style: const TextStyle(fontSize: 32)),
+                      OmiEmoji(summary.dayEmoji, size: 32),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           summary.headline,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: t.textPrimary,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             height: 1.2,
@@ -478,7 +496,9 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildOverviewCard(DailySummary summary) {
-    return Text(summary.overview, style: TextStyle(color: Colors.grey.shade300, fontSize: 15, height: 1.5));
+    final t = context.omi;
+
+    return Text(summary.overview, style: TextStyle(color: t.textSecondary, fontSize: 15, height: 1.5));
   }
 
   Widget _buildStatsRow(DailySummary summary) {
@@ -494,18 +514,20 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildStatItem(FaIconData icon, String value) {
+    final t = context.omi;
+
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        decoration: BoxDecoration(color: const Color(0xFF1A1A1F), borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FaIcon(icon, color: Colors.grey.shade400, size: 14),
+            FaIcon(icon, color: t.textSecondary, size: 14),
             const SizedBox(width: 8),
             Text(
               value,
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -530,6 +552,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildLocationsMap(DailySummary summary) {
+    final t = context.omi;
+
     final timelineLocations = buildTimelineLocations(summary.locations, unknownLabel: context.l10n.unknown);
 
     // Get all coordinates as LatLng
@@ -556,7 +580,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
         point: LatLng(loc.latitude, loc.longitude),
         width: 32,
         height: 32,
-        child: const FaIcon(FontAwesomeIcons.locationDot, color: Colors.deepPurple, size: 28),
+        child: FaIcon(FontAwesomeIcons.locationDot, color: t.accent, size: 28),
       );
     }).toList();
 
@@ -614,6 +638,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildHighlightsSection(DailySummary summary) {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -629,11 +655,11 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             child: Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: const Color(0xFF1A1A1F), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(highlight.emoji, style: const TextStyle(fontSize: 20)),
+                  OmiEmoji(highlight.emoji, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -641,18 +667,18 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                       children: [
                         Text(
                           highlight.topic,
-                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           highlight.summary,
-                          style: TextStyle(color: Colors.grey.shade400, fontSize: 13, height: 1.3),
+                          style: TextStyle(color: t.textSecondary, fontSize: 13, height: 1.3),
                         ),
                       ],
                     ),
                   ),
                   if (highlight.conversationIds.isNotEmpty)
-                    Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 18),
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 18),
                 ],
               ),
             ),
@@ -663,6 +689,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildActionItemsSection(DailySummary summary) {
+    final t = context.omi;
+
     // Separate completed and incomplete items
     final incompleteItems = summary.actionItems.where((i) => !i.completed).toList();
     final completedItems = summary.actionItems.where((i) => i.completed).toList();
@@ -677,7 +705,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             if (completedItems.isNotEmpty)
               Text(
                 '${completedItems.length}/${summary.actionItems.length}',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                style: TextStyle(color: t.textSecondary, fontSize: 13),
               ),
           ],
         ),
@@ -691,12 +719,14 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildActionItemRow(ActionItemSummary item) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: () => _openConversation(item.sourceConversationId),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(color: const Color(0xFF1A1A1F), borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Row(
           children: [
             // Checkbox indicator
@@ -705,24 +735,25 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
               height: 22,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: item.completed ? Colors.green.withValues(alpha: 0.2) : Colors.transparent,
-                border: Border.all(color: item.completed ? Colors.green : Colors.grey.shade600, width: 1.5),
+                color: item.completed ? t.success.withValues(alpha: 0.2) : Colors.transparent,
+                border: Border.all(color: item.completed ? t.success : t.textSecondary, width: 1.5),
               ),
-              child: item.completed ? const Icon(Icons.check, color: Colors.green, size: 14) : null,
+              child: item.completed ? OmiIconWidget(icon: OmiIcon.check, color: t.success, size: 14) : null,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 item.description,
                 style: TextStyle(
-                  color: item.completed ? Colors.grey.shade500 : Colors.white,
+                  color: item.completed ? t.textSecondary : t.textPrimary,
                   fontSize: 15,
                   height: 1.4,
                   decoration: item.completed ? TextDecoration.lineThrough : null,
                 ),
               ),
             ),
-            if (item.sourceConversationId != null) Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
+            if (item.sourceConversationId != null)
+              OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
           ],
         ),
       ),
@@ -730,6 +761,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildUnresolvedQuestionsSection(DailySummary summary) {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -741,13 +774,14 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             child: Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: const Color(0xFF1A1A1F), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(q.question, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4)),
+                    child: Text(q.question, style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.4)),
                   ),
-                  if (q.conversationId != null) Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
+                  if (q.conversationId != null)
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                 ],
               ),
             ),
@@ -758,6 +792,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildDecisionsMadeSection(DailySummary summary) {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -769,13 +805,14 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             child: Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: const Color(0xFF1A1A1F), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(d.decision, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4)),
+                    child: Text(d.decision, style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.4)),
                   ),
-                  if (d.conversationId != null) Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
+                  if (d.conversationId != null)
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                 ],
               ),
             ),
@@ -786,6 +823,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildKnowledgeNuggetsSection(DailySummary summary) {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -797,13 +836,14 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
             child: Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: const Color(0xFF1A1A1F), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(k.insight, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4)),
+                    child: Text(k.insight, style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.4)),
                   ),
-                  if (k.conversationId != null) Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
+                  if (k.conversationId != null)
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                 ],
               ),
             ),
@@ -814,13 +854,17 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
   }
 
   Widget _buildSectionTitle(String title) {
+    final t = context.omi;
+
     return Text(
       title,
-      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+      style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
     );
   }
 
   Widget _buildTimelineItem(TimelineLocation location, int index) {
+    final t = context.omi;
+
     final startFormatted = _formatTimeTo12Hour(location.startTime);
     final endFormatted = _formatTimeTo12Hour(location.endTime);
     final timeText = startFormatted.isNotEmpty
@@ -844,7 +888,7 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
           key: ValueKey('daily_summary_location_row_$index'),
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          decoration: BoxDecoration(color: const Color(0xFF1A1A1F), borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
           child: Row(
             children: [
               Expanded(
@@ -854,8 +898,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                   children: [
                     Text(
                       location.shortName,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: t.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         height: 1.3,
@@ -865,16 +909,16 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          FaIcon(FontAwesomeIcons.clock, color: Colors.grey.shade500, size: 12),
+                          OmiIconWidget(icon: OmiIcon.clock, color: t.textSecondary, size: 12),
                           const SizedBox(width: 4),
-                          Text(timeText, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                          Text(timeText, style: TextStyle(color: t.textSecondary, fontSize: 13)),
                         ],
                       ),
                     ],
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
+              OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
             ],
           ),
         ),
@@ -888,6 +932,8 @@ class _DailySummaryDetailPageState extends State<DailySummaryDetailPage> with Si
 /// page's swipe handler can fire the same dialog without instantiating the
 /// detail page state.
 Future<bool?> showDeleteRecapConfirmDialog(BuildContext context) {
+  final t = context.omi;
+
   final l10n = context.l10n;
   if (PlatformService.isApple) {
     return showCupertinoDialog<bool>(
@@ -915,7 +961,7 @@ Future<bool?> showDeleteRecapConfirmDialog(BuildContext context) {
         TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: Text(l10n.cancel)),
         TextButton(
           onPressed: () => Navigator.pop(dialogCtx, true),
-          style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6B6B)),
+          style: TextButton.styleFrom(foregroundColor: t.error),
           child: Text(l10n.deleteRecapAction),
         ),
       ],

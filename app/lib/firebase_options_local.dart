@@ -35,11 +35,14 @@ class DefaultFirebaseOptions {
   );
 
   static const ios = FirebaseOptions(
-    apiKey: 'AIzaSyDEMOOMILOCALFAKEKEY00000000000000',
-    appId: '1:000000000000:ios:0000000000000000',
-    messagingSenderId: '000000000000',
-    projectId: 'demo-omi-local',
-    storageBucket: 'demo-omi-local.localhost',
+    // Registered 2026-08-25 in the personal project omi-jarvis-igor (auth-only
+    // Google dependency). Source of truth: ios/Config/Dev/GoogleService-Info.plist
+    // (etalon in ~/.secrets/omi-app/); keep in sync.
+    apiKey: 'AIzaSyBrliccXCDA0dJIdqYbnyRiZBlQaeZ5bBc',
+    appId: '1:1012069752426:ios:8be44b183c42769163f413',
+    messagingSenderId: '1012069752426',
+    projectId: 'omi-jarvis-igor',
+    storageBucket: 'omi-jarvis-igor.firebasestorage.app',
     iosBundleId: 'com.friend-app-with-wearable.ios12.development',
   );
 

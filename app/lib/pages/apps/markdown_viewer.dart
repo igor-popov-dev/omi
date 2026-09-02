@@ -4,6 +4,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:omi/backend/preferences.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MarkdownViewer extends StatefulWidget {
   final String markdown;
@@ -17,9 +18,11 @@ class MarkdownViewer extends StatefulWidget {
 class _MarkdownViewerState extends State<MarkdownViewer> {
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      appBar: AppBar(backgroundColor: Theme.of(context).colorScheme.primary, title: Text(widget.title)),
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      appBar: AppBar(backgroundColor: context.omi.bgPrimary, title: Text(widget.title)),
+      backgroundColor: context.omi.bgPrimary,
       body: ListView(
         children: [
           const SizedBox(height: 16),
@@ -30,22 +33,22 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
               styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
                 a: const TextStyle(fontSize: 18, height: 1.2),
                 p: const TextStyle(fontSize: 16, height: 1.2),
-                blockquote: const TextStyle(
+                blockquote: TextStyle(
                   fontSize: 16,
                   height: 1.2,
                   backgroundColor: Colors.transparent,
-                  color: Colors.black,
+                  color: (t.isGlass ? t.onAccent : Colors.black),
                 ),
                 blockquoteDecoration: BoxDecoration(
-                  color: const Color(0xFF35343B),
+                  color: t.bgTertiary,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                code: const TextStyle(
+                code: TextStyle(
                   fontSize: 16,
                   height: 1.2,
                   backgroundColor: Colors.transparent,
                   decoration: TextDecoration.none,
-                  color: Colors.white,
+                  color: t.textPrimary,
                   fontWeight: FontWeight.w500,
                 ),
               ),

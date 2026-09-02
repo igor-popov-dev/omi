@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:omi/backend/schema/daily_summary.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class DailySummaryCard extends StatelessWidget {
   static const double width = 260;
@@ -25,6 +26,7 @@ class DailySummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final locations = summary.locations.where(_hasUsableCoordinates).toList();
     final hasMap = locations.isNotEmpty;
 
@@ -35,7 +37,7 @@ class DailySummaryCard extends StatelessWidget {
         width: width,
         height: height,
         margin: const EdgeInsets.only(right: 12),
-        decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: Stack(
@@ -61,7 +63,7 @@ class DailySummaryCard extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
                   child: Text(
                     summary.headline,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.35),
+                    style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.35),
                     maxLines: hasMap ? 3 : 5,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -73,10 +75,10 @@ class DailySummaryCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
+                    color: t.bgPrimary.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(50),
                   ),
-                  child: Text(dateLabel, style: const TextStyle(color: Color(0xFFBBBCC2), fontSize: 11)),
+                  child: Text(dateLabel, style: TextStyle(color: t.textSecondary, fontSize: 11)),
                 ),
               ),
             ],
@@ -132,6 +134,7 @@ class _DailySummaryCardMapState extends State<_DailySummaryCardMap> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final points = widget.locations.map((location) => LatLng(location.latitude, location.longitude)).toList();
     final distinctPoints = points.toSet().toList();
     final singleLocation = distinctPoints.length == 1;
@@ -147,8 +150,8 @@ class _DailySummaryCardMapState extends State<_DailySummaryCardMap> {
             width: 22,
             height: 22,
             child: Container(
-              decoration: const BoxDecoration(color: Colors.deepPurple, shape: BoxShape.circle),
-              child: const Icon(Icons.location_on, color: Colors.white, size: 13),
+              decoration: BoxDecoration(color: t.accent, shape: BoxShape.circle),
+              child: Icon(Icons.location_on, color: t.textPrimary, size: 13),
             ),
           ),
         )
@@ -163,7 +166,7 @@ class _DailySummaryCardMapState extends State<_DailySummaryCardMap> {
           initialCameraFit: cameraFit,
           interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
           keepAlive: true,
-          backgroundColor: const Color(0xFF1F1F25),
+          backgroundColor: t.bgSecondary,
           onMapReady: _loadTilesAfterLayout,
         ),
         children: [

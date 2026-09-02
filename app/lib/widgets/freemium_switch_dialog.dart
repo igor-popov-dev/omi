@@ -5,6 +5,7 @@ import 'package:omi/pages/settings/widgets/plans_sheet.dart';
 import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/services/freemium_transcription_service.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Handler for freemium transcription switching
 /// Manages when to show the plans sheet and navigation
@@ -16,6 +17,7 @@ class FreemiumSwitchHandler {
   /// Check and show plans sheet if freemium threshold reached
   /// Returns true if plans sheet was shown
   Future<bool> checkAndShowPaywall(BuildContext context, CaptureProvider captureProvider) async {
+    final t = context.omi;
     if (_freemiumService.dialogShownThisSession) return false;
 
     if (!context.read<UsageProvider>().showSubscriptionUI) return false;
@@ -29,7 +31,7 @@ class FreemiumSwitchHandler {
       await showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.black,
+        backgroundColor: t.bgPrimary,
         builder: (sheetContext) => _PlansSheetWrapper(),
       );
 

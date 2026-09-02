@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:omi/backend/http/api/goals.dart';
 import 'package:omi/providers/goals_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Keep integer stepping for small goals without asking RenderSlider to paint
 /// one division per unit for arbitrarily large targets.
@@ -207,10 +209,11 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
   }
 
   void addGoal() {
+    final t = context.omi;
     final goalsProvider = Provider.of<GoalsProvider>(context, listen: false);
     if (goalsProvider.goals.length >= _maxGoals) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.maximumGoalsAllowed(_maxGoals)), backgroundColor: Colors.orange),
+        SnackBar(content: Text(context.l10n.maximumGoalsAllowed(_maxGoals)), backgroundColor: t.warning),
       );
       return;
     }
@@ -246,15 +249,16 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
   }
 
   Widget _buildGoalEditSheet(Goal? existingGoal) {
+    final t = context.omi;
     final isNew = existingGoal == null;
 
     return StatefulBuilder(
       builder: (context, setSheetState) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A1A1A),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: t.bgSecondary,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           padding: const EdgeInsets.all(24),
           child: SafeArea(
@@ -265,11 +269,11 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                   width: 40,
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
                 ),
                 Text(
                   isNew ? context.l10n.addGoal : context.l10n.editGoal,
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 24),
                 // Emoji selector - only show when editing (not when creating new)
@@ -279,7 +283,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                     children: [
                       Text(
                         context.l10n.icon,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                        style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                       ),
                       const SizedBox(height: 8),
                       SizedBox(
@@ -301,15 +305,13 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                                 height: 44,
                                 margin: const EdgeInsets.only(right: 8),
                                 decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? Colors.white.withValues(alpha: 0.15)
-                                      : Colors.white.withValues(alpha: 0.05),
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: isSelected ? t.rowFillHover : t.rowFill,
+                                  borderRadius: BorderRadius.circular(t.rowRadius),
                                   border: isSelected
-                                      ? Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2)
+                                      ? Border.all(color: t.textPrimary.withValues(alpha: 0.3), width: 2)
                                       : null,
                                 ),
-                                child: Center(child: Text(emoji, style: const TextStyle(fontSize: 22))),
+                                child: Center(child: OmiEmoji(emoji, size: 22)),
                               ),
                             );
                           },
@@ -325,19 +327,19 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                   children: [
                     Text(
                       context.l10n.goalTitle,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                      style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _titleController,
                       autofocus: true,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      style: TextStyle(color: t.textPrimary, fontSize: 16),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.08),
+                        fillColor: t.rowFill,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(t.rowRadius),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -355,19 +357,19 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                         children: [
                           Text(
                             context.l10n.current,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                            style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                           ),
                           const SizedBox(height: 8),
                           TextField(
                             controller: _currentController,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            style: TextStyle(color: t.textPrimary, fontSize: 16),
                             decoration: InputDecoration(
                               filled: true,
-                              fillColor: Colors.white.withValues(alpha: 0.08),
+                              fillColor: t.rowFill,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(t.rowRadius),
                                 borderSide: BorderSide.none,
                               ),
                             ),
@@ -382,19 +384,19 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                         children: [
                           Text(
                             context.l10n.target,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                            style: TextStyle(color: t.textPrimary.withValues(alpha: 0.5), fontSize: 12),
                           ),
                           const SizedBox(height: 8),
                           TextField(
                             controller: _targetController,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            style: TextStyle(color: t.textPrimary, fontSize: 16),
                             decoration: InputDecoration(
                               filled: true,
-                              fillColor: Colors.white.withValues(alpha: 0.08),
+                              fillColor: t.rowFill,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(t.rowRadius),
                                 borderSide: BorderSide.none,
                               ),
                             ),
@@ -421,7 +423,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                             await _deleteGoal(existingGoal);
                           },
                           style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
+                            foregroundColor: t.error,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: Text(context.l10n.delete),
@@ -437,10 +439,10 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                           await _saveGoal(existingGoal);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF22C55E),
-                          foregroundColor: Colors.white,
+                          backgroundColor: t.success,
+                          foregroundColor: t.textPrimary,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                         ),
                         child: Text(isNew ? context.l10n.addGoal : context.l10n.save),
                       ),
@@ -514,15 +516,17 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
   }
 
   Color _getColor(double progress) {
-    if (progress >= 0.8) return const Color(0xFF22C55E);
-    if (progress >= 0.6) return const Color(0xFF84CC16);
-    if (progress >= 0.4) return const Color(0xFFFBBF24);
-    if (progress >= 0.2) return const Color(0xFFF97316);
-    return const Color(0xFF6B7280);
+    final t = context.omi;
+    if (progress >= 0.8) return t.success;
+    if (progress >= 0.6) return t.success;
+    if (progress >= 0.4) return t.warning;
+    if (progress >= 0.2) return t.warning;
+    return t.textTertiary;
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<GoalsProvider>(
       builder: (context, goalsProvider, child) {
         if (goalsProvider.isLoading) {
@@ -550,7 +554,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                   children: [
                     Text(
                       context.l10n.goals,
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                     if (goals.length < _maxGoals)
                       GestureDetector(
@@ -558,8 +562,9 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                         child: Container(
                           width: 32,
                           height: 32,
-                          decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.12), shape: BoxShape.circle),
-                          child: Icon(Icons.add, size: 18, color: Colors.grey[400]),
+                          decoration:
+                              BoxDecoration(color: t.textSecondary.withValues(alpha: 0.12), shape: BoxShape.circle),
+                          child: Icon(Icons.add, size: 18, color: t.textSecondary),
                         ),
                       ),
                   ],
@@ -579,6 +584,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
   }
 
   Widget _buildGoalItem(Goal goal, bool isLast) {
+    final t = context.omi;
     final progress = goal.progressPercentage;
     final color = _getColor(progress);
     final emoji = _getGoalEmoji(goal.id);
@@ -589,8 +595,8 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20.0),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
+        color: t.error,
+        child: Icon(Icons.delete, color: t.textPrimary),
       ),
       onDismissed: (direction) async {
         PlatformManager.instance.analytics.goalDeleted(goalId: goal.id, source: 'home', method: 'swipe');
@@ -605,7 +611,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
         },
         child: Container(
           margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
-          decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(24)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(24)),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             children: [
@@ -615,10 +621,10 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                 height: 40,
                 margin: const EdgeInsets.only(right: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: t.rowFillHover,
+                  borderRadius: BorderRadius.circular(t.rowRadius),
                 ),
-                child: Center(child: Text(emoji, style: const TextStyle(fontSize: 18))),
+                child: Center(child: OmiEmoji(emoji, size: 18)),
               ),
               // Content
               Expanded(
@@ -627,7 +633,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                   children: [
                     Text(
                       goal.title,
-                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: t.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -642,7 +648,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                               data: SliderThemeData(
                                 trackHeight: 6,
                                 activeTrackColor: color,
-                                inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+                                inactiveTrackColor: t.rowFillHover,
                                 thumbColor: color,
                                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 0),
                                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
@@ -673,7 +679,7 @@ class GoalsWidgetState extends State<GoalsWidget> with WidgetsBindingObserver {
                           '${_rawNum(goal.currentValue)}/${_rawNum(goal.targetValue)}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.5),
+                            color: t.textPrimary.withValues(alpha: 0.5),
                             fontWeight: FontWeight.w500,
                           ),
                         ),

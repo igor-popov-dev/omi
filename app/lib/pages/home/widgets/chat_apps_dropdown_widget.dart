@@ -12,6 +12,7 @@ import 'package:omi/providers/home_provider.dart';
 import 'package:omi/providers/message_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/dialog.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ChatAppsDropdownWidget extends StatelessWidget {
   final PageController? controller;
@@ -22,6 +23,7 @@ class ChatAppsDropdownWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Selector<HomeProvider, bool>(
       selector: (context, state) => state.selectedIndex == 1,
       builder: (context, isChatPage, child) {
@@ -44,18 +46,21 @@ class ChatAppsDropdownWidget extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.max,
                   children: [
-                    selectedApp != null ? _getAppAvatar(selectedApp) : _getOmiAvatar(),
+                    selectedApp != null ? _getAppAvatar(context, selectedApp) : _getOmiAvatar(),
                     const SizedBox(width: 8),
                     Container(
                       constraints: const BoxConstraints(maxWidth: 100),
                       child: Text(
                         selectedApp != null ? selectedApp.getName() : context.l10n.omiAppName,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: TextStyle(color: t.textPrimary, fontSize: 16),
                         overflow: TextOverflow.fade,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const SizedBox(width: 24, child: Icon(Icons.keyboard_arrow_down, color: Colors.white60, size: 16)),
+                    SizedBox(
+                      width: 24,
+                      child: Icon(Icons.keyboard_arrow_down, color: t.textPrimary.withValues(alpha: 0.6), size: 16),
+                    ),
                   ],
                 ),
                 constraints: const BoxConstraints(minWidth: 250.0, maxWidth: 250.0, maxHeight: 350.0),
@@ -63,7 +68,7 @@ class ChatAppsDropdownWidget extends StatelessWidget {
                   (MediaQuery.sizeOf(context).width - 250) / 2 / MediaQuery.devicePixelRatioOf(context),
                   114,
                 ),
-                shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(t.cardRadius))),
                 onSelected: (String? val) async {
                   if (val == null || val == appProvider.selectedChatAppId) {
                     return;
@@ -110,7 +115,7 @@ class ChatAppsDropdownWidget extends StatelessWidget {
                 itemBuilder: (BuildContext context) {
                   return _getChatDropdownItems(context, messageProvider, appProvider);
                 },
-                color: const Color(0xFF1F1F25),
+                color: t.bgSecondary,
               ),
             ),
           );
@@ -119,21 +124,22 @@ class ChatAppsDropdownWidget extends StatelessWidget {
     );
   }
 
-  _getAppAvatar(App app) {
+  _getAppAvatar(BuildContext context, App app) {
+    final t = context.omi;
     return CachedNetworkImage(
       imageUrl: app.getImageUrl(),
       imageBuilder: (context, imageProvider) {
-        return CircleAvatar(backgroundColor: Colors.white, radius: 12, backgroundImage: imageProvider);
+        return CircleAvatar(backgroundColor: t.textPrimary, radius: 12, backgroundImage: imageProvider);
       },
       errorWidget: (context, url, error) {
-        return const CircleAvatar(backgroundColor: Colors.white, radius: 12, child: Icon(Icons.error_outline_rounded));
+        return CircleAvatar(backgroundColor: t.textPrimary, radius: 12, child: const Icon(Icons.error_outline_rounded));
       },
       progressIndicatorBuilder: (context, url, progress) => CircleAvatar(
-        backgroundColor: Colors.white,
+        backgroundColor: t.textPrimary,
         radius: 12,
         child: CircularProgressIndicator(
           value: progress.progress,
-          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
         ),
       ),
     );
@@ -159,6 +165,7 @@ class ChatAppsDropdownWidget extends StatelessWidget {
     MessageProvider messageProvider,
     AppProvider appProvider,
   ) {
+    final t = context.omi;
     var selectedApp = messageProvider.chatApps.firstWhereOrNull((app) => app.id == appProvider.selectedChatAppId);
     return [
       PopupMenuItem<String>(
@@ -170,8 +177,8 @@ class ChatAppsDropdownWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(context.l10n.clearChatAction, style: const TextStyle(color: Colors.redAccent, fontSize: 16)),
-              const SizedBox(width: 24, child: Icon(Icons.delete, color: Colors.redAccent, size: 16)),
+              Text(context.l10n.clearChatAction, style: TextStyle(color: t.error, fontSize: 16)),
+              SizedBox(width: 24, child: Icon(Icons.delete, color: t.error, size: 16)),
             ],
           ),
         ),
@@ -185,7 +192,7 @@ class ChatAppsDropdownWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.start,
           mainAxisSize: MainAxisSize.max,
           children: [
-            const SizedBox(width: 24, child: Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16)),
+            SizedBox(width: 24, child: Icon(Icons.arrow_forward_ios, color: t.textPrimary, size: 16)),
             const SizedBox(width: 8),
             Expanded(
               child: Container(
@@ -193,8 +200,8 @@ class ChatAppsDropdownWidget extends StatelessWidget {
                   mainAxisSize: MainAxisSize.max,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(context.l10n.enableApps, style: const TextStyle(color: Colors.white, fontSize: 16)),
-                    const SizedBox(width: 24, child: Icon(Icons.apps, color: Colors.white60, size: 16)),
+                    Text(context.l10n.enableApps, style: TextStyle(color: t.textPrimary, fontSize: 16)),
+                    SizedBox(width: 24, child: Icon(Icons.apps, color: t.textPrimary.withValues(alpha: 0.6), size: 16)),
                   ],
                 ),
               ),
@@ -218,10 +225,13 @@ class ChatAppsDropdownWidget extends StatelessWidget {
                   children: [
                     Text(
                       context.l10n.omiAppName,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 16),
+                      style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w500, fontSize: 16),
                     ),
                     selectedApp == null
-                        ? const SizedBox(width: 24, child: Icon(Icons.check, color: Colors.white60, size: 16))
+                        ? SizedBox(
+                            width: 24,
+                            child: Icon(Icons.check, color: t.textPrimary.withValues(alpha: 0.6), size: 16),
+                          )
                         : const SizedBox.shrink(),
                   ],
                 ),
@@ -238,7 +248,7 @@ class ChatAppsDropdownWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              _getAppAvatar(app),
+              _getAppAvatar(context, app),
               const SizedBox(width: 8),
               Expanded(
                 child: Row(
@@ -248,11 +258,14 @@ class ChatAppsDropdownWidget extends StatelessWidget {
                       child: Text(
                         overflow: TextOverflow.fade,
                         app.getName(),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 16),
+                        style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w500, fontSize: 16),
                       ),
                     ),
                     selectedApp?.id == app.id
-                        ? const SizedBox(width: 24, child: Icon(Icons.check, color: Colors.white60, size: 16))
+                        ? SizedBox(
+                            width: 24,
+                            child: Icon(Icons.check, color: t.textPrimary.withValues(alpha: 0.6), size: 16),
+                          )
                         : const SizedBox.shrink(),
                   ],
                 ),

@@ -9,13 +9,17 @@ import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/utils/audio/audio_timeline_mapper.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Rounded slider track that shades the collapsed capture gaps of the wall
 /// timeline (fractions of the track width).
 class _GapAwareTrackShape extends RoundedRectSliderTrackShape {
   final List<(double, double)> gapFractions;
 
-  const _GapAwareTrackShape(this.gapFractions);
+  /// Theme tokens — a track shape has no BuildContext, so the caller passes them in.
+  final OmiTokens t;
+
+  const _GapAwareTrackShape(this.gapFractions, this.t);
 
   @override
   void paint(
@@ -52,7 +56,7 @@ class _GapAwareTrackShape extends RoundedRectSliderTrackShape {
       isEnabled: isEnabled,
       isDiscrete: isDiscrete,
     );
-    final paint = Paint()..color = Colors.black.withValues(alpha: 0.45);
+    final paint = Paint()..color = t.bgPrimary.withValues(alpha: 0.45);
     for (final gap in gapFractions) {
       final left = trackRect.left + gap.$1 * trackRect.width;
       final right = trackRect.left + gap.$2 * trackRect.width;
@@ -325,12 +329,13 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
   }
 
   Widget _buildExpandedPlayer() {
+    final t = context.omi;
     if (_isLoading) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(16)),
-        child: const Center(child: CircularProgressIndicator(color: Colors.deepPurpleAccent)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
+        child: Center(child: CircularProgressIndicator(color: t.accent)),
       );
     }
 
@@ -338,17 +343,17 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 32),
+            Icon(Icons.error_outline, color: t.error, size: 32),
             const SizedBox(height: 8),
-            Text(context.l10n.errorLoadingAudio, style: const TextStyle(color: Colors.red)),
+            Text(context.l10n.errorLoadingAudio, style: TextStyle(color: t.error)),
             const SizedBox(height: 4),
             Text(
               _errorMessage!,
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+              style: TextStyle(color: t.textSecondary, fontSize: 12),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
@@ -356,7 +361,7 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
               onPressed: _retryLoad,
               icon: const Icon(Icons.refresh, size: 18),
               label: Text(context.l10n.retry),
-              style: TextButton.styleFrom(foregroundColor: Colors.deepPurpleAccent),
+              style: TextButton.styleFrom(foregroundColor: t.accent),
             ),
           ],
         ),
@@ -366,7 +371,7 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -396,7 +401,7 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
                                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                                 // Dense MP3 has no gaps on its timeline — plain track.
-                                trackShape: const _GapAwareTrackShape([]),
+                                trackShape: _GapAwareTrackShape(const [], context.omi),
                               ),
                               child: Slider(
                                 value: combinedPosition.inMilliseconds.toDouble().clamp(
@@ -404,8 +409,8 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
                                       _totalDuration.inMilliseconds.toDouble(),
                                     ),
                                 max: _totalDuration.inMilliseconds.toDouble().clamp(1.0, double.infinity),
-                                activeColor: Colors.deepPurpleAccent,
-                                inactiveColor: Colors.grey.shade700,
+                                activeColor: t.accent,
+                                inactiveColor: t.textTertiary,
                                 onChanged: (value) {
                                   _seekToCombinedPosition(Duration(milliseconds: value.toInt()));
                                 },
@@ -434,11 +439,11 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
                                 children: [
                                   Text(
                                     _formatDuration(combinedPosition),
-                                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                    style: TextStyle(color: t.textSecondary, fontSize: 12),
                                   ),
                                   Text(
                                     _formatDuration(_totalDuration),
-                                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                    style: TextStyle(color: t.textSecondary, fontSize: 12),
                                   ),
                                 ],
                               );
@@ -452,7 +457,7 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
               ),
               if (widget.onCollapse != null)
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                  icon: Icon(Icons.close, color: t.textSecondary),
                   onPressed: widget.onCollapse,
                 ),
             ],
@@ -478,6 +483,7 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
   }
 
   Widget _buildPlayPauseButton() {
+    final t = context.omi;
     return StreamBuilder<PlayerState>(
       stream: _audioPlayer.playerStateStream,
       builder: (context, snapshot) {
@@ -489,12 +495,12 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
           return Container(
             width: 48,
             height: 48,
-            decoration: const BoxDecoration(color: Colors.deepPurpleAccent, shape: BoxShape.circle),
-            child: const Center(
+            decoration: BoxDecoration(color: t.accent, shape: BoxShape.circle),
+            child: Center(
               child: SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child: CircularProgressIndicator(color: t.textPrimary, strokeWidth: 2),
               ),
             ),
           );
@@ -502,9 +508,9 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
 
         return IconButton(
           onPressed: _togglePlayPause,
-          icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white, size: 32),
+          icon: Icon(isPlaying ? Icons.pause : Icons.play_arrow, color: t.textPrimary, size: 32),
           style: IconButton.styleFrom(
-            backgroundColor: Colors.deepPurpleAccent,
+            backgroundColor: t.accent,
             shape: const CircleBorder(),
             fixedSize: const Size(48, 48),
           ),
@@ -514,19 +520,20 @@ class _ConversationAudioPlayerWidgetState extends State<ConversationAudioPlayerW
   }
 
   Widget _buildSpeedButton(double speed) {
+    final t = context.omi;
     final isSelected = _playbackSpeed == speed;
     return InkWell(
       onTap: () => _setPlaybackSpeed(speed),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.deepPurpleAccent : const Color(0xFF35343B),
+          color: isSelected ? t.accent : t.bgTertiary,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           '${speed}x',
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey,
+            color: isSelected ? t.textPrimary : t.textSecondary,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),

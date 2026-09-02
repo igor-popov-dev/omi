@@ -20,8 +20,10 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/other/time_utils.dart';
 import 'package:omi/utils/platform/platform_service.dart';
+import 'package:omi/utils/theme/omi_emoji.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/widgets/extensions/string.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ConversationListItem extends StatefulWidget {
   final bool isFromOnboarding;
@@ -68,6 +70,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     // Is new conversation
     DateTime memorizedAt = widget.conversation.createdAt;
     if (widget.conversation.finishedAt != null && widget.conversation.finishedAt!.isAfter(memorizedAt)) {
@@ -205,15 +208,15 @@ class _ConversationListItemState extends State<ConversationListItem> {
                       width: double.maxFinite,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Colors.deepPurple.withValues(alpha: 0.3)
+                            ? t.accent.withValues(alpha: 0.3)
                             : (isSelectionMode && !isEligible)
-                                ? Colors.grey.shade800
-                                : const Color(0xFF1F1F25),
+                                ? t.textTertiary
+                                : t.bgSecondary,
                         borderRadius: BorderRadius.circular(24.0),
                         border: isSelected
-                            ? Border.all(color: Colors.deepPurple, width: 2)
+                            ? Border.all(color: t.accent, width: 2)
                             : (isSelectionMode && !isEligible)
-                                ? Border.all(color: Colors.grey.shade600, width: 1)
+                                ? Border.all(color: t.textTertiary, width: 1)
                                 : null,
                       ),
                       child: ClipRRect(
@@ -227,8 +230,8 @@ class _ConversationListItemState extends State<ConversationListItem> {
                           background: Container(
                             alignment: Alignment.centerRight,
                             padding: const EdgeInsets.only(right: 20.0),
-                            color: Colors.red,
-                            child: const Icon(Icons.delete, color: Colors.white),
+                            color: t.error,
+                            child: Icon(Icons.delete, color: t.textPrimary),
                           ),
                           confirmDismiss: (direction) async {
                             HapticFeedback.mediumImpact();
@@ -255,9 +258,9 @@ class _ConversationListItemState extends State<ConversationListItem> {
                                               child: Checkbox(
                                                 value: dontShow,
                                                 onChanged: (v) => setState(() => dontShow = v ?? false),
-                                                activeColor: Colors.deepPurple,
-                                                checkColor: Colors.white,
-                                                side: const BorderSide(color: Colors.white54),
+                                                activeColor: t.accent,
+                                                checkColor: t.textPrimary,
+                                                side: BorderSide(color: t.textPrimary.withValues(alpha: 0.54)),
                                                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                               ),
                                             ),
@@ -287,7 +290,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
                                           onPressed: () => Navigator.of(ctx).pop(false),
                                           child: Text(
                                             context.l10n.cancel,
-                                            style: const TextStyle(color: Colors.white),
+                                            style: TextStyle(color: t.textPrimary),
                                           ),
                                         ),
                                         TextButton(
@@ -299,7 +302,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
                                           },
                                           child: Text(
                                             context.l10n.confirm,
-                                            style: const TextStyle(color: Colors.red),
+                                            style: TextStyle(color: t.error),
                                           ),
                                         ),
                                       ];
@@ -381,6 +384,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
   }
 
   Widget _buildMobileLayout(BuildContext context) {
+    final t = context.omi;
     return Stack(
       children: [
         Column(
@@ -394,12 +398,9 @@ class _ConversationListItemState extends State<ConversationListItem> {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(t.rowRadius)),
                     alignment: Alignment.center,
-                    child: Text(
-                      widget.conversation.structured.getEmoji(),
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
-                    ),
+                    child: OmiEmoji(widget.conversation.structured.getEmoji(), size: 22),
                   ),
                 if (!widget.conversation.discarded) const SizedBox(width: 12),
                 Expanded(
@@ -422,9 +423,9 @@ class _ConversationListItemState extends State<ConversationListItem> {
                                 ConversationNewStatusIndicator(text: context.l10n.conversationNewIndicator),
                                 const Spacer(),
                                 if (widget.conversation.starred)
-                                  const Padding(
-                                    padding: EdgeInsets.only(right: 4.0),
-                                    child: FaIcon(FontAwesomeIcons.solidStar, size: 12, color: Colors.amber),
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 4.0),
+                                    child: FaIcon(FontAwesomeIcons.solidStar, size: 12, color: t.warning),
                                   ),
                               ],
                             )
@@ -436,22 +437,22 @@ class _ConversationListItemState extends State<ConversationListItem> {
                                     widget.conversation.startedAt ?? widget.conversation.createdAt,
                                     locale: Localizations.localeOf(context).languageCode,
                                   ),
-                                  style: const TextStyle(color: Color(0xFF9A9BA1), fontSize: 14),
+                                  style: TextStyle(color: t.textSecondary, fontSize: 14),
                                   maxLines: 1,
                                 ),
                                 if (_getConversationDuration(context).isNotEmpty) ...[
-                                  const Text(' • ', style: TextStyle(color: Color(0xFF9A9BA1), fontSize: 14)),
+                                  Text(' • ', style: TextStyle(color: t.textSecondary, fontSize: 14)),
                                   Text(
                                     _getConversationDuration(context),
-                                    style: const TextStyle(color: Color(0xFF9A9BA1), fontSize: 14),
+                                    style: TextStyle(color: t.textSecondary, fontSize: 14),
                                     maxLines: 1,
                                   ),
                                 ],
                                 const Spacer(),
                                 if (widget.conversation.starred)
-                                  const Padding(
-                                    padding: EdgeInsets.only(right: 4.0),
-                                    child: FaIcon(FontAwesomeIcons.solidStar, size: 12, color: Colors.amber),
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 4.0),
+                                    child: FaIcon(FontAwesomeIcons.solidStar, size: 12, color: t.warning),
                                   ),
                               ],
                             ),
@@ -468,12 +469,13 @@ class _ConversationListItemState extends State<ConversationListItem> {
   }
 
   Widget _buildMergingOverlay() {
+    final t = context.omi;
     return Container(
       width: double.infinity,
       height: double.infinity,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.6),
+        color: t.bgPrimary.withValues(alpha: 0.6),
         borderRadius: const BorderRadius.all(Radius.circular(24)),
       ),
       child: const MergingIndicator(),
@@ -481,6 +483,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
   }
 
   Widget _buildConversationBody(BuildContext context) {
+    final t = context.omi;
     if (widget.conversation.discarded) {
       return Stack(
         children: [
@@ -490,11 +493,11 @@ class _ConversationListItemState extends State<ConversationListItem> {
               if (widget.conversation.photos.isNotEmpty) ...[
                 Row(
                   children: [
-                    Icon(Icons.photo_library, color: Colors.grey.shade400, size: 18),
+                    Icon(Icons.photo_library, color: t.textSecondary, size: 18),
                     const SizedBox(width: 12),
                     Text(
                       context.l10n.conversationPhotosCount(widget.conversation.photos.length),
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.grey.shade300, height: 1.3),
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: t.textSecondary, height: 1.3),
                     ),
                   ],
                 ),
@@ -502,7 +505,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
               ],
               Text(
                 widget.conversation.getTranscript(maxCount: 100),
-                style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.grey.shade300, height: 1.3),
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: t.textSecondary, height: 1.3),
               ),
             ],
           ),
@@ -520,6 +523,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
   }
 
   Widget _buildLockedOverlay() {
+    final t = context.omi;
     return Positioned.fill(
       child: ClipRRect(
         child: Container(
@@ -528,12 +532,12 @@ class _ConversationListItemState extends State<ConversationListItem> {
             // Avoid a live backdrop blur for every locked card. The opaque overlay
             // preserves the locked affordance without making the scroll/route paint
             // path sample and blur the entire card behind it.
-            color: Colors.black.withValues(alpha: 0.62),
+            color: t.bgPrimary.withValues(alpha: 0.62),
             borderRadius: const BorderRadius.all(Radius.circular(8)),
           ),
           child: Text(
             context.l10n.upgradeToUnlimited,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
       ),
@@ -541,6 +545,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
   }
 
   _getConversationHeader() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.only(left: 4.0, right: 12),
       child: Row(
@@ -552,11 +557,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!widget.conversation.discarded)
-                  Text(
-                    widget.conversation.structured.getEmoji(),
-                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w500),
-                  ),
+                if (!widget.conversation.discarded) OmiEmoji(widget.conversation.structured.getEmoji(), size: 22),
                 if (widget.conversation.structured.category.isNotEmpty && !widget.conversation.discarded)
                   const SizedBox(width: 8),
                 if (widget.conversation.structured.category.isNotEmpty)
@@ -564,7 +565,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: widget.conversation.getTagColor(),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(t.cardRadius),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       child: Text(
@@ -597,7 +598,7 @@ class _ConversationListItemState extends State<ConversationListItem> {
                           widget.conversation.startedAt ?? widget.conversation.createdAt,
                           locale: Localizations.localeOf(context).languageCode,
                         ),
-                        style: const TextStyle(color: Color(0xFF6A6B71), fontSize: 14),
+                        style: TextStyle(color: t.textTertiary, fontSize: 14),
                         maxLines: 1,
                       ),
                       if (_getConversationDuration(context).isNotEmpty)
@@ -606,20 +607,20 @@ class _ConversationListItemState extends State<ConversationListItem> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF35343B),
+                              color: t.bgTertiary,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               _getConversationDuration(context),
-                              style: const TextStyle(color: Colors.white, fontSize: 11),
+                              style: TextStyle(color: t.textPrimary, fontSize: 11),
                               maxLines: 1,
                             ),
                           ),
                         ),
                       if (widget.conversation.starred)
-                        const Padding(
-                          padding: EdgeInsets.only(left: 8.0),
-                          child: FaIcon(FontAwesomeIcons.solidStar, size: 12, color: Colors.amber),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: FaIcon(FontAwesomeIcons.solidStar, size: 12, color: t.warning),
                         ),
                     ],
                   ),
@@ -703,16 +704,17 @@ class _MergingIndicatorState extends State<MergingIndicator> with SingleTickerPr
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return FadeTransition(
       opacity: _opacityAnim,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.merge_rounded, color: Colors.white, size: 18),
+          Icon(Icons.merge_rounded, color: t.textPrimary, size: 18),
           const SizedBox(width: 8),
           Text(
             context.l10n.mergingStatus,
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ],
       ),

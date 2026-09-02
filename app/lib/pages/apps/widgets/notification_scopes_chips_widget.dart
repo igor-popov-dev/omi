@@ -5,25 +5,28 @@ import 'package:provider/provider.dart';
 import 'package:omi/backend/schema/app.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/pages/apps/providers/add_app_provider.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class NotificationScopesChipsWidget extends StatelessWidget {
   const NotificationScopesChipsWidget({super.key});
 
   Widget _buildScopeButton(BuildContext context, NotificationScope scope, bool isSelected, VoidCallback onTap) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: 44,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
+          color: isSelected ? (t.isGlass ? t.accent : Colors.white) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? Colors.white : Colors.grey.withValues(alpha: 0.3), width: 1),
+          border: Border.all(color: isSelected ? t.textPrimary : t.textTertiary, width: 1),
         ),
         child: Center(
           child: Text(
             scope.getLocalizedTitle(context),
             style: TextStyle(
-              color: isSelected ? Colors.black : Colors.white,
+              color: isSelected ? (t.isGlass ? t.onAccent : Colors.black) : t.textPrimary,
               fontSize: 14,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),

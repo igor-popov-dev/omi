@@ -7,6 +7,7 @@ import 'package:omi/backend/http/api/speech_profile.dart';
 import 'package:omi/providers/user_speech_samples_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/extensions/functions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class UserSpeechSamples extends StatelessWidget {
   const UserSpeechSamples({super.key});
@@ -44,7 +45,7 @@ class _UserSpeechSamplesState extends State<UserSpeechSamplesView> {
         return Scaffold(
           appBar: AppBar(
             title: Text(context.l10n.speechSamples),
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             // actions: [
             //   IconButton(
             //       onPressed: () {
@@ -66,7 +67,7 @@ class _UserSpeechSamplesState extends State<UserSpeechSamplesView> {
             //       ))
             // ],
           ),
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           body: provider.loading
               ? const Center(child: CircularProgressIndicator(color: Colors.white))
               : ListView.builder(

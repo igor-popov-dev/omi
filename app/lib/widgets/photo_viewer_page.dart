@@ -7,6 +7,7 @@ import 'package:photo_view/photo_view_gallery.dart';
 
 import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PhotoViewerPage extends StatefulWidget {
   final List<ConversationPhoto> photos;
@@ -37,16 +38,17 @@ class _PhotoViewerPageState extends State<PhotoViewerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final currentPhoto = widget.photos[currentIndex];
     final hasDescription = currentPhoto.description != null && currentPhoto.description!.isNotEmpty;
     final isProcessing = currentPhoto.description == null;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: t.textPrimary),
       ),
       body: SafeArea(
         child: Column(
@@ -67,7 +69,7 @@ class _PhotoViewerPageState extends State<PhotoViewerPage> {
                   );
                 },
                 scrollPhysics: const BouncingScrollPhysics(),
-                backgroundDecoration: const BoxDecoration(color: Colors.black),
+                backgroundDecoration: BoxDecoration(color: t.bgPrimary),
               ),
             ),
             if (currentPhoto.discarded)
@@ -75,7 +77,7 @@ class _PhotoViewerPageState extends State<PhotoViewerPage> {
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
                 child: Text(
                   context.l10n.photoDiscardedMessage,
-                  style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7), fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
               )
@@ -85,15 +87,15 @@ class _PhotoViewerPageState extends State<PhotoViewerPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary.withValues(alpha: 0.7)),
                     ),
                     const SizedBox(width: 12),
                     Text(
                       context.l10n.analyzing,
-                      style: const TextStyle(color: Colors.white70, fontSize: 16),
+                      style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7), fontSize: 16),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -104,7 +106,7 @@ class _PhotoViewerPageState extends State<PhotoViewerPage> {
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
                 child: Text(
                   currentPhoto.description!,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  style: TextStyle(color: t.textPrimary, fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
               ),

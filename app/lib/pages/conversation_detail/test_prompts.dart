@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:omi/backend/schema/conversation.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/backend/http/api/conversations.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class TestPromptsPage extends StatefulWidget {
   final ServerConversation conversation;
@@ -25,19 +26,20 @@ class _TestPromptsPageState extends State<TestPromptsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.testConversationPrompt),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         actions: [
           IconButton(
             onPressed: onTap,
             icon: loading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.0),
+                    child: CircularProgressIndicator(color: t.textPrimary, strokeWidth: 2.0),
                   )
                 : const Icon(Icons.send),
           ),
@@ -51,7 +53,7 @@ class _TestPromptsPageState extends State<TestPromptsPage> {
               controller: controller,
               decoration: InputDecoration(
                 labelText: context.l10n.prompt,
-                labelStyle: const TextStyle(color: Colors.white),
+                labelStyle: TextStyle(color: t.textPrimary),
                 border: const OutlineInputBorder(borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.all(0),
               ),

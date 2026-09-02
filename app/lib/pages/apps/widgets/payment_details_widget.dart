@@ -3,6 +3,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:provider/provider.dart';
 
 import 'package:omi/pages/apps/providers/add_app_provider.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PaymentDetailsWidget extends StatelessWidget {
   final TextEditingController appPricingController;
@@ -11,6 +12,8 @@ class PaymentDetailsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Form(
       key: Provider.of<AddAppProvider>(context).pricingKey,
       onChanged: () {
@@ -19,19 +22,19 @@ class PaymentDetailsWidget extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.only(top: 12.0),
         child: Container(
-          decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(12.0)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12.0)),
           padding: const EdgeInsets.all(14.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
                 padding: const EdgeInsets.only(left: 8.0),
-                child: Text(context.l10n.paymentAppCost, style: TextStyle(color: Colors.grey.shade300, fontSize: 16)),
+                child: Text(context.l10n.paymentAppCost, style: TextStyle(color: t.textSecondary, fontSize: 16)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                 margin: const EdgeInsets.only(left: 2.0, right: 2.0, top: 10, bottom: 6),
-                decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(10.0)),
+                decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10.0)),
                 width: double.infinity,
                 child: TextFormField(
                   keyboardType: TextInputType.number,
@@ -53,7 +56,7 @@ class PaymentDetailsWidget extends StatelessWidget {
                     prefixIconConstraints: const BoxConstraints(maxHeight: 28, maxWidth: 28),
                     prefixIcon: Padding(
                       padding: const EdgeInsets.only(right: 4.0),
-                      child: Text('\$', style: TextStyle(color: Colors.grey.shade300, fontSize: 17)),
+                      child: Text('\$', style: TextStyle(color: t.textSecondary, fontSize: 17)),
                     ),
                     errorText: null,
                     isDense: true,
@@ -65,7 +68,7 @@ class PaymentDetailsWidget extends StatelessWidget {
               const SizedBox(height: 16),
               Padding(
                 padding: const EdgeInsets.only(left: 8.0),
-                child: Text(context.l10n.paymentPlan, style: TextStyle(color: Colors.grey.shade300, fontSize: 16)),
+                child: Text(context.l10n.paymentPlan, style: TextStyle(color: t.textSecondary, fontSize: 16)),
               ),
               GestureDetector(
                 onTap: () {
@@ -87,12 +90,12 @@ class PaymentDetailsWidget extends StatelessWidget {
                                   const SizedBox(height: 12),
                                   Text(
                                     context.l10n.paymentPlan,
-                                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                                    style: TextStyle(color: t.textPrimary, fontSize: 18),
                                   ),
                                   const SizedBox(height: 18),
                                   ListView.separated(
                                     separatorBuilder: (context, index) {
-                                      return Divider(color: Colors.grey.shade600, height: 1);
+                                      return Divider(color: t.textSecondary, height: 1);
                                     },
                                     shrinkWrap: true,
                                     itemCount: provider.paymentPlans.length,
@@ -111,7 +114,7 @@ class PaymentDetailsWidget extends StatelessWidget {
                                               const SizedBox(width: 6),
                                               Text(
                                                 provider.paymentPlans[index].title,
-                                                style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                                                style: TextStyle(color: t.textSecondary, fontSize: 16),
                                               ),
                                               const Spacer(),
                                               Checkbox(
@@ -120,7 +123,7 @@ class PaymentDetailsWidget extends StatelessWidget {
                                                   provider.setPaymentPlan(provider.paymentPlans[index].id);
                                                   Navigator.pop(context);
                                                 },
-                                                side: BorderSide(color: Colors.grey.shade300),
+                                                side: BorderSide(color: t.textSecondary),
                                                 shape: const CircleBorder(),
                                               ),
                                             ],
@@ -141,7 +144,7 @@ class PaymentDetailsWidget extends StatelessWidget {
                 child: Container(
                   margin: const EdgeInsets.only(left: 2.0, right: 2.0, top: 10, bottom: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 10.0),
-                  decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(10.0)),
+                  decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10.0)),
                   width: double.infinity,
                   child: Row(
                     children: [
@@ -150,12 +153,12 @@ class PaymentDetailsWidget extends StatelessWidget {
                         (paymentPlan?.isNotEmpty == true ? paymentPlan : context.l10n.paymentNoneSelected) ??
                             context.l10n.paymentNoneSelected,
                         style: TextStyle(
-                          color: paymentPlan != null ? Colors.grey.shade100 : Colors.grey.shade400,
+                          color: paymentPlan != null ? t.textSecondary : t.textSecondary,
                           fontSize: 16,
                         ),
                       ),
                       const Spacer(),
-                      Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade400),
+                      Icon(Icons.arrow_forward_ios_rounded, color: t.textSecondary),
                       const SizedBox(width: 12),
                     ],
                   ),

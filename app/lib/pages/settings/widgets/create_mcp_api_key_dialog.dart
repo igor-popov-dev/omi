@@ -6,6 +6,7 @@ import 'package:omi/pages/settings/widgets/mcp_api_key_created_dialog.dart';
 import 'package:omi/providers/mcp_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CreateMcpApiKeyDialog extends StatefulWidget {
   const CreateMcpApiKeyDialog({super.key});
@@ -53,6 +54,8 @@ class _CreateMcpApiKeyDialogState extends State<CreateMcpApiKeyDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return AlertDialog(
       title: Text(context.l10n.createNewKey),
       content: Form(
@@ -74,7 +77,7 @@ class _CreateMcpApiKeyDialogState extends State<CreateMcpApiKeyDialog> {
         ElevatedButton(
           onPressed: _isCreating ? null : _createKey,
           style: ElevatedButton.styleFrom(
-            foregroundColor: Colors.white,
+            foregroundColor: t.textPrimary,
             backgroundColor: Theme.of(context).colorScheme.secondary,
           ),
           child: _isCreating

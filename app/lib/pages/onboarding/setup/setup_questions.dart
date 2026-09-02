@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omi/pages/speech_profile/page.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class SetupQuestionsPage extends StatefulWidget {
   const SetupQuestionsPage({super.key});
@@ -38,7 +39,7 @@ class _SetupQuestionsPageState extends State<SetupQuestionsPage> {
     return PopScope(
       canPop: true,
       child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         body: ListView(
           children: [
             const SizedBox(height: 16),

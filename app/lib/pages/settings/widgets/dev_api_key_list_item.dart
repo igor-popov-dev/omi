@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:omi/backend/schema/dev_api_key.dart';
 import 'package:omi/providers/dev_api_key_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DevApiKeyListItem extends StatelessWidget {
   final DevApiKey apiKey;
@@ -13,6 +15,8 @@ class DevApiKeyListItem extends StatelessWidget {
   const DevApiKeyListItem({super.key, required this.apiKey});
 
   List<Widget> _buildScopeChips(BuildContext context, List<String>? scopes) {
+    final t = context.omi;
+
     if (scopes == null || scopes.isEmpty) {
       return [_buildChip(context.l10n.readOnlyScope, const Color(0xFF3B82F6))];
     }
@@ -21,12 +25,12 @@ class DevApiKeyListItem extends StatelessWidget {
     final hasWrite = scopes.any((s) => s.endsWith(':write'));
 
     if (hasRead && hasWrite && scopes.length == 8) {
-      return [_buildChip(context.l10n.fullAccessScope, const Color(0xFF10B981))];
+      return [_buildChip(context.l10n.fullAccessScope, t.success)];
     }
 
     final chips = <Widget>[];
     if (hasRead) chips.add(_buildChip(context.l10n.readScope, const Color(0xFF3B82F6)));
-    if (hasWrite) chips.add(_buildChip(context.l10n.writeScope, const Color(0xFF8B5CF6)));
+    if (hasWrite) chips.add(_buildChip(context.l10n.writeScope, t.accent));
 
     return chips;
   }
@@ -44,13 +48,15 @@ class DevApiKeyListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: t.bgSecondary,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2C2C2E), width: 1),
+        border: Border.all(color: t.bgTertiary, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,10 +67,10 @@ class DevApiKeyListItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                  color: t.accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.key, color: Color(0xFF8B5CF6), size: 18),
+                child: OmiIconWidget(icon: OmiIcon.key, color: t.accent, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -73,13 +79,13 @@ class DevApiKeyListItem extends StatelessWidget {
                   children: [
                     Text(
                       apiKey.name,
-                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${apiKey.keyPrefix}***  •  ${DateFormat.yMMMd().format(apiKey.createdAt)}',
-                      style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13),
+                      style: TextStyle(color: t.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
@@ -89,12 +95,12 @@ class DevApiKeyListItem extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                    color: t.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     context.l10n.revoke,
-                    style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: t.error, fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ),
               ),
@@ -111,23 +117,25 @@ class DevApiKeyListItem extends StatelessWidget {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
+        final t = context.omi;
+
         return AlertDialog(
-          backgroundColor: const Color(0xFF1C1C1E),
+          backgroundColor: t.bgSecondary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             context.l10n.revokeKeyQuestion,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
           ),
-          content: Text(context.l10n.revokeKeyConfirmation(apiKey.name), style: TextStyle(color: Colors.grey.shade400)),
+          content: Text(context.l10n.revokeKeyConfirmation(apiKey.name), style: TextStyle(color: t.textSecondary)),
           actions: <Widget>[
             TextButton(
-              child: Text(context.l10n.cancel, style: TextStyle(color: Colors.grey.shade400)),
+              child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
               onPressed: () => Navigator.of(dialogContext).pop(),
             ),
             TextButton(
               child: Text(
                 context.l10n.revoke,
-                style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.error, fontWeight: FontWeight.w600),
               ),
               onPressed: () {
                 Provider.of<DevApiKeyProvider>(context, listen: false).deleteKey(apiKey.id);

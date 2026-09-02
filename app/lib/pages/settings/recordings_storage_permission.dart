@@ -4,6 +4,7 @@ import 'package:omi/backend/http/api/users.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/dialog.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class RecordingsStoragePermission extends StatefulWidget {
   const RecordingsStoragePermission({super.key});
@@ -38,14 +39,16 @@ class _RecordingsStoragePermissionState extends State<RecordingsStoragePermissio
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         title: Text(context.l10n.authorizeSavingRecordings),
       ),
       body: loading || _hasPermission == null
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(child: CircularProgressIndicator(color: t.textPrimary))
           : SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -95,7 +98,7 @@ class _RecordingsStoragePermissionState extends State<RecordingsStoragePermissio
                         onPressed: _hasPermission! ? null : _authorize,
                         child: Text(
                           _hasPermission! ? context.l10n.alreadyAuthorized : context.l10n.authorize,
-                          style: const TextStyle(color: Colors.white, decoration: TextDecoration.underline),
+                          style: TextStyle(color: t.textPrimary, decoration: TextDecoration.underline),
                         ),
                       ),
                     ),
@@ -103,7 +106,7 @@ class _RecordingsStoragePermissionState extends State<RecordingsStoragePermissio
                       Center(
                         child: TextButton(
                           onPressed: _revokeAuthorization,
-                          child: Text(context.l10n.revokeAuthorization, style: const TextStyle(color: Colors.white)),
+                          child: Text(context.l10n.revokeAuthorization, style: TextStyle(color: t.textPrimary)),
                         ),
                       ),
                   ],

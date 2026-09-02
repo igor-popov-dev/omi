@@ -11,6 +11,7 @@ import 'package:omi/pages/conversations/widgets/speaker_filter_sheet.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/debouncer.dart';
 import 'package:omi/widgets/calendar_date_picker_sheet.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class SearchWidget extends StatefulWidget {
   const SearchWidget({super.key});
@@ -73,6 +74,7 @@ class _SearchWidgetState extends State<SearchWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Row(
@@ -98,13 +100,13 @@ class _SearchWidgetState extends State<SearchWidget> {
               },
               decoration: InputDecoration(
                 hintText: context.l10n.searchConversations,
-                hintStyle: const TextStyle(color: Colors.white60, fontSize: 14),
+                hintStyle: TextStyle(color: t.textPrimary.withValues(alpha: 0.6), fontSize: 14),
                 filled: true,
-                fillColor: const Color(0xFF1F1F25),
+                fillColor: t.bgSecondary,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                prefixIcon: const Icon(Icons.search, color: Colors.white60),
+                prefixIcon: Icon(Icons.search, color: t.textPrimary.withValues(alpha: 0.6)),
                 suffixIcon: showClearButton
                     ? GestureDetector(
                         onTap: () async {
@@ -118,12 +120,12 @@ class _SearchWidgetState extends State<SearchWidget> {
                           }
                           PlatformManager.instance.analytics.searchQueryCleared();
                         },
-                        child: const Icon(Icons.close, color: Colors.white),
+                        child: Icon(Icons.close, color: t.textPrimary),
                       )
                     : null,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
               ),
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: t.textPrimary),
             ),
           ),
           const SizedBox(width: 8),
@@ -134,14 +136,15 @@ class _SearchWidgetState extends State<SearchWidget> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: isActive ? Colors.deepPurple.withValues(alpha: 0.5) : const Color(0xFF1F1F25),
+                  color: isActive ? t.accent.withValues(alpha: 0.5) : t.bgSecondary,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: IconButton(
                   key: const Key('conversation_speaker_filter'),
                   padding: EdgeInsets.zero,
                   tooltip: context.l10n.phoneSpeaker,
-                  icon: Icon(Icons.person_search, size: 20, color: isActive ? Colors.white : Colors.white70),
+                  icon: Icon(Icons.person_search,
+                      size: 20, color: isActive ? t.textPrimary : t.textPrimary.withValues(alpha: 0.7)),
                   onPressed: () async {
                     HapticFeedback.mediumImpact();
                     await showSpeakerFilterSheet(context);
@@ -161,7 +164,7 @@ class _SearchWidgetState extends State<SearchWidget> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: hasActiveFilter ? Colors.deepPurple.withValues(alpha: 0.5) : const Color(0xFF1F1F25),
+                  color: hasActiveFilter ? t.accent.withValues(alpha: 0.5) : t.bgSecondary,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: IconButton(
@@ -169,7 +172,7 @@ class _SearchWidgetState extends State<SearchWidget> {
                   icon: FaIcon(
                     hasActiveFilter ? FontAwesomeIcons.calendarDay : FontAwesomeIcons.calendarDays,
                     size: 18,
-                    color: hasActiveFilter ? Colors.white : Colors.white70,
+                    color: hasActiveFilter ? t.textPrimary : t.textPrimary.withValues(alpha: 0.7),
                   ),
                   onPressed: () async {
                     HapticFeedback.mediumImpact();

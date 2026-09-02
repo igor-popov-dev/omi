@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:gradient_borders/gradient_borders.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class GradientButton extends StatelessWidget {
   final String title;
@@ -9,6 +10,7 @@ class GradientButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       decoration: BoxDecoration(
         border: const GradientBoxBorder(
@@ -22,14 +24,14 @@ class GradientButton extends StatelessWidget {
           ),
           width: 2,
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(t.rowRadius),
       ),
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: const Color.fromARGB(255, 17, 17, 17),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
         ),
         child: Container(
           width: double.infinity,

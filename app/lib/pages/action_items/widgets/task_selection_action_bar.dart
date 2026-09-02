@@ -6,7 +6,9 @@ import 'package:provider/provider.dart';
 import 'package:omi/pages/settings/task_integrations_page.dart';
 import 'package:omi/providers/action_items_provider.dart';
 import 'package:omi/providers/task_integration_provider.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Bottom-anchored selection action bar for the action items page.
 /// Same visual language as `MergeActionBar` for the conversations page —
@@ -47,6 +49,7 @@ class _TaskSelectionActionBarState extends State<TaskSelectionActionBar> with Si
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<ActionItemsProvider>(
       builder: (context, provider, _) {
         final isActive = provider.isSelectionMode;
@@ -65,16 +68,21 @@ class _TaskSelectionActionBarState extends State<TaskSelectionActionBar> with Si
             position: _slideAnimation,
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1C),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                color: t.bgSecondary,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(t.cardRadius)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, -4)),
+                  BoxShadow(color: t.bgPrimary.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, -4)),
                 ],
               ),
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    20,
+                    20,
+                    BottomNavMetrics.actionSheetBottomPadding(context, classic: 20),
+                  ),
                   child: Row(
                     children: [
                       // Cancel
@@ -87,7 +95,7 @@ class _TaskSelectionActionBarState extends State<TaskSelectionActionBar> with Si
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           child: Text(
                             context.l10n.cancel,
-                            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 17, fontWeight: FontWeight.w500),
+                            style: TextStyle(color: t.textSecondary, fontSize: 17, fontWeight: FontWeight.w500),
                           ),
                         ),
                       ),
@@ -99,7 +107,7 @@ class _TaskSelectionActionBarState extends State<TaskSelectionActionBar> with Si
                       _IconActionButton(
                         icon: Icons.delete_outline_rounded,
                         enabled: canExport,
-                        tint: const Color(0xFFFF453A),
+                        tint: t.error,
                         onTap: () => _handleDelete(context, provider, taskCount),
                       ),
                       const SizedBox(width: 8),
@@ -107,7 +115,7 @@ class _TaskSelectionActionBarState extends State<TaskSelectionActionBar> with Si
                         icon: Icons.ios_share_rounded,
                         label: canExport ? '${context.l10n.exportButton}  ·  $taskCount' : context.l10n.exportButton,
                         enabled: canExport,
-                        accent: const Color(0xFF7C3AED),
+                        accent: t.accent,
                         onTap: () => _handleExport(context, provider),
                       ),
                     ],
@@ -122,6 +130,7 @@ class _TaskSelectionActionBarState extends State<TaskSelectionActionBar> with Si
   }
 
   Future<void> _handleExport(BuildContext context, ActionItemsProvider provider) async {
+    final t = context.omi;
     HapticFeedback.lightImpact();
 
     // Users connect one task app at a time. If none connected, nudge to
@@ -133,11 +142,11 @@ class _TaskSelectionActionBarState extends State<TaskSelectionActionBar> with Si
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.connectTaskAppToExport),
-          backgroundColor: const Color(0xFF2C2C2E),
+          backgroundColor: t.bgTertiary,
           duration: const Duration(seconds: 4),
           action: SnackBarAction(
             label: context.l10n.connectAction,
-            textColor: Colors.white,
+            textColor: t.textPrimary,
             onPressed: () {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TaskIntegrationsPage()));
             },
@@ -151,33 +160,34 @@ class _TaskSelectionActionBarState extends State<TaskSelectionActionBar> with Si
   }
 
   Future<void> _handleDelete(BuildContext context, ActionItemsProvider provider, int taskCount) async {
+    final t = context.omi;
     HapticFeedback.lightImpact();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1F1F25),
+        backgroundColor: t.bgSecondary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(
           context.l10n.deleteSelectedItemsTitle,
-          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
         ),
         content: Text(
           context.l10n.deleteSelectedItemsMessage(taskCount, taskCount > 1 ? 's' : ''),
-          style: const TextStyle(color: Color(0xFFB0B0B5), fontSize: 14),
+          style: TextStyle(color: t.textTertiary, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(
               context.l10n.cancel,
-              style: const TextStyle(color: Color(0xFF8E8E93), fontWeight: FontWeight.w500),
+              style: TextStyle(color: t.textSecondary, fontWeight: FontWeight.w500),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(
               context.l10n.delete,
-              style: const TextStyle(color: Color(0xFFFF453A), fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.error, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -204,6 +214,7 @@ class _IconActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: Container(
@@ -213,7 +224,7 @@ class _IconActionButton extends StatelessWidget {
         child: Icon(
           icon,
           size: 22,
-          color: enabled ? tint : const Color(0xFF636366),
+          color: enabled ? tint : t.textTertiary,
         ),
       ),
     );
@@ -237,24 +248,25 @@ class _ActionPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       onTap: enabled ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: enabled ? accent : const Color(0xFF2C2C2E),
+          color: enabled ? accent : t.bgTertiary,
           borderRadius: BorderRadius.circular(22),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: enabled ? Colors.white : const Color(0xFF636366)),
+            Icon(icon, size: 18, color: enabled ? t.textPrimary : t.textTertiary),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                color: enabled ? Colors.white : const Color(0xFF636366),
+                color: enabled ? t.textPrimary : t.textTertiary,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),

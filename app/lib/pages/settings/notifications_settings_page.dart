@@ -5,7 +5,11 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:omi/backend/http/api/users.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/widgets/omi_switch.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class NotificationsSettingsPage extends StatefulWidget {
   const NotificationsSettingsPage({super.key});
@@ -19,7 +23,9 @@ class NotificationsSettingsLoadingShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final placeholderColor = Colors.grey.shade800;
+    final t = context.omi;
+
+    final placeholderColor = t.textSecondary;
 
     Widget placeholder({required double height, double? width, double radius = 8}) {
       return Container(
@@ -33,7 +39,7 @@ class NotificationsSettingsLoadingShimmer extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: ShimmerWithTimeout(
         baseColor: placeholderColor,
-        highlightColor: Colors.grey.shade600,
+        highlightColor: t.textSecondary,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -170,11 +176,13 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
   }
 
   Future<void> _showHourPicker() async {
+    final t = context.omi;
+
     if (!_dailySummaryEnabled) return;
 
     await showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         int tempHour = _dailySummaryHour;
@@ -190,11 +198,11 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: Text(context.l10n.cancel, style: TextStyle(color: Colors.grey.shade400, fontSize: 16)),
+                        child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary, fontSize: 16)),
                       ),
                       Text(
                         context.l10n.selectTime,
-                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                       ),
                       TextButton(
                         onPressed: () {
@@ -203,7 +211,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                         },
                         child: Text(
                           context.l10n.done,
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -211,7 +219,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                   const SizedBox(height: 8),
                   Expanded(
                     child: CupertinoTheme(
-                      data: const CupertinoThemeData(brightness: Brightness.dark),
+                      data: CupertinoThemeData(brightness: Theme.of(context).brightness),
                       child: CupertinoPicker(
                         scrollController: FixedExtentScrollController(initialItem: tempHour),
                         itemExtent: 44,
@@ -224,7 +232,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                           return Center(
                             child: Text(
                               '$hour12:00 $period',
-                              style: const TextStyle(color: Colors.white, fontSize: 20),
+                              style: TextStyle(color: t.textPrimary, fontSize: 20),
                             ),
                           );
                         }),
@@ -242,11 +250,13 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.notifications),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         elevation: 0,
       ),
       body: _isLoading
@@ -263,7 +273,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
                       context.l10n.notificationFrequencyDescription,
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.5),
+                      style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.5),
                     ),
                   ),
                   _buildFrequencyCard(),
@@ -277,7 +287,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Text(
                       context.l10n.dailySummaryDescription,
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.5),
+                      style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.5),
                     ),
                   ),
                   _buildDailySummaryCard(),
@@ -288,16 +298,20 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
   }
 
   Widget _buildSectionHeader(String title) {
+    final t = context.omi;
+
     return Text(
       title,
-      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+      style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
     );
   }
 
   Widget _buildFrequencyCard() {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(
         children: [
           // Current value display
@@ -309,12 +323,12 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                 children: [
                   Text(
                     _getFrequencyLabel(context, _notificationFrequency),
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _getFrequencyDescription(context, _notificationFrequency),
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                    style: TextStyle(color: t.textSecondary, fontSize: 14),
                   ),
                 ],
               ),
@@ -322,16 +336,14 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: _notificationFrequency == 0
-                      ? Colors.grey.shade800
-                      : const Color(0xFF6366F1).withValues(alpha: 0.2),
+                  color: _notificationFrequency == 0 ? t.textSecondary : t.accent.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: Text(
                     '$_notificationFrequency',
                     style: TextStyle(
-                      color: _notificationFrequency == 0 ? Colors.grey.shade500 : const Color(0xFF6366F1),
+                      color: _notificationFrequency == 0 ? t.textSecondary : t.accent,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                     ),
@@ -346,10 +358,10 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
           // Slider
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: const Color(0xFF6366F1),
-              inactiveTrackColor: Colors.grey.shade800,
+              activeTrackColor: t.accent,
+              inactiveTrackColor: t.textSecondary,
               thumbColor: Colors.white,
-              overlayColor: const Color(0xFF6366F1).withValues(alpha: 0.2),
+              overlayColor: t.accent.withValues(alpha: 0.2),
               trackHeight: 6,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
             ),
@@ -368,8 +380,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(context.l10n.sliderOff, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                Text(context.l10n.sliderMax, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                Text(context.l10n.sliderOff, style: TextStyle(color: t.textSecondary, fontSize: 12)),
+                Text(context.l10n.sliderMax, style: TextStyle(color: t.textSecondary, fontSize: 12)),
               ],
             ),
           ),
@@ -379,25 +391,27 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
   }
 
   Widget _buildDailySummaryCard() {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(
         children: [
           // Enable toggle row
           _buildSettingRow(
             icon: FontAwesomeIcons.bell,
             title: context.l10n.enable,
-            trailing: Switch(
+            trailing: OmiSwitch(
               value: _dailySummaryEnabled,
               onChanged: _updateDailySummaryEnabled,
-              activeThumbColor: const Color(0xFF6366F1),
+              classicActiveThumbColor: t.accent,
             ),
           ),
 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Divider(color: Colors.grey.shade800, height: 1),
+            child: Divider(color: t.textSecondary, height: 1),
           ),
 
           // Time selector row
@@ -415,10 +429,10 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                   children: [
                     Text(
                       _formatHourDisplay(_dailySummaryHour),
-                      style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+                      style: TextStyle(color: t.textSecondary, fontSize: 16),
                     ),
                     const SizedBox(width: 6),
-                    Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
+                    OmiIconWidget(icon: OmiIcon.chevronRight, color: t.textSecondary, size: 20),
                   ],
                 ),
               ),
@@ -430,19 +444,16 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
   }
 
   Widget _buildSettingRow({required FaIconData icon, required String title, required Widget trailing}) {
+    final t = context.omi;
+
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
-          child: Center(child: FaIcon(icon, color: Colors.grey.shade400, size: 16)),
-        ),
+        SettingsIconChip.boxed(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
         const SizedBox(width: 14),
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ),
         trailing,

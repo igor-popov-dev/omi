@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:omi/pages/conversations/widgets/processing_capture.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 void main() {
   group('ProcessingConversationWidget shimmer optimization', () {
@@ -113,7 +114,7 @@ void main() {
       expect(find.byType(RecordingStatusIndicator), findsNothing);
     });
 
-    testWidgets('displays red color for recording state', (tester) async {
+    testWidgets('displays the error token for recording state', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(body: Center(child: RecordingStatusIndicator())),
@@ -123,7 +124,7 @@ void main() {
       final indicator = find.byType(RecordingStatusIndicator);
       final iconFinder = find.descendant(of: indicator, matching: find.byIcon(Icons.fiber_manual_record));
       final iconWidget = tester.widget<Icon>(iconFinder);
-      expect(iconWidget.color, Colors.red);
+      expect(iconWidget.color, OmiTokens.classic.error);
     });
   });
 
@@ -147,7 +148,7 @@ void main() {
       expect(icon, findsOneWidget);
     });
 
-    testWidgets('displays orange color for paused state', (tester) async {
+    testWidgets('displays the warning token for paused state', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(body: Center(child: PausedStatusIndicator())),
@@ -157,7 +158,7 @@ void main() {
       final indicator = find.byType(PausedStatusIndicator);
       final iconFinder = find.descendant(of: indicator, matching: find.byIcon(Icons.fiber_manual_record));
       final iconWidget = tester.widget<Icon>(iconFinder);
-      expect(iconWidget.color, Colors.orange);
+      expect(iconWidget.color, OmiTokens.classic.warning);
     });
   });
 }

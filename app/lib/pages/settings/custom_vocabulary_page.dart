@@ -9,6 +9,9 @@ import 'package:provider/provider.dart';
 import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class CustomVocabularyPage extends StatefulWidget {
   const CustomVocabularyPage({super.key});
@@ -33,23 +36,21 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
   }
 
   Widget _buildVocabularyCard(UserProvider userProvider) {
+    final t = context.omi;
+
     final isDisabled = _isDeletingBatch || userProvider.isUpdatingVocabulary;
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(14)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header row with icon
           Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(10)),
-                child: Center(child: FaIcon(FontAwesomeIcons.book, color: Colors.grey.shade400, size: 16)),
-              ),
+              SettingsIconChip.boxed(
+                  icon: (size) => OmiIconWidget(icon: OmiIcon.book, color: t.textSecondary, size: size)),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -59,24 +60,24 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
                       children: [
                         Text(
                           context.l10n.addWords,
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w500),
                         ),
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade800,
+                            color: t.textSecondary,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             '${userProvider.transcriptionVocabulary.length}',
-                            style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500),
+                            style: TextStyle(color: t.textSecondary, fontSize: 11, fontWeight: FontWeight.w500),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(context.l10n.addWordsDesc, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                    Text(context.l10n.addWordsDesc, style: TextStyle(color: t.textSecondary, fontSize: 13)),
                   ],
                 ),
               ),
@@ -89,20 +90,20 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
             children: [
               Expanded(
                 child: Container(
-                  decoration: BoxDecoration(color: const Color(0xFF2C2C2E), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(10)),
                   child: TextField(
                     controller: _vocabularyController,
                     enabled: !(userProvider.isUpdatingVocabulary && !_isDeletingBatch),
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    style: TextStyle(color: t.textPrimary, fontSize: 15),
                     decoration: InputDecoration(
                       hintText: context.l10n.vocabularyHint,
-                      hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                      hintStyle: TextStyle(color: t.textSecondary, fontSize: 14),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Colors.white24, width: 1),
+                        borderSide: BorderSide(color: t.hairline, width: 1),
                       ),
                     ),
                     onSubmitted: userProvider.isUpdatingVocabulary && !_isDeletingBatch
@@ -117,21 +118,19 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: userProvider.isUpdatingVocabulary && !_isDeletingBatch
-                        ? const Color(0xFF1A1A1A)
-                        : const Color(0xFF2A2A2E),
+                    color: userProvider.isUpdatingVocabulary && !_isDeletingBatch ? t.bgSecondary : t.bgTertiary,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: userProvider.isUpdatingVocabulary && !_isDeletingBatch
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B6B6B)),
+                            valueColor: AlwaysStoppedAnimation<Color>(t.textTertiary),
                           ),
                         )
-                      : const FaIcon(FontAwesomeIcons.plus, color: Colors.white, size: 16),
+                      : FaIcon(FontAwesomeIcons.plus, color: t.textPrimary, size: 16),
                 ),
               ),
             ],
@@ -140,7 +139,7 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
           // Words chips section
           if (userProvider.transcriptionVocabulary.isNotEmpty) ...[
             const SizedBox(height: 20),
-            Divider(height: 1, color: Colors.grey.shade800),
+            Divider(height: 1, color: t.textSecondary),
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
@@ -151,7 +150,7 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
                 return Container(
                   padding: const EdgeInsets.only(left: 14, right: 6, top: 6, bottom: 6),
                   decoration: BoxDecoration(
-                    color: isPendingDelete ? const Color(0xFF1A1A1A) : const Color(0xFF2A2A2E),
+                    color: isPendingDelete ? t.bgSecondary : t.bgTertiary,
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Row(
@@ -160,19 +159,19 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
                       Text(
                         word,
                         style: TextStyle(
-                          color: isPendingDelete ? Colors.grey.shade600 : Colors.white,
+                          color: isPendingDelete ? t.textSecondary : t.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(width: 6),
                       if (isPendingDelete)
-                        const SizedBox(
+                        SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B6B6B)),
+                            valueColor: AlwaysStoppedAnimation<Color>(t.textTertiary),
                           ),
                         )
                       else
@@ -181,14 +180,11 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade700.withValues(alpha: 0.5),
+                              color: t.textTertiary,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(
-                              Icons.close,
-                              color: isDisabled ? Colors.grey.shade700 : Colors.grey.shade300,
-                              size: 12,
-                            ),
+                            child: OmiIconWidget(
+                                icon: OmiIcon.close, color: isDisabled ? t.textSecondary : t.textSecondary, size: 12),
                           ),
                         ),
                     ],
@@ -260,14 +256,16 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     PlatformManager.instance.analytics.pageOpened('Custom Vocabulary');
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: const Color(0xFF0D0D0D),
+        backgroundColor: t.bgPrimary,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF0D0D0D),
+          backgroundColor: t.bgPrimary,
           elevation: 0,
           leading: IconButton(
             icon: const FaIcon(FontAwesomeIcons.chevronLeft, size: 18),
@@ -275,7 +273,7 @@ class _CustomVocabularyPageState extends State<CustomVocabularyPage> {
           ),
           title: Text(
             context.l10n.customVocabularyTitle,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           centerTitle: true,
         ),

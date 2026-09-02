@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PageWebView extends StatefulWidget {
   final String url;
@@ -48,11 +49,13 @@ class _PageWebViewState extends State<PageWebView> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title), backgroundColor: Theme.of(context).colorScheme.primary),
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      appBar: AppBar(title: Text(widget.title), backgroundColor: context.omi.bgPrimary),
+      backgroundColor: context.omi.bgPrimary,
       body: progress != 100
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(child: CircularProgressIndicator(color: t.textPrimary))
           : WebViewWidget(controller: webViewController),
     );
   }

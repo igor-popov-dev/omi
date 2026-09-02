@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 extension StringExtension on String {
   String capitalize() {
@@ -28,24 +30,32 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
   }
 
   void _showE2eeComingSoonDialog(BuildContext context) {
+    final t = context.omi;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF2c2c2e),
+        // Dialogs sit on [OmiTokens.bgSecondary] everywhere else in the app
+        // (`widgets/omi_confirm_dialog.dart`, `widgets/confirmation_dialog.dart`,
+        // `widgets/language_picker.dart`); bgTertiary is a nested-surface tone
+        // and loses contrast once it goes translucent under Glass. Classic keeps
+        // bgTertiary: that is what this dialog has rendered as since the token
+        // migration, and the Glass work must not shift Classic by a pixel.
+        backgroundColor: t.isGlass ? t.bgSecondary : t.bgTertiary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
-            const Icon(Icons.lock_person_outlined, color: Colors.white),
+            Icon(Icons.lock_person_outlined, color: t.textPrimary),
             const SizedBox(width: 10),
             Text(
               context.l10n.maximumSecurityE2ee,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.bold),
             ),
           ],
         ),
         content: RichText(
           text: TextSpan(
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), height: 1.5, fontSize: 15),
+            style: TextStyle(color: t.textSecondary, height: 1.5, fontSize: 15),
             children: [
               TextSpan(text: '${context.l10n.e2eeDescription}\n\n'),
               TextSpan(
@@ -66,7 +76,7 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
               context.l10n.ok,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -109,14 +119,16 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
   }
 
   Widget _buildMigrationStatus(UserProvider provider) {
+    final t = context.omi;
+
     if (provider.migrationFailed) {
       return Container(
         padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.only(bottom: 24),
         decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: 0.15),
+          color: t.error.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.red.shade300),
+          border: Border.all(color: t.error),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -124,11 +136,11 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, color: Colors.red.shade300, size: 20),
+                OmiIconWidget(icon: OmiIcon.errorCircle, color: t.error, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   context.l10n.migrationFailed,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ],
             ),
@@ -136,7 +148,7 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
             Text(
               provider.migrationMessage,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade300, fontSize: 14),
+              style: TextStyle(color: t.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -147,7 +159,7 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
               label: Text(context.l10n.retry),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.secondary,
-                foregroundColor: Colors.white,
+                foregroundColor: t.textPrimary,
               ),
             ),
           ],
@@ -159,16 +171,16 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
-        color: const Color(0xFF35343B).withValues(alpha: 0.5),
+        color: t.textTertiary,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.deepPurple.shade300),
+        border: Border.all(color: t.accent),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             context.l10n.migratingFromTo(provider.sourceLevel.capitalize(), provider.targetLevel.capitalize()),
-            style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, height: 1.4),
           ),
           const SizedBox(height: 16),
           Row(
@@ -178,8 +190,8 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
                   value: provider.migrationTotalCount > 0
                       ? provider.migrationProcessedCount / provider.migrationTotalCount
                       : 0.0,
-                  backgroundColor: Colors.grey.shade700,
-                  color: Colors.deepPurple,
+                  backgroundColor: t.textSecondary,
+                  color: t.accent,
                   minHeight: 6,
                   borderRadius: BorderRadius.circular(3),
                 ),
@@ -189,7 +201,7 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
                 provider.migrationTotalCount > 0
                     ? '${(provider.migrationProcessedCount / provider.migrationTotalCount * 100).toInt()}%'
                     : '0%',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -197,13 +209,13 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(provider.migrationETA, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text(provider.migrationETA, style: TextStyle(color: t.textSecondary, fontSize: 12)),
               Text(
                 context.l10n.objectsCount(
                   provider.migrationProcessedCount.toString(),
                   provider.migrationTotalCount.toString(),
                 ),
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: TextStyle(color: t.textSecondary, fontSize: 12),
               ),
             ],
           ),
@@ -213,10 +225,12 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
   }
 
   Widget _buildDefaultProtectionCard(BuildContext context) {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.deepPurple.withValues(alpha: 0.15),
+        color: t.accent.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Theme.of(context).colorScheme.secondary, width: 1.5),
       ),
@@ -231,12 +245,12 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
               children: [
                 Text(
                   context.l10n.secureEncryption,
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: t.textPrimary, fontSize: 16),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   context.l10n.secureEncryptionDescription,
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.4),
+                  style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.4),
                 ),
               ],
             ),
@@ -247,20 +261,22 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
   }
 
   Widget _buildE2eeCard(BuildContext context) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: () => _showE2eeComingSoonDialog(context),
       child: Container(
         padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.only(top: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
+          color: t.bgSecondary,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF35343B)),
+          border: Border.all(color: t.bgTertiary),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.lock_outline, color: Colors.grey.shade400, size: 28),
+            OmiIconWidget(icon: OmiIcon.lock, color: t.textSecondary, size: 28),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -270,15 +286,15 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
                     children: [
                       Text(
                         context.l10n.endToEndEncryption,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: t.textPrimary, fontSize: 16),
                       ),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(16)),
+                        decoration: BoxDecoration(color: t.textSecondary, borderRadius: BorderRadius.circular(16)),
                         child: Text(
                           context.l10n.comingSoon,
-                          style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 10, color: t.textPrimary, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -286,12 +302,12 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
                   const SizedBox(height: 8),
                   Text(
                     context.l10n.e2eeCardDescription,
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.4),
+                    style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.4),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.info_outline, color: Colors.grey.shade600, size: 20),
+            OmiIconWidget(icon: OmiIcon.info, color: t.textSecondary, size: 20),
           ],
         ),
       ),
@@ -299,15 +315,17 @@ class _DataProtectionSectionState extends State<DataProtectionSection> {
   }
 
   Widget _buildInfoRow(IconData icon, String text) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.grey, size: 16),
+          Icon(icon, color: t.textSecondary, size: 16),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(text, style: const TextStyle(color: Colors.grey, fontSize: 14, height: 1.4)),
+            child: Text(text, style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.4)),
           ),
         ],
       ),

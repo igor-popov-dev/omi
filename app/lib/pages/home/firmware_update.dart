@@ -11,7 +11,10 @@ import 'package:omi/utils/analytics/intercom.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/confirmation_dialog.dart';
+
 import 'firmware_update_dialog.dart';
+
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class FirmwareUpdate extends StatefulWidget {
   final BtDevice? device;
@@ -91,6 +94,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
   }
 
   Widget _buildSectionHeader(String title, {String? subtitle}) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.only(left: 4, right: 4, bottom: 12),
       child: Column(
@@ -98,11 +102,11 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
         children: [
           Text(
             title,
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 6),
-            Text(subtitle, style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+            Text(subtitle, style: TextStyle(color: t.textSecondary, fontSize: 14)),
           ],
         ],
       ),
@@ -116,34 +120,28 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
     Color? iconColor,
     Color? chipColor,
   }) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 5),
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: FaIcon(icon, color: iconColor ?? const Color(0xFF8E8E93), size: 18),
-            ),
+            child: SizedBox(width: 24, height: 24, child: FaIcon(icon, color: iconColor ?? t.textSecondary, size: 18)),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+              style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: chipColor ?? const Color(0xFF2A2A2E),
-              borderRadius: BorderRadius.circular(100),
-            ),
+            decoration: BoxDecoration(color: chipColor ?? t.bgTertiary, borderRadius: BorderRadius.circular(100)),
             child: Text(
               version,
-              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+              style: TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -152,6 +150,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
   }
 
   Widget _buildProgressSection() {
+    final t = context.omi;
     final progress = isInstalling ? installProgress : downloadProgress;
     final statusText = isDownloading ? context.l10n.downloadingFirmware : context.l10n.installingFirmware;
 
@@ -160,7 +159,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
       children: [
         Container(
           width: double.infinity,
-          decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Column(
@@ -177,14 +176,14 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
                         child: CircularProgressIndicator(
                           value: progress / 100,
                           strokeWidth: 8,
-                          backgroundColor: const Color(0xFF2A2A2E),
-                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                          backgroundColor: t.bgTertiary,
+                          valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                         ),
                       ),
                       Center(
                         child: Text(
                           '$progress%',
-                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: t.textPrimary),
                         ),
                       ),
                     ],
@@ -193,7 +192,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
                 const SizedBox(height: 24),
                 Text(
                   statusText,
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: t.textPrimary),
                 ),
               ],
             ),
@@ -203,20 +202,20 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
         // Warning card
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF2A2215),
+            color: (t.isGlass ? t.warning.withValues(alpha: 0.12) : const Color(0xFF2A2215)),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF4A3D1A)),
+            border: Border.all(color: (t.isGlass ? t.warning.withValues(alpha: 0.3) : const Color(0xFF4A3D1A))),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                const FaIcon(FontAwesomeIcons.triangleExclamation, color: Color(0xFFFFB800), size: 18),
+                FaIcon(FontAwesomeIcons.triangleExclamation, color: t.warning, size: 18),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     context.l10n.firmwareUpdateWarning,
-                    style: TextStyle(color: Colors.orange.shade200, fontSize: 14, height: 1.4),
+                    style: TextStyle(color: t.warning, fontSize: 14, height: 1.4),
                   ),
                 ),
               ],
@@ -228,11 +227,12 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
   }
 
   Widget _buildSuccessSection() {
+    final t = context.omi;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Column(
@@ -240,19 +240,21 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
                 Container(
                   width: 80,
                   height: 80,
-                  decoration: BoxDecoration(color: const Color(0xFF1A3D2E), borderRadius: BorderRadius.circular(40)),
-                  child: const Center(child: FaIcon(FontAwesomeIcons.check, color: Color(0xFF4ADE80), size: 32)),
+                  decoration: BoxDecoration(
+                      color: (t.isGlass ? t.success.withValues(alpha: 0.12) : const Color(0xFF1A3D2E)),
+                      borderRadius: BorderRadius.circular(40)),
+                  child: Center(child: FaIcon(FontAwesomeIcons.check, color: t.success, size: 32)),
                 ),
                 const SizedBox(height: 24),
                 Text(
                   context.l10n.firmwareUpdated,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: t.textPrimary),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   context.l10n.restartDeviceToComplete(widget.device?.name ?? "Omi device"),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 15, color: Colors.grey.shade400, height: 1.4),
+                  style: TextStyle(fontSize: 15, color: t.textSecondary, height: 1.4),
                 ),
               ],
             ),
@@ -269,11 +271,11 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+            decoration: BoxDecoration(color: t.textPrimary, borderRadius: BorderRadius.circular(14)),
             child: Center(
               child: Text(
                 context.l10n.done,
-                style: const TextStyle(color: Colors.black, fontSize: 17, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.bgPrimary, fontSize: 17, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -283,6 +285,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
   }
 
   Widget _buildUpdateSection() {
+    final t = context.omi;
     dynamic changelogData = latestFirmwareDetails['changelog'];
     bool hasChangelog = changelogData != null && changelogData is List && (List<String>.from(changelogData)).isNotEmpty;
 
@@ -297,32 +300,33 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
               children: [
                 Text(
                   widget.isRollback ? context.l10n.alreadyOnStableFirmware : context.l10n.yourDeviceIsUpToDate,
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                  style: TextStyle(color: t.textSecondary, fontSize: 14),
                 ),
                 const SizedBox(width: 8),
-                const FaIcon(FontAwesomeIcons.circleCheck, color: Color(0xFF4ADE80), size: 14),
+                FaIcon(FontAwesomeIcons.circleCheck, color: t.success, size: 14),
               ],
             ),
           ),
         ],
         // Version cards
         Container(
-          decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
           child: Column(
             children: [
               _buildVersionItem(
                 icon: FontAwesomeIcons.microchip,
                 label: context.l10n.currentVersion,
                 version: widget.device!.firmwareRevision,
-                chipColor: shouldUpdate ? const Color(0xFF3D2A2A) : null,
+                chipColor:
+                    shouldUpdate ? (t.isGlass ? t.error.withValues(alpha: 0.12) : const Color(0xFF3D2A2A)) : null,
               ),
               if (shouldUpdate && latestFirmwareDetails['version'] != null) ...[
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                Divider(height: 1, color: t.divider),
                 _buildVersionItem(
                   icon: FontAwesomeIcons.cloudArrowDown,
                   label: context.l10n.latestVersion,
                   version: '${latestFirmwareDetails['version']}',
-                  chipColor: const Color(0xFF1A3D2E),
+                  chipColor: (t.isGlass ? t.success.withValues(alpha: 0.12) : const Color(0xFF1A3D2E)),
                 ),
               ],
             ],
@@ -334,7 +338,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
           const SizedBox(height: 24),
           _buildSectionHeader(context.l10n.whatsNew),
           Container(
-            decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -350,17 +354,11 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
                             margin: const EdgeInsets.only(top: 6),
                             width: 6,
                             height: 6,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade500,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
+                            decoration: BoxDecoration(color: t.textSecondary, borderRadius: BorderRadius.circular(3)),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              change,
-                              style: TextStyle(color: Colors.grey.shade300, fontSize: 15, height: 1.4),
-                            ),
+                            child: Text(change, style: TextStyle(color: t.textSecondary, fontSize: 15, height: 1.4)),
                           ),
                         ],
                       ),
@@ -415,11 +413,11 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(color: t.textPrimary, borderRadius: BorderRadius.circular(14)),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const FaIcon(FontAwesomeIcons.download, color: Colors.black, size: 16),
+                  FaIcon(FontAwesomeIcons.download, color: t.bgPrimary, size: 16),
                   const SizedBox(width: 10),
                   Text(
                     widget.isRollback
@@ -427,7 +425,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
                         : otaUpdateSteps.isEmpty
                             ? context.l10n.installUpdate
                             : context.l10n.updateNow,
-                    style: const TextStyle(color: Colors.black, fontSize: 17, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: t.bgPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -445,15 +443,15 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(14)),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  FaIcon(FontAwesomeIcons.circleQuestion, color: Colors.grey.shade400, size: 16),
+                  FaIcon(FontAwesomeIcons.circleQuestion, color: t.textSecondary, size: 16),
                   const SizedBox(width: 10),
                   Text(
                     context.l10n.updateGuide,
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 15, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: t.textSecondary, fontSize: 15, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -465,6 +463,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
   }
 
   Widget _buildLoadingSection() {
+    final t = context.omi;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -473,24 +472,24 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
           subtitle: context.l10n.pleaseWait,
         ),
         Container(
-          decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.all(48),
             child: Center(
               child: Column(
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 32,
                     height: 32,
                     child: CircularProgressIndicator(
                       strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                     ),
                   ),
                   const SizedBox(height: 20),
                   Text(
                     widget.isRollback ? context.l10n.fetchingStableFirmware : context.l10n.checkingFirmwareVersion,
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    style: TextStyle(color: t.textPrimary, fontSize: 15),
                   ),
                 ],
               ),
@@ -503,12 +502,13 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return PopScope(
       canPop: !isDownloading && !isInstalling,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0D0D0D),
+        backgroundColor: t.bgPrimary,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF0D0D0D),
+          backgroundColor: t.bgPrimary,
           elevation: 0,
           leading: (isDownloading || isInstalling)
               ? const SizedBox()
@@ -518,7 +518,7 @@ class _FirmwareUpdateState extends State<FirmwareUpdate> with FirmwareMixin {
                 ),
           title: Text(
             widget.isRollback ? context.l10n.stableFirmware : context.l10n.firmwareUpdate,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           centerTitle: true,
         ),

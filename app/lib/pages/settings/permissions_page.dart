@@ -8,6 +8,9 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class PermissionsPage extends StatefulWidget {
   const PermissionsPage({super.key});
@@ -142,22 +145,27 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.permissions),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(child: CircularProgressIndicator(color: t.textPrimary))
           : SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+                    decoration: BoxDecoration(
+                      color: t.bgSecondary,
+                      borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+                    ),
                     child: Column(
                       children: [
                         _buildPermissionRow(
@@ -167,21 +175,21 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
                           onTap: () =>
                               _handlePermissionTap(Permission.notification, _notificationsGranted, 'notifications'),
                         ),
-                        const Divider(height: 1, color: Color(0xFF3C3C43)),
+                        Divider(height: 1, color: t.divider),
                         _buildPermissionRow(
                           icon: FontAwesomeIcons.locationArrow,
                           title: context.l10n.location,
                           isGranted: _locationGranted,
                           onTap: _handleLocationTap,
                         ),
-                        const Divider(height: 1, color: Color(0xFF3C3C43)),
+                        Divider(height: 1, color: t.divider),
                         _buildPermissionRow(
                           icon: FontAwesomeIcons.bluetooth,
                           title: context.l10n.bluetooth,
                           isGranted: _bluetoothGranted,
                           onTap: _handleBluetoothTap,
                         ),
-                        const Divider(height: 1, color: Color(0xFF3C3C43)),
+                        Divider(height: 1, color: t.divider),
                         _buildPermissionRow(
                           icon: FontAwesomeIcons.microphone,
                           title: context.l10n.microphone,
@@ -189,7 +197,7 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
                           onTap: () => _handlePermissionTap(Permission.microphone, _microphoneGranted, 'microphone'),
                         ),
                         if (Platform.isAndroid) ...[
-                          const Divider(height: 1, color: Color(0xFF3C3C43)),
+                          Divider(height: 1, color: t.divider),
                           _buildPermissionRow(
                             icon: FontAwesomeIcons.batteryFull,
                             title: context.l10n.backgroundActivity,
@@ -205,7 +213,7 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       context.l10n.permissionsPageDescription,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
+                      style: TextStyle(color: t.textTertiary, fontSize: 13),
                     ),
                   ),
                 ],
@@ -220,6 +228,8 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
     required bool isGranted,
     required VoidCallback onTap,
   }) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -227,20 +237,20 @@ class _PermissionsPageState extends State<PermissionsPage> with WidgetsBindingOb
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         child: Row(
           children: [
-            SizedBox(width: 24, height: 24, child: FaIcon(icon, color: const Color(0xFF8E8E93), size: 20)),
+            SettingsIconChip.plain(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+                style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
               ),
             ),
             Text(
               isGranted ? context.l10n.permissionEnabled : context.l10n.permissionEnable,
-              style: TextStyle(color: isGranted ? Colors.white.withValues(alpha: 0.5) : Colors.white, fontSize: 15),
+              style: TextStyle(color: isGranted ? t.textTertiary : t.textPrimary, fontSize: 15),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Color(0xFF3C3C43), size: 20),
+            OmiIconWidget(icon: OmiIcon.chevronRight, color: t.isGlass ? t.textTertiary : t.divider, size: 20),
           ],
         ),
       ),

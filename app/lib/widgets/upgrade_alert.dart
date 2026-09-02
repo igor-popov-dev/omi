@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:upgrader/upgrader.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MyUpgrader extends Upgrader {
   MyUpgrader({super.debugLogging, super.debugDisplayOnce});
@@ -35,6 +36,7 @@ class MyUpgradeAlertState extends UpgradeAlertState {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        final t = context.omi;
         if (widget.dialogStyle == UpgradeDialogStyle.cupertino) {
           return CupertinoAlertDialog(
             key: key,
@@ -45,14 +47,14 @@ class MyUpgradeAlertState extends UpgradeAlertState {
             content: SingleChildScrollView(child: ListBody(children: <Widget>[Text(message)])),
             actions: <Widget>[
               TextButton(
-                child: Text(context.l10n.no, style: TextStyle(color: Colors.grey.shade200, fontSize: 16)),
+                child: Text(context.l10n.no, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                 onPressed: () {
                   onUserIgnored(context, true);
                   PlatformManager.instance.analytics.upgradeModalDismissed();
                 },
               ),
               TextButton(
-                child: Text(context.l10n.upgrade, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                child: Text(context.l10n.upgrade, style: TextStyle(color: t.textPrimary, fontSize: 16)),
                 onPressed: () {
                   onUserUpdated(context, !widget.upgrader.blocked());
                   PlatformManager.instance.analytics.upgradeModalClicked();
@@ -70,13 +72,13 @@ class MyUpgradeAlertState extends UpgradeAlertState {
           content: SingleChildScrollView(child: ListBody(children: <Widget>[Text(message)])),
           actions: <Widget>[
             TextButton(
-              child: Text(context.l10n.no, style: TextStyle(color: Colors.grey.shade200, fontSize: 16)),
+              child: Text(context.l10n.no, style: TextStyle(color: t.textPrimary, fontSize: 16)),
               onPressed: () {
                 onUserIgnored(context, true);
               },
             ),
             TextButton(
-              child: Text(context.l10n.upgrade, style: const TextStyle(color: Colors.white, fontSize: 16)),
+              child: Text(context.l10n.upgrade, style: TextStyle(color: t.textPrimary, fontSize: 16)),
               onPressed: () {
                 onUserUpdated(context, !widget.upgrader.blocked());
               },

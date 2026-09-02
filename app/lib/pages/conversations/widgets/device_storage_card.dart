@@ -4,6 +4,7 @@ import 'package:omi/services/devices/connectors/device_connection.dart';
 import 'package:omi/utils/audio/wav_bytes.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// On-device ring-buffer storage usage indicator, shown on the Auto Sync page
 /// for firmware 3.0.20+ devices. Compact card: title + % full, a slim usage
@@ -15,6 +16,7 @@ class DeviceStorageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final l = context.l10n;
     final used = status.usedBytes < 0 ? 0 : status.usedBytes;
     final free = status.freeBytes < 0 ? 0 : status.freeBytes;
@@ -25,13 +27,11 @@ class DeviceStorageCard extends StatelessWidget {
 
     // Neutral white for normal usage (brand INV-UI-1: white/neutral accents);
     // amber/red are reserved for the near-full warning/critical bands.
-    final Color barColor = fraction >= 0.95
-        ? ResponsiveHelper.errorColor
-        : (fraction >= 0.80 ? ResponsiveHelper.warningColor : Colors.white);
+    final Color barColor = fraction >= 0.95 ? t.error : (fraction >= 0.80 ? t.warning : t.textPrimary);
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -40,7 +40,7 @@ class DeviceStorageCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   l.deviceStorageTitle,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
                 ),
               ),
               Text(
@@ -55,20 +55,20 @@ class DeviceStorageCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: fraction,
               minHeight: 6,
-              backgroundColor: Colors.grey.shade800,
+              backgroundColor: t.textTertiary,
               valueColor: AlwaysStoppedAnimation<Color>(barColor),
             ),
           ),
           const SizedBox(height: 10),
           Text(
             '${l.deviceStorageUsedOfTotal(WavBytesUtil.formatBytes(used, decimals: 0), WavBytesUtil.formatBytes(total, decimals: 0))}  ·  ${l.deviceStorageFree(WavBytesUtil.formatBytes(free, decimals: 0))}',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w400),
+            style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w400),
           ),
           if (nearlyFull) ...[
             const SizedBox(height: 8),
             Text(
               l.deviceStorageNearlyFull,
-              style: const TextStyle(color: ResponsiveHelper.errorColor, fontSize: 13, fontWeight: FontWeight.w400),
+              style: TextStyle(color: t.error, fontSize: 13, fontWeight: FontWeight.w400),
             ),
           ],
         ],

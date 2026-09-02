@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class OmiTextSelectionToolbar extends StatelessWidget {
   final Offset anchorAbove;
@@ -19,7 +20,7 @@ class OmiTextSelectionToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoTheme(
-      data: const CupertinoThemeData(brightness: Brightness.dark, primaryColor: Colors.blue),
+      data: CupertinoThemeData(brightness: Theme.of(context).brightness, primaryColor: context.omi.accent),
       child: CupertinoTextSelectionToolbar(anchorAbove: anchorAbove, anchorBelow: anchorBelow, children: children),
     );
   }

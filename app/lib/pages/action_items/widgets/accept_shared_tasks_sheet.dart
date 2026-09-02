@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/backend/http/api/action_items.dart' as action_items_api;
 import 'package:omi/utils/alerts/app_snackbar.dart';
-import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AcceptSharedTasksSheet extends StatefulWidget {
   final String token;
@@ -59,11 +59,12 @@ class _AcceptSharedTasksSheetState extends State<AcceptSharedTasksSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-      decoration: const BoxDecoration(
-        color: ResponsiveHelper.backgroundSecondary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: SafeArea(
@@ -75,16 +76,16 @@ class _AcceptSharedTasksSheetState extends State<AcceptSharedTasksSheet> {
               width: 40,
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
             ),
 
             // Header
             Text(
               '${widget.senderName} shared ${widget.tasks.length} task${widget.tasks.length == 1 ? '' : 's'}',
-              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 6),
-            Text(context.l10n.addToYourTaskList, style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
+            Text(context.l10n.addToYourTaskList, style: TextStyle(color: t.textSecondary, fontSize: 15)),
             const SizedBox(height: 20),
 
             // Task list
@@ -101,9 +102,9 @@ class _AcceptSharedTasksSheetState extends State<AcceptSharedTasksSheet> {
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                      color: t.rowFill,
+                      borderRadius: BorderRadius.circular(t.rowRadius),
+                      border: Border.all(color: t.rowFill),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,7 +115,7 @@ class _AcceptSharedTasksSheetState extends State<AcceptSharedTasksSheet> {
                           margin: const EdgeInsets.only(top: 2),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey.shade600, width: 2),
+                            border: Border.all(color: t.textTertiary, width: 2),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -122,12 +123,12 @@ class _AcceptSharedTasksSheetState extends State<AcceptSharedTasksSheet> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(description, style: const TextStyle(color: Colors.white, fontSize: 15)),
+                              Text(description, style: TextStyle(color: t.textPrimary, fontSize: 15)),
                               if (dueAt != null) ...[
                                 const SizedBox(height: 4),
                                 Text(
                                   'Due ${_formatDueDate(dueAt)}',
-                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                                  style: TextStyle(color: t.textSecondary, fontSize: 13),
                                 ),
                               ],
                             ],
@@ -147,19 +148,19 @@ class _AcceptSharedTasksSheetState extends State<AcceptSharedTasksSheet> {
               child: ElevatedButton(
                 onPressed: _isAccepting ? null : _acceptTasks,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
+                  backgroundColor: t.accent,
+                  foregroundColor: t.textPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  disabledBackgroundColor: Colors.deepPurple.withValues(alpha: 0.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
+                  disabledBackgroundColor: t.accent.withValues(alpha: 0.5),
                 ),
                 child: _isAccepting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                         ),
                       )
                     : Text(

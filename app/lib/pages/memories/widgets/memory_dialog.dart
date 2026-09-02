@@ -6,6 +6,7 @@ import 'package:omi/providers/memories_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'delete_confirmation.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MemoryDialog extends StatefulWidget {
   final MemoriesProvider provider;
@@ -37,14 +38,15 @@ class _MemoryDialogState extends State<MemoryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final isEditing = widget.memory != null;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1F1F25),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         child: Column(
@@ -57,13 +59,13 @@ class _MemoryDialogState extends State<MemoryDialog> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
+                    color: t.rowFillHover,
+                    borderRadius: BorderRadius.circular(t.cardRadius),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(isEditing ? Icons.label_outline : Icons.add_circle_outline, size: 14, color: Colors.white),
+                      Icon(isEditing ? Icons.label_outline : Icons.add_circle_outline, size: 14, color: t.textPrimary),
                       const SizedBox(width: 4),
                       Text(
                         isEditing
@@ -73,19 +75,19 @@ class _MemoryDialogState extends State<MemoryDialog> {
                                     ? context.l10n.filterInteresting
                                     : context.l10n.filterSystem)
                             : context.l10n.newMemory,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        style: TextStyle(color: t.textPrimary, fontSize: 14),
                       ),
                     ],
                   ),
                 ),
                 if (isEditing)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    icon: Icon(Icons.delete_outline, color: t.error),
                     onPressed: () => _showDeleteConfirmation(context),
                   )
                 else
                   IconButton(
-                    icon: Icon(Icons.close, color: Colors.grey.shade400),
+                    icon: Icon(Icons.close, color: t.textSecondary),
                     onPressed: () => Navigator.pop(context),
                   ),
               ],
@@ -102,10 +104,10 @@ class _MemoryDialogState extends State<MemoryDialog> {
                   minLines: 3,
                   textInputAction: TextInputAction.newline,
                   keyboardType: TextInputType.multiline,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
+                  style: TextStyle(color: t.textPrimary, fontSize: 16, height: 1.4),
                   decoration: InputDecoration(
                     hintText: isEditing ? null : context.l10n.memoryContentHint,
-                    hintStyle: const TextStyle(color: Colors.grey),
+                    hintStyle: TextStyle(color: t.textSecondary),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
                     isDense: true,
@@ -117,7 +119,7 @@ class _MemoryDialogState extends State<MemoryDialog> {
             if (_saveFailed) ...[
               Text(
                 context.l10n.failedToSaveMemory,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                style: TextStyle(color: t.error, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
@@ -128,20 +130,20 @@ class _MemoryDialogState extends State<MemoryDialog> {
                 key: const ValueKey('memory_save_button'),
                 onPressed: _isSaving ? null : _handleSave,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _saveFailed ? Colors.orange : Colors.deepPurpleAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: _saveFailed ? t.warning : t.accent,
+                  foregroundColor: t.textPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  disabledBackgroundColor: Colors.deepPurpleAccent.withValues(alpha: 0.5),
-                  disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
+                  disabledBackgroundColor: t.accent.withValues(alpha: 0.5),
+                  disabledForegroundColor: t.textPrimary.withValues(alpha: 0.7),
                 ),
                 child: _isSaving
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                         ),
                       )
                     : Text(

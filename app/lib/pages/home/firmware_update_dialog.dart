@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class FirmwareUpdateStep {
   final String title;
@@ -69,22 +70,24 @@ class _FirmwareUpdateSheetState extends State<FirmwareUpdateSheet> {
   }
 
   void _onConfirmed() {
+    final t = context.omi;
     Navigator.of(context).pop();
     try {
       widget.onUpdateStart();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.failedToStartUpdate(e.toString())), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.failedToStartUpdate(e.toString())), backgroundColor: t.error));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
         top: false,
@@ -96,7 +99,7 @@ class _FirmwareUpdateSheetState extends State<FirmwareUpdateSheet> {
               margin: const EdgeInsets.only(top: 12),
               width: 36,
               height: 4,
-              decoration: BoxDecoration(color: Colors.grey.shade600, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
             ),
 
             // Header
@@ -105,11 +108,11 @@ class _FirmwareUpdateSheetState extends State<FirmwareUpdateSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const FaIcon(FontAwesomeIcons.circleExclamation, color: Color(0xFFFFB800), size: 20),
+                  FaIcon(FontAwesomeIcons.circleExclamation, color: t.warning, size: 20),
                   const SizedBox(width: 10),
                   Text(
                     context.l10n.beforeUpdateMakeSure,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -135,18 +138,19 @@ class _FirmwareUpdateSheetState extends State<FirmwareUpdateSheet> {
   }
 
   Widget _buildStepItem(FirmwareUpdateStep step) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(14)),
         child: Row(
           children: [
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
-              child: Center(child: FaIcon(step.icon, size: 18, color: Colors.white)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.rowRadius)),
+              child: Center(child: FaIcon(step.icon, size: 18, color: t.textPrimary)),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -155,10 +159,10 @@ class _FirmwareUpdateSheetState extends State<FirmwareUpdateSheet> {
                 children: [
                   Text(
                     step.title,
-                    style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 15, color: t.textPrimary, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
-                  Text(step.description, style: TextStyle(fontSize: 13, color: Colors.grey.shade400, height: 1.3)),
+                  Text(step.description, style: TextStyle(fontSize: 13, color: t.textSecondary, height: 1.3)),
                 ],
               ),
             ),
@@ -212,6 +216,7 @@ class _SwipeToConfirmState extends State<SwipeToConfirm> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxDragDistance = constraints.maxWidth - _buttonSize - (_horizontalPadding * 2);
@@ -220,7 +225,7 @@ class _SwipeToConfirmState extends State<SwipeToConfirm> with SingleTickerProvid
         return Container(
           height: _trackHeight,
           decoration: BoxDecoration(
-            color: _isConfirmed ? const Color(0xFF22C55E) : const Color(0xFF2A2A2E),
+            color: _isConfirmed ? t.success : t.bgTertiary,
             borderRadius: BorderRadius.circular(_trackHeight / 2),
           ),
           child: Stack(
@@ -234,7 +239,7 @@ class _SwipeToConfirmState extends State<SwipeToConfirm> with SingleTickerProvid
                   child: Container(
                     width: _dragPosition + _buttonSize + _horizontalPadding,
                     decoration: BoxDecoration(
-                      color: Color.lerp(const Color(0xFF2A2A2E), const Color(0xFF22C55E), progress),
+                      color: Color.lerp(t.bgTertiary, t.success, progress),
                       borderRadius: BorderRadius.circular(_trackHeight / 2),
                     ),
                   ),
@@ -250,17 +255,17 @@ class _SwipeToConfirmState extends State<SwipeToConfirm> with SingleTickerProvid
                           children: [
                             Text(
                               context.l10n.confirmed,
-                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                              style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(width: 8),
                             Container(
                               width: 24,
                               height: 24,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(12),
+                                color: t.textPrimary.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(t.rowRadius),
                               ),
-                              child: const Icon(Icons.check, color: Colors.white, size: 16),
+                              child: Icon(Icons.check, color: t.textPrimary, size: 16),
                             ),
                           ],
                         )
@@ -268,12 +273,12 @@ class _SwipeToConfirmState extends State<SwipeToConfirm> with SingleTickerProvid
                           ? Text(
                               context.l10n.release,
                               key: const ValueKey('release'),
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 16, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: t.textSecondary, fontSize: 16, fontWeight: FontWeight.w500),
                             )
                           : Text(
                               context.l10n.slideToUpdate,
                               key: const ValueKey('slide'),
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 16, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: t.textSecondary, fontSize: 16, fontWeight: FontWeight.w500),
                             ),
                 ),
               ),
@@ -324,19 +329,18 @@ class _SwipeToConfirmState extends State<SwipeToConfirm> with SingleTickerProvid
                       width: _buttonSize,
                       height: _buttonSize,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: t.textPrimary,
                         borderRadius: BorderRadius.circular(_buttonSize / 2),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
+                            // Glass uses the single ambient shadow; Classic keeps its black drop.
+                            color: t.isGlass ? const Color(0x1A000000) : t.bgPrimary.withValues(alpha: 0.2),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: const Center(
-                        child: FaIcon(FontAwesomeIcons.chevronRight, color: Color(0xFF2A2A2E), size: 18),
-                      ),
+                      child: Center(child: FaIcon(FontAwesomeIcons.chevronRight, color: t.bgTertiary, size: 18)),
                     ),
                   ),
                 ),

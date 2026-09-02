@@ -166,6 +166,15 @@ class GeminiHubSession extends BaseHubSession {
   // to the CURRENT turn (set on activityEnd/commit; cleared on this turn's
   // turnComplete, a server `interrupted`, or a barge-in beginTurn).
   bool _responsePending = false;
+
+  /// Ручной barge-in: пользователь ткнул в иконку, чтобы ассистент замолчал.
+  ///
+  /// Сервер об этом не знает — в Gemini Live прерывание инициирует ЕГО VAD,
+  /// программной отмены генерации у нас нет. Значит остаток ответа продолжит
+  /// приходить, и без этого флага он просто заиграл бы снова сразу после
+  /// `clearPlayback()`, то есть тап дал бы полусекундную паузу вместо тишины.
+  /// Снимается на `turnComplete` — следующий ответ звучит как обычно.
+  bool _responseMuted = false;
   final Set<String> _pendingToolCallIds = {};
   int _syntheticToolCallCounter = 0;
 
@@ -456,6 +465,12 @@ class GeminiHubSession extends BaseHubSession {
     emitResumptionHandle(null);
   }
 
+  @override
+  void muteCurrentResponse() {
+    _responseMuted = true;
+    clearPlayback();
+  }
+
   /// The gate `handleProviderMessage` uses to accept tool calls / reply
   /// audio / turn completion. Manual mode gates on the per-turn commit
   /// (`_responsePending`); free-form mode gates on the mode still being on
@@ -619,6 +634,7 @@ class GeminiHubSession extends BaseHubSession {
       // window to reopen, the session just keeps listening (see file
       // header).
       if (!freeFormMode) _responsePending = false;
+      _responseMuted = false;
       _pendingToolCallIds.clear();
       _dropDeferredToolCalls();
       // Речь, накопленная до перебивания, — старый ход; новая реплика
@@ -669,7 +685,9 @@ class GeminiHubSession extends BaseHubSession {
       final data = inline?['data'] is String ? inline!['data'] as String : '';
       if (mime.contains('audio/pcm') && data.isNotEmpty) {
         if (_turnGateOpen) {
-          playAudio(data); // gated: only the live turn's reply
+          // заглушённый вручную ответ доигрывать нечем — байты просто
+          // выбрасываются, гейт и учёт хода при этом работают как обычно
+          if (!_responseMuted) playAudio(data); // gated: only the live turn's reply
         } else {
           // Диагностика «слышу текст, не слышу голос» (24.08): если аудио
           // Gemini дошло, но гейт закрыт — это должно быть видно в логе, а
@@ -686,6 +704,7 @@ class GeminiHubSession extends BaseHubSession {
       // does not do this — it arrives ~0.1s BEFORE its own turnComplete
       // (design doc §9), so waiting costs nothing and never latches.
       _replyInFlight = false;
+      _responseMuted = false;
       _offerResumptionHandle();
       if (_pendingToolCallIds.isNotEmpty) return; // defer until tool results are in
       if (freeFormMode) {

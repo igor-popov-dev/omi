@@ -19,6 +19,8 @@ import 'package:omi/services/integrations/todoist_service.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/platform/platform_service.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 enum TaskIntegrationApp { appleReminders, todoist, clickup, asana, googleTasks, trello, monday }
 
@@ -195,6 +197,8 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
   }
 
   Future<void> _selectApp(TaskIntegrationApp app) async {
+    final t = context.omi;
+
     if (!app.isAvailable) {
       _showComingSoonDialog(app);
       return;
@@ -221,7 +225,7 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
             scaffoldMessenger.showSnackBar(
               SnackBar(
                 content: Text(context.l10n.enableRemindersAccess),
-                backgroundColor: Colors.orange,
+                backgroundColor: t.warning,
                 duration: const Duration(seconds: 3),
               ),
             );
@@ -261,7 +265,7 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(context.l10n.failedToStartAppAuth('Todoist')),
-                  backgroundColor: Colors.red,
+                  backgroundColor: t.error,
                   duration: const Duration(seconds: 3),
                 ),
               );
@@ -296,7 +300,7 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(context.l10n.failedToStartAppAuth('Asana')),
-                  backgroundColor: Colors.red,
+                  backgroundColor: t.error,
                   duration: const Duration(seconds: 3),
                 ),
               );
@@ -331,7 +335,7 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(context.l10n.failedToStartAppAuth('Google Tasks')),
-                  backgroundColor: Colors.red,
+                  backgroundColor: t.error,
                   duration: const Duration(seconds: 3),
                 ),
               );
@@ -366,7 +370,7 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(context.l10n.failedToStartAppAuth('ClickUp')),
-                  backgroundColor: Colors.red,
+                  backgroundColor: t.error,
                   duration: const Duration(seconds: 3),
                 ),
               );
@@ -388,22 +392,24 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
     return showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
+        final t = context.omi;
+
         return AlertDialog(
-          backgroundColor: const Color(0xFF1C1C1E),
+          backgroundColor: t.bgSecondary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(context.l10n.connectToAppTitle(app.displayName), style: const TextStyle(color: Colors.white)),
+          title: Text(context.l10n.connectToAppTitle(app.displayName), style: TextStyle(color: t.textPrimary)),
           content: Text(
             context.l10n.authorizeOmiForTasks(app.displayName),
-            style: const TextStyle(color: Color(0xFF8E8E93)),
+            style: TextStyle(color: t.textSecondary),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text(context.l10n.cancel, style: const TextStyle(color: Color(0xFF8E8E93))),
+              child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text(context.l10n.continueButton, style: const TextStyle(color: Colors.white)),
+              child: Text(context.l10n.continueButton, style: TextStyle(color: t.textPrimary)),
             ),
           ],
         );
@@ -415,18 +421,20 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        final t = context.omi;
+
         return AlertDialog(
-          backgroundColor: const Color(0xFF1C1C1E),
+          backgroundColor: t.bgSecondary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(context.l10n.appIntegration(app.displayName), style: const TextStyle(color: Colors.white)),
+          title: Text(context.l10n.appIntegration(app.displayName), style: TextStyle(color: t.textPrimary)),
           content: Text(
             context.l10n.integrationComingSoon(app.displayName),
-            style: const TextStyle(color: Color(0xFF8E8E93)),
+            style: TextStyle(color: t.textSecondary),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(context.l10n.gotIt, style: const TextStyle(color: Colors.white)),
+              child: Text(context.l10n.gotIt, style: TextStyle(color: t.textPrimary)),
             ),
           ],
         );
@@ -455,18 +463,22 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
   }
 
   Widget _buildShimmerButton() {
+    final t = context.omi;
+
     return ShimmerWithTimeout(
-      baseColor: Colors.grey.shade800,
-      highlightColor: Colors.grey.shade600,
+      baseColor: t.textSecondary,
+      highlightColor: t.textSecondary,
       child: Container(
         width: 70,
         height: 28,
-        decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.textSecondary, borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
 
   Widget _buildAppTile(TaskIntegrationApp app, bool isLoading) {
+    final t = context.omi;
+
     final isSelected = context.read<TaskIntegrationProvider>().selectedApp == app;
     final isAvailable = app.isAvailable;
     final isConnected = _isAppConnected(app);
@@ -508,11 +520,10 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
                       )
                     : Container(
                         decoration: BoxDecoration(
-                          color:
-                              isAvailable ? app.iconColor.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.1),
+                          color: isAvailable ? app.iconColor.withValues(alpha: 0.2) : t.rowFillHover,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: FaIcon(app.icon, color: isAvailable ? app.iconColor : Colors.grey, size: 24),
+                        child: FaIcon(app.icon, color: isAvailable ? app.iconColor : t.textSecondary, size: 24),
                       ),
               ),
             ),
@@ -522,7 +533,7 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
               child: Text(
                 app.displayName,
                 style: TextStyle(
-                  color: isAvailable ? Colors.white : Colors.grey,
+                  color: isAvailable ? t.textPrimary : t.textSecondary,
                   fontSize: 17,
                   fontWeight: FontWeight.w400,
                 ),
@@ -535,33 +546,35 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
               // Coming Soon button
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(16)),
                 child: Text(
                   context.l10n.comingSoon,
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
                 ),
               )
             else if (!isConnected)
               // Connect button
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(
+                    color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(16)),
                 child: Text(
                   context.l10n.connect,
-                  style: const TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                      color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 12, fontWeight: FontWeight.w500),
                 ),
               )
             else
             // Radio button for connected services
             if (isSelected)
-              const FaIcon(FontAwesomeIcons.solidCircleCheck, color: Colors.green, size: 24)
+              FaIcon(FontAwesomeIcons.solidCircleCheck, color: t.success, size: 24)
             else
               Container(
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF3C3C43), width: 2),
+                  border: Border.all(color: t.divider, width: 2),
                 ),
               ),
           ],
@@ -572,29 +585,31 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     // Watch provider to rebuild when it changes
     final provider = context.watch<TaskIntegrationProvider>();
     final isLoading = provider.isLoading || !provider.hasLoaded;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: t.bgPrimary,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: t.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           context.l10n.taskIntegrations,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
         actions: [
           // Settings icon for apps that have configuration options
           if (_shouldShowSettingsIcon())
             IconButton(
-              icon: const Icon(Icons.settings, color: Colors.white),
+              icon: Icon(Icons.settings, color: t.textPrimary),
               onPressed: _openSelectedAppSettings,
               tooltip: context.l10n.configureSettings,
             ),
@@ -627,17 +642,17 @@ class _TaskIntegrationsPageState extends State<TaskIntegrationsPage> with Widget
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.yellow.withValues(alpha: 0.1),
+                  color: t.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    FaIcon(FontAwesomeIcons.solidLightbulb, color: Colors.yellow.withValues(alpha: 0.5), size: 20),
+                    OmiIconWidget(icon: OmiIcon.lightbulb, color: t.warning.withValues(alpha: 0.5), size: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         context.l10n.tasksExportedOneApp,
-                        style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14, fontWeight: FontWeight.w400),
+                        style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w400),
                       ),
                     ),
                   ],

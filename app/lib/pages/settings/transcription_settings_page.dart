@@ -26,6 +26,8 @@ import 'package:omi/services/services.dart';
 import 'package:omi/services/sockets/transcription_service.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 /// Top-level transcription source the user picks from the single dropdown.
 enum TranscriptionMode { omi, onDevice, cloudProvider, omiParakeet }
@@ -206,11 +208,14 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       _hasShownDebugWarning = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
+          // Resolved here, not in the enclosing method: _populateUIFromConfig
+          // runs from initState, where inherited widgets are not available yet.
+          final t = context.omi;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 28),
+                  OmiIconWidget(icon: OmiIcon.warning, color: t.textPrimary, size: 28),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -230,7 +235,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                           builder: (context, value, child) {
                             return Text(
                               context.l10n.autoClosingInSeconds(value.toInt()),
-                              style: const TextStyle(fontSize: 10, color: Colors.white70),
+                              style: TextStyle(fontSize: 10, color: t.textSecondary),
                             );
                           },
                         ),
@@ -239,7 +244,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                   ),
                 ],
               ),
-              backgroundColor: Colors.orange.shade900,
+              backgroundColor: t.warning,
               duration: const Duration(seconds: 10),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -526,11 +531,13 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Future<void> _saveConfig() async {
+    final t = context.omi;
+
     _validateAndSetError();
     if (_validationError != null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(_validationError!), backgroundColor: Colors.red.shade700));
+      ).showSnackBar(SnackBar(content: Text(_validationError!), backgroundColor: t.error));
       return;
     }
 
@@ -543,9 +550,9 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFF1A1A1A),
-            title: Text(context.l10n.modelRequired, style: const TextStyle(color: Colors.white)),
-            content: Text(context.l10n.downloadWhisperModel, style: const TextStyle(color: Colors.white70)),
+            backgroundColor: t.bgSecondary,
+            title: Text(context.l10n.modelRequired, style: TextStyle(color: t.textPrimary)),
+            content: Text(context.l10n.downloadWhisperModel, style: TextStyle(color: t.textSecondary)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -592,7 +599,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.errorSaving(e.toString())), backgroundColor: Colors.red.shade700),
+          SnackBar(content: Text(context.l10n.errorSaving(e.toString())), backgroundColor: t.error),
         );
       }
     } finally {
@@ -641,37 +648,39 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Future<void> _importConfig() async {
+    final t = context.omi;
+
     final controller = TextEditingController();
 
     try {
       final result = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          title: Text(context.l10n.importConfiguration, style: const TextStyle(color: Colors.white, fontSize: 18)),
+          backgroundColor: t.bgSecondary,
+          title: Text(context.l10n.importConfiguration, style: TextStyle(color: t.textPrimary, fontSize: 18)),
           content: SizedBox(
             width: double.maxFinite,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(context.l10n.pasteJsonConfig, style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+                Text(context.l10n.pasteJsonConfig, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                 const SizedBox(height: 12),
                 Container(
                   height: 200,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D0D0D),
+                    color: t.bgPrimary,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade800),
+                    border: Border.all(color: t.textSecondary),
                   ),
                   child: TextField(
                     controller: controller,
                     maxLines: null,
                     expands: true,
-                    style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12),
+                    style: TextStyle(color: t.textPrimary, fontFamily: 'monospace', fontSize: 12),
                     decoration: InputDecoration(
                       hintText: context.l10n.transcriptionJsonPlaceholder,
-                      hintStyle: TextStyle(color: Colors.grey.shade700),
+                      hintStyle: TextStyle(color: t.textSecondary),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.all(12),
                     ),
@@ -680,12 +689,12 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.info_outline, size: 14, color: Colors.grey.shade600),
+                    OmiIconWidget(icon: OmiIcon.info, size: 14, color: t.textSecondary),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         context.l10n.addApiKeyAfterImport,
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                        style: TextStyle(color: t.textSecondary, fontSize: 11),
                       ),
                     ),
                   ],
@@ -696,7 +705,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(context.l10n.cancel, style: TextStyle(color: Colors.grey.shade400)),
+              child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
             ),
             TextButton(
               onPressed: () async {
@@ -705,11 +714,11 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                   controller.text = clipboardData!.text!;
                 }
               },
-              child: Text(context.l10n.paste, style: const TextStyle(color: Colors.white)),
+              child: Text(context.l10n.paste, style: TextStyle(color: t.textPrimary)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, controller.text),
-              child: Text(context.l10n.import, style: const TextStyle(color: Colors.white)),
+              child: Text(context.l10n.import, style: TextStyle(color: t.textPrimary)),
             ),
           ],
         ),
@@ -724,6 +733,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   void _parseAndApplyConfig(String jsonString) {
+    final t = context.omi;
+
     try {
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
       final config = CustomSttConfig.fromJson(json);
@@ -731,7 +742,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       // Validate provider
       if (config.provider == SttProvider.omi) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.invalidProviderInConfig), backgroundColor: Colors.red.shade700),
+          SnackBar(content: Text(context.l10n.invalidProviderInConfig), backgroundColor: t.error),
         );
         return;
       }
@@ -780,7 +791,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.invalidJson(e.toString().split('\n').first)),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: t.error,
         ),
       );
     }
@@ -788,11 +799,13 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.transcription, style: const TextStyle(fontWeight: FontWeight.w600)),
-        backgroundColor: const Color(0xFF0D0D0D),
+        backgroundColor: t.bgPrimary,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 20),
@@ -847,6 +860,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Future<void> _switchToOnDevice() async {
+    final t = context.omi;
+
     bool isLowSpec = false;
     String specDetails = '';
     bool isIOS = Platform.isIOS;
@@ -901,14 +916,14 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       proceed = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1A),
+              backgroundColor: t.bgSecondary,
               title: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 24),
+                  OmiIconWidget(icon: OmiIcon.errorCircle, color: t.error, size: 24),
                   const SizedBox(width: 8),
                   Text(
                     context.l10n.deviceNotCompatibleTitle,
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                    style: TextStyle(color: t.textPrimary, fontSize: 18),
                   ),
                 ],
               ),
@@ -916,16 +931,16 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(context.l10n.deviceNotMeetRequirements, style: const TextStyle(color: Colors.white70)),
+                  Text(context.l10n.deviceNotMeetRequirements, style: TextStyle(color: t.textSecondary)),
                   const SizedBox(height: 8),
-                  Text(specDetails, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                  Text(specDetails, style: TextStyle(color: t.textTertiary, fontSize: 12)),
                   const SizedBox(height: 12),
                   Text(
                     context.l10n.willLikelyCrash,
-                    style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: t.textSecondary, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  Text(context.l10n.transcriptionSlowerLessAccurate, style: const TextStyle(color: Colors.white70)),
+                  Text(context.l10n.transcriptionSlowerLessAccurate, style: TextStyle(color: t.textSecondary)),
                 ],
               ),
               actions: [
@@ -935,8 +950,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, false),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: Text(context.l10n.close, style: const TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: t.error),
+                  child: Text(context.l10n.close, style: TextStyle(color: t.textPrimary)),
                 ),
               ],
               actionsAlignment: MainAxisAlignment.spaceBetween,
@@ -948,15 +963,15 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       proceed = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1A),
+              backgroundColor: t.bgSecondary,
               title: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                  OmiIconWidget(icon: OmiIcon.warning, color: t.warning, size: 24),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       context.l10n.olderDeviceDetected,
-                      style: const TextStyle(color: Colors.white, fontSize: 18),
+                      style: TextStyle(color: t.textPrimary, fontSize: 18),
                     ),
                   ),
                 ],
@@ -965,18 +980,18 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(specDetails, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                  Text(specDetails, style: TextStyle(color: t.textTertiary, fontSize: 12)),
                   const SizedBox(height: 12),
-                  Text(context.l10n.transcriptionSlowerOnDevice, style: const TextStyle(color: Colors.white70)),
+                  Text(context.l10n.transcriptionSlowerOnDevice, style: TextStyle(color: t.textSecondary)),
                   const SizedBox(height: 8),
-                  Text('• ${context.l10n.batteryUsageHigher}', style: const TextStyle(color: Colors.white70)),
-                  Text('• ${context.l10n.considerOmiCloud}', style: const TextStyle(color: Colors.white70)),
+                  Text('• ${context.l10n.batteryUsageHigher}', style: TextStyle(color: t.textSecondary)),
+                  Text('• ${context.l10n.considerOmiCloud}', style: TextStyle(color: t.textSecondary)),
                 ],
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.grey)),
+                  child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context, true),
@@ -994,15 +1009,15 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       proceed = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1A),
+              backgroundColor: t.bgSecondary,
               title: Row(
                 children: [
-                  const Icon(Icons.battery_alert, color: Colors.orange, size: 24),
+                  Icon(Icons.battery_alert, color: t.warning, size: 24),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       context.l10n.highResourceUsage,
-                      style: const TextStyle(color: Colors.white, fontSize: 18),
+                      style: TextStyle(color: t.textPrimary, fontSize: 18),
                     ),
                   ),
                 ],
@@ -1011,17 +1026,17 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(context.l10n.computationallyIntensive, style: const TextStyle(color: Colors.white70)),
+                  Text(context.l10n.computationallyIntensive, style: TextStyle(color: t.textSecondary)),
                   const SizedBox(height: 12),
-                  Text('• ${context.l10n.batteryDrainSignificantly}', style: const TextStyle(color: Colors.white70)),
-                  Text('• ${context.l10n.deviceMayWarmUp}', style: const TextStyle(color: Colors.white70)),
-                  Text('• ${context.l10n.speedAccuracyLower}', style: const TextStyle(color: Colors.white70)),
+                  Text('• ${context.l10n.batteryDrainSignificantly}', style: TextStyle(color: t.textSecondary)),
+                  Text('• ${context.l10n.deviceMayWarmUp}', style: TextStyle(color: t.textSecondary)),
+                  Text('• ${context.l10n.speedAccuracyLower}', style: TextStyle(color: t.textSecondary)),
                 ],
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.grey)),
+                  child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context, true),
@@ -1112,6 +1127,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildSourceSelector() {
+    final t = context.omi;
+
     final mode = _currentMode;
 
     return Column(
@@ -1121,17 +1138,17 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
+            color: t.bgSecondary,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade800),
+            border: Border.all(color: t.textSecondary),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<TranscriptionMode>(
               value: mode,
               isExpanded: true,
-              dropdownColor: const Color(0xFF1A1A1A),
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-              icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade500),
+              dropdownColor: t.bgSecondary,
+              style: TextStyle(color: t.textPrimary, fontSize: 15),
+              icon: Icon(Icons.keyboard_arrow_down, color: t.textSecondary),
               items: TranscriptionMode.values
                   .map((m) => DropdownMenuItem<TranscriptionMode>(value: m, child: Text(_modeLabel(m))))
                   .toList(),
@@ -1152,34 +1169,36 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 children: [
                   TextSpan(
                     text: context.l10n.premiumMinutesMonth,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    style: TextStyle(color: t.textSecondary, fontSize: 12),
                   ),
                   TextSpan(
                     text: context.l10n.viewUsage,
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12, decoration: TextDecoration.underline),
+                    style: TextStyle(color: t.textSecondary, fontSize: 12, decoration: TextDecoration.underline),
                   ),
                   TextSpan(
                     text: '.',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    style: TextStyle(color: t.textSecondary, fontSize: 12),
                   ),
                 ],
               ),
             ),
           )
         else if (mode == TranscriptionMode.onDevice)
-          Text(context.l10n.audioProcessedLocally, style: TextStyle(color: Colors.grey.shade600, fontSize: 12))
+          Text(context.l10n.audioProcessedLocally, style: TextStyle(color: t.textSecondary, fontSize: 12))
         else if (mode == TranscriptionMode.omiParakeet)
           Text(
             SttProviderConfig.get(SttProvider.omiParakeet).description,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            style: TextStyle(color: t.textSecondary, fontSize: 12),
           )
         else if (mode == TranscriptionMode.cloudProvider)
-          Text(context.l10n.payYourSttProvider, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+          Text(context.l10n.payYourSttProvider, style: TextStyle(color: t.textSecondary, fontSize: 12)),
       ],
     );
   }
 
   Widget _buildCodecWarning() {
+    final t = context.omi;
+
     if (_isCodecCompatible || !_useCustomStt) return const SizedBox.shrink();
 
     final codecReason = _connectedDeviceCodec?.customSttUnsupportedReason ?? 'unsupported format';
@@ -1190,10 +1209,10 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 14),
+          OmiIconWidget(icon: OmiIcon.warning, color: t.warning, size: 14),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(warningText, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+            child: Text(warningText, style: TextStyle(color: t.textSecondary, fontSize: 12)),
           ),
         ],
       ),
@@ -1201,6 +1220,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildProviderSection() {
+    final t = context.omi;
+
     // On-Device Whisper and Omi Parakeet are fixed providers chosen from the
     // top dropdown — there's no sub-provider to pick, so hide this section.
     if (_selectedProvider == SttProvider.onDeviceWhisper || _selectedProvider == SttProvider.omiParakeet) {
@@ -1211,22 +1232,22 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildCodecWarning(),
-        Text(context.l10n.provider, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+        Text(context.l10n.provider, style: TextStyle(color: t.textSecondary, fontSize: 13)),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
+            color: t.bgSecondary,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade800),
+            border: Border.all(color: t.textSecondary),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<SttProvider>(
               value: _selectedProvider,
               isExpanded: true,
-              dropdownColor: const Color(0xFF1A1A1A),
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-              icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade500),
+              dropdownColor: t.bgSecondary,
+              style: TextStyle(color: t.textPrimary, fontSize: 15),
+              icon: Icon(Icons.keyboard_arrow_down, color: t.textSecondary),
               items: [
                 ...SttProviderConfig.allProviders.where((config) => config.provider != SttProvider.onDeviceWhisper).map(
                   (config) {
@@ -1240,12 +1261,12 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                               margin: const EdgeInsets.only(left: 8),
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.green.withValues(alpha: 0.2),
+                                color: t.success.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 context.l10n.live,
-                                style: const TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: t.success, fontSize: 10, fontWeight: FontWeight.w600),
                               ),
                             ),
                         ],
@@ -1289,12 +1310,12 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
         Row(
           children: [
             Expanded(
-              child: Text(_currentConfig.description, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              child: Text(_currentConfig.description, style: TextStyle(color: t.textSecondary, fontSize: 12)),
             ),
             if (_currentConfig.docsUrl != null)
               GestureDetector(
                 onTap: () => _launchUrl(_currentConfig.docsUrl!),
-                child: Icon(Icons.open_in_new, color: Colors.grey.shade500, size: 14),
+                child: OmiIconWidget(icon: OmiIcon.externalLink, color: t.textSecondary, size: 14),
               ),
           ],
         ),
@@ -1322,11 +1343,13 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildRawAudioForwardingSetting() {
+    final t = context.omi;
+
     return Material(
-      color: const Color(0xFF1A1A1A),
+      color: t.bgSecondary,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.shade800),
+        side: BorderSide(color: t.textSecondary),
       ),
       clipBehavior: Clip.antiAlias,
       child: SwitchListTile(
@@ -1337,11 +1360,11 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             _updateCurrentProviderConfig(sendRawAudioToOmi: value);
           });
         },
-        secondary: const Icon(Icons.cloud_upload_outlined, color: Colors.white70),
-        title: Text(context.l10n.sendRawAudioToOmi, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        secondary: Icon(Icons.cloud_upload_outlined, color: t.textSecondary),
+        title: Text(context.l10n.sendRawAudioToOmi, style: TextStyle(color: t.textPrimary, fontSize: 14)),
         subtitle: Text(
           context.l10n.sendRawAudioToOmiDescription,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          style: TextStyle(color: t.textSecondary, fontSize: 12),
         ),
       ),
     );
@@ -1374,6 +1397,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildModelSelector() {
+    final t = context.omi;
+
     final models = _currentConfig.supportedModels;
 
     return _buildAutocompleteField(
@@ -1387,9 +1412,9 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1A),
-              title: Text(context.l10n.performanceWarning, style: const TextStyle(color: Colors.white)),
-              content: Text(context.l10n.modelTooLargeWarning, style: const TextStyle(color: Colors.white70)),
+              backgroundColor: t.bgSecondary,
+              title: Text(context.l10n.performanceWarning, style: TextStyle(color: t.textPrimary)),
+              content: Text(context.l10n.modelTooLargeWarning, style: TextStyle(color: t.textSecondary)),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
@@ -1418,10 +1443,12 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
     required List<String> suggestions,
     required ValueChanged<String> onChanged,
   }) {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+        Text(label, style: TextStyle(color: t.textSecondary, fontSize: 13)),
         const SizedBox(height: 10),
         Autocomplete<String>(
           key: ValueKey('${_selectedProvider.name}_${label}_$_configSyncVersion'),
@@ -1437,7 +1464,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
               alignment: Alignment.topLeft,
               child: Material(
                 elevation: 4,
-                color: const Color(0xFF1A1A1A),
+                color: t.bgSecondary,
                 borderRadius: BorderRadius.circular(10),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 200, maxWidth: 300),
@@ -1449,7 +1476,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                       final option = options.elementAt(index);
                       return ListTile(
                         dense: true,
-                        title: Text(option, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                        title: Text(option, style: TextStyle(color: t.textPrimary, fontSize: 14)),
                         onTap: () => onSelected(option),
                       );
                     },
@@ -1459,26 +1486,28 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             );
           },
           fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+            final t = context.omi;
+
             return TextField(
               controller: controller,
               focusNode: focusNode,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(color: t.textPrimary, fontSize: 15),
               onChanged: onChanged,
               onSubmitted: (_) => onFieldSubmitted(),
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle: TextStyle(color: Colors.grey.shade700),
+                hintStyle: TextStyle(color: t.textSecondary),
                 filled: true,
-                fillColor: const Color(0xFF1A1A1A),
+                fillColor: t.bgSecondary,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade800),
+                  borderSide: BorderSide(color: t.textSecondary),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Colors.white),
+                  borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                 ),
               ),
             );
@@ -1490,6 +1519,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildCustomPollingConfig() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1499,12 +1530,14 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
           hint: 'https://your-stt-api.com/transcribe',
         ),
         const SizedBox(height: 8),
-        Text(context.l10n.enterSttHttpEndpoint, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+        Text(context.l10n.enterSttHttpEndpoint, style: TextStyle(color: t.textSecondary, fontSize: 12)),
       ],
     );
   }
 
   Widget _buildCustomLiveConfig() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1514,23 +1547,25 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
           hint: 'wss://your-stt-api.com/live',
         ),
         const SizedBox(height: 8),
-        Text(context.l10n.enterLiveSttWebsocket, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+        Text(context.l10n.enterLiveSttWebsocket, style: TextStyle(color: t.textSecondary, fontSize: 12)),
       ],
     );
   }
 
   Widget _buildApiKeyInput() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text(context.l10n.apiKey, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+            Text(context.l10n.apiKey, style: TextStyle(color: t.textSecondary, fontSize: 13)),
             const Spacer(),
             if (_currentConfig.apiKeyUrl != null)
               GestureDetector(
                 onTap: () => _launchUrl(_currentConfig.apiKeyUrl!),
-                child: Icon(Icons.open_in_new, color: Colors.grey.shade500, size: 14),
+                child: OmiIconWidget(icon: OmiIcon.externalLink, color: t.textSecondary, size: 14),
               ),
           ],
         ),
@@ -1538,36 +1573,38 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
         TextField(
           controller: _apiKeyController,
           obscureText: !_showApiKey,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+          style: TextStyle(color: t.textPrimary, fontSize: 15),
           onChanged: (_) => _validateAndSetError(),
           decoration: InputDecoration(
             hintText: context.l10n.enterApiKey,
-            hintStyle: TextStyle(color: Colors.grey.shade700),
+            hintStyle: TextStyle(color: t.textSecondary),
             filled: true,
-            fillColor: const Color(0xFF1A1A1A),
+            fillColor: t.bgSecondary,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey.shade800),
+              borderSide: BorderSide(color: t.textSecondary),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.white),
+              borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
             ),
             suffixIcon: IconButton(
-              icon: Icon(_showApiKey ? Icons.visibility_off : Icons.visibility, color: Colors.grey.shade600, size: 20),
+              icon: Icon(_showApiKey ? Icons.visibility_off : Icons.visibility, color: t.textSecondary, size: 20),
               onPressed: () => setState(() => _showApiKey = !_showApiKey),
             ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(context.l10n.storedLocallyNeverShared, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+        Text(context.l10n.storedLocallyNeverShared, style: TextStyle(color: t.textSecondary, fontSize: 12)),
       ],
     );
   }
 
   Widget _buildLocalWhisperConfig() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1592,7 +1629,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
         const SizedBox(height: 12),
         Text(
           'http://${_hostController.text}:${_portController.text}/inference',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontFamily: 'monospace'),
+          style: TextStyle(color: t.textSecondary, fontSize: 12, fontFamily: 'monospace'),
         ),
         const SizedBox(height: 20),
         _buildLanguageSelector(),
@@ -1606,30 +1643,32 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
     required String hint,
     TextInputType? keyboardType,
   }) {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+        Text(label, style: TextStyle(color: t.textSecondary, fontSize: 13)),
         const SizedBox(height: 10),
         TextField(
           controller: controller,
           keyboardType: keyboardType,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+          style: TextStyle(color: t.textPrimary, fontSize: 15),
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade700),
+            hintStyle: TextStyle(color: t.textSecondary),
             filled: true,
-            fillColor: const Color(0xFF1A1A1A),
+            fillColor: t.bgSecondary,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey.shade800),
+              borderSide: BorderSide(color: t.textSecondary),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.white),
+              borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
             ),
           ),
         ),
@@ -1639,6 +1678,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
 
   /// UI for On-Device Whisper Configuration
   Widget _buildOnDeviceWhisperConfig() {
+    final t = context.omi;
+
     // If iOS, show simplified Apple Speech UI
     if (Theme.of(context).platform == TargetPlatform.iOS) {
       return Column(
@@ -1647,25 +1688,25 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: t.rowFillHover,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+              border: Border.all(color: t.rowFillHover),
             ),
             child: Row(
               children: [
-                const Icon(Icons.apple, color: Colors.white, size: 24),
+                Icon(Icons.apple, color: t.textPrimary, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     context.l10n.usingNativeIosSpeech,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 14),
+                    style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w500, fontSize: 14),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          Text(context.l10n.nativeEngineNoDownload, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          Text(context.l10n.nativeEngineNoDownload, style: TextStyle(color: t.textSecondary, fontSize: 12)),
           const SizedBox(height: 20),
           _buildLanguageSelector(),
         ],
@@ -1681,23 +1722,23 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
+              color: t.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+              border: Border.all(color: t.success.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     context.l10n.modelReadyWithName('ggml-${_currentModel.isEmpty ? 'tiny' : _currentModel}.bin'),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 14),
+                    style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w500, fontSize: 14),
                   ),
                 ),
                 TextButton(
                   onPressed: _downloadModel,
-                  child: Text(context.l10n.reDownload, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                  child: Text(context.l10n.reDownload, style: TextStyle(color: t.textSecondary, fontSize: 12)),
                 ),
               ],
             ),
@@ -1708,12 +1749,12 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             children: [
               LinearProgressIndicator(
                 value: _downloadProgress,
-                backgroundColor: Colors.grey.shade800,
+                backgroundColor: t.textSecondary,
                 color: Colors.blue,
               ),
               const SizedBox(height: 8),
               Center(
-                child: Text(context.l10n.doNotCloseApp, style: TextStyle(color: Colors.orange.shade300, fontSize: 11)),
+                child: Text(context.l10n.doNotCloseApp, style: TextStyle(color: t.warning, fontSize: 11)),
               ),
               const SizedBox(height: 8),
               Row(
@@ -1721,7 +1762,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 children: [
                   Text(
                     _modelDownloadStatus ?? context.l10n.downloading,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                    style: TextStyle(color: t.textSecondary, fontSize: 12),
                   ),
                   TextButton(
                     onPressed: _cancelDownload,
@@ -1730,7 +1771,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                       minimumSize: const Size(50, 24),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text(context.l10n.cancel, style: TextStyle(color: Colors.red.shade400, fontSize: 12)),
+                    child: Text(context.l10n.cancel, style: TextStyle(color: t.error, fontSize: 12)),
                   ),
                 ],
               ),
@@ -1747,8 +1788,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                     context.l10n.downloadModelWithName('ggml-${_currentModel.isEmpty ? 'tiny' : _currentModel}.bin'),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
+                    backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                    foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
@@ -1768,6 +1809,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   http.Client? _downloadClient;
 
   Future<void> _downloadModel() async {
+    final t = context.omi;
+
     final modelName = _currentModel.isEmpty ? 'tiny' : _currentModel;
 
     double estimatedSizeMB = 1500;
@@ -1799,17 +1842,17 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: Text(context.l10n.downloadModel, style: const TextStyle(color: Colors.white)),
+        backgroundColor: t.bgSecondary,
+        title: Text(context.l10n.downloadModel, style: TextStyle(color: t.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(context.l10n.modelNameWithFile('ggml-$modelName.bin'), style: const TextStyle(color: Colors.white70)),
+            Text(context.l10n.modelNameWithFile('ggml-$modelName.bin'), style: TextStyle(color: t.textSecondary)),
             const SizedBox(height: 8),
             Text(
               context.l10n.estimatedSizeWithValue(estimatedSizeMB.toStringAsFixed(0)),
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(color: t.textSecondary),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1817,21 +1860,21 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                 freeSpaceMB != null ? '${freeSpaceMB.toStringAsFixed(0)} MB' : context.l10n.unknown,
               ),
               style: TextStyle(
-                color: (freeSpaceMB != null && freeSpaceMB < estimatedSizeMB) ? Colors.red : Colors.white70,
+                color: (freeSpaceMB != null && freeSpaceMB < estimatedSizeMB) ? t.error : t.textSecondary,
                 fontWeight: FontWeight.bold,
               ),
             ),
             if (freeSpaceMB != null && freeSpaceMB < estimatedSizeMB)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
-                child: Text(context.l10n.notEnoughSpace, style: const TextStyle(color: Colors.red)),
+                child: Text(context.l10n.notEnoughSpace, style: TextStyle(color: t.error)),
               ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.grey)),
+            child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
           ),
           TextButton(
             onPressed:
@@ -1938,7 +1981,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             _modelDownloadStatus = context.l10n.errorWithMessage(e.toString());
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.downloadErrorWithMessage(e.toString())), backgroundColor: Colors.red),
+            SnackBar(content: Text(context.l10n.downloadErrorWithMessage(e.toString())), backgroundColor: t.error),
           );
         }
       }
@@ -1957,6 +2000,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildAdvancedSection() {
+    final t = context.omi;
+
     // Show advanced section for all providers except Omi
     if (_selectedProvider == SttProvider.omi) return const SizedBox.shrink();
 
@@ -1970,11 +2015,11 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
               children: [
-                Text(context.l10n.advanced, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                Text(context.l10n.advanced, style: TextStyle(color: t.textSecondary, fontSize: 13)),
                 const SizedBox(width: 8),
                 Icon(
                   _showAdvanced ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  color: Colors.grey.shade500,
+                  color: t.textSecondary,
                   size: 18,
                 ),
                 const Spacer(),
@@ -2000,10 +2045,12 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildJsonEditors() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(context.l10n.configuration, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+        Text(context.l10n.configuration, style: TextStyle(color: t.textSecondary, fontSize: 13)),
         const SizedBox(height: 10),
         _buildJsonEditorButton(
           title: context.l10n.requestConfiguration,
@@ -2027,6 +2074,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildResetToDefaultButton() {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -2056,9 +2105,9 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       },
       child: Row(
         children: [
-          Icon(Icons.refresh, color: Colors.grey.shade500, size: 16),
+          OmiIconWidget(icon: OmiIcon.refresh, color: t.textSecondary, size: 16),
           const SizedBox(width: 6),
-          Text(context.l10n.resetRequestConfig, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+          Text(context.l10n.resetRequestConfig, style: TextStyle(color: t.textSecondary, fontSize: 12)),
         ],
       ),
     );
@@ -2070,6 +2119,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
     required VoidCallback onTap,
     bool isCustomized = false,
   }) {
+    final t = context.omi;
+
     String preview = '';
     try {
       final parsed = jsonDecode(jsonContent);
@@ -2086,9 +2137,9 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
+          color: t.bgSecondary,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isCustomized ? Colors.white : Colors.grey.shade800),
+          border: Border.all(color: isCustomized ? t.textPrimary : t.textSecondary),
         ),
         child: Row(
           children: [
@@ -2100,17 +2151,17 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                        style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
                       ),
                       if (isCustomized) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
+                            color: t.rowFillHover,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(context.l10n.modified, style: const TextStyle(color: Colors.white, fontSize: 10)),
+                          child: Text(context.l10n.modified, style: TextStyle(color: t.textPrimary, fontSize: 10)),
                         ),
                       ],
                     ],
@@ -2118,14 +2169,14 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                   const SizedBox(height: 4),
                   Text(
                     preview,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontFamily: 'monospace'),
+                    style: TextStyle(color: t.textSecondary, fontSize: 12, fontFamily: 'monospace'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade600),
+            Icon(Icons.chevron_right, color: t.textSecondary),
           ],
         ),
       ),
@@ -2222,6 +2273,8 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildLogsSection() {
+    final t = context.omi;
+
     final logService = CustomSttLogService.instance;
     final logs = logService.logs;
 
@@ -2235,11 +2288,11 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
               children: [
-                Text(context.l10n.logs, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                Text(context.l10n.logs, style: TextStyle(color: t.textSecondary, fontSize: 13)),
                 const SizedBox(width: 8),
                 Icon(
                   _showLogs ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  color: Colors.grey.shade500,
+                  color: t.textSecondary,
                   size: 18,
                 ),
                 const Spacer(),
@@ -2251,7 +2304,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                         SnackBar(content: Text(context.l10n.logsCopied), duration: const Duration(seconds: 1)),
                       );
                     },
-                    child: Icon(Icons.copy, color: Colors.grey.shade500, size: 16),
+                    child: OmiIconWidget(icon: OmiIcon.copy, color: t.textSecondary, size: 16),
                   ),
                 ],
               ],
@@ -2262,9 +2315,9 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
           Container(
             constraints: const BoxConstraints(maxHeight: 200),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
+              color: t.bgSecondary,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade800),
+              border: Border.all(color: t.textSecondary),
             ),
             child: logs.isEmpty
                 ? Padding(
@@ -2272,7 +2325,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                     child: Center(
                       child: Text(
                         context.l10n.noLogsYet,
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        style: TextStyle(color: t.textSecondary, fontSize: 12),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -2292,7 +2345,7 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                           children: [
                             Text(
                               log.formattedTime,
-                              style: TextStyle(color: Colors.grey.shade600, fontSize: 10, fontFamily: 'monospace'),
+                              style: TextStyle(color: t.textSecondary, fontSize: 10, fontFamily: 'monospace'),
                             ),
                             const SizedBox(width: 6),
                             Icon(
@@ -2303,10 +2356,10 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                                       : Icons.info_outline,
                               size: 12,
                               color: isError
-                                  ? Colors.red.shade400
+                                  ? t.error
                                   : isWarning
-                                      ? Colors.orange.shade400
-                                      : Colors.grey.shade500,
+                                      ? t.warning
+                                      : t.textSecondary,
                             ),
                             const SizedBox(width: 6),
                             Expanded(
@@ -2314,10 +2367,10 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
                                 '[${log.source}] ${log.message}',
                                 style: TextStyle(
                                   color: isError
-                                      ? Colors.red.shade300
+                                      ? t.error
                                       : isWarning
-                                          ? Colors.orange.shade300
-                                          : Colors.grey.shade400,
+                                          ? t.warning
+                                          : t.textSecondary,
                                   fontSize: 11,
                                   fontFamily: 'monospace',
                                 ),
@@ -2334,23 +2387,27 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
   }
 
   Widget _buildOmiFeatures() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           context.l10n.omiTranscriptionOptimized,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 14, height: 1.5),
+          style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.5),
         ),
       ],
     );
   }
 
   Widget _buildBottomBar() {
+    final t = context.omi;
+
     return Container(
       padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: MediaQuery.of(context).padding.bottom + 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D0D0D),
-        border: Border(top: BorderSide(color: Colors.grey.shade900)),
+        color: t.bgPrimary,
+        border: Border(top: BorderSide(color: t.textSecondary)),
       ),
       child: SafeArea(
         top: false,
@@ -2360,20 +2417,21 @@ class _TranscriptionSettingsPageState extends State<TranscriptionSettingsPage> {
           child: ElevatedButton(
             onPressed: _isSaving ? null : _saveConfig,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              disabledBackgroundColor: Colors.grey.shade800,
+              backgroundColor: (t.isGlass ? t.accent : Colors.white),
+              disabledBackgroundColor: t.textSecondary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
             child: _isSaving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: (t.isGlass ? t.onAccent : Colors.black)),
                   )
                 : Text(
                     context.l10n.save,
-                    style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16, fontWeight: FontWeight.w600),
                   ),
           ),
         ),
@@ -2448,11 +2506,13 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
         title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        backgroundColor: const Color(0xFF0D0D0D),
+        backgroundColor: t.bgPrimary,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 20),
@@ -2461,7 +2521,7 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
         actions: [
           TextButton(
             onPressed: _resetToTemplate,
-            child: Text(context.l10n.reset, style: TextStyle(color: Colors.grey.shade400)),
+            child: Text(context.l10n.reset, style: TextStyle(color: t.textSecondary)),
           ),
         ],
       ),
@@ -2475,6 +2535,8 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
   }
 
   Widget _buildTemplateSelector() {
+    final t = context.omi;
+
     final isResponseSchema = widget.isResponseSchema;
     final templates =
         isResponseSchema ? SttResponseSchema.templates.keys.toList() : SttProviderConfig.requestTemplates.keys.toList();
@@ -2483,26 +2545,26 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(context.l10n.useTemplateFrom, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+        Text(context.l10n.useTemplateFrom, style: TextStyle(color: t.textSecondary, fontSize: 13)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
+            color: t.bgSecondary,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade800),
+            border: Border.all(color: t.textSecondary),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: null,
               hint: Text(
                 context.l10n.selectProviderTemplate,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                style: TextStyle(color: t.textSecondary, fontSize: 14),
               ),
               isExpanded: true,
-              dropdownColor: const Color(0xFF1A1A1A),
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey.shade500),
+              dropdownColor: t.bgSecondary,
+              style: TextStyle(color: t.textPrimary, fontSize: 14),
+              icon: Icon(Icons.keyboard_arrow_down, color: t.textSecondary),
               items: templates.map((name) {
                 final isLive = isResponseSchema
                     ? SttResponseSchema.liveTemplates.contains(name)
@@ -2517,12 +2579,12 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
                           margin: const EdgeInsets.only(left: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.2),
+                            color: t.success.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             context.l10n.live,
-                            style: const TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.w600),
+                            style: TextStyle(color: t.success, fontSize: 10, fontWeight: FontWeight.w600),
                           ),
                         ),
                     ],
@@ -2542,12 +2604,14 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
           ),
         ),
         const SizedBox(height: 4),
-        Text(description, style: TextStyle(color: Colors.grey.shade700, fontSize: 11)),
+        Text(description, style: TextStyle(color: t.textSecondary, fontSize: 11)),
       ],
     );
   }
 
   Widget _buildEditorTab() {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -2559,18 +2623,18 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.shade900.withValues(alpha: 0.3),
+                color: t.error.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade700),
+                border: Border.all(color: t.error),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.error_outline, color: Colors.red.shade400, size: 18),
+                  OmiIconWidget(icon: OmiIcon.errorCircle, color: t.error, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       context.l10n.invalidJsonError,
-                      style: TextStyle(color: Colors.red.shade400, fontSize: 13),
+                      style: TextStyle(color: t.error, fontSize: 13),
                     ),
                   ),
                 ],
@@ -2579,15 +2643,15 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
+                color: t.bgSecondary,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade800),
+                border: Border.all(color: t.textSecondary),
               ),
               child: TextField(
                 controller: _controller,
                 maxLines: null,
                 expands: true,
-                style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 13),
+                style: TextStyle(color: t.textPrimary, fontFamily: 'monospace', fontSize: 13),
                 onChanged: (_) => _parseJson(),
                 decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.all(16)),
               ),
@@ -2599,11 +2663,13 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
   }
 
   Widget _buildBottomBar() {
+    final t = context.omi;
+
     return Container(
       padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: MediaQuery.of(context).padding.bottom + 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D0D0D),
-        border: Border(top: BorderSide(color: Colors.grey.shade900)),
+        color: t.bgPrimary,
+        border: Border(top: BorderSide(color: t.textSecondary)),
       ),
       child: SafeArea(
         top: false,
@@ -2613,14 +2679,15 @@ class _JsonEditorPageState extends State<_JsonEditorPage> {
           child: ElevatedButton(
             onPressed: _parseError != null ? null : () => Navigator.of(context).pop(_controller.text),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              disabledBackgroundColor: Colors.grey.shade800,
+              backgroundColor: (t.isGlass ? t.accent : Colors.white),
+              disabledBackgroundColor: t.textSecondary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
             ),
             child: Text(
               context.l10n.save,
-              style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w600),
+              style:
+                  TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
         ),

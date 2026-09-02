@@ -18,6 +18,9 @@ import 'package:omi/pages/conversation_detail/widgets/template_creation_outcome.
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/utils/theme/glass_effects.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class CreateTemplateBottomSheet extends StatefulWidget {
   final String? conversationId;
@@ -46,13 +49,14 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
   }
 
   Future<File> _createEmojiIcon(String emoji) async {
+    final t = context.omi;
     // Create a simple widget with white background and emoji
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     const size = 256.0;
 
     // Draw white background
-    final bgPaint = Paint()..color = Colors.white;
+    final bgPaint = Paint()..color = t.textPrimary;
     canvas.drawRect(const Rect.fromLTWH(0, 0, size, size), bgPaint);
 
     // Draw emoji text
@@ -225,253 +229,281 @@ class _CreateTemplateBottomSheetState extends State<CreateTemplateBottomSheet> {
     }
   }
 
+  /// Радиус панели — скруглены только верхние углы, нижние уходят за экран.
+  static const BorderRadius _sheetRadius = BorderRadius.vertical(top: Radius.circular(24));
+
+  /// Размытие страницы под панелью — то же 38, что у шторки настроек и у
+  /// панели «Шаблон сводки», из которой эта панель и открывается: два стекла
+  /// подряд не должны отличаться плотностью.
+  static const double _sheetBlurSigma = 38;
+
+  /// Вуаль панели в Glass — белый 0.62 вместо токена `bgPrimary` (0.46).
+  /// Токен честен на подложке [GlassBackdrop], но здесь панель стоит поверх
+  /// страницы разговора с её собственным текстом; блюр снимает разборчивость,
+  /// вуаль добивает остаточный контраст.
+  static const Color _glassSheetVeil = Color(0x9EFFFFFF);
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0F0F14),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    final t = context.omi;
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Handle bar
+        Container(
+          width: 40,
+          height: 4,
+          margin: const EdgeInsets.only(top: 12),
+          decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(top: 12),
-              decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(2)),
-            ),
 
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              child: Row(
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [t.accent, t.accent],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(t.rowRadius),
+                ),
+                child: Icon(Icons.auto_fix_high, color: t.textPrimary, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  context.l10n.createCustomTemplate,
+                  style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+              ),
+              IconButton(
+                onPressed: _isCreating ? null : () => Navigator.pop(context),
+                icon: Icon(Icons.close, color: t.textSecondary),
+              ),
+            ],
+          ),
+        ),
+
+        // Form content
+        Flexible(
+          child: SingleChildScrollView(
+            controller: widget.scrollController,
+            padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 20),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  // Name field
+                  Text(
+                    context.l10n.templateName,
+                    style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _nameController,
+                    enabled: !_isCreating,
+                    style: TextStyle(color: t.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.templateNameHint,
+                      hintStyle: TextStyle(color: t.textTertiary),
+                      filled: true,
+                      fillColor: t.bgSecondary,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(t.rowRadius),
+                        borderSide: BorderSide.none,
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
-                    child: const Icon(Icons.auto_fix_high, color: Colors.white, size: 20),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return context.l10n.pleaseEnterAppName;
+                      }
+                      if (value.trim().length < 3) {
+                        return context.l10n.nameMustBeAtLeast3Characters;
+                      }
+                      return null;
+                    },
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      context.l10n.createCustomTemplate,
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+
+                  const SizedBox(height: 20),
+
+                  // Prompt field
+                  Text(
+                    context.l10n.conversationPrompt,
+                    style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _promptController,
+                    enabled: !_isCreating,
+                    style: TextStyle(color: t.textPrimary),
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: context.l10n.conversationPromptHint,
+                      hintStyle: TextStyle(color: t.textTertiary),
+                      filled: true,
+                      fillColor: t.bgSecondary,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(t.rowRadius),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return context.l10n.pleaseEnterAppPrompt;
+                      }
+                      if (value.trim().length < 10) {
+                        return context.l10n.promptMustBeAtLeast10Characters;
+                      }
+                      return null;
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Public toggle
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: t.bgSecondary,
+                      borderRadius: BorderRadius.circular(t.rowRadius),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: t.bgTertiary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Center(
+                            child: FaIcon(
+                              _isPublic ? FontAwesomeIcons.globe : FontAwesomeIcons.lock,
+                              color: t.textSecondary,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.makePublic,
+                                style: TextStyle(
+                                  color: t.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _isPublic ? context.l10n.anyoneCanDiscoverTemplate : context.l10n.onlyYouCanUseTemplate,
+                                style: TextStyle(color: t.textSecondary, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                        OmiSwitch(
+                          value: _isPublic,
+                          onChanged: _isCreating
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _isPublic = value;
+                                  });
+                                },
+                          classicActiveThumbColor: t.accent,
+                        ),
+                      ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: _isCreating ? null : () => Navigator.pop(context),
-                    icon: Icon(Icons.close, color: Colors.grey.shade500),
+
+                  const SizedBox(height: 24),
+
+                  // Create button
+                  SizedBox(
+                    width: double.infinity,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      child: ElevatedButton(
+                        onPressed: _isCreating ? null : _createTemplate,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isCreating ? t.bgTertiary : t.textPrimary,
+                          foregroundColor: t.bgPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
+                          elevation: 0,
+                        ),
+                        child: _isCreating
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    _statusMessage,
+                                    style: TextStyle(
+                                      color: t.textPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                context.l10n.createApp,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              ),
+                      ),
+                    ),
                   ),
+
+                  SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
                 ],
               ),
             ),
+          ),
+        ),
+      ],
+    );
 
-            // Form content
-            Flexible(
-              child: SingleChildScrollView(
-                controller: widget.scrollController,
-                padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Name field
-                      Text(
-                        context.l10n.templateName,
-                        style: TextStyle(color: Colors.grey.shade300, fontSize: 14, fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _nameController,
-                        enabled: !_isCreating,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: context.l10n.templateNameHint,
-                          hintStyle: TextStyle(color: Colors.grey.shade600),
-                          filled: true,
-                          fillColor: const Color(0xFF1F1F25),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return context.l10n.pleaseEnterAppName;
-                          }
-                          if (value.trim().length < 3) {
-                            return context.l10n.nameMustBeAtLeast3Characters;
-                          }
-                          return null;
-                        },
-                      ),
+    if (!t.isGlass) {
+      return GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
+          decoration: BoxDecoration(color: t.bgPrimary, borderRadius: _sheetRadius),
+          child: content,
+        ),
+      );
+    }
 
-                      const SizedBox(height: 20),
-
-                      // Prompt field
-                      Text(
-                        context.l10n.conversationPrompt,
-                        style: TextStyle(color: Colors.grey.shade300, fontSize: 14, fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _promptController,
-                        enabled: !_isCreating,
-                        style: const TextStyle(color: Colors.white),
-                        maxLines: 4,
-                        decoration: InputDecoration(
-                          hintText: context.l10n.conversationPromptHint,
-                          hintStyle: TextStyle(color: Colors.grey.shade600),
-                          filled: true,
-                          fillColor: const Color(0xFF1F1F25),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.all(16),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return context.l10n.pleaseEnterAppPrompt;
-                          }
-                          if (value.trim().length < 10) {
-                            return context.l10n.promptMustBeAtLeast10Characters;
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // Public toggle
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1F1F25),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2A2A2E),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Center(
-                                child: FaIcon(
-                                  _isPublic ? FontAwesomeIcons.globe : FontAwesomeIcons.lock,
-                                  color: Colors.grey.shade400,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    context.l10n.makePublic,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _isPublic
-                                        ? context.l10n.anyoneCanDiscoverTemplate
-                                        : context.l10n.onlyYouCanUseTemplate,
-                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: _isPublic,
-                              onChanged: _isCreating
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        _isPublic = value;
-                                      });
-                                    },
-                              activeThumbColor: const Color(0xFF6366F1),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Create button
-                      SizedBox(
-                        width: double.infinity,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          child: ElevatedButton(
-                            onPressed: _isCreating ? null : _createTemplate,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _isCreating ? const Color(0xFF2A2A2E) : Colors.white,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 0,
-                            ),
-                            child: _isCreating
-                                ? Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Text(
-                                        _statusMessage,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : Text(
-                                    context.l10n.createApp,
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                  ),
-                          ),
-                        ),
-                      ),
-
-                      SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+    // Glass: под панелью честное стекло — сначала размывается всё, что уже
+    // нарисовано ниже, и только поверх ложится вуаль.
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: glassBlur(
+        borderRadius: _sheetRadius,
+        sigma: _sheetBlurSigma,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: _glassSheetVeil, borderRadius: _sheetRadius),
+          child: content,
         ),
       ),
     );

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:omi/widgets/omi_switch.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -25,6 +26,9 @@ import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/confirmation_dialog.dart';
 import 'widgets/capabilities_chips_widget.dart';
 import 'widgets/prompt_text_field.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AddAppPage extends StatefulWidget {
   final bool presetForConversationAnalysis;
@@ -55,17 +59,19 @@ class _AddAppPageState extends State<AddAppPage> {
   Widget build(BuildContext context) {
     return Consumer<AddAppProvider>(
       builder: (context, provider, child) {
+        final t = context.omi;
+
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
             title: Text(context.l10n.submitApp),
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             actions: [
               Center(
                 child: Padding(
                   padding: const EdgeInsets.only(right: 16.0),
                   child: Material(
-                    color: Colors.white,
+                    color: (t.isGlass ? t.accent : Colors.white),
                     borderRadius: BorderRadius.circular(20),
                     child: InkWell(
                       onTap: () {
@@ -80,10 +86,14 @@ class _AddAppPageState extends State<AddAppPage> {
                           children: [
                             Text(
                               context.l10n.docs,
-                              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600, fontSize: 12),
+                              style: TextStyle(
+                                  color: (t.isGlass ? t.onAccent : Colors.black),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12),
                             ),
                             const SizedBox(width: 4),
-                            const FaIcon(FontAwesomeIcons.arrowUpRightFromSquare, color: Colors.black, size: 10),
+                            FaIcon(FontAwesomeIcons.arrowUpRightFromSquare,
+                                color: (t.isGlass ? t.onAccent : Colors.black), size: 10),
                           ],
                         ),
                       ),
@@ -101,11 +111,11 @@ class _AddAppPageState extends State<AddAppPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+                      CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
                       const SizedBox(height: 14),
                       Text(
                         provider.isSubmitting ? context.l10n.submittingYourApp : context.l10n.holdOnPreparingForm,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: t.textPrimary),
                       ),
                     ],
                   ),
@@ -145,7 +155,7 @@ class _AddAppPageState extends State<AddAppPage> {
                             const SizedBox(height: 18),
                             Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1F1F25),
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(18.0),
                               ),
                               padding: const EdgeInsets.all(14.0),
@@ -165,7 +175,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                         ),
                                         child: Text(
                                           context.l10n.previewScreenshots,
-                                          style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                                          style: TextStyle(color: t.textSecondary, fontSize: 16),
                                         ),
                                       ),
                                       if (provider.thumbnailUrls.isEmpty)
@@ -175,20 +185,20 @@ class _AddAppPageState extends State<AddAppPage> {
                                             width: 36,
                                             height: 36,
                                             decoration: BoxDecoration(
-                                              color: Colors.grey.withValues(alpha: 0.3),
+                                              color: t.textTertiary,
                                               shape: BoxShape.circle,
                                             ),
                                             child: Center(
                                               child: provider.isUploadingThumbnail
-                                                  ? const SizedBox(
+                                                  ? SizedBox(
                                                       width: 16,
                                                       height: 16,
                                                       child: CircularProgressIndicator(
                                                         strokeWidth: 2,
-                                                        color: Colors.white,
+                                                        color: t.textPrimary,
                                                       ),
                                                     )
-                                                  : const FaIcon(FontAwesomeIcons.image, size: 16, color: Colors.white),
+                                                  : FaIcon(FontAwesomeIcons.image, size: 16, color: t.textPrimary),
                                             ),
                                           ),
                                         ),
@@ -212,25 +222,25 @@ class _AddAppPageState extends State<AddAppPage> {
                                                   height: 180,
                                                   margin: const EdgeInsets.only(right: 8),
                                                   decoration: BoxDecoration(
-                                                    color: const Color(0xFF35343B),
+                                                    color: t.bgTertiary,
                                                     borderRadius: BorderRadius.circular(8),
                                                   ),
                                                   child: provider.isUploadingThumbnail
-                                                      ? const Center(
+                                                      ? Center(
                                                           child: SizedBox(
                                                             width: 16,
                                                             height: 16,
                                                             child: CircularProgressIndicator(
                                                               strokeWidth: 2,
-                                                              color: Colors.white,
+                                                              color: t.textPrimary,
                                                             ),
                                                           ),
                                                         )
-                                                      : const Center(
+                                                      : Center(
                                                           child: FaIcon(
                                                             FontAwesomeIcons.image,
                                                             size: 28,
-                                                            color: Colors.white,
+                                                            color: t.textPrimary,
                                                           ),
                                                         ),
                                                 ),
@@ -257,19 +267,19 @@ class _AddAppPageState extends State<AddAppPage> {
                                                       margin: const EdgeInsets.only(right: 8),
                                                       decoration: BoxDecoration(
                                                         borderRadius: BorderRadius.circular(8),
-                                                        border: Border.all(color: const Color(0xFF424242), width: 1),
+                                                        border: Border.all(color: t.divider, width: 1),
                                                         image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
                                                       ),
                                                     ),
                                                     placeholder: (context, url) => ShimmerWithTimeout(
-                                                      baseColor: Colors.grey[900]!,
-                                                      highlightColor: Colors.grey[800]!,
+                                                      baseColor: t.bgSecondary,
+                                                      highlightColor: t.bgTertiary,
                                                       child: Container(
                                                         width: 120,
                                                         height: 180,
                                                         margin: const EdgeInsets.only(right: 8),
                                                         decoration: BoxDecoration(
-                                                          color: Colors.black,
+                                                          color: t.bgPrimary,
                                                           borderRadius: BorderRadius.circular(8),
                                                         ),
                                                       ),
@@ -279,7 +289,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                                       height: 180,
                                                       margin: const EdgeInsets.only(right: 8),
                                                       decoration: BoxDecoration(
-                                                        color: Colors.grey[900],
+                                                        color: t.bgSecondary,
                                                         borderRadius: BorderRadius.circular(8),
                                                       ),
                                                       child: const FaIcon(FontAwesomeIcons.triangleExclamation),
@@ -293,14 +303,14 @@ class _AddAppPageState extends State<AddAppPage> {
                                                     onTap: () => provider.removeThumbnail(index),
                                                     child: Container(
                                                       padding: const EdgeInsets.all(4),
-                                                      decoration: const BoxDecoration(
-                                                        color: Colors.white,
+                                                      decoration: BoxDecoration(
+                                                        color: (t.isGlass ? t.accent : Colors.white),
                                                         shape: BoxShape.circle,
                                                       ),
-                                                      child: const FaIcon(
+                                                      child: FaIcon(
                                                         FontAwesomeIcons.xmark,
                                                         size: 10,
-                                                        color: Colors.black,
+                                                        color: (t.isGlass ? t.onAccent : Colors.black),
                                                       ),
                                                     ),
                                                   ),
@@ -317,7 +327,7 @@ class _AddAppPageState extends State<AddAppPage> {
                             const SizedBox(height: 18),
                             Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1F1F25),
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(18.0),
                               ),
                               padding: const EdgeInsets.fromLTRB(14.0, 20.0, 14.0, 14.0),
@@ -332,11 +342,11 @@ class _AddAppPageState extends State<AddAppPage> {
                                         Text.rich(
                                           TextSpan(
                                             text: context.l10n.capabilities,
-                                            style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
-                                            children: const [
+                                            style: TextStyle(color: t.textSecondary, fontSize: 16),
+                                            children: [
                                               TextSpan(
                                                 text: '*',
-                                                style: TextStyle(color: Colors.red),
+                                                style: TextStyle(color: t.error),
                                               ),
                                             ],
                                           ),
@@ -347,7 +357,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                           },
                                           child: FaIcon(
                                             FontAwesomeIcons.solidCircleQuestion,
-                                            color: Colors.grey.shade500,
+                                            color: t.textSecondary,
                                             size: 18,
                                           ),
                                         ),
@@ -376,7 +386,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                       },
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF1F1F25),
+                                          color: t.bgSecondary,
                                           borderRadius: BorderRadius.circular(18.0),
                                         ),
                                         padding: const EdgeInsets.all(14.0),
@@ -411,7 +421,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                   const SizedBox(height: 12),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1F1F25),
+                                      color: t.bgSecondary,
                                       borderRadius: BorderRadius.circular(18.0),
                                     ),
                                     padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 20.0),
@@ -423,7 +433,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                           padding: const EdgeInsets.only(left: 8.0),
                                           child: Text(
                                             context.l10n.notificationScopes,
-                                            style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                                            style: TextStyle(color: t.textSecondary, fontSize: 16),
                                           ),
                                         ),
                                         const SizedBox(height: 16),
@@ -440,7 +450,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                   const SizedBox(height: 12),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1F1F25),
+                                      color: t.bgSecondary,
                                       borderRadius: BorderRadius.circular(18.0),
                                     ),
                                     padding: const EdgeInsets.all(14.0),
@@ -452,11 +462,11 @@ class _AddAppPageState extends State<AddAppPage> {
                                           child: Text.rich(
                                             TextSpan(
                                               text: 'GitHub Repository URL',
-                                              style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
-                                              children: const [
+                                              style: TextStyle(color: t.textSecondary, fontSize: 16),
+                                              children: [
                                                 TextSpan(
                                                   text: ' *',
-                                                  style: TextStyle(color: Colors.red),
+                                                  style: TextStyle(color: t.error),
                                                 ),
                                               ],
                                             ),
@@ -467,7 +477,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                           padding: const EdgeInsets.only(left: 8.0),
                                           child: Text(
                                             'Link to your app\'s source code repository',
-                                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                            style: TextStyle(color: t.textSecondary, fontSize: 13),
                                           ),
                                         ),
                                         const SizedBox(height: 12),
@@ -475,22 +485,22 @@ class _AddAppPageState extends State<AddAppPage> {
                                           controller: provider.sourceCodeUrlController,
                                           decoration: InputDecoration(
                                             hintText: 'https://github.com/username/repo',
-                                            hintStyle: const TextStyle(color: Colors.grey),
+                                            hintStyle: TextStyle(color: t.textSecondary),
                                             border: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(12),
-                                              borderSide: const BorderSide(color: Colors.grey),
+                                              borderSide: BorderSide(color: t.textSecondary),
                                             ),
                                             enabledBorder: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(12),
-                                              borderSide: BorderSide(color: Colors.grey.shade800),
+                                              borderSide: BorderSide(color: t.textSecondary),
                                             ),
                                             focusedBorder: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(12),
-                                              borderSide: const BorderSide(color: Colors.white),
+                                              borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white)),
                                             ),
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                           ),
-                                          style: const TextStyle(color: Colors.white),
+                                          style: TextStyle(color: t.textPrimary),
                                           keyboardType: TextInputType.url,
                                           validator: (value) {
                                             if (value == null || value.trim().isEmpty) {
@@ -512,7 +522,7 @@ class _AddAppPageState extends State<AddAppPage> {
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1F1F25),
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(18),
                               ),
                               child: Column(
@@ -521,21 +531,11 @@ class _AddAppPageState extends State<AddAppPage> {
                                   // Public toggle
                                   Row(
                                     children: [
-                                      Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF2A2A2E),
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        child: Center(
-                                          child: FaIcon(
-                                            provider.makeAppPublic ? FontAwesomeIcons.globe : FontAwesomeIcons.lock,
-                                            color: Colors.grey.shade400,
-                                            size: 16,
-                                          ),
-                                        ),
-                                      ),
+                                      SettingsIconChip.boxed(
+                                          icon: (size) => FaIcon(
+                                              provider.makeAppPublic ? FontAwesomeIcons.globe : FontAwesomeIcons.lock,
+                                              color: t.textSecondary,
+                                              size: size)),
                                       const SizedBox(width: 14),
                                       Expanded(
                                         child: Column(
@@ -543,8 +543,8 @@ class _AddAppPageState extends State<AddAppPage> {
                                           children: [
                                             Text(
                                               context.l10n.makePublic,
-                                              style: const TextStyle(
-                                                color: Colors.white,
+                                              style: TextStyle(
+                                                color: t.textPrimary,
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w500,
                                               ),
@@ -554,17 +554,17 @@ class _AddAppPageState extends State<AddAppPage> {
                                               provider.makeAppPublic
                                                   ? context.l10n.anyoneCanDiscover
                                                   : context.l10n.onlyYouCanUse,
-                                              style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                                              style: TextStyle(color: t.textSecondary, fontSize: 13),
                                             ),
                                           ],
                                         ),
                                       ),
-                                      Switch(
+                                      OmiSwitch(
                                         value: provider.makeAppPublic,
                                         onChanged: (value) {
                                           provider.setIsPrivate(value);
                                         },
-                                        activeThumbColor: const Color(0xFF6366F1),
+                                        classicActiveThumbColor: t.accent,
                                       ),
                                     ],
                                   ),
@@ -572,27 +572,15 @@ class _AddAppPageState extends State<AddAppPage> {
                                   if (provider.allowPaidApps) ...[
                                     Padding(
                                       padding: const EdgeInsets.symmetric(vertical: 16),
-                                      child: Divider(color: Colors.grey.shade800, height: 1),
+                                      child: Divider(color: t.textSecondary, height: 1),
                                     ),
 
                                     // Paid toggle
                                     Row(
                                       children: [
-                                        Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF2A2A2E),
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                          child: Center(
-                                            child: FaIcon(
-                                              FontAwesomeIcons.dollarSign,
-                                              color: Colors.grey.shade400,
-                                              size: 16,
-                                            ),
-                                          ),
-                                        ),
+                                        SettingsIconChip.boxed(
+                                            icon: (size) => OmiIconWidget(
+                                                icon: OmiIcon.dollar, color: t.textSecondary, size: size)),
                                         const SizedBox(width: 14),
                                         Expanded(
                                           child: Column(
@@ -600,8 +588,8 @@ class _AddAppPageState extends State<AddAppPage> {
                                             children: [
                                               Text(
                                                 context.l10n.paidApp,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
+                                                style: TextStyle(
+                                                  color: t.textPrimary,
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w500,
                                                 ),
@@ -611,17 +599,17 @@ class _AddAppPageState extends State<AddAppPage> {
                                                 provider.isPaid
                                                     ? context.l10n.usersPayToUse
                                                     : context.l10n.freeForEveryone,
-                                                style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                                                style: TextStyle(color: t.textSecondary, fontSize: 13),
                                               ),
                                             ],
                                           ),
                                         ),
-                                        Switch(
+                                        OmiSwitch(
                                           value: provider.isPaid,
                                           onChanged: (value) {
                                             provider.setIsPaid(value);
                                           },
-                                          activeThumbColor: const Color(0xFF22C55E),
+                                          classicActiveThumbColor: t.success,
                                         ),
                                       ],
                                     ),
@@ -632,15 +620,15 @@ class _AddAppPageState extends State<AddAppPage> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF2A2A2E),
+                                          color: t.bgTertiary,
                                           borderRadius: BorderRadius.circular(14),
                                         ),
                                         child: Row(
                                           children: [
-                                            const Text(
+                                            Text(
                                               '\$',
                                               style: TextStyle(
-                                                color: Colors.white,
+                                                color: t.textPrimary,
                                                 fontSize: 20,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -650,14 +638,14 @@ class _AddAppPageState extends State<AddAppPage> {
                                               child: TextField(
                                                 controller: provider.priceController,
                                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                style: const TextStyle(
-                                                  color: Colors.white,
+                                                style: TextStyle(
+                                                  color: t.textPrimary,
                                                   fontSize: 20,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                                 decoration: InputDecoration(
                                                   hintText: '0.00',
-                                                  hintStyle: TextStyle(color: Colors.grey.shade600, fontSize: 20),
+                                                  hintStyle: TextStyle(color: t.textSecondary, fontSize: 20),
                                                   border: InputBorder.none,
                                                   isDense: true,
                                                   contentPadding: EdgeInsets.zero,
@@ -666,7 +654,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                             ),
                                             Text(
                                               context.l10n.perMonth,
-                                              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                                              style: TextStyle(color: t.textSecondary, fontSize: 14),
                                             ),
                                           ],
                                         ),
@@ -689,9 +677,11 @@ class _AddAppPageState extends State<AddAppPage> {
                   padding: const EdgeInsets.only(left: 16.0, right: 16, bottom: 30, top: 10),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12.0),
-                    color: const Color(0xFF1F1F25),
+                    color: t.bgSecondary,
                     gradient: LinearGradient(
-                      colors: [Colors.black, Colors.black.withValues(alpha: 0)],
+                      colors: t.isGlass
+                          ? [t.bgSecondary, t.bgSecondary.withValues(alpha: 0)]
+                          : [Colors.black, Colors.black.withValues(alpha: 0)],
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                     ),
@@ -753,9 +743,9 @@ class _AddAppPageState extends State<AddAppPage> {
                                                 context: context,
                                                 builder: (ctx) => Container(
                                                   padding: const EdgeInsets.all(20),
-                                                  decoration: const BoxDecoration(
-                                                    color: Color(0xFF1F1F25),
-                                                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                                  decoration: BoxDecoration(
+                                                    color: t.bgSecondary,
+                                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                                                   ),
                                                   child: Material(
                                                     color: Colors.transparent,
@@ -767,15 +757,15 @@ class _AddAppPageState extends State<AddAppPage> {
                                                           height: 4,
                                                           margin: const EdgeInsets.only(bottom: 20),
                                                           decoration: BoxDecoration(
-                                                            color: Colors.grey.shade700,
+                                                            color: t.textSecondary,
                                                             borderRadius: BorderRadius.circular(2),
                                                           ),
                                                         ),
                                                         const SizedBox(height: 20),
                                                         Text(
                                                           context.l10n.startEarning,
-                                                          style: const TextStyle(
-                                                            color: Colors.white,
+                                                          style: TextStyle(
+                                                            color: t.textPrimary,
                                                             fontSize: 24,
                                                             fontWeight: FontWeight.bold,
                                                           ),
@@ -784,11 +774,11 @@ class _AddAppPageState extends State<AddAppPage> {
                                                         Text(
                                                           context.l10n.connectStripeOrPayPal,
                                                           textAlign: TextAlign.center,
-                                                          style: const TextStyle(color: Colors.grey, fontSize: 16),
+                                                          style: TextStyle(color: t.textSecondary, fontSize: 16),
                                                         ),
                                                         const SizedBox(height: 32),
                                                         CupertinoButton(
-                                                          color: Colors.white,
+                                                          color: t.textPrimary,
                                                           borderRadius: BorderRadius.circular(12),
                                                           onPressed: () {
                                                             Navigator.pop(ctx);
@@ -796,8 +786,8 @@ class _AddAppPageState extends State<AddAppPage> {
                                                           },
                                                           child: Text(
                                                             context.l10n.connectNow,
-                                                            style: const TextStyle(
-                                                              color: Colors.black,
+                                                            style: TextStyle(
+                                                              color: (t.isGlass ? t.onAccent : Colors.black),
                                                               fontWeight: FontWeight.w600,
                                                             ),
                                                           ),
@@ -807,7 +797,7 @@ class _AddAppPageState extends State<AddAppPage> {
                                                           onPressed: () => Navigator.pop(ctx),
                                                           child: Text(
                                                             context.l10n.maybeLater,
-                                                            style: TextStyle(color: Colors.grey.shade400),
+                                                            style: TextStyle(color: t.textSecondary),
                                                           ),
                                                         ),
                                                         SizedBox(height: MediaQuery.of(context).padding.bottom),
@@ -834,11 +824,11 @@ class _AddAppPageState extends State<AddAppPage> {
                           padding: const EdgeInsets.all(12.0),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12.0),
-                            color: provider.isValid ? Colors.white : Colors.grey.shade700,
+                            color: provider.isValid ? (t.isGlass ? t.accent : Colors.white) : t.textSecondary,
                           ),
                           child: Text(
                             context.l10n.submitApp,
-                            style: const TextStyle(color: Colors.black, fontSize: 16),
+                            style: TextStyle(color: (t.isGlass ? t.onAccent : Colors.black), fontSize: 16),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -851,12 +841,12 @@ class _AddAppPageState extends State<AddAppPage> {
                         child: Text.rich(
                           TextSpan(
                             text: context.l10n.bySubmittingYouAgreeToOmi,
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
+                            style: TextStyle(color: t.textSecondary, fontSize: 10),
                             children: [
                               TextSpan(
                                 text: context.l10n.termsAndPrivacyPolicy,
                                 style: TextStyle(
-                                  color: Colors.grey.shade500,
+                                  color: t.textSecondary,
                                   fontSize: 10,
                                   decoration: TextDecoration.underline,
                                 ),

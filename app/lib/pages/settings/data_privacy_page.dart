@@ -11,6 +11,8 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/providers/user_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DataPrivacyPage extends StatefulWidget {
   const DataPrivacyPage({super.key});
@@ -27,12 +29,14 @@ class _DataPrivacyPageState extends State<DataPrivacyPage> {
   }
 
   Widget _buildEncryptionBanner(BuildContext context) {
+    final t = context.omi;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF35343B), width: 1),
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.cardRadius),
+        border: Border.all(color: t.bgTertiary, width: 1),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,24 +45,24 @@ class _DataPrivacyPageState extends State<DataPrivacyPage> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: Colors.deepPurple.withValues(alpha: 0.15),
+              color: t.accent.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.lock_outline, color: Colors.deepPurple.shade200, size: 20),
+            child: OmiIconWidget(icon: OmiIcon.lock, color: t.accent, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade300, height: 1.5),
+                style: TextStyle(fontSize: 14, color: t.textSecondary, height: 1.5),
                 children: [
                   TextSpan(text: '${context.l10n.dataEncryptedBanner} '),
                   TextSpan(
                     text: context.l10n.learnMore,
                     style: TextStyle(
-                      color: Colors.deepPurple.shade200,
+                      color: t.accent,
                       decoration: TextDecoration.underline,
-                      decorationColor: Colors.deepPurple.shade200,
+                      decorationColor: t.accent,
                     ),
                     recognizer: TapGestureRecognizer()
                       ..onTap = () async {
@@ -118,9 +122,9 @@ class _DataPrivacyPageState extends State<DataPrivacyPage> {
         final isMigrating = provider.isMigrating;
 
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             automaticallyImplyLeading: true,
             title: Text(context.l10n.dataPrivacy, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
             centerTitle: true,
@@ -136,6 +140,8 @@ class _DataPrivacyPageState extends State<DataPrivacyPage> {
                   const SizedBox(height: 32),
                   Consumer<AppProvider>(
                     builder: (context, appProvider, child) {
+                      final t = context.omi;
+
                       final appsWithDataAccess =
                           appProvider.apps.where((app) => app.enabled && app.worksExternally()).toList();
 
@@ -144,28 +150,28 @@ class _DataPrivacyPageState extends State<DataPrivacyPage> {
                         children: [
                           Text(
                             context.l10n.appAccess,
-                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
-                          Text(context.l10n.appAccessDesc, style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+                          Text(context.l10n.appAccessDesc, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                           const SizedBox(height: 16),
                           if (appsWithDataAccess.isEmpty)
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1A1A1A),
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Center(
                                 child: Column(
                                   children: [
-                                    Icon(Icons.apps_outlined, color: Colors.grey.shade600, size: 32),
+                                    Icon(Icons.apps_outlined, color: t.textSecondary, size: 32),
                                     const SizedBox(height: 16),
                                     Text(
                                       context.l10n.noAppsExternalAccess,
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.grey.shade400),
+                                      style: TextStyle(color: t.textSecondary),
                                     ),
                                   ],
                                 ),
@@ -175,11 +181,11 @@ class _DataPrivacyPageState extends State<DataPrivacyPage> {
                             Column(
                               children: appsWithDataAccess.map((app) {
                                 return Card(
-                                  color: const Color(0xFF1A1A1A),
+                                  color: t.bgSecondary,
                                   margin: const EdgeInsets.only(bottom: 10),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    side: const BorderSide(color: Color(0xFF35343B), width: 1),
+                                    side: BorderSide(color: t.bgTertiary, width: 1),
                                   ),
                                   elevation: 0,
                                   clipBehavior: Clip.antiAlias,
@@ -189,7 +195,7 @@ class _DataPrivacyPageState extends State<DataPrivacyPage> {
                                     title: Text(app.getName()),
                                     subtitle: Text(
                                       _getAccessDescription(context, app),
-                                      style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                                      style: TextStyle(color: t.textSecondary, fontSize: 12),
                                     ),
                                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                                     onTap: () {

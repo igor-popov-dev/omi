@@ -9,7 +9,7 @@ import 'package:omi/backend/schema/daily_summary.dart';
 import 'package:omi/pages/settings/daily_summary_detail_page.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/utils/ui_guidelines.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class DailySummariesList extends StatefulWidget {
   const DailySummariesList({super.key});
@@ -122,6 +122,7 @@ class _DailySummariesListState extends State<DailySummariesList> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     if (_isLoading) {
       return SliverToBoxAdapter(child: _buildLoadingShimmer());
     }
@@ -141,7 +142,7 @@ class _DailySummariesListState extends State<DailySummariesList> {
                 child: SizedBox(
                   width: 24,
                   height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey.shade400),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: t.textSecondary),
                 ),
               ),
             );
@@ -160,6 +161,7 @@ class _DailySummariesListState extends State<DailySummariesList> {
   }
 
   Widget _buildLoadingShimmer() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -168,12 +170,12 @@ class _DailySummariesListState extends State<DailySummariesList> {
           (index) => Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: ShimmerWithTimeout(
-              baseColor: AppStyles.backgroundSecondary,
-              highlightColor: AppStyles.backgroundTertiary,
+              baseColor: t.bgSecondary,
+              highlightColor: t.bgTertiary,
               child: Container(
                 height: 80,
                 decoration: BoxDecoration(
-                  color: AppStyles.backgroundSecondary,
+                  color: t.bgSecondary,
                   borderRadius: BorderRadius.circular(24),
                 ),
               ),
@@ -185,6 +187,7 @@ class _DailySummariesListState extends State<DailySummariesList> {
   }
 
   Widget _buildEmptyState() {
+    final t = context.omi;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -196,13 +199,13 @@ class _DailySummariesListState extends State<DailySummariesList> {
             const SizedBox(height: 16),
             Text(
               context.l10n.noDailyRecapsYet,
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 18, fontWeight: FontWeight.w500),
+              style: TextStyle(color: t.textSecondary, fontSize: 18, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
             Text(
               context.l10n.dailyRecapsDescription,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+              style: TextStyle(color: t.textTertiary, fontSize: 14),
             ),
           ],
         ),
@@ -242,6 +245,7 @@ class _DailySummariesListState extends State<DailySummariesList> {
   }
 
   Widget _buildSummaryCard(DailySummary summary) {
+    final t = context.omi;
     return Dismissible(
       key: ValueKey('daily-summary-${summary.id}'),
       direction: DismissDirection.endToStart,
@@ -256,7 +260,7 @@ class _DailySummariesListState extends State<DailySummariesList> {
         padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFFF6B6B).withValues(alpha: 0.85),
+            color: t.error.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(24.0),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -266,10 +270,10 @@ class _DailySummariesListState extends State<DailySummariesList> {
             children: [
               Text(
                 context.l10n.deleteRecap,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
               ),
               const SizedBox(width: 10),
-              const Icon(Icons.delete_outline, color: Colors.white),
+              Icon(Icons.delete_outline, color: t.textPrimary),
             ],
           ),
         ),
@@ -280,7 +284,7 @@ class _DailySummariesListState extends State<DailySummariesList> {
           padding: const EdgeInsets.only(top: 12, left: 16, right: 16),
           child: Container(
             width: double.maxFinite,
-            decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(24.0)),
+            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(24.0)),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               child: Row(
@@ -290,7 +294,7 @@ class _DailySummariesListState extends State<DailySummariesList> {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(t.rowRadius)),
                     alignment: Alignment.center,
                     child: Text(summary.dayEmoji, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
                   ),
@@ -312,26 +316,26 @@ class _DailySummariesListState extends State<DailySummariesList> {
                           children: [
                             Text(
                               _formatCondensedDate(summary.date),
-                              style: const TextStyle(color: Color(0xFF9A9BA1), fontSize: 14),
+                              style: TextStyle(color: t.textSecondary, fontSize: 14),
                               maxLines: 1,
                             ),
                             if (summary.stats.totalConversations > 0) ...[
-                              const Text(' • ', style: TextStyle(color: Color(0xFF9A9BA1), fontSize: 14)),
-                              const FaIcon(FontAwesomeIcons.solidComments, size: 10, color: Color(0xFF9A9BA1)),
+                              Text(' • ', style: TextStyle(color: t.textSecondary, fontSize: 14)),
+                              FaIcon(FontAwesomeIcons.solidComments, size: 10, color: t.textSecondary),
                               const SizedBox(width: 4),
                               Text(
                                 '${summary.stats.totalConversations}',
-                                style: const TextStyle(color: Color(0xFF9A9BA1), fontSize: 14),
+                                style: TextStyle(color: t.textSecondary, fontSize: 14),
                                 maxLines: 1,
                               ),
                             ],
                             if (summary.stats.actionItemsCount > 0) ...[
-                              const Text(' • ', style: TextStyle(color: Color(0xFF9A9BA1), fontSize: 14)),
-                              const FaIcon(FontAwesomeIcons.listCheck, size: 11, color: Color(0xFF9A9BA1)),
+                              Text(' • ', style: TextStyle(color: t.textSecondary, fontSize: 14)),
+                              FaIcon(FontAwesomeIcons.listCheck, size: 11, color: t.textSecondary),
                               const SizedBox(width: 4),
                               Text(
                                 '${summary.stats.actionItemsCount}',
-                                style: const TextStyle(color: Color(0xFF9A9BA1), fontSize: 14),
+                                style: TextStyle(color: t.textSecondary, fontSize: 14),
                                 maxLines: 1,
                               ),
                             ],

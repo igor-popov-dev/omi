@@ -9,6 +9,7 @@ import 'package:omi/backend/schema/app.dart';
 import 'package:omi/pages/apps/app_detail/app_detail.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AddMcpServerPage extends StatefulWidget {
   const AddMcpServerPage({super.key});
@@ -38,6 +39,8 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
   }
 
   Future<void> _connect() async {
+    final t = context.omi;
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -76,7 +79,7 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
       if (mounted) {
         try {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.mcpServerConnected(toolsCount)), backgroundColor: Colors.green),
+            SnackBar(content: Text(context.l10n.mcpServerConnected(toolsCount)), backgroundColor: t.success),
           );
         } catch (_) {}
         _navigateToAppDetail(_appId!);
@@ -102,6 +105,8 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
   }
 
   void _startPollingForCompletion() {
+    final t = context.omi;
+
     if (_appId == null) return;
     setState(() => _isPolling = true);
 
@@ -131,7 +136,7 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
           setState(() => _isPolling = false);
           try {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(context.l10n.mcpServerConnected(toolsCount)), backgroundColor: Colors.green),
+              SnackBar(content: Text(context.l10n.mcpServerConnected(toolsCount)), backgroundColor: t.success),
             );
             final app = App.fromJson(appData);
             Navigator.pop(context);
@@ -155,9 +160,11 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
   }
 
   void _showError(String message) {
+    final t = context.omi;
+
     if (!mounted) return;
     try {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: t.error));
     } catch (_) {
       // Widget may be deactivated during async navigation
     }
@@ -165,6 +172,8 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
@@ -181,7 +190,7 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
             children: [
               Text(
                 context.l10n.connectExternalAiTools,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white.withValues(alpha: 0.7)),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: t.textSecondary),
               ),
               const SizedBox(height: 32),
               TextFormField(
@@ -192,11 +201,11 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                    borderSide: BorderSide(color: t.hairline),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 1.5),
+                    borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1.5),
                   ),
                 ),
                 validator: (value) {
@@ -214,11 +223,11 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                    borderSide: BorderSide(color: t.hairline),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 1.5),
+                    borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1.5),
                   ),
                 ),
                 maxLines: 2,
@@ -232,11 +241,11 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                    borderSide: BorderSide(color: t.hairline),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.white, width: 1.5),
+                    borderSide: BorderSide(color: (t.isGlass ? t.accent : Colors.white), width: 1.5),
                   ),
                 ),
                 keyboardType: TextInputType.url,
@@ -259,24 +268,25 @@ class _AddMcpServerPageState extends State<AddMcpServerPage> {
                 child: ElevatedButton(
                   onPressed: (_isLoading || _isPolling) ? null : _connect,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
+                    backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                    foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: (_isLoading || _isPolling)
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const SizedBox(
+                            SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: (t.isGlass ? t.onAccent : Colors.black)),
                             ),
                             if (_isPolling) ...[
                               const SizedBox(width: 12),
                               Text(
                                 context.l10n.authorizingMcpServer,
-                                style: const TextStyle(fontSize: 14, color: Colors.black),
+                                style: TextStyle(fontSize: 14, color: (t.isGlass ? t.onAccent : Colors.black)),
                               ),
                             ],
                           ],

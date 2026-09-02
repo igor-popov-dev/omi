@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AnimatedLoadingButton extends StatefulWidget {
   final String text;
@@ -6,8 +7,12 @@ class AnimatedLoadingButton extends StatefulWidget {
   final double width;
   final double height;
   final Color color;
-  final Color loaderColor;
-  final TextStyle textStyle;
+
+  /// Defaults to the theme's primary text color when omitted.
+  final Color? loaderColor;
+
+  /// Defaults to 16pt in the theme's primary text color when omitted.
+  final TextStyle? textStyle;
   final Duration animationDuration;
 
   const AnimatedLoadingButton({
@@ -17,8 +22,8 @@ class AnimatedLoadingButton extends StatefulWidget {
     this.width = 200,
     this.height = 40,
     required this.color,
-    this.loaderColor = Colors.white,
-    this.textStyle = const TextStyle(fontSize: 16, color: Colors.white),
+    this.loaderColor,
+    this.textStyle,
     this.animationDuration = const Duration(milliseconds: 300),
   });
 
@@ -45,6 +50,7 @@ class _AnimatedLoadingButtonState extends State<AnimatedLoadingButton> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return AnimatedContainer(
       duration: widget.animationDuration,
       width: _isLoading ? widget.height : widget.width,
@@ -62,11 +68,15 @@ class _AnimatedLoadingButtonState extends State<AnimatedLoadingButton> {
                     height: widget.height / 2,
                     child: CircularProgressIndicator(
                       key: const ValueKey('loader'),
-                      color: widget.loaderColor,
+                      color: widget.loaderColor ?? t.textPrimary,
                       strokeWidth: 3.0,
                     ),
                   )
-                : Text(widget.text, key: const ValueKey('buttonText'), style: widget.textStyle),
+                : Text(
+                    widget.text,
+                    key: const ValueKey('buttonText'),
+                    style: widget.textStyle ?? TextStyle(fontSize: 16, color: t.textPrimary),
+                  ),
           ),
         ),
       ),

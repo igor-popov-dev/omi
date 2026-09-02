@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:omi/backend/schema/dev_api_key.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class DevApiKeyCreatedSheet extends StatefulWidget {
   final DevApiKeyCreated apiKey;
@@ -25,10 +27,12 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F0F0F),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: t.bgPrimary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -39,7 +43,7 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
               margin: const EdgeInsets.only(top: 12, bottom: 8),
               width: 40,
               height: 4,
-              decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
             ),
           ),
           // Success header
@@ -50,23 +54,26 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF10B981).withValues(alpha: 0.2),
-                        const Color(0xFF10B981).withValues(alpha: 0.05),
-                      ],
-                    ),
+                    color: t.isGlass ? t.success.withValues(alpha: 0.12) : null,
+                    gradient: t.isGlass
+                        ? null
+                        : LinearGradient(
+                            colors: [
+                              const Color(0xFF10B981).withValues(alpha: 0.2),
+                              const Color(0xFF10B981).withValues(alpha: 0.05),
+                            ],
+                          ),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 40),
+                  child: OmiIconWidget(icon: OmiIcon.checkCircle, color: t.success, size: 40),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   context.l10n.apiKeyCreated,
-                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textPrimary, fontSize: 22, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
-                Text(widget.apiKey.name, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14)),
+                Text(widget.apiKey.name, style: TextStyle(color: t.textSecondary, fontSize: 14)),
               ],
             ),
           ),
@@ -77,18 +84,18 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                color: t.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
+                border: Border.all(color: t.warning.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, color: Colors.amber.shade600, size: 20),
+                  OmiIconWidget(icon: OmiIcon.warning, color: t.warning, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       context.l10n.saveKeyWarning,
-                      style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: t.warning, fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ],
@@ -104,10 +111,10 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
+                  color: t.bgSecondary,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: _copied ? const Color(0xFF10B981) : const Color(0xFF2C2C2E),
+                    color: _copied ? t.success : t.bgTertiary,
                     width: _copied ? 1.5 : 1,
                   ),
                 ),
@@ -118,8 +125,8 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
                       children: [
                         Text(
                           context.l10n.yourApiKey,
-                          style: const TextStyle(
-                            color: Color(0xFF8E8E93),
+                          style: TextStyle(
+                            color: t.textSecondary,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -130,7 +137,7 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _copied ? const Color(0xFF10B981).withValues(alpha: 0.15) : const Color(0xFF252525),
+                            color: _copied ? t.success.withValues(alpha: 0.15) : t.bgTertiary,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
@@ -139,13 +146,13 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
                               Icon(
                                 _copied ? Icons.check : Icons.copy,
                                 size: 14,
-                                color: _copied ? const Color(0xFF10B981) : const Color(0xFF8E8E93),
+                                color: _copied ? t.success : t.textSecondary,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 _copied ? context.l10n.copied : context.l10n.tapToCopy,
                                 style: TextStyle(
-                                  color: _copied ? const Color(0xFF10B981) : const Color(0xFF8E8E93),
+                                  color: _copied ? t.success : t.textSecondary,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -160,7 +167,7 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
                       widget.apiKey.key,
                       style: TextStyle(
                         fontFamily: 'monospace',
-                        color: _copied ? const Color(0xFF10B981) : const Color(0xFF8B5CF6),
+                        color: _copied ? t.success : t.accent,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         height: 1.4,
@@ -181,8 +188,8 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
                   child: OutlinedButton(
                     onPressed: () => _copyKey(context),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: _copied ? const Color(0xFF10B981) : const Color(0xFF8B5CF6),
-                      side: BorderSide(color: _copied ? const Color(0xFF10B981) : const Color(0xFF8B5CF6), width: 1.5),
+                      foregroundColor: _copied ? t.success : t.accent,
+                      side: BorderSide(color: _copied ? t.success : t.accent, width: 1.5),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -204,8 +211,8 @@ class _DevApiKeyCreatedSheetState extends State<DevApiKeyCreatedSheet> {
                   child: ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF252525),
-                      foregroundColor: Colors.white,
+                      backgroundColor: t.bgTertiary,
+                      foregroundColor: t.textPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,

@@ -21,10 +21,11 @@ import 'package:omi/providers/capture_provider.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/providers/home_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/enums.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/utils/ui_guidelines.dart';
 import 'package:omi/widgets/shimmer_with_timeout.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class HomeContentPage extends StatefulWidget {
   const HomeContentPage({super.key});
@@ -73,6 +74,7 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     super.build(context);
     return Consumer<ConversationProvider>(
       builder: (context, convoProvider, child) {
@@ -81,8 +83,8 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
             HapticFeedback.mediumImpact();
             await Future.wait([convoProvider.getInitialConversations(), _loadSummaries()]);
           },
-          color: Colors.deepPurpleAccent,
-          backgroundColor: Colors.white,
+          color: t.accent,
+          backgroundColor: t.textPrimary,
           child: CustomScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
@@ -145,7 +147,9 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
                 SliverToBoxAdapter(child: _buildMindMapPreview(context)),
 
                 // Bottom padding so content isn't hidden behind chat bar + nav
-                const SliverToBoxAdapter(child: SizedBox(height: 160)),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: BottomNavMetrics.homeListBottomPadding(context, classic: 160)),
+                ),
               ] else if (convoProvider.isLoadingConversations || convoProvider.isFetchingConversations)
                 // Hide both the recent-convos preview AND the get-started tiles
                 // while we're still fetching — otherwise users with conversations
@@ -161,7 +165,7 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
                   hasScrollBody: false,
                   child: Padding(
                     // Bottom padding leaves room for the floating chat bar.
-                    padding: const EdgeInsets.only(bottom: 160),
+                    padding: EdgeInsets.only(bottom: BottomNavMetrics.homeListBottomPadding(context, classic: 160)),
                     child: Center(child: _buildGetStartedOptions(context)),
                   ),
                 ),
@@ -209,6 +213,7 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
   }
 
   Widget _buildGetStartedOptions(BuildContext context) {
+    final t = context.omi;
     Widget option({required IconData icon, required String label, required VoidCallback onTap}) {
       return GestureDetector(
         onTap: () {
@@ -223,22 +228,29 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
               height: 88,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF7B5CFF), Color(0xFF5733E0)],
-                ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.deepPurple.withValues(alpha: 0.45),
-                    blurRadius: 28,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
+                // Glass has no gradients and at most one ambient shadow; Classic keeps the
+                // exact purple gradient and glow it has always drawn.
+                color: t.isGlass ? t.accent : null,
+                gradient: t.isGlass
+                    ? null
+                    : const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF7B5CFF), Color(0xFF5733E0)],
+                      ),
+                border: Border.all(color: t.rowFill, width: 1),
+                boxShadow: t.isGlass
+                    ? const [BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, -2))]
+                    : [
+                        BoxShadow(
+                          color: t.accent.withValues(alpha: 0.45),
+                          blurRadius: 28,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
               ),
-              child: Icon(icon, color: Colors.white, size: 32),
+              child: Icon(icon, color: t.textPrimary, size: 32),
             ),
             const SizedBox(height: 10),
             SizedBox(
@@ -248,7 +260,7 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500, height: 1.2),
+                style: TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500, height: 1.2),
               ),
             ),
           ],
@@ -291,6 +303,7 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
   }
 
   Widget _buildSectionHeader(BuildContext context, String title, {VoidCallback? onViewAll, String? buttonLabel}) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 16, 8),
       child: Row(
@@ -300,7 +313,7 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
             onTap: onViewAll,
             child: Text(
               title,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ),
           if (onViewAll != null)
@@ -309,12 +322,12 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.12),
+                  color: t.textSecondary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
                   buttonLabel ?? context.l10n.viewAll,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
                 ),
               ),
             ),
@@ -324,6 +337,7 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
   }
 
   Widget _buildDailyRecapsPreview(BuildContext context) {
+    final t = context.omi;
     const cardHeight = DailySummaryCard.height;
     if (_loadingSummaries) {
       return Padding(
@@ -337,12 +351,12 @@ class HomeContentPageState extends State<HomeContentPage> with AutomaticKeepAliv
             itemBuilder: (_, __) => Padding(
               padding: const EdgeInsets.only(right: 12),
               child: ShimmerWithTimeout(
-                baseColor: AppStyles.backgroundSecondary,
-                highlightColor: AppStyles.backgroundTertiary,
+                baseColor: t.bgSecondary,
+                highlightColor: t.bgTertiary,
                 child: Container(
                   width: DailySummaryCard.width,
                   decoration: BoxDecoration(
-                    color: AppStyles.backgroundSecondary,
+                    color: t.bgSecondary,
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
@@ -454,6 +468,7 @@ class HomeConversationsPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     if (conversationProvider.isLoadingConversations && conversationProvider.conversations.isEmpty) {
       return SliverToBoxAdapter(
         child: Padding(
@@ -464,12 +479,12 @@ class HomeConversationsPreview extends StatelessWidget {
               (_) => Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: ShimmerWithTimeout(
-                  baseColor: AppStyles.backgroundSecondary,
-                  highlightColor: AppStyles.backgroundTertiary,
+                  baseColor: t.bgSecondary,
+                  highlightColor: t.bgTertiary,
                   child: Container(
                     height: 80,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundSecondary,
+                      color: t.bgSecondary,
                       borderRadius: BorderRadius.circular(24),
                     ),
                   ),

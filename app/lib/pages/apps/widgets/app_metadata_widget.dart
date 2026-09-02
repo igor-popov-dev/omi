@@ -14,6 +14,8 @@ import 'package:omi/gen/assets.gen.dart';
 import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AppMetadataWidget extends StatelessWidget {
   final File? imageFile;
@@ -44,6 +46,8 @@ class AppMetadataWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
@@ -56,7 +60,7 @@ class AppMetadataWidget extends StatelessWidget {
         child: Column(
           children: [
             Container(
-              decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(18.0)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(18.0)),
               padding: const EdgeInsets.all(14.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -71,7 +75,7 @@ class AppMetadataWidget extends StatelessWidget {
                               padding: const EdgeInsets.only(left: 8.0),
                               child: Text(
                                 context.l10n.appIdLabel,
-                                style: TextStyle(color: Colors.grey.shade300, fontSize: 16),
+                                style: TextStyle(color: t.textSecondary, fontSize: 16),
                               ),
                             ),
                             Container(
@@ -80,7 +84,7 @@ class AppMetadataWidget extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: Colors.transparent,
                                 borderRadius: BorderRadius.circular(12.0),
-                                border: Border.all(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+                                border: Border.all(color: t.textTertiary, width: 1),
                               ),
                               width: double.infinity,
                               child: Row(
@@ -88,7 +92,7 @@ class AppMetadataWidget extends StatelessWidget {
                                   Expanded(
                                     child: Text(
                                       context.watch<AddAppProvider>().updateAppId!,
-                                      style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+                                      style: TextStyle(color: t.textSecondary, fontSize: 16),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -107,7 +111,7 @@ class AppMetadataWidget extends StatelessWidget {
                                     child: Container(
                                       padding: const EdgeInsets.all(6.0),
                                       decoration: BoxDecoration(borderRadius: BorderRadius.circular(8.0)),
-                                      child: const FaIcon(FontAwesomeIcons.copy, color: Colors.white, size: 16),
+                                      child: FaIcon(FontAwesomeIcons.copy, color: t.textPrimary, size: 16),
                                     ),
                                   ),
                                 ],
@@ -132,7 +136,7 @@ class AppMetadataWidget extends StatelessWidget {
                               height: 105,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(16.0),
-                                border: Border.all(color: const Color(0xFF35343B), width: 2.0),
+                                border: Border.all(color: t.bgTertiary, width: 2.0),
                               ),
                               child: imageFile != null || imageUrl != null
                                   ? (imageUrl == null
@@ -147,11 +151,11 @@ class AppMetadataWidget extends StatelessWidget {
                                   : Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        const FaIcon(FontAwesomeIcons.camera, color: Colors.grey, size: 24),
+                                        FaIcon(FontAwesomeIcons.camera, color: t.textSecondary, size: 24),
                                         const SizedBox(height: 6),
                                         Text(
                                           '${context.l10n.appIconLabel}*',
-                                          style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                                          style: TextStyle(color: t.textSecondary, fontSize: 12),
                                         ),
                                       ],
                                     ),
@@ -165,8 +169,8 @@ class AppMetadataWidget extends StatelessWidget {
                                 onTap: pickImage,
                                 child: Container(
                                   padding: const EdgeInsets.all(6.0),
-                                  decoration: const BoxDecoration(color: Color(0xFF35343B), shape: BoxShape.circle),
-                                  child: const FaIcon(FontAwesomeIcons.pen, color: Colors.white, size: 12),
+                                  decoration: BoxDecoration(color: t.bgTertiary, shape: BoxShape.circle),
+                                  child: OmiIconWidget(icon: OmiIcon.edit, color: t.textPrimary, size: 12),
                                 ),
                               ),
                             ),
@@ -188,24 +192,24 @@ class AppMetadataWidget extends StatelessWidget {
                               controller: appNameController,
                               decoration: InputDecoration(
                                 labelText: '${context.l10n.appNameLabel}*',
-                                labelStyle: TextStyle(color: Colors.grey.shade400),
-                                floatingLabelStyle: TextStyle(color: Colors.grey.shade300),
+                                labelStyle: TextStyle(color: t.textSecondary),
+                                floatingLabelStyle: TextStyle(color: t.textSecondary),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 14.0),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12.0),
-                                  borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+                                  borderSide: BorderSide(color: t.hairline, width: 1),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12.0),
-                                  borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+                                  borderSide: BorderSide(color: t.hairline, width: 1),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12.0),
-                                  borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                                  borderSide: BorderSide(color: t.textSecondary, width: 1),
                                 ),
                                 errorBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12.0),
-                                  borderSide: BorderSide(color: Colors.red.shade300, width: 1),
+                                  borderSide: BorderSide(color: t.error, width: 1),
                                 ),
                                 filled: false,
                               ),
@@ -234,12 +238,12 @@ class AppMetadataWidget extends StatelessWidget {
                                                 const SizedBox(height: 12),
                                                 Text(
                                                   context.l10n.appCategoryModalTitle,
-                                                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                                                  style: TextStyle(color: t.textPrimary, fontSize: 18),
                                                 ),
                                                 const SizedBox(height: 18),
                                                 ListView.separated(
                                                   separatorBuilder: (context, index) {
-                                                    return Divider(color: Colors.grey.shade600, height: 1);
+                                                    return Divider(color: t.textSecondary, height: 1);
                                                   },
                                                   shrinkWrap: true,
                                                   itemCount: categories.length,
@@ -259,7 +263,7 @@ class AppMetadataWidget extends StatelessWidget {
                                                             Text(
                                                               categories[index].getLocalizedTitle(context),
                                                               style: TextStyle(
-                                                                color: Colors.grey.shade300,
+                                                                color: t.textSecondary,
                                                                 fontSize: 16,
                                                               ),
                                                             ),
@@ -270,7 +274,7 @@ class AppMetadataWidget extends StatelessWidget {
                                                                 provider.setAppCategory(categories[index].id);
                                                                 Navigator.pop(context);
                                                               },
-                                                              side: BorderSide(color: Colors.grey.shade300),
+                                                              side: BorderSide(color: t.textSecondary),
                                                               shape: const CircleBorder(),
                                                             ),
                                                           ],
@@ -293,7 +297,7 @@ class AppMetadataWidget extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Colors.transparent,
                                   borderRadius: BorderRadius.circular(12.0),
-                                  border: Border.all(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+                                  border: Border.all(color: t.textTertiary, width: 1),
                                 ),
                                 width: double.infinity,
                                 child: Row(
@@ -303,12 +307,12 @@ class AppMetadataWidget extends StatelessWidget {
                                         (category?.isNotEmpty == true ? category : '${context.l10n.categoryLabel}*') ??
                                             '${context.l10n.categoryLabel}*',
                                         style: TextStyle(
-                                          color: category != null ? Colors.grey.shade100 : Colors.grey.shade400,
+                                          color: category != null ? t.textSecondary : t.textSecondary,
                                           fontSize: 16,
                                         ),
                                       ),
                                     ),
-                                    FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade400, size: 14),
+                                    FaIcon(FontAwesomeIcons.chevronRight, color: t.textSecondary, size: 14),
                                   ],
                                 ),
                               ),
@@ -327,14 +331,14 @@ class AppMetadataWidget extends StatelessWidget {
                               padding: const EdgeInsets.all(16.0),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12.0),
-                                border: Border.all(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+                                border: Border.all(color: t.textTertiary, width: 1),
                               ),
                               constraints: BoxConstraints(minHeight: MediaQuery.sizeOf(context).height * 0.1),
                               child: Skeletonizer.zone(
                                 enabled: generatingDescription,
                                 effect: ShimmerEffect(
-                                  baseColor: Colors.grey[700]!,
-                                  highlightColor: Colors.grey[600]!,
+                                  baseColor: t.textTertiary,
+                                  highlightColor: t.textTertiary,
                                   duration: const Duration(seconds: 1),
                                 ),
                                 child: const Bone.multiText(),
@@ -352,25 +356,25 @@ class AppMetadataWidget extends StatelessWidget {
                               controller: appDescriptionController,
                               decoration: InputDecoration(
                                 labelText: '${context.l10n.descriptionLabel}*',
-                                labelStyle: TextStyle(color: Colors.grey.shade400),
-                                floatingLabelStyle: TextStyle(color: Colors.grey.shade300),
+                                labelStyle: TextStyle(color: t.textSecondary),
+                                floatingLabelStyle: TextStyle(color: t.textSecondary),
                                 alignLabelWithHint: true,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 16.0),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12.0),
-                                  borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+                                  borderSide: BorderSide(color: t.hairline, width: 1),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12.0),
-                                  borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.3), width: 1),
+                                  borderSide: BorderSide(color: t.hairline, width: 1),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12.0),
-                                  borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                                  borderSide: BorderSide(color: t.textSecondary, width: 1),
                                 ),
                                 errorBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12.0),
-                                  borderSide: BorderSide(color: Colors.red.shade300, width: 1),
+                                  borderSide: BorderSide(color: t.error, width: 1),
                                 ),
                                 filled: false,
                               ),
@@ -385,7 +389,7 @@ class AppMetadataWidget extends StatelessWidget {
                             },
                             child: SvgPicture.asset(
                               Assets.images.aiMagic,
-                              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                              colorFilter: ColorFilter.mode(t.textPrimary, BlendMode.srcIn),
                             ),
                           ),
                         ),
@@ -415,7 +419,7 @@ class AppMetadataWidget extends StatelessWidget {
                                             const SizedBox(height: 12),
                                             Text(
                                               context.l10n.appPricingLabel,
-                                              style: const TextStyle(color: Colors.white, fontSize: 18),
+                                              style: TextStyle(color: t.textPrimary, fontSize: 18),
                                             ),
                                             const SizedBox(height: 18),
                                             ListView(
@@ -440,7 +444,7 @@ class AppMetadataWidget extends StatelessWidget {
                                                         Text(
                                                           label,
                                                           style: TextStyle(
-                                                            color: Colors.grey.shade300,
+                                                            color: t.textSecondary,
                                                             fontSize: 16,
                                                           ),
                                                         ),
@@ -451,7 +455,7 @@ class AppMetadataWidget extends StatelessWidget {
                                                             provider.setIsPaid(isPaid);
                                                             Navigator.pop(context);
                                                           },
-                                                          side: BorderSide(color: Colors.grey.shade300),
+                                                          side: BorderSide(color: t.textSecondary),
                                                           shape: const CircleBorder(),
                                                         ),
                                                       ],
@@ -473,7 +477,7 @@ class AppMetadataWidget extends StatelessWidget {
                             margin: const EdgeInsets.only(left: 2.0, right: 2.0, top: 10, bottom: 6),
                             padding: const EdgeInsets.symmetric(horizontal: 2.0, vertical: 10.0),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF35343B),
+                              color: t.bgTertiary,
                               borderRadius: BorderRadius.circular(10.0),
                             ),
                             width: double.infinity,
@@ -484,12 +488,12 @@ class AppMetadataWidget extends StatelessWidget {
                                   (appPricing?.isNotEmpty == true ? appPricing : context.l10n.noneSelected) ??
                                       context.l10n.noneSelected,
                                   style: TextStyle(
-                                    color: appPricing != null ? Colors.grey.shade100 : Colors.grey.shade400,
+                                    color: appPricing != null ? t.textSecondary : t.textSecondary,
                                     fontSize: 16,
                                   ),
                                 ),
                                 const Spacer(),
-                                FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade400, size: 14),
+                                FaIcon(FontAwesomeIcons.chevronRight, color: t.textSecondary, size: 14),
                                 const SizedBox(width: 12),
                               ],
                             ),

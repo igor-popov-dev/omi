@@ -33,6 +33,7 @@ import 'package:omi/widgets/extensions/string.dart';
 import 'package:omi/widgets/text_selection_controls.dart';
 import 'chart_message_widget.dart';
 import 'markdown_message_widget.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Parse app_id from thinking text (format: "text|app_id:app_id")
 String? parseAppIdFromThinking(String thinkingText) {
@@ -56,6 +57,7 @@ String getThinkingDisplayText(String thinkingText) {
 
 /// Build app icon widget from app_id
 Widget _buildAppIcon(BuildContext context, String appId, {double size = 15, double opacity = 1.0}) {
+  final t = context.omi;
   final appProvider = Provider.of<AppProvider>(context, listen: false);
   final messageProvider = Provider.of<MessageProvider>(context, listen: false);
   // Check both public apps and user's installed chat apps (includes private MCP apps)
@@ -87,13 +89,13 @@ Widget _buildAppIcon(BuildContext context, String appId, {double size = 15, doub
             child: Icon(
               Icons.apps,
               size: size * 0.7,
-              color: Colors.white.withValues(alpha: opacity),
+              color: t.textPrimary.withValues(alpha: opacity),
             ),
           ),
           errorWidget: (context, url, error) => Icon(
             Icons.apps,
             size: size * 0.7,
-            color: Colors.white.withValues(alpha: opacity),
+            color: t.textPrimary.withValues(alpha: opacity),
           ),
         ),
       ),
@@ -106,7 +108,7 @@ Widget _buildAppIcon(BuildContext context, String appId, {double size = 15, doub
     child: Icon(
       Icons.apps,
       size: size,
-      color: Colors.white.withValues(alpha: opacity),
+      color: t.textPrimary.withValues(alpha: opacity),
     ),
   );
 }
@@ -152,7 +154,8 @@ FaIconData _getThinkingIcon(String thinkingText) {
 }
 
 /// Build the thinking icon widget - either an integration logo or a fallback icon
-Widget _buildThinkingIconWidget(String thinkingText, {double size = 15, Color color = Colors.white}) {
+Widget _buildThinkingIconWidget(BuildContext context, String thinkingText, {double size = 15, Color? color}) {
+  color ??= context.omi.textPrimary;
   final logoPath = _getIntegrationLogoPath(thinkingText);
   if (logoPath != null) {
     return ClipRRect(
@@ -328,6 +331,7 @@ class DaySummaryWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,7 +341,7 @@ class DaySummaryWidget extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w500,
-            color: Colors.grey.shade300,
+            color: t.textSecondary,
             decoration: TextDecoration.underline,
           ),
         ),
@@ -349,7 +353,7 @@ class DaySummaryWidget extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [SizedBox(width: 4), TypingIndicator(), Spacer()],
               )
-            : daySummaryMessagesList(messageText),
+            : daySummaryMessagesList(context, messageText),
         if (messageText.isNotEmpty && !showTypingIndicator) MessageActionBar(messageText: messageText),
       ],
     );
@@ -373,7 +377,8 @@ class DaySummaryWidget extends StatelessWidget {
     }
   }
 
-  Widget daySummaryMessagesList(String text) {
+  Widget daySummaryMessagesList(BuildContext context, String text) {
+    final t = context.omi;
     var sentences = splitMessage(text);
 
     return ListView.builder(
@@ -388,11 +393,11 @@ class DaySummaryWidget extends StatelessWidget {
           minLeadingWidth: 0,
           leading: Text(
             '${index + 1}.',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: t.textSecondary),
           ),
           title: AutoSizeText(
             sentences[index],
-            style: const TextStyle(fontSize: 16.0, fontWeight: FontWeight.w500, height: 1.35, color: Colors.white),
+            style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w500, height: 1.35, color: t.textPrimary),
             softWrap: true,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -466,18 +471,19 @@ class _NormalMessageWidgetState extends State<NormalMessageWidget> {
   }
 
   Widget _buildChartShimmer() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: ShimmerWithTimeout(
-        baseColor: const Color(0xFF1A1A20),
-        highlightColor: const Color(0xFF282830),
+        baseColor: t.bgSecondary,
+        highlightColor: t.bgTertiary,
         timeoutSeconds: 15,
         child: Container(
           height: 236,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A20),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            color: t.bgSecondary,
+            borderRadius: BorderRadius.circular(t.cardRadius),
+            border: Border.all(color: t.rowFill),
           ),
         ),
       ),
@@ -486,6 +492,7 @@ class _NormalMessageWidgetState extends State<NormalMessageWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     var thinkingTextRaw = widget.message.thinkings.isNotEmpty ? widget.message.thinkings.last.decodeString : null;
 
     // Parse app_id and display text from thinking messages
@@ -523,20 +530,20 @@ class _NormalMessageWidgetState extends State<NormalMessageWidget> {
                                       _buildAppIcon(context, currentAppId, size: 15),
                                       const SizedBox(width: 6),
                                     ] else ...[
-                                      _buildThinkingIconWidget(displayThinkingText, size: 15),
+                                      _buildThinkingIconWidget(context, displayThinkingText, size: 15),
                                       const SizedBox(width: 6),
                                     ],
                                     // Shimmer only applies to text
                                     Flexible(
                                       child: ShimmerWithTimeout(
-                                        baseColor: Colors.white,
-                                        highlightColor: Colors.grey,
+                                        baseColor: t.textPrimary,
+                                        highlightColor: t.textSecondary,
                                         child: Text(
                                           overflow: TextOverflow.fade,
                                           maxLines: 1,
                                           softWrap: false,
                                           displayThinkingText,
-                                          style: const TextStyle(color: Colors.white, fontSize: 15),
+                                          style: TextStyle(color: t.textPrimary, fontSize: 15),
                                         ),
                                       ),
                                     ),
@@ -556,7 +563,7 @@ class _NormalMessageWidgetState extends State<NormalMessageWidget> {
         //         child: Text(
         //           formatChatTimestamp(createdAt),
         //           style: TextStyle(
-        //             color: Colors.grey.shade500,
+        //             color: t.textSecondary,
         //             fontSize: 12,
         //           ),
         //         ),
@@ -600,19 +607,19 @@ class _NormalMessageWidgetState extends State<NormalMessageWidget> {
                   _buildAppIcon(context, currentAppId, size: 15),
                   const SizedBox(width: 6),
                 ] else ...[
-                  _buildThinkingIconWidget(displayThinkingText, size: 15),
+                  _buildThinkingIconWidget(context, displayThinkingText, size: 15),
                   const SizedBox(width: 6),
                 ],
                 Flexible(
                   child: ShimmerWithTimeout(
-                    baseColor: Colors.white,
-                    highlightColor: Colors.grey,
+                    baseColor: t.textPrimary,
+                    highlightColor: t.textSecondary,
                     child: Text(
                       overflow: TextOverflow.fade,
                       maxLines: 1,
                       softWrap: false,
                       displayThinkingText,
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
+                      style: TextStyle(color: t.textPrimary, fontSize: 15),
                     ),
                   ),
                 ),
@@ -690,18 +697,19 @@ class _MemoriesMessageWidgetState extends State<MemoriesMessageWidget> {
   }
 
   Widget _buildChartShimmer() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: ShimmerWithTimeout(
-        baseColor: const Color(0xFF1A1A20),
-        highlightColor: const Color(0xFF282830),
+        baseColor: t.bgSecondary,
+        highlightColor: t.bgTertiary,
         timeoutSeconds: 15,
         child: Container(
           height: 236,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A20),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            color: t.bgSecondary,
+            borderRadius: BorderRadius.circular(t.cardRadius),
+            border: Border.all(color: t.rowFill),
           ),
         ),
       ),
@@ -710,6 +718,7 @@ class _MemoriesMessageWidgetState extends State<MemoriesMessageWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     var thinkingTextRaw = widget.message.thinkings.isNotEmpty ? widget.message.thinkings.last.decodeString : null;
 
     // Parse app_id and display text from thinking messages
@@ -729,7 +738,7 @@ class _MemoriesMessageWidgetState extends State<MemoriesMessageWidget> {
         //   child: Text(
         //     formatChatTimestamp(widget.date),
         //     style: TextStyle(
-        //       color: Colors.grey.shade500,
+        //       color: t.textSecondary,
         //       fontSize: 12,
         //     ),
         //   ),
@@ -754,20 +763,20 @@ class _MemoriesMessageWidgetState extends State<MemoriesMessageWidget> {
                                       _buildAppIcon(context, currentAppId, size: 15),
                                       const SizedBox(width: 6),
                                     ] else ...[
-                                      _buildThinkingIconWidget(displayThinkingText, size: 15),
+                                      _buildThinkingIconWidget(context, displayThinkingText, size: 15),
                                       const SizedBox(width: 6),
                                     ],
                                     // Shimmer only applies to text
                                     Flexible(
                                       child: ShimmerWithTimeout(
-                                        baseColor: Colors.white,
-                                        highlightColor: Colors.grey,
+                                        baseColor: t.textPrimary,
+                                        highlightColor: t.textSecondary,
                                         child: Text(
                                           overflow: TextOverflow.fade,
                                           maxLines: 1,
                                           softWrap: false,
                                           displayThinkingText,
-                                          style: const TextStyle(color: Colors.white, fontSize: 15),
+                                          style: TextStyle(color: t.textPrimary, fontSize: 15),
                                         ),
                                       ),
                                     ),
@@ -888,7 +897,7 @@ class _MemoriesMessageWidgetState extends State<MemoriesMessageWidget> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
                 width: double.maxFinite,
-                decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(16.0)),
+                decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(16.0)),
                 child: Row(
                   children: [
                     Expanded(
@@ -901,15 +910,15 @@ class _MemoriesMessageWidgetState extends State<MemoriesMessageWidget> {
                     ),
                     const SizedBox(width: 8),
                     conversationDetailLoading[data.$1]
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 16,
                             width: 16,
                             child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
+                              valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary.withValues(alpha: 0.54)),
                               strokeWidth: 2,
                             ),
                           )
-                        : const FaIcon(FontAwesomeIcons.chevronRight, size: 16, color: Colors.white54),
+                        : FaIcon(FontAwesomeIcons.chevronRight, size: 16, color: t.textPrimary.withValues(alpha: 0.54)),
                   ],
                 ),
               ),
@@ -966,11 +975,12 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
   }
 
   void _handleSubmit() {
+    final t = context.omi;
     if (_selectedReason == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.pleaseSelectReason),
-          backgroundColor: Colors.red,
+          backgroundColor: t.error,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -985,12 +995,13 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF1C1C1E),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Column(
@@ -1003,7 +1014,7 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
                 width: 36,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(color: Colors.grey.shade600, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
               ),
             ),
 
@@ -1011,16 +1022,16 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'What went wrong?',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: t.textPrimary),
                 ),
                 TextButton(
                   onPressed: _selectedReason != null ? _handleSubmit : null,
                   child: Text(
                     'Submit',
                     style: TextStyle(
-                      color: _selectedReason != null ? Colors.blue : Colors.grey.shade600,
+                      color: _selectedReason != null ? Colors.blue : t.textTertiary,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1031,9 +1042,9 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
             const SizedBox(height: 16),
 
             // Reason options
-            const Text(
+            Text(
               'Select a reason',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: t.textSecondary),
             ),
             const SizedBox(height: 10),
 
@@ -1053,14 +1064,14 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isSelected ? Colors.blue.withValues(alpha: 0.2) : const Color(0xFF2C2C2E),
+                      color: isSelected ? Colors.blue.withValues(alpha: 0.2) : t.bgTertiary,
                       borderRadius: BorderRadius.circular(20),
                       border: isSelected ? Border.all(color: Colors.blue, width: 1.5) : null,
                     ),
                     child: Text(
                       reason.label,
                       style: TextStyle(
-                        color: isSelected ? Colors.blue : Colors.white,
+                        color: isSelected ? Colors.blue : t.textPrimary,
                         fontSize: 14,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                       ),
@@ -1072,23 +1083,23 @@ class _FeedbackBottomSheetState extends State<FeedbackBottomSheet> {
             const SizedBox(height: 20),
 
             // Comment input
-            const Text(
+            Text(
               'Additional feedback (optional)',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: t.textSecondary),
             ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFF2C2C2E), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(t.rowRadius)),
               child: TextField(
                 controller: _commentController,
                 focusNode: _commentFocusNode,
-                style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4),
+                style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.4),
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   hintText: context.l10n.tellUsMoreWhatWentWrong,
-                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 15),
+                  hintStyle: TextStyle(color: t.textSecondary, fontSize: 15),
                 ),
                 maxLines: 3,
                 minLines: 2,
@@ -1151,6 +1162,7 @@ class _MessageActionBarState extends State<MessageActionBar> {
 
   /// Show bottom sheet with thumbs down reason options and comment field
   void _showThumbsDownReasonPicker() {
+    final t = context.omi;
     showFeedbackBottomSheet(
       context,
       onSubmit: (reason, comment) {
@@ -1168,7 +1180,7 @@ class _MessageActionBarState extends State<MessageActionBar> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(context.l10n.thanksForYourFeedback, style: const TextStyle(color: Colors.white)),
+              content: Text(context.l10n.thanksForYourFeedback, style: TextStyle(color: t.textPrimary)),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -1179,6 +1191,7 @@ class _MessageActionBarState extends State<MessageActionBar> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.only(top: 8, left: 4),
       child: Row(
@@ -1205,7 +1218,7 @@ class _MessageActionBarState extends State<MessageActionBar> {
                   SnackBar(
                     content: Text(
                       context.l10n.messageCopied,
-                      style: const TextStyle(color: Colors.white, fontSize: 12.0),
+                      style: TextStyle(color: t.textPrimary, fontSize: 12.0),
                     ),
                     duration: const Duration(milliseconds: 1500),
                   ),
@@ -1270,13 +1283,14 @@ class _MessageActionBarState extends State<MessageActionBar> {
   }
 
   Widget _buildActionButton({required FaIconData icon, required VoidCallback onTap, bool isSelected = false}) {
+    final t = context.omi;
     return InkWell(
       splashColor: Colors.transparent,
       focusColor: Colors.transparent,
       hoverColor: Colors.transparent,
       highlightColor: Colors.transparent,
       onTap: onTap,
-      child: FaIcon(icon, color: isSelected ? Colors.white : Colors.grey.shade600, size: 14),
+      child: FaIcon(icon, color: isSelected ? t.textPrimary : t.textTertiary, size: 14),
     );
   }
 }
@@ -1334,11 +1348,12 @@ class InitialOptionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10),
         width: double.maxFinite,
-        decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(12.0)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12.0)),
         child: Text(optionText, style: Theme.of(context).textTheme.bodyMedium),
       ),
       onTap: () {

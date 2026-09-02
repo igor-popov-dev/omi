@@ -18,6 +18,8 @@ import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/extensions/string.dart';
+import 'package:omi/utils/theme/glass_effects.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class SummarizedAppsBottomSheet extends StatelessWidget {
   const SummarizedAppsBottomSheet({super.key});
@@ -63,14 +65,62 @@ class _SheetContainer extends StatelessWidget {
 
   const _SheetContainer({required this.scrollController, required this.children});
 
+  /// Внутренние поля панели. Вынесены в константу, потому что Glass-ветка
+  /// собирает ту же геометрию вручную (`ColoredBox` + `Padding`) — ровно то,
+  /// что раскрывает в себе `Container(color:, padding:)` в Classic.
+  static const EdgeInsets _sheetPadding = EdgeInsets.fromLTRB(16, 8, 16, 16);
+
+  /// Панель приезжает снизу и рисуется без скруглений — так было и до блюра,
+  /// поэтому размытие режется тем же прямым прямоугольником: геометрия не
+  /// должна поехать ни на пиксель, меняется только то, что видно сквозь неё.
+  static const BorderRadius _sheetRadius = BorderRadius.zero;
+
+  /// Размытие страницы под панелью — как у шторки настроек (38), а не как у
+  /// плавающих пилюль (32): панель закрывает 70% экрана разговора, под ней
+  /// целые абзацы сводки, и их надо растворить целиком, а не приглушить.
+  static const double _sheetBlurSigma = 38;
+
+  /// Вуаль панели в Glass.
+  ///
+  /// Токен `bgPrimary` (белый 0.46) рассчитан на подложку [GlassBackdrop], а
+  /// здесь панель стоит поверх страницы, полной собственного текста: без блюра
+  /// сводка читалась прямо сквозь названия шаблонов. Блюр снимает
+  /// разборчивость, вуаль добивает остаточный контраст — тот же белый 0.62,
+  /// что и у шторки настроек, чтобы два стекла в одном приложении не
+  /// расходились по плотности.
+  static const Color _glassSheetVeil = Color(0x9EFFFFFF);
+
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
+    if (!t.isGlass) {
+      return GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Container(
+          color: t.bgPrimary,
+          padding: _sheetPadding,
+          child: Column(children: children),
+        ),
+      );
+    }
+
+    // Glass: сначала размывается всё, что уже нарисовано ниже (страница +
+    // подложка), и только поверх ложится вуаль. `ColoredBox` вместо
+    // `DecoratedBox` — он непрозрачен для хит-теста, и тап по фону панели
+    // по-прежнему её закрывает, как это делал `Container(color:)`.
     return GestureDetector(
       onTap: () => Navigator.pop(context),
-      child: Container(
-        color: Colors.black,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Column(children: children),
+      child: glassBlur(
+        borderRadius: _sheetRadius,
+        sigma: _sheetBlurSigma,
+        child: ColoredBox(
+          color: _glassSheetVeil,
+          child: Padding(
+            padding: _sheetPadding,
+            child: Column(children: children),
+          ),
+        ),
       ),
     );
   }
@@ -81,6 +131,7 @@ class _SheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Column(
       children: [
         // Handle indicator
@@ -88,7 +139,7 @@ class _SheetHeader extends StatelessWidget {
           width: 40,
           height: 4,
           margin: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2)),
+          decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
         ),
 
         // Title
@@ -161,6 +212,7 @@ class _AppsListState extends State<_AppsList> {
   }
 
   Widget _buildShimmerLoading() {
+    final t = context.omi;
     return ListView(
       children: [
         // Auto option shimmer
@@ -171,7 +223,7 @@ class _AppsListState extends State<_AppsList> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
             context.l10n.suggestedTemplates,
-            style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ),
         _buildShimmerListItem(),
@@ -182,7 +234,7 @@ class _AppsListState extends State<_AppsList> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
             context.l10n.availableTemplates,
-            style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ),
         _buildShimmerListItem(),
@@ -193,9 +245,10 @@ class _AppsListState extends State<_AppsList> {
   }
 
   Widget _buildShimmerListItem() {
+    final t = context.omi;
     return ShimmerWithTimeout(
-      baseColor: const Color(0xFF1F1F25),
-      highlightColor: const Color(0xFF35343B),
+      baseColor: t.bgSecondary,
+      highlightColor: t.bgTertiary,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
@@ -204,7 +257,7 @@ class _AppsListState extends State<_AppsList> {
             Container(
               width: 32,
               height: 32,
-              decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
             ),
             const SizedBox(width: 16),
             // Title and subtitle placeholders
@@ -215,13 +268,13 @@ class _AppsListState extends State<_AppsList> {
                   Container(
                     width: double.infinity,
                     height: 16,
-                    decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(4)),
                   ),
                   const SizedBox(height: 8),
                   Container(
                     width: 200,
                     height: 12,
-                    decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(4)),
                   ),
                 ],
               ),
@@ -234,6 +287,7 @@ class _AppsListState extends State<_AppsList> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final enabledApps = widget.provider.cachedEnabledConversationApps;
     final suggestedApps = widget.provider.cachedSuggestedApps;
 
@@ -283,7 +337,7 @@ class _AppsListState extends State<_AppsList> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               context.l10n.suggestedTemplates,
-              style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
           ...suggestedApps.map((app) {
@@ -307,7 +361,7 @@ class _AppsListState extends State<_AppsList> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
               suggestedApps.isNotEmpty ? context.l10n.otherTemplates : context.l10n.availableTemplates,
-              style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
           // 1. Show default/preferred app first if available (and not in suggested)
@@ -346,7 +400,7 @@ class _AppsListState extends State<_AppsList> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
             context.l10n.getCreative,
-            style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ),
 
@@ -381,6 +435,7 @@ class _AppsListState extends State<_AppsList> {
   }
 
   void _handleUnavailableAppTap(BuildContext context, App app) async {
+    final t = context.omi;
     // Check if app is already being installed
     if (_AppsListState._installingApps[app.id] == true) {
       return;
@@ -403,7 +458,7 @@ class _AppsListState extends State<_AppsList> {
             SnackBar(
               content: Text(context.l10n.failedToInstallApp(app.name)),
               duration: const Duration(seconds: 3),
-              backgroundColor: Colors.red,
+              backgroundColor: t.error,
             ),
           );
         }
@@ -433,7 +488,7 @@ class _AppsListState extends State<_AppsList> {
           SnackBar(
             content: Text(context.l10n.errorInstallingApp(app.name, e.toString())),
             duration: const Duration(seconds: 3),
-            backgroundColor: Colors.red,
+            backgroundColor: t.error,
           ),
         );
       }
@@ -534,12 +589,13 @@ class _AppListItemState extends State<_AppListItem> {
   }
 
   Widget _buildSwipeBackground({required bool isLeft}) {
+    final t = context.omi;
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: isLeft ? Alignment.centerLeft : Alignment.centerRight,
           end: isLeft ? Alignment.centerRight : Alignment.centerLeft,
-          colors: [Colors.deepPurple.withValues(alpha: 0.7), Colors.transparent],
+          colors: [t.accent.withValues(alpha: 0.7), Colors.transparent],
         ),
       ),
       alignment: isLeft ? Alignment.centerLeft : Alignment.centerRight,
@@ -547,11 +603,11 @@ class _AppListItemState extends State<_AppListItem> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.star_rounded, color: Colors.amber.shade300, size: 20),
+          Icon(Icons.star_rounded, color: t.warning, size: 20),
           const SizedBox(height: 2),
           Text(
             context.l10n.defaultLabel,
-            style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 11),
+            style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7), fontWeight: FontWeight.w600, fontSize: 11),
           ),
         ],
       ),
@@ -559,6 +615,7 @@ class _AppListItemState extends State<_AppListItem> {
   }
 
   Widget _buildListTile() {
+    final t = context.omi;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -568,7 +625,7 @@ class _AppListItemState extends State<_AppListItem> {
           title: Text(
             widget.app.name.decodeString,
             style: TextStyle(
-              color: Colors.white,
+              color: t.textPrimary,
               fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w500,
               fontSize: 16,
             ),
@@ -578,12 +635,13 @@ class _AppListItemState extends State<_AppListItem> {
           selected: widget.isSelected,
           onTap: widget.onTap,
         ),
-        Divider(height: 1, thickness: 0.5, color: Colors.grey.withValues(alpha: 0.2), indent: 56, endIndent: 16),
+        Divider(height: 1, thickness: 0.5, color: t.textSecondary.withValues(alpha: 0.2), indent: 56, endIndent: 16),
       ],
     );
   }
 
   Widget? _buildSubtitle() {
+    final t = context.omi;
     // Build tags row for apps
     final List<Widget> tags = [];
 
@@ -592,7 +650,7 @@ class _AppListItemState extends State<_AppListItem> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.amber.shade300.withValues(alpha: 0.15),
+            color: t.warning.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
@@ -602,12 +660,12 @@ class _AppListItemState extends State<_AppListItem> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(0, 1, 0, 0),
-                  child: FaIcon(FontAwesomeIcons.solidStar, size: 7, color: Colors.amber.shade300),
+                  child: FaIcon(FontAwesomeIcons.solidStar, size: 7, color: t.warning),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   context.l10n.defaultLabel,
-                  style: TextStyle(color: Colors.amber.shade300, fontSize: 9, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.warning, fontSize: 9, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -621,7 +679,7 @@ class _AppListItemState extends State<_AppListItem> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.grey.shade600.withValues(alpha: 0.3),
+            color: t.textTertiary.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
@@ -631,12 +689,12 @@ class _AppListItemState extends State<_AppListItem> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(0, 1, 0, 0),
-                  child: FaIcon(FontAwesomeIcons.clock, size: 7, color: Colors.grey.shade400),
+                  child: FaIcon(FontAwesomeIcons.clock, size: 7, color: t.textSecondary),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   context.l10n.lastUsedLabel,
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 9, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textSecondary, fontSize: 9, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -656,24 +714,25 @@ class _AppListItemState extends State<_AppListItem> {
   }
 
   Widget _buildTrailingWidget() {
+    final t = context.omi;
     // Check if this app is currently being processed
     final isProcessing = widget.provider != null &&
         widget.provider!.loadingReprocessConversation &&
         widget.provider!.selectedAppForReprocessing?.id == widget.app.id;
 
     if (widget.isSelected) {
-      return const Icon(Icons.check, color: Colors.green, size: 20);
+      return Icon(Icons.check, color: t.success, size: 20);
     } else if (widget.isInstalling) {
-      return const SizedBox(
+      return SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
       );
     } else if (isProcessing) {
-      return const SizedBox(
+      return SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
+        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)),
       );
     } else {
       return const SizedBox.shrink();
@@ -681,24 +740,25 @@ class _AppListItemState extends State<_AppListItem> {
   }
 
   Widget _buildLeadingIcon() {
+    final t = context.omi;
     return CachedNetworkImage(
       imageUrl: widget.app.getImageUrl(),
       imageBuilder: (context, imageProvider) {
-        return CircleAvatar(backgroundColor: Colors.white, radius: 16, backgroundImage: imageProvider);
+        return CircleAvatar(backgroundColor: t.textPrimary, radius: 16, backgroundImage: imageProvider);
       },
       errorWidget: (context, url, error) {
-        return const CircleAvatar(
-          backgroundColor: Colors.white,
+        return CircleAvatar(
+          backgroundColor: t.textPrimary,
           radius: 16,
-          child: Icon(Icons.error_outline_rounded, size: 16),
+          child: const Icon(Icons.error_outline_rounded, size: 16),
         );
       },
       progressIndicatorBuilder: (context, url, progress) => CircleAvatar(
-        backgroundColor: Colors.white,
+        backgroundColor: t.textPrimary,
         radius: 16,
         child: CircularProgressIndicator(
           value: progress.progress,
-          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
           strokeWidth: 2,
         ),
       ),
@@ -711,21 +771,22 @@ class _CreateTemplateListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-          leading: const CircleAvatar(
-            backgroundColor: Colors.white,
+          leading: CircleAvatar(
+            backgroundColor: t.textPrimary,
             radius: 16,
-            child: FaIcon(FontAwesomeIcons.plus, color: Colors.black, size: 18),
+            child: FaIcon(FontAwesomeIcons.plus, color: t.bgPrimary, size: 18),
           ),
           title: Text(
             context.l10n.createCustomTemplate,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 16),
+            style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w500, fontSize: 16),
           ),
-          trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+          trailing: Icon(Icons.arrow_forward_ios, color: t.textPrimary, size: 16),
           onTap: () {
             final conversationId = context.read<ConversationDetailProvider>().conversation.id;
             PlatformManager.instance.analytics.summarizedAppCreateTemplateClicked(conversationId: conversationId);
@@ -737,7 +798,7 @@ class _CreateTemplateListItem extends StatelessWidget {
             showCreateTemplateBottomSheet(context, conversationId: conversationId);
           },
         ),
-        Divider(height: 1, thickness: 0.5, color: Colors.grey.withValues(alpha: 0.2), indent: 56, endIndent: 16),
+        Divider(height: 1, thickness: 0.5, color: t.textSecondary.withValues(alpha: 0.2), indent: 56, endIndent: 16),
       ],
     );
   }
@@ -748,21 +809,22 @@ class _EnableAppsListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-          leading: const CircleAvatar(
-            backgroundColor: Colors.white,
+          leading: CircleAvatar(
+            backgroundColor: t.textPrimary,
             radius: 16,
-            child: FaIcon(FontAwesomeIcons.solidFolderOpen, color: Colors.black, size: 14),
+            child: FaIcon(FontAwesomeIcons.solidFolderOpen, color: t.bgPrimary, size: 14),
           ),
           title: Text(
             context.l10n.allTemplates,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 16),
+            style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w500, fontSize: 16),
           ),
-          trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+          trailing: Icon(Icons.arrow_forward_ios, color: t.textPrimary, size: 16),
           onTap: () {
             Navigator.pop(context);
             final conversationId = context.read<ConversationDetailProvider>().conversation.id;
@@ -782,7 +844,7 @@ class _EnableAppsListItem extends StatelessWidget {
             PlatformManager.instance.analytics.pageOpened('Summary Apps');
           },
         ),
-        Divider(height: 1, thickness: 0.5, color: Colors.grey.withValues(alpha: 0.2), indent: 56, endIndent: 16),
+        Divider(height: 1, thickness: 0.5, color: t.textSecondary.withValues(alpha: 0.2), indent: 56, endIndent: 16),
       ],
     );
   }

@@ -34,6 +34,7 @@ class _FakeSession implements HubSession {
   final List<Uint8List> appended = [];
   int cancelled = 0;
   int cleared = 0;
+  int muted = 0;
   int toreDown = 0;
 
   @override
@@ -65,6 +66,8 @@ class _FakeSession implements HubSession {
   final List<String> userTexts = [];
   @override
   void clearPlayback() => cleared += 1;
+  @override
+  void muteCurrentResponse() => muted += 1;
   @override
   void teardown() => toreDown += 1;
 }

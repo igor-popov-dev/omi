@@ -27,27 +27,50 @@ class ResponsiveHelper {
   }
 
   // Premium color system inspired by sophisticated dark interfaces
+  //
+  // The palette below is superseded by the theme tokens in
+  // `lib/utils/theme/omi_tokens.dart` (`context.omi`): these constants hard-code
+  // the Classic dark look and cannot follow the Glass theme. The layout helpers
+  // in the rest of this class are NOT deprecated. Remaining call sites live in
+  // `lib/pages/announcements/`, `lib/pages/action_items/`, `lib/pages/onboarding/`
+  // and `lib/widgets/`, migrated by the T6/T7 waves.
+  @Deprecated('Use context.omi tokens instead')
   static const Color backgroundPrimary = Color(0xFF0F0F0F); // Deep black
+  @Deprecated('Use context.omi tokens instead')
   static const Color backgroundSecondary = Color(0xFF1A1A1A); // Elevated surface
+  @Deprecated('Use context.omi tokens instead')
   static const Color backgroundTertiary = Color(0xFF252525); // Cards and components
+  @Deprecated('Use context.omi tokens instead')
   static const Color backgroundQuaternary = Color(0xFF2A2A2A); // Hover states
 
   // Premium purple gradient system
+  @Deprecated('Use context.omi tokens instead')
   static const Color purplePrimary = Color(0xFF8B5CF6); // Main purple
+  @Deprecated('Use context.omi tokens instead')
   static const Color purpleSecondary = Color(0xFFA855F7); // Lighter purple
+  @Deprecated('Use context.omi tokens instead')
   static const Color purpleAccent = Color(0xFF7C3AED); // Darker purple
+  @Deprecated('Use context.omi tokens instead')
   static const Color purpleLight = Color(0xFFD946EF); // Pink-purple
 
   // Sophisticated text colors
+  @Deprecated('Use context.omi tokens instead')
   static const Color textPrimary = Color(0xFFFFFFFF); // Pure white for headers
+  @Deprecated('Use context.omi tokens instead')
   static const Color textSecondary = Color(0xFFE5E5E5); // Light gray for body
+  @Deprecated('Use context.omi tokens instead')
   static const Color textTertiary = Color(0xFFB0B0B0); // Medium gray for meta
+  @Deprecated('Use context.omi tokens instead')
   static const Color textQuaternary = Color(0xFF888888); // Dark gray for disabled
 
   // Accent colors
+  @Deprecated('Use context.omi tokens instead')
   static const Color successColor = Color(0xFF10B981); // Green
+  @Deprecated('Use context.omi tokens instead')
   static const Color warningColor = Color(0xFFF59E0B); // Amber
+  @Deprecated('Use context.omi tokens instead')
   static const Color errorColor = Color(0xFFEF4444); // Red
+  @Deprecated('Use context.omi tokens instead')
   static const Color infoColor = Color(0xFF3B82F6); // Blue
 
   // Screen dimension getters

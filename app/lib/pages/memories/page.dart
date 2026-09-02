@@ -10,13 +10,13 @@ import 'package:omi/backend/schema/memory.dart';
 import 'package:omi/providers/home_provider.dart';
 import 'package:omi/providers/memories_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/utils/ui_guidelines.dart';
 import 'package:omi/widgets/extensions/functions.dart';
 import 'widgets/memory_dialog.dart';
 import 'widgets/memory_edit_sheet.dart';
 import 'widgets/memory_graph_page.dart';
 import 'widgets/memory_item.dart';
 import 'widgets/memory_management_sheet.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MemoriesPage extends StatefulWidget {
   const MemoriesPage({super.key});
@@ -51,6 +51,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
   }
 
   void showDeleteNotification(String memoryContent, Memory? memory) {
+    final t = context.omi;
     _removeDeleteNotification();
 
     final provider = Provider.of<MemoriesProvider>(context, listen: false);
@@ -70,13 +71,13 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                 color: Colors.black87,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),
+                  BoxShadow(color: t.bgPrimary.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),
                 ],
               ),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(context.l10n.memoryDeleted, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                    child: Text(context.l10n.memoryDeleted, style: TextStyle(color: t.textPrimary, fontSize: 14)),
                   ),
                   TextButton(
                     onPressed: () async {
@@ -91,7 +92,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                     ),
                     child: Text(
                       context.l10n.undo,
-                      style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: t.accent, fontWeight: FontWeight.w500),
                     ),
                   ),
                   IconButton(
@@ -99,7 +100,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                       provider.confirmPendingDeletion();
                       _removeDeleteNotification();
                     },
-                    icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                    icon: Icon(Icons.close, color: t.textPrimary.withValues(alpha: 0.7), size: 20),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     splashRadius: 20,
@@ -140,22 +141,23 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     super.build(context);
     return Consumer<MemoriesProvider>(
       builder: (context, provider, _) {
         return PopScope(
           canPop: true,
           child: Scaffold(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             appBar: AppBar(
               backgroundColor: Theme.of(context).colorScheme.surface,
               automaticallyImplyLeading: true,
               title: Text(
                 context.l10n.memories,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
               ),
               elevation: 0,
-              iconTheme: const IconThemeData(color: Colors.white),
+              iconTheme: IconThemeData(color: t.textPrimary),
             ),
             body: Stack(
               children: [
@@ -164,8 +166,8 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                     HapticFeedback.mediumImpact();
                     await provider.init();
                   },
-                  color: Colors.deepPurpleAccent,
-                  backgroundColor: Colors.white,
+                  color: t.accent,
+                  backgroundColor: t.textPrimary,
                   child: provider.loading && _isInitialLoad
                       ? CustomScrollView(
                           physics: const AlwaysScrollableScrollPhysics(),
@@ -180,28 +182,28 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                         height: 44,
                                         child: SearchBar(
                                           hintText: context.l10n.searchMemories,
-                                          leading: const Padding(
-                                            padding: EdgeInsets.only(left: 6.0),
+                                          leading: Padding(
+                                            padding: const EdgeInsets.only(left: 6.0),
                                             child: FaIcon(
                                               FontAwesomeIcons.magnifyingGlass,
-                                              color: Colors.white70,
+                                              color: t.textPrimary.withValues(alpha: 0.7),
                                               size: 14,
                                             ),
                                           ),
-                                          backgroundColor: WidgetStateProperty.all(AppStyles.backgroundSecondary),
+                                          backgroundColor: WidgetStateProperty.all(t.bgSecondary),
                                           elevation: WidgetStateProperty.all(0),
                                           padding: WidgetStateProperty.all(
                                             const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                           ),
                                           hintStyle: WidgetStateProperty.all(
-                                            TextStyle(color: AppStyles.textTertiary, fontSize: 14),
+                                            TextStyle(color: t.textTertiary, fontSize: 14),
                                           ),
                                           textStyle: WidgetStateProperty.all(
-                                            const TextStyle(color: AppStyles.textPrimary, fontSize: 14),
+                                            TextStyle(color: t.textPrimary, fontSize: 14),
                                           ),
                                           shape: WidgetStateProperty.all(
                                             RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                              borderRadius: BorderRadius.circular(t.rowRadius),
                                             ),
                                           ),
                                         ),
@@ -234,15 +236,15 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                             height: 44,
                                             child: SearchBar(
                                               hintText: context.l10n.searchMemories,
-                                              leading: const Padding(
-                                                padding: EdgeInsets.only(left: 6.0),
+                                              leading: Padding(
+                                                padding: const EdgeInsets.only(left: 6.0),
                                                 child: FaIcon(
                                                   FontAwesomeIcons.magnifyingGlass,
-                                                  color: Colors.white70,
+                                                  color: t.textPrimary.withValues(alpha: 0.7),
                                                   size: 14,
                                                 ),
                                               ),
-                                              backgroundColor: WidgetStateProperty.all(AppStyles.backgroundSecondary),
+                                              backgroundColor: WidgetStateProperty.all(t.bgSecondary),
                                               elevation: WidgetStateProperty.all(0),
                                               padding: WidgetStateProperty.all(
                                                 const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -252,7 +254,8 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                               trailing: provider.searchQuery.isNotEmpty
                                                   ? [
                                                       IconButton(
-                                                        icon: const Icon(Icons.close, color: Colors.white70, size: 16),
+                                                        icon: Icon(Icons.close,
+                                                            color: t.textPrimary.withValues(alpha: 0.7), size: 16),
                                                         padding: EdgeInsets.zero,
                                                         constraints: const BoxConstraints(minHeight: 36, minWidth: 36),
                                                         onPressed: () {
@@ -266,14 +269,14 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                                     ]
                                                   : null,
                                               hintStyle: WidgetStateProperty.all(
-                                                TextStyle(color: AppStyles.textTertiary, fontSize: 14),
+                                                TextStyle(color: t.textTertiary, fontSize: 14),
                                               ),
                                               textStyle: WidgetStateProperty.all(
-                                                const TextStyle(color: AppStyles.textPrimary, fontSize: 14),
+                                                TextStyle(color: t.textPrimary, fontSize: 14),
                                               ),
                                               shape: WidgetStateProperty.all(
                                                 RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                                                  borderRadius: BorderRadius.circular(t.rowRadius),
                                                 ),
                                               ),
                                               onChanged: (value) => provider.setSearchQuery(value),
@@ -301,10 +304,11 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                           ).push(MaterialPageRoute(builder: (context) => const MemoryGraphPage()));
                                         },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppStyles.backgroundSecondary,
-                                          foregroundColor: Colors.white,
+                                          backgroundColor: t.bgSecondary,
+                                          foregroundColor: t.textPrimary,
                                           padding: EdgeInsets.zero,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          shape:
+                                              RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                                         ),
                                         child: const FaIcon(FontAwesomeIcons.brain, size: 16),
                                       ),
@@ -318,10 +322,11 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                           _showMemoryManagementSheet(context, provider);
                                         },
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppStyles.backgroundSecondary,
-                                          foregroundColor: Colors.white,
+                                          backgroundColor: t.bgSecondary,
+                                          foregroundColor: t.textPrimary,
                                           padding: EdgeInsets.zero,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          shape:
+                                              RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.rowRadius)),
                                         ),
                                         child: const FaIcon(FontAwesomeIcons.sliders, size: 16),
                                       ),
@@ -336,7 +341,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.note_add, size: 48, color: Colors.grey.shade600),
+                                      Icon(Icons.note_add, size: 48, color: t.textTertiary),
                                       const SizedBox(height: 16),
                                       Text(
                                         provider.searchQuery.isEmpty && provider.selectedCategories.isEmpty
@@ -347,7 +352,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                                                     ? context.l10n.noManualMemories
                                                     : context.l10n.noMemoriesInCategories
                                                 : context.l10n.noMemoriesFound,
-                                        style: TextStyle(color: Colors.grey.shade400, fontSize: 18),
+                                        style: TextStyle(color: t.textSecondary, fontSize: 18),
                                       ),
                                       if (provider.searchQuery.isEmpty && provider.selectedCategories.isEmpty) ...[
                                         const SizedBox(height: 8),
@@ -391,9 +396,9 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                       showMemoryDialog(context, provider);
                       PlatformManager.instance.analytics.memoriesPageCreateMemoryBtn();
                     },
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: t.accent,
                     tooltip: context.l10n.createMemoryTooltip,
-                    child: const Icon(Icons.add, color: Colors.white),
+                    child: Icon(Icons.add, color: t.textPrimary),
                   ),
                 ),
               ],
@@ -405,30 +410,32 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
   }
 
   Widget _buildShimmerButton() {
+    final t = context.omi;
     return ShimmerWithTimeout(
-      baseColor: AppStyles.backgroundSecondary,
-      highlightColor: AppStyles.backgroundTertiary,
+      baseColor: t.bgSecondary,
+      highlightColor: t.bgTertiary,
       child: Container(
-        decoration: BoxDecoration(color: AppStyles.backgroundSecondary, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.rowRadius)),
       ),
     );
   }
 
   Widget _buildShimmerMemoryList() {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 120),
       child: ListView.builder(
         itemCount: 8, // Show 8 shimmer items
         itemBuilder: (context, index) {
           return ShimmerWithTimeout(
-            baseColor: AppStyles.backgroundSecondary,
-            highlightColor: AppStyles.backgroundTertiary,
+            baseColor: t.bgSecondary,
+            highlightColor: t.bgTertiary,
             child: Container(
-              margin: const EdgeInsets.only(bottom: AppStyles.spacingM),
+              margin: const EdgeInsets.only(bottom: 12.0),
               height: 88, // Approximate height of a memory item
               decoration: BoxDecoration(
-                color: AppStyles.backgroundSecondary,
-                borderRadius: BorderRadius.circular(AppStyles.radiusLarge),
+                color: t.bgSecondary,
+                borderRadius: BorderRadius.circular(t.rowRadius),
               ),
             ),
           );
@@ -448,6 +455,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
 
   // ignore: unused_element
   void _showDeleteAllConfirmation(BuildContext context, MemoriesProvider provider) {
+    final t = context.omi;
     if (provider.memories.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -458,15 +466,15 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F1F25),
-        title: Text(context.l10n.clearMemoryTitle, style: const TextStyle(color: Colors.white)),
-        content: Text(context.l10n.clearMemoryMessage, style: TextStyle(color: Colors.grey.shade300)),
+        backgroundColor: t.bgSecondary,
+        title: Text(context.l10n.clearMemoryTitle, style: TextStyle(color: t.textPrimary)),
+        content: Text(context.l10n.clearMemoryMessage, style: TextStyle(color: t.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               MaterialLocalizations.of(context).cancelButtonLabel,
-              style: TextStyle(color: Colors.grey.shade400),
+              style: TextStyle(color: t.textSecondary),
             ),
           ),
           TextButton(
@@ -477,7 +485,7 @@ class MemoriesPageState extends State<MemoriesPage> with AutomaticKeepAliveClien
                 SnackBar(content: Text(context.l10n.memoryClearedSuccess), duration: const Duration(seconds: 2)),
               );
             },
-            child: Text(context.l10n.clearMemoryButton, style: const TextStyle(color: Colors.red)),
+            child: Text(context.l10n.clearMemoryButton, style: TextStyle(color: t.error)),
           ),
         ],
       ),

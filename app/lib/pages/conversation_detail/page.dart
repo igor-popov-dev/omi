@@ -47,6 +47,7 @@ import 'widgets/name_speaker_sheet.dart';
 import 'widgets/share_to_contacts_sheet.dart';
 
 import 'package:omi/backend/preferences.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 // import 'share.dart';
 // import 'package:omi/pages/settings/developer.dart';
@@ -410,24 +411,25 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
   }
 
   void _showCalendarNotConnectedDialog(BuildContext context) {
+    final t = context.omi;
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1C1E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(context.l10n.googleCalendarNotConnected, style: const TextStyle(color: Colors.white)),
-        content: Text(context.l10n.googleCalendarConnectPrompt, style: const TextStyle(color: Color(0xFF8E8E93))),
+        backgroundColor: t.bgSecondary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(t.cardRadius)),
+        title: Text(context.l10n.googleCalendarNotConnected, style: TextStyle(color: t.textPrimary)),
+        content: Text(context.l10n.googleCalendarConnectPrompt, style: TextStyle(color: t.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c),
-            child: Text(context.l10n.cancel, style: const TextStyle(color: Color(0xFF8E8E93))),
+            child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(c);
               Navigator.push(context, MaterialPageRoute(builder: (context) => const IntegrationsPage()));
             },
-            child: Text(context.l10n.connect, style: const TextStyle(color: Colors.white)),
+            child: Text(context.l10n.connect, style: TextStyle(color: t.textPrimary)),
           ),
         ],
       ),
@@ -477,6 +479,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
   }
 
   Future<void> _downloadAudio(BuildContext context, ConversationDetailProvider provider) async {
+    final t = context.omi;
     if (!mounted) return;
 
     setState(() {
@@ -503,7 +506,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
       isDismissible: false,
       enableDrag: false,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
+      barrierColor: t.bgPrimary.withValues(alpha: 0.5),
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           updateSheet = setState;
@@ -660,6 +663,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     // Empty shell on first build (before initState's setCachedConversation
     // post-frame); after init, an unresolved conversation pops the route.
     final detailProvider = context.watch<ConversationDetailProvider>();
@@ -672,7 +676,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
           }
         });
       }
-      return Scaffold(backgroundColor: Theme.of(context).colorScheme.primary);
+      return Scaffold(backgroundColor: context.omi.bgPrimary);
     }
 
     return PopScope(
@@ -689,15 +693,15 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
         child: Scaffold(
           key: scaffoldKey,
           extendBody: true,
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
             automaticallyImplyLeading: false,
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             leading: Container(
               width: 36,
               height: 36,
               margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: t.textSecondary.withValues(alpha: 0.3), shape: BoxShape.circle),
               child: IconButton(
                 padding: EdgeInsets.zero,
                 onPressed: () {
@@ -714,7 +718,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                     Navigator.pop(context);
                   }
                 },
-                icon: const FaIcon(FontAwesomeIcons.arrowLeft, size: 16.0, color: Colors.white),
+                icon: FaIcon(FontAwesomeIcons.arrowLeft, size: 16.0, color: t.textPrimary),
               ),
             ),
             title: Align(
@@ -723,7 +727,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                 padding: const EdgeInsets.only(left: 8.0),
                 child: Text(
                   _getTabTitle(context, selectedTab),
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -743,8 +747,8 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                           margin: const EdgeInsets.only(right: 8),
                           decoration: BoxDecoration(
                             color: provider.conversation.starred
-                                ? Colors.amber.withValues(alpha: 0.3)
-                                : Colors.grey.withValues(alpha: 0.3),
+                                ? t.warning.withValues(alpha: 0.3)
+                                : t.textSecondary.withValues(alpha: 0.3),
                             shape: BoxShape.circle,
                           ),
                           child: IconButton(
@@ -791,18 +795,18 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                     }
                                   },
                             icon: _isTogglingStarred
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 16,
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                                     ),
                                   )
                                 : FaIcon(
                                     provider.conversation.starred ? FontAwesomeIcons.solidStar : FontAwesomeIcons.star,
                                     size: 16.0,
-                                    color: provider.conversation.starred ? Colors.amber : Colors.white,
+                                    color: provider.conversation.starred ? t.warning : t.textPrimary,
                                   ),
                           ),
                         ),
@@ -812,7 +816,8 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                           width: 36,
                           height: 36,
                           margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
+                          decoration:
+                              BoxDecoration(color: t.textSecondary.withValues(alpha: 0.3), shape: BoxShape.circle),
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             onPressed: _isSharing
@@ -858,15 +863,15 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                     }
                                   },
                             icon: _isSharing
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 16,
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                                     ),
                                   )
-                                : const FaIcon(FontAwesomeIcons.arrowUpFromBracket, size: 16.0, color: Colors.white),
+                                : FaIcon(FontAwesomeIcons.arrowUpFromBracket, size: 16.0, color: t.textPrimary),
                           ),
                         ),
                         // Search button (second) - only show on transcript and summary tabs
@@ -877,8 +882,8 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                             margin: const EdgeInsets.only(right: 8),
                             decoration: BoxDecoration(
                               color: _isSearching
-                                  ? Colors.deepPurple.withValues(alpha: 0.8)
-                                  : Colors.grey.withValues(alpha: 0.3),
+                                  ? t.accent.withValues(alpha: 0.8)
+                                  : t.textSecondary.withValues(alpha: 0.3),
                               shape: BoxShape.circle,
                             ),
                             child: IconButton(
@@ -899,7 +904,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                 });
                                 HapticFeedback.mediumImpact();
                               },
-                              icon: const FaIcon(FontAwesomeIcons.magnifyingGlass, size: 16.0, color: Colors.white),
+                              icon: FaIcon(FontAwesomeIcons.magnifyingGlass, size: 16.0, color: t.textPrimary),
                             ),
                           ),
                         // Developer Tools button (third) - iOS style pull-down menu
@@ -964,7 +969,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                 ),
                               PullDownMenuItem(
                                 title: context.l10n.deleteConversation,
-                                iconWidget: const FaIcon(FontAwesomeIcons.trashCan, size: 16, color: Colors.red),
+                                iconWidget: FaIcon(FontAwesomeIcons.trashCan, size: 16, color: t.error),
                                 onTap: () => _handleMenuSelection(context, 'delete', provider),
                               ),
                             ],
@@ -980,11 +985,11 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                 width: 36,
                                 height: 36,
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.withValues(alpha: 0.3),
+                                  color: t.textSecondary.withValues(alpha: 0.3),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Center(
-                                  child: FaIcon(FontAwesomeIcons.ellipsisVertical, size: 16.0, color: Colors.white),
+                                child: Center(
+                                  child: FaIcon(FontAwesomeIcons.ellipsisVertical, size: 16.0, color: t.textPrimary),
                                 ),
                               ),
                             ),
@@ -1177,11 +1182,11 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
               //          horizontal: 16,
               //        ),
               //        decoration: BoxDecoration(
-              //          borderRadius: BorderRadius.circular(16),
-              //          color: const Color(0xFF1F1F25),
+              //          borderRadius: BorderRadius.circular(t.cardRadius),
+              //          color: const t.bgSecondary,
               //          boxShadow: [
               //            BoxShadow(
-              //              color: Colors.black.withValues(alpha: 0.3),
+              //              color: t.bgPrimary.withValues(alpha: 0.3),
               //              spreadRadius: 1,
               //              blurRadius: 2,
               //              offset: const Offset(0, 1),
@@ -1200,14 +1205,14 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
               //                  },
               //                  child: const Icon(
               //                    Icons.close,
-              //                    color: Colors.white,
+              //                    color: t.textPrimary,
               //                  ),
               //                ),
               //                const SizedBox(width: 8),
               //                Text(
               //                  "${value.count} unassigned segment${value.count == 1 ? '' : 's'}",
               //                  style: const TextStyle(
-              //                    color: Colors.white,
+              //                    color: t.textPrimary,
               //                    fontSize: 16,
               //                  ),
               //                ),
@@ -1215,9 +1220,9 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
               //            ),
               //            ElevatedButton(
               //              style: ElevatedButton.styleFrom(
-              //                backgroundColor: Colors.deepPurple.withValues(alpha: 0.5),
+              //                backgroundColor: t.accent.withValues(alpha: 0.5),
               //                shape: RoundedRectangleBorder(
-              //                  borderRadius: BorderRadius.circular(16),
+              //                  borderRadius: BorderRadius.circular(t.cardRadius),
               //                ),
               //              ),
               //              onPressed: () {
@@ -1227,9 +1232,9 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
               //                showModalBottomSheet(
               //                  context: context,
               //                  isScrollControlled: true,
-              //                  backgroundColor: Colors.black,
+              //                  backgroundColor: t.bgPrimary,
               //                  shape: const RoundedRectangleBorder(
-              //                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              //                    borderRadius: BorderRadius.vertical(top: Radius.circular(t.cardRadius)),
               //                  ),
               //                  builder: (context) {
               //                    return NameSpeakerBottomSheet(
@@ -1242,7 +1247,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
               //              child: const Text(
               //                "Tag",
               //                style: TextStyle(
-              //                  color: Colors.white,
+              //                  color: t.textPrimary,
               //                  fontWeight: FontWeight.bold,
               //                ),
               //              ),
@@ -1277,11 +1282,11 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                             child: TextField(
                               controller: _searchController,
                               focusNode: _searchFocusNode,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: t.textPrimary),
                               decoration: InputDecoration(
                                 hintText: context.l10n.searchTranscriptOrSummary,
-                                hintStyle: TextStyle(color: Colors.grey[400]),
-                                prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                                hintStyle: TextStyle(color: t.textSecondary),
+                                prefixIcon: Icon(Icons.search, color: t.textPrimary.withValues(alpha: 0.7)),
                                 suffixIcon: _searchQuery.isNotEmpty
                                     ? Container(
                                         width: _searchQuery.isNotEmpty ? 150 : 40,
@@ -1293,13 +1298,13 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.grey.withValues(alpha: 0.3),
+                                                  color: t.textSecondary.withValues(alpha: 0.3),
                                                   borderRadius: BorderRadius.circular(8),
                                                 ),
                                                 child: Text(
                                                   '$_currentSearchIndex/$_totalSearchResults',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
+                                                  style: TextStyle(
+                                                    color: t.textPrimary,
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.w500,
                                                   ),
@@ -1309,7 +1314,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                               Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
-                                                  borderRadius: BorderRadius.circular(16),
+                                                  borderRadius: BorderRadius.circular(t.cardRadius),
                                                   onTap: _totalSearchResults > 0 ? () => _navigateSearch(false) : null,
                                                   child: Container(
                                                     width: 28,
@@ -1317,7 +1322,9 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                                     decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
                                                     child: Icon(
                                                       Icons.keyboard_arrow_up,
-                                                      color: _totalSearchResults > 0 ? Colors.white70 : Colors.white30,
+                                                      color: _totalSearchResults > 0
+                                                          ? t.textPrimary.withValues(alpha: 0.7)
+                                                          : t.textTertiary,
                                                       size: 22,
                                                     ),
                                                   ),
@@ -1326,7 +1333,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                               Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
-                                                  borderRadius: BorderRadius.circular(16),
+                                                  borderRadius: BorderRadius.circular(t.cardRadius),
                                                   onTap: _totalSearchResults > 0 ? () => _navigateSearch(true) : null,
                                                   child: Container(
                                                     width: 28,
@@ -1334,7 +1341,9 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                                     decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
                                                     child: Icon(
                                                       Icons.keyboard_arrow_down,
-                                                      color: _totalSearchResults > 0 ? Colors.white70 : Colors.white30,
+                                                      color: _totalSearchResults > 0
+                                                          ? t.textPrimary.withValues(alpha: 0.7)
+                                                          : t.textTertiary,
                                                       size: 22,
                                                     ),
                                                   ),
@@ -1345,7 +1354,7 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                             Material(
                                               color: Colors.transparent,
                                               child: InkWell(
-                                                borderRadius: BorderRadius.circular(16),
+                                                borderRadius: BorderRadius.circular(t.cardRadius),
                                                 onTap: () {
                                                   setState(() {
                                                     _searchQuery = '';
@@ -1357,8 +1366,10 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                                 child: Container(
                                                   width: 28,
                                                   height: 28,
-                                                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-                                                  child: const Icon(Icons.clear, color: Colors.white70, size: 22),
+                                                  decoration:
+                                                      BoxDecoration(borderRadius: BorderRadius.circular(t.cardRadius)),
+                                                  child: Icon(Icons.clear,
+                                                      color: t.textPrimary.withValues(alpha: 0.7), size: 22),
                                                 ),
                                               ),
                                             ),
@@ -1367,9 +1378,9 @@ class _ConversationDetailPageState extends State<ConversationDetailPage> with Ti
                                       )
                                     : null,
                                 filled: true,
-                                fillColor: const Color(0xFF1C1C1E).withValues(alpha: 0.95),
+                                fillColor: t.bgSecondary.withValues(alpha: 0.95),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(t.rowRadius),
                                   borderSide: BorderSide.none,
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1586,9 +1597,10 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
   }
 
   Widget _buildShimmerList() {
+    final t = context.omi;
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade800,
-      highlightColor: Colors.grey.shade600,
+      baseColor: t.textTertiary,
+      highlightColor: t.textTertiary,
       child: ListView.builder(
         shrinkWrap: true,
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1602,7 +1614,7 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
                 Container(
                   width: 36,
                   height: 36,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: t.textPrimary, borderRadius: BorderRadius.circular(8)),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -1612,13 +1624,13 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
                       Container(
                         height: 14,
                         width: double.infinity,
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+                        decoration: BoxDecoration(color: t.textPrimary, borderRadius: BorderRadius.circular(4)),
                       ),
                       const SizedBox(height: 10),
                       Container(
                         height: 12,
                         width: 140,
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4)),
+                        decoration: BoxDecoration(color: t.textPrimary, borderRadius: BorderRadius.circular(4)),
                       ),
                     ],
                   ),
@@ -1627,7 +1639,7 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
                 Container(
                   width: 22,
                   height: 22,
-                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: t.textPrimary, shape: BoxShape.circle),
                 ),
               ],
             ),
@@ -1638,6 +1650,7 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
   }
 
   Widget _buildEventTile(CalendarEventLink event, bool isSuggested, bool isLinkingThis) {
+    final t = context.omi;
     return GestureDetector(
       onTap: _isLinking ? null : () => _linkEvent(event),
       child: Container(
@@ -1661,7 +1674,7 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
                 children: [
                   Text(
                     event.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1670,30 +1683,31 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.deepPurple.withValues(alpha: 0.4),
+                        color: t.accent.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Suggested',
-                        style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            color: t.textPrimary.withValues(alpha: 0.7), fontSize: 11, fontWeight: FontWeight.w600),
                       ),
                     )
                   else
                     Text(
                       '${_formatDate(event.startTime)}, ${_formatTime(event.startTime)} – ${_formatTime(event.endTime)}',
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                      style: TextStyle(color: t.textSecondary, fontSize: 13),
                     ),
                 ],
               ),
             ),
             const SizedBox(width: 14),
             _isLinking && isLinkingThis
-                ? const SizedBox(
+                ? SizedBox(
                     width: 22,
                     height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary.withValues(alpha: 0.7)),
                   )
-                : Icon(Icons.add_circle_outline, color: _isLinking ? Colors.grey.shade700 : Colors.grey, size: 22),
+                : Icon(Icons.add_circle_outline, color: _isLinking ? t.textTertiary : t.textSecondary, size: 22),
           ],
         ),
       ),
@@ -1702,11 +1716,12 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1715,35 +1730,35 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
             margin: const EdgeInsets.only(top: 12),
             width: 36,
             height: 4,
-            decoration: BoxDecoration(color: Colors.grey.shade600, borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
           ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                const Text(
+                Text(
                   'Link Event',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const Spacer(),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.close, color: Colors.grey, size: 24),
+                  child: Icon(Icons.close, color: t.textSecondary, size: 24),
                 ),
               ],
             ),
           ),
-          const Divider(color: Color(0xFF2A2A2E), height: 1),
+          Divider(color: t.bgTertiary, height: 1),
           Flexible(
             child: _isLoading
                 ? _buildShimmerList()
                 : _events.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Padding(
-                          padding: EdgeInsets.all(40),
+                          padding: const EdgeInsets.all(40),
                           child: Text(
                             'No calendar events found around this time.',
-                            style: TextStyle(color: Colors.grey, fontSize: 15),
+                            style: TextStyle(color: t.textSecondary, fontSize: 15),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -1752,8 +1767,7 @@ class _CalendarEventPickerSheetState extends State<CalendarEventPickerSheet> {
                         shrinkWrap: true,
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: _events.length,
-                        separatorBuilder: (_, __) =>
-                            const Divider(color: Color(0xFF2A2A2E), height: 1, indent: 16, endIndent: 16),
+                        separatorBuilder: (_, __) => Divider(color: t.bgTertiary, height: 1, indent: 16, endIndent: 16),
                         itemBuilder: (context, index) {
                           final event = _events[index];
                           final isLinkingThis = _linkingEventId == event.eventId;
@@ -1793,6 +1807,7 @@ class _TranscriptWidgetsState extends State<TranscriptWidgets> with AutomaticKee
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     super.build(context);
     return Listener(
       onPointerDown: (PointerDownEvent event) {
@@ -1821,8 +1836,8 @@ class _TranscriptWidgetsState extends State<TranscriptWidgets> with AutomaticKee
                 child: ExpandableTextWidget(
                   text: (provider.conversation.externalIntegration?.text ?? '').decodeString,
                   maxLines: 1000,
-                  linkColor: Colors.grey.shade300,
-                  style: TextStyle(color: Colors.grey.shade300, fontSize: 15, height: 1.3),
+                  linkColor: t.textSecondary,
+                  style: TextStyle(color: t.textSecondary, fontSize: 15, height: 1.3),
                   toggleExpand: () {
                     provider.toggleIsTranscriptExpanded();
                   },
@@ -1882,8 +1897,9 @@ class _TranscriptWidgetsState extends State<TranscriptWidgets> with AutomaticKee
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
-                  backgroundColor: Colors.black,
-                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+                  backgroundColor: t.bgPrimary,
+                  shape:
+                      RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(t.cardRadius))),
                   builder: (context) {
                     return Consumer<PeopleProvider>(
                       builder: (context, peopleProvider, child) {
@@ -1962,6 +1978,7 @@ class _ActionItemDetailWidgetState extends State<ActionItemDetailWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<ConversationDetailProvider>(
       builder: (context, provider, child) {
         // Find the current action item by description to get the latest state
@@ -1980,10 +1997,10 @@ class _ActionItemDetailWidgetState extends State<ActionItemDetailWidget> {
           duration: const Duration(milliseconds: 300),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.grey[900],
-              borderRadius: BorderRadius.circular(16),
+              color: t.bgSecondary,
+              borderRadius: BorderRadius.circular(t.cardRadius),
               boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
+                BoxShadow(color: t.bgPrimary.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
               ],
             ),
             child: Material(
@@ -1993,7 +2010,7 @@ class _ActionItemDetailWidgetState extends State<ActionItemDetailWidget> {
                   HapticFeedback.lightImpact();
                   // TODO: Add edit functionality if needed
                 },
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(t.cardRadius),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
                   child: Row(
@@ -2010,11 +2027,11 @@ class _ActionItemDetailWidgetState extends State<ActionItemDetailWidget> {
                               width: 20,
                               height: 20,
                               decoration: BoxDecoration(
-                                color: isCompleted ? Colors.green : Colors.transparent,
-                                border: Border.all(color: isCompleted ? Colors.green : Colors.grey, width: 2),
+                                color: isCompleted ? t.success : Colors.transparent,
+                                border: Border.all(color: isCompleted ? t.success : t.textSecondary, width: 2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: isCompleted ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                              child: isCompleted ? Icon(Icons.check, size: 14, color: t.textPrimary) : null,
                             ),
                           ),
                         ),
@@ -2024,9 +2041,9 @@ class _ActionItemDetailWidgetState extends State<ActionItemDetailWidget> {
                         child: Text(
                           actionItem.description,
                           style: TextStyle(
-                            color: isCompleted ? Colors.grey : Colors.white,
+                            color: isCompleted ? t.textSecondary : t.textPrimary,
                             decoration: isCompleted ? TextDecoration.lineThrough : null,
-                            decorationColor: Colors.grey,
+                            decorationColor: t.textSecondary,
                             fontSize: 15,
                             height: 1.4,
                             fontWeight: FontWeight.w500,
@@ -2107,6 +2124,7 @@ class ActionItemsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<ConversationDetailProvider>(
       builder: (context, provider, child) {
         final allActionItems = provider.conversation.structured.actionItems.where((item) => !item.deleted).toList();
@@ -2129,17 +2147,18 @@ class ActionItemsTab extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           'To-Do',
-                          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(12)),
+                          decoration:
+                              BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(t.rowRadius)),
                           child: Text(
                             '${incompleteItems.length}',
-                            style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+                            style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                           ),
                         ),
                       ],
@@ -2167,11 +2186,11 @@ class ActionItemsTab extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
                   child: Container(
                     height: 52,
-                    decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(16)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
                     child: Center(
                       child: Text(
                         'No pending action items',
-                        style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                        style: TextStyle(color: t.textSecondary, fontSize: 14),
                       ),
                     ),
                   ),
@@ -2190,20 +2209,20 @@ class ActionItemsTab extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            const Text(
+                            Text(
                               'Completed',
-                              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                              style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: Colors.grey[800],
-                                borderRadius: BorderRadius.circular(12),
+                                color: t.textTertiary,
+                                borderRadius: BorderRadius.circular(t.rowRadius),
                               ),
                               child: Text(
                                 '${completedItems.length}',
-                                style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.w500),
+                                style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                               ),
                             ),
                           ],
@@ -2232,11 +2251,11 @@ class ActionItemsTab extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
                   child: Container(
                     height: 52,
-                    decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(16)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
                     child: Center(
                       child: Text(
                         'No completed items yet',
-                        style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                        style: TextStyle(color: t.textSecondary, fontSize: 14),
                       ),
                     ),
                   ),
@@ -2251,26 +2270,27 @@ class ActionItemsTab extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final t = context.omi;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 72, color: Colors.grey.shade400),
+            Icon(Icons.check_circle_outline, size: 72, color: t.textSecondary),
             const SizedBox(height: 24),
             Text(
               'No Action Items',
               style: Theme.of(
                 context,
-              ).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+              ).textTheme.headlineSmall?.copyWith(color: t.textPrimary, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
               'Tasks and to-dos from this conversation will appear here once they are created.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 16, height: 1.5),
+              style: TextStyle(color: t.textSecondary, fontSize: 16, height: 1.5),
             ),
           ],
         ),

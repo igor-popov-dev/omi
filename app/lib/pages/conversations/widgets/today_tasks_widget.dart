@@ -7,6 +7,7 @@ import 'package:omi/backend/schema/schema.dart';
 import 'package:omi/providers/action_items_provider.dart';
 import 'package:omi/providers/home_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Widget showing top 3 today's tasks with "Show all ->" button
 class TodayTasksWidget extends StatelessWidget {
@@ -14,6 +15,7 @@ class TodayTasksWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<ActionItemsProvider>(
       builder: (context, provider, child) {
         // Get today's tasks - same logic as action_items_page.dart
@@ -54,7 +56,7 @@ class TodayTasksWidget extends StatelessWidget {
                   children: [
                     Text(
                       context.l10n.today,
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                     GestureDetector(
                       onTap: () {
@@ -65,12 +67,12 @@ class TodayTasksWidget extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.grey.withValues(alpha: 0.12),
+                          color: t.textSecondary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Text(
                           context.l10n.viewAll,
-                          style: TextStyle(color: Colors.grey[400], fontSize: 12, fontWeight: FontWeight.w500),
+                          style: TextStyle(color: t.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
                         ),
                       ),
                     ),
@@ -83,7 +85,7 @@ class TodayTasksWidget extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
                     context.l10n.noTasksForToday,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 14),
+                    style: TextStyle(color: t.textPrimary.withValues(alpha: 0.4), fontSize: 14),
                   ),
                 )
               else
@@ -91,7 +93,7 @@ class TodayTasksWidget extends StatelessWidget {
                   offset: const Offset(-8, 0),
                   child: Container(
                     margin: const EdgeInsets.only(top: 12),
-                    decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(24)),
+                    decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(24)),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Column(
                       children: displayTasks.map((task) => _TaskItem(task: task, provider: provider)).toList(),
@@ -114,6 +116,7 @@ class _TaskItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -131,10 +134,10 @@ class _TaskItem extends StatelessWidget {
               margin: const EdgeInsets.only(top: 2, right: 12),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: task.completed ? Colors.amber : Colors.grey.shade600, width: 2),
-                color: task.completed ? Colors.amber : Colors.transparent,
+                border: Border.all(color: task.completed ? t.warning : t.textTertiary, width: 2),
+                color: task.completed ? t.warning : Colors.transparent,
               ),
-              child: task.completed ? const Icon(Icons.check, size: 14, color: Colors.black) : null,
+              child: task.completed ? Icon(Icons.check, size: 14, color: t.bgPrimary) : null,
             ),
           ),
           // Task text
@@ -142,7 +145,7 @@ class _TaskItem extends StatelessWidget {
             child: Text(
               task.description,
               style: TextStyle(
-                color: task.completed ? Colors.grey.shade600 : Colors.white,
+                color: task.completed ? t.textTertiary : t.textPrimary,
                 fontSize: 15,
                 decoration: task.completed ? TextDecoration.lineThrough : null,
                 height: 1.4,

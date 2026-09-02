@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/backend/schema/memory.dart';
 import 'package:omi/providers/memories_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/utils/ui_guidelines.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MemoryManagementSheet extends StatelessWidget {
   final MemoriesProvider provider;
@@ -14,21 +14,22 @@ class MemoryManagementSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<MemoriesProvider>(
       builder: (context, provider, child) {
         return Container(
-          decoration: const BoxDecoration(
-            color: AppStyles.backgroundSecondary,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: t.bgSecondary,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: SafeArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _buildHeader(context),
-                const Divider(height: 1, color: Colors.white10),
+                Divider(height: 1, color: t.divider),
                 _buildFilterSection(context),
-                const Divider(height: 1, color: Colors.white10),
+                Divider(height: 1, color: t.divider),
                 _buildMemoryCount(context),
                 _buildActionButtons(context),
               ],
@@ -40,14 +41,16 @@ class MemoryManagementSheet extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(context.l10n.memoryManagement, style: AppStyles.subtitle),
+          Text(context.l10n.memoryManagement,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: t.textPrimary)),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white70),
+            icon: Icon(Icons.close, color: t.textPrimary.withValues(alpha: 0.7)),
             onPressed: () => Navigator.pop(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -58,20 +61,22 @@ class MemoryManagementSheet extends StatelessWidget {
   }
 
   Widget _buildFilterSection(BuildContext context) {
+    final t = context.omi;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
-          child: Text(context.l10n.filterMemories, style: AppStyles.title),
+          child: Text(context.l10n.filterMemories,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: t.textPrimary)),
         ),
         _buildCategoryFilterOption(context, context.l10n.filterAll, null),
         _buildCategoryFilterOption(context, context.l10n.filterSystem, MemoryCategory.system),
         _buildCategoryFilterOption(context, context.l10n.filterInteresting, MemoryCategory.interesting),
         _buildCategoryFilterOption(context, context.l10n.filterManual, MemoryCategory.manual),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Divider(height: 1, color: Colors.white10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Divider(height: 1, color: t.divider),
         ),
         _buildFilterOption(
           context,
@@ -115,6 +120,7 @@ class MemoryManagementSheet extends StatelessWidget {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final t = context.omi;
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -124,13 +130,13 @@ class MemoryManagementSheet extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.purpleAccent : Colors.white,
+                color: isSelected ? t.accent : t.textPrimary,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 16,
               ),
             ),
             const Spacer(),
-            if (isSelected) const Icon(Icons.check, color: Colors.purpleAccent, size: 20),
+            if (isSelected) Icon(Icons.check, color: t.accent, size: 20),
           ],
         ),
       ),
@@ -138,6 +144,7 @@ class MemoryManagementSheet extends StatelessWidget {
   }
 
   Widget _buildMemoryCount(BuildContext context) {
+    final t = context.omi;
     final totalMemories = provider.memories.length;
     final publicMemories = provider.memories.where((m) => !m.deleted && m.visibility.name == 'public').length;
     final privateMemories = provider.memories.where((m) => !m.deleted && m.visibility.name == 'private').length;
@@ -148,29 +155,33 @@ class MemoryManagementSheet extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(context.l10n.totalMemoriesCount(totalMemories), style: AppStyles.body),
+          Text(context.l10n.totalMemoriesCount(totalMemories),
+              style: TextStyle(fontSize: 15, height: 1.4, color: t.textPrimary)),
           const SizedBox(height: 8),
-          _buildMemoryCountRow(Icons.public, context.l10n.publicMemories, publicMemories),
+          _buildMemoryCountRow(context, Icons.public, context.l10n.publicMemories, publicMemories),
           const SizedBox(height: 4),
-          _buildMemoryCountRow(Icons.lock_outline, context.l10n.privateMemories, privateMemories),
+          _buildMemoryCountRow(context, Icons.lock_outline, context.l10n.privateMemories, privateMemories),
         ],
       ),
     );
   }
 
-  Widget _buildMemoryCountRow(IconData icon, String label, int count) {
+  Widget _buildMemoryCountRow(BuildContext context, IconData icon, String label, int count) {
+    final t = context.omi;
     return Row(
       children: [
-        Icon(icon, size: 16, color: Colors.white60),
+        Icon(icon, size: 16, color: t.textPrimary.withValues(alpha: 0.6)),
         const SizedBox(width: 8),
-        Text(label, style: AppStyles.caption),
+        Text(label, style: TextStyle(fontSize: 14, color: t.textSecondary)),
         const Spacer(),
-        Text(count.toString(), style: AppStyles.caption.copyWith(fontWeight: FontWeight.w600)),
+        Text(count.toString(),
+            style: TextStyle(fontSize: 14, color: t.textSecondary).copyWith(fontWeight: FontWeight.w600)),
       ],
     );
   }
 
   Widget _buildActionButtons(BuildContext context) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -180,7 +191,7 @@ class MemoryManagementSheet extends StatelessWidget {
             context,
             context.l10n.makeAllPrivate,
             Icons.lock_outline,
-            Colors.white.withValues(alpha: 0.1),
+            t.rowFillHover,
             () => _makeAllMemoriesPrivate(context),
           ),
           const SizedBox(height: 12),
@@ -188,20 +199,20 @@ class MemoryManagementSheet extends StatelessWidget {
             context,
             context.l10n.makeAllPublic,
             Icons.public,
-            Colors.white.withValues(alpha: 0.1),
+            t.rowFillHover,
             () => _makeAllMemoriesPublic(context),
           ),
           const SizedBox(height: 24),
-          const Divider(height: 1, color: Colors.white10),
+          Divider(height: 1, color: t.divider),
           const SizedBox(height: 24),
           _buildActionButton(
             context,
             context.l10n.deleteAllMemories,
             Icons.delete_outline,
-            Colors.red.withValues(alpha: 0.1),
+            t.error.withValues(alpha: 0.1),
             () => _confirmDeleteAllMemories(context),
-            textColor: Colors.red,
-            iconColor: Colors.red,
+            textColor: t.error,
+            iconColor: t.error,
           ),
           const SizedBox(height: 12),
         ],
@@ -215,9 +226,12 @@ class MemoryManagementSheet extends StatelessWidget {
     IconData icon,
     Color backgroundColor,
     VoidCallback onPressed, {
-    Color textColor = Colors.white,
-    Color iconColor = Colors.white,
+    Color? textColor,
+    Color? iconColor,
   }) {
+    final t = context.omi;
+    textColor ??= t.textPrimary;
+    iconColor ??= t.textPrimary;
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
@@ -241,6 +255,7 @@ class MemoryManagementSheet extends StatelessWidget {
   }
 
   void _makeAllMemoriesPrivate(BuildContext context) async {
+    final t = context.omi;
     Navigator.pop(context);
     await provider.updateAllMemoriesVisibility(true);
 
@@ -248,7 +263,7 @@ class MemoryManagementSheet extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.allMemoriesPrivateResult),
-          backgroundColor: AppStyles.backgroundTertiary,
+          backgroundColor: t.bgTertiary,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -259,6 +274,7 @@ class MemoryManagementSheet extends StatelessWidget {
   }
 
   void _makeAllMemoriesPublic(BuildContext context) async {
+    final t = context.omi;
     Navigator.pop(context);
     await provider.updateAllMemoriesVisibility(false);
 
@@ -266,7 +282,7 @@ class MemoryManagementSheet extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.allMemoriesPublicResult),
-          backgroundColor: AppStyles.backgroundTertiary,
+          backgroundColor: t.bgTertiary,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -277,11 +293,12 @@ class MemoryManagementSheet extends StatelessWidget {
   }
 
   void _confirmDeleteAllMemories(BuildContext context) {
+    final t = context.omi;
     if (provider.memories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.l10n.noMemoriesToDelete),
-          backgroundColor: AppStyles.backgroundTertiary,
+          backgroundColor: t.bgTertiary,
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -295,13 +312,13 @@ class MemoryManagementSheet extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppStyles.backgroundSecondary,
-        title: Text(context.l10n.clearMemoryTitle, style: const TextStyle(color: Colors.white)),
-        content: Text(context.l10n.clearMemoryMessage, style: TextStyle(color: Colors.grey.shade300)),
+        backgroundColor: t.bgSecondary,
+        title: Text(context.l10n.clearMemoryTitle, style: TextStyle(color: t.textPrimary)),
+        content: Text(context.l10n.clearMemoryMessage, style: TextStyle(color: t.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(context.l10n.cancel, style: TextStyle(color: Colors.grey.shade400)),
+            child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -311,7 +328,7 @@ class MemoryManagementSheet extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(context.l10n.memoryClearedSuccess),
-                  backgroundColor: AppStyles.backgroundTertiary,
+                  backgroundColor: t.bgTertiary,
                   duration: const Duration(seconds: 2),
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -319,7 +336,7 @@ class MemoryManagementSheet extends StatelessWidget {
                 ),
               );
             },
-            child: Text(context.l10n.clearMemoryButton, style: const TextStyle(color: Colors.red)),
+            child: Text(context.l10n.clearMemoryButton, style: TextStyle(color: t.error)),
           ),
         ],
       ),

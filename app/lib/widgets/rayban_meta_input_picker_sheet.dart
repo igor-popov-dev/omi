@@ -9,7 +9,7 @@ import 'package:omi/services/devices.dart';
 import 'package:omi/services/devices/discovery/rayban_meta_discoverer.dart';
 import 'package:omi/services/services.dart';
 import 'package:omi/utils/l10n_extensions.dart';
-import 'package:omi/utils/responsive/responsive_helper.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 typedef BluetoothHfpInputLoader = Future<List<BluetoothHfpInput>> Function();
 typedef RayBanMetaDeviceConnector = Future<void> Function(BtDevice device);
@@ -115,11 +115,12 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.8),
-      decoration: const BoxDecoration(
-        color: ResponsiveHelper.backgroundSecondary,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
       ),
       child: SafeArea(
         top: false,
@@ -130,7 +131,7 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
               margin: const EdgeInsets.only(top: 12),
               width: 40,
               height: 4,
-              decoration: BoxDecoration(color: ResponsiveHelper.textTertiary, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
@@ -138,8 +139,8 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
                 children: [
                   Text(
                     context.l10n.rayBanMetaMicPickerTitle,
-                    style: const TextStyle(
-                      color: ResponsiveHelper.textPrimary,
+                    style: TextStyle(
+                      color: t.textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                     ),
@@ -148,7 +149,7 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
                   const SizedBox(height: 10),
                   Text(
                     context.l10n.rayBanMetaMicPickerDescription,
-                    style: const TextStyle(color: ResponsiveHelper.textTertiary, fontSize: 15, height: 1.4),
+                    style: TextStyle(color: t.textTertiary, fontSize: 15, height: 1.4),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -162,10 +163,11 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
   }
 
   Widget _buildBody(BuildContext context) {
+    final t = context.omi;
     if (_isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(40),
-        child: CircularProgressIndicator(color: Colors.white),
+      return Padding(
+        padding: const EdgeInsets.all(40),
+        child: CircularProgressIndicator(color: t.textPrimary),
       );
     }
 
@@ -175,11 +177,11 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.mic_off_outlined, size: 44, color: ResponsiveHelper.textTertiary),
+            Icon(Icons.mic_off_outlined, size: 44, color: t.textTertiary),
             const SizedBox(height: 16),
             Text(
               _loadFailed ? context.l10n.rayBanMetaMicPickerLoadError : context.l10n.rayBanMetaMicPickerEmpty,
-              style: const TextStyle(color: ResponsiveHelper.textSecondary, fontSize: 15, height: 1.4),
+              style: TextStyle(color: t.textSecondary, fontSize: 15, height: 1.4),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -187,8 +189,8 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
               key: const Key('rayban_meta_input_retry'),
               onPressed: _loadInputs,
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: ResponsiveHelper.textTertiary),
+                foregroundColor: t.textPrimary,
+                side: BorderSide(color: t.textTertiary),
               ),
               child: Text(context.l10n.tryAgain),
             ),
@@ -209,32 +211,32 @@ class _RayBanMetaInputPickerSheetState extends State<RayBanMetaInputPickerSheet>
         return Column(
           children: [
             Material(
-              color: ResponsiveHelper.backgroundTertiary,
-              borderRadius: BorderRadius.circular(16),
+              color: t.bgTertiary,
+              borderRadius: BorderRadius.circular(t.cardRadius),
               child: ListTile(
                 key: Key('rayban_meta_input_${input.uid}'),
                 enabled: _connectingUid == null,
                 onTap: () => _connect(input),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                leading: const Icon(Icons.bluetooth_audio, color: Colors.white),
+                leading: Icon(Icons.bluetooth_audio, color: t.textPrimary),
                 title: Text(
                   input.name,
-                  style: const TextStyle(color: ResponsiveHelper.textPrimary, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
                 ),
                 trailing: isConnecting
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 22,
                         height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary),
                       )
-                    : const Icon(Icons.chevron_right, color: ResponsiveHelper.textTertiary),
+                    : Icon(Icons.chevron_right, color: t.textTertiary),
               ),
             ),
             if (failed) ...[
               const SizedBox(height: 8),
               Text(
                 context.l10n.rayBanMetaMicPickerConnectError,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                style: TextStyle(color: t.error, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
             ],

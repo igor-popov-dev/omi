@@ -12,6 +12,8 @@ import 'package:omi/providers/people_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/widgets/extensions/functions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class UserPeoplePage extends StatelessWidget {
   const UserPeoplePage({super.key});
@@ -39,15 +41,17 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
   }
 
   Widget _showPersonDialogForm(BuildContext context, formKey, nameController) {
+    final t = context.omi;
+
     return Platform.isIOS
         ? Material(
             color: Colors.transparent,
             child: Theme(
               data: ThemeData(
-                textSelectionTheme: const TextSelectionThemeData(
-                  cursorColor: Colors.white,
+                textSelectionTheme: TextSelectionThemeData(
+                  cursorColor: t.textPrimary,
                   selectionColor: Colors.white24,
-                  selectionHandleColor: Colors.white,
+                  selectionHandleColor: t.textPrimary,
                 ),
               ),
               child: Form(
@@ -58,8 +62,8 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
                   placeholder: context.l10n.name,
                   keyboardType: TextInputType.name,
                   textCapitalization: TextCapitalization.words,
-                  placeholderStyle: const TextStyle(color: Colors.white),
-                  style: const TextStyle(color: Colors.white),
+                  placeholderStyle: TextStyle(color: t.textPrimary),
+                  style: TextStyle(color: t.textPrimary),
                   validator: _nameValidator(context),
                 ),
               ),
@@ -73,9 +77,9 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
                 labelText: context.l10n.name,
-                labelStyle: const TextStyle(color: Colors.white),
+                labelStyle: TextStyle(color: t.textPrimary),
                 focusColor: Colors.white,
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade300)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.textSecondary)),
               ),
               validator: _nameValidator(context),
             ),
@@ -101,6 +105,8 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
     PeopleProvider provider, {
     Person? person,
   }) {
+    final t = context.omi;
+
     onPressed() async {
       if (formKey.currentState!.validate()) {
         String name = nameController.text.toString()[0].toUpperCase() + nameController.text.toString().substring(1);
@@ -117,13 +123,13 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
         ? [
             CupertinoDialogAction(
               onPressed: () => Navigator.pop(context),
-              child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.white)),
+              child: Text(context.l10n.cancel, style: TextStyle(color: t.textPrimary)),
             ),
             CupertinoDialogAction(
               onPressed: onPressed,
               child: Text(
                 person == null ? context.l10n.add : context.l10n.update,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: t.textPrimary),
               ),
             ),
           ]
@@ -133,7 +139,7 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
               onPressed: onPressed,
               child: Text(
                 person == null ? context.l10n.add : context.l10n.update,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: t.textPrimary),
               ),
             ),
           ];
@@ -208,11 +214,13 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
   Widget build(BuildContext context) {
     return Consumer<PeopleProvider>(
       builder: (context, provider, child) {
+        final t = context.omi;
+
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
             title: Text(context.l10n.people),
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             centerTitle: true,
             actions: [
               IconButton(icon: const Icon(Icons.add), onPressed: () => _showPersonDialog(context, provider)),
@@ -238,20 +246,20 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
             ],
           ),
           body: provider.loading
-              ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
+              ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary)))
               : provider.people.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Icon(Icons.question_mark, size: 40),
+                          const OmiIconWidget(icon: OmiIcon.help, size: 40),
                           const SizedBox(height: 24),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 32),
                             child: Text(
                               context.l10n.createPersonHint,
-                              style: const TextStyle(color: Colors.white, fontSize: 24),
+                              style: TextStyle(color: t.textPrimary, fontSize: 24),
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -272,7 +280,7 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
                                   Text(person.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
                               onTap: () => _showPersonDialog(context, provider, person: person),
                               trailing: IconButton(
-                                icon: const Icon(Icons.delete, size: 20),
+                                icon: const OmiIconWidget(icon: OmiIcon.trash, size: 20),
                                 onPressed: () => _confirmDeletePerson(person, provider),
                               ),
                             ),
@@ -314,7 +322,7 @@ class _UserPeoplePageState extends State<_UserPeoplePage> {
                                               ),
                                             Text(
                                               context.l10n.tapToDelete,
-                                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                              style: TextStyle(fontSize: 12, color: t.textSecondary),
                                             ),
                                           ],
                                         ),

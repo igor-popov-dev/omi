@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class ConversationTimeoutDialog {
   static Future<void> show(BuildContext context) async {
@@ -23,12 +25,14 @@ class ConversationTimeoutDialog {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final t = context.omi;
+
             return AlertDialog(
-              backgroundColor: const Color(0xFF1A1A1A),
+              backgroundColor: t.bgSecondary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Text(
                 context.l10n.conversationTimeout,
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
               ),
               content: SizedBox(
                 width: double.maxFinite,
@@ -38,7 +42,7 @@ class ConversationTimeoutDialog {
                   children: [
                     Text(
                       context.l10n.conversationTimeoutDesc,
-                      style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
+                      style: TextStyle(color: t.textSecondary, fontSize: 14),
                     ),
                     const SizedBox(height: 16),
                     ...timeoutOptions.map((option) {
@@ -59,10 +63,10 @@ class ConversationTimeoutDialog {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: isSelected ? Colors.white : const Color(0xFF3C3C43),
+                                  color: isSelected ? t.textPrimary : t.divider,
                                   width: isSelected ? 2 : 1,
                                 ),
-                                color: isSelected ? const Color(0xFF2C2C2E) : Colors.transparent,
+                                color: isSelected ? t.bgTertiary : Colors.transparent,
                               ),
                               child: Row(
                                 children: [
@@ -73,7 +77,7 @@ class ConversationTimeoutDialog {
                                         Text(
                                           option['label'] as String,
                                           style: TextStyle(
-                                            color: isSelected ? Colors.white : const Color(0xFFE5E5E7),
+                                            color: isSelected ? t.textPrimary : const Color(0xFFE5E5E7),
                                             fontSize: 16,
                                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                                           ),
@@ -82,14 +86,15 @@ class ConversationTimeoutDialog {
                                         Text(
                                           option['description'] as String,
                                           style: TextStyle(
-                                            color: isSelected ? const Color(0xFFAEAEB2) : const Color(0xFF8E8E93),
+                                            color: isSelected ? t.textSecondary : t.textSecondary,
                                             fontSize: 12,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  if (isSelected) const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                  if (isSelected)
+                                    OmiIconWidget(icon: OmiIcon.checkCircle, color: t.textPrimary, size: 20),
                                 ],
                               ),
                             ),
@@ -105,7 +110,7 @@ class ConversationTimeoutDialog {
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
-                  child: Text(context.l10n.cancel, style: const TextStyle(color: Color(0xFF8E8E93))),
+                  child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
                 ),
                 TextButton(
                   onPressed: () {
@@ -124,7 +129,7 @@ class ConversationTimeoutDialog {
                   },
                   child: Text(
                     context.l10n.save,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],

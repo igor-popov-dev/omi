@@ -18,6 +18,7 @@ import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/sync_confirmation.dart';
 import 'synced_conversations_page.dart';
 import 'wal_item_detail/wal_item_detail_page.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AutoSyncPage extends StatefulWidget {
   const AutoSyncPage({super.key});
@@ -53,6 +54,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer3<SyncProvider, UserProvider, DeviceProvider>(
       builder: (context, syncProvider, userProvider, deviceProvider, _) {
         final syncState = syncProvider.syncState;
@@ -63,27 +65,27 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
         final filteredWals = hasAnyRecording ? syncProvider.walsForDisplayFilter(_filter) : const <Wal>[];
 
         return Scaffold(
-          backgroundColor: const Color(0xFF0D0D0D),
+          backgroundColor: t.bgPrimary,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF0D0D0D),
+            backgroundColor: t.bgPrimary,
             elevation: 0,
             centerTitle: true,
             title: Text(
               context.l10n.sync,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
             ),
             leading: IconButton(
-              icon: const FaIcon(FontAwesomeIcons.chevronLeft, color: Colors.white, size: 18),
+              icon: FaIcon(FontAwesomeIcons.chevronLeft, color: t.textPrimary, size: 18),
               onPressed: () => Navigator.of(context).pop(),
             ),
             actions: [
               IconButton(
-                icon: const FaIcon(FontAwesomeIcons.circleInfo, color: Color(0xFF8E8E93), size: 18),
+                icon: FaIcon(FontAwesomeIcons.circleInfo, color: t.textSecondary, size: 18),
                 onPressed: () => _showInfoSheet(context),
               ),
               if (syncProvider.clearableWalsCount > 0)
                 IconButton(
-                  icon: const FaIcon(FontAwesomeIcons.ellipsis, color: Color(0xFF8E8E93), size: 18),
+                  icon: FaIcon(FontAwesomeIcons.ellipsis, color: t.textSecondary, size: 18),
                   onPressed: () => _showManageStorageSheet(context, syncProvider),
                 ),
             ],
@@ -132,6 +134,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   // ─────────────────────────────────────────
 
   Widget _buildOverallStatusCard(SyncProvider p, SyncState s) {
+    final t = context.omi;
     final l = context.l10n;
     final attention = p.needsAttentionWalsCount;
     final uploaded = p.uploadedWals.length;
@@ -148,7 +151,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
 
     String title;
     String? progressText;
-    Color titleColor = Colors.white;
+    Color titleColor = t.textPrimary;
     Widget? action;
 
     if (isActive) {
@@ -161,7 +164,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
           break;
         case SyncPhase.waitingForInternet:
           title = l.syncCardWaitingInternet;
-          titleColor = Colors.orangeAccent;
+          titleColor = t.warning;
           break;
         case SyncPhase.uploadingToCloud:
           title = l.syncCardUploadingTitle;
@@ -175,10 +178,10 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
         default:
           title = s.isFetchingConversations ? l.syncCardProcessing : l.syncCardUploadingTitle;
       }
-      action = _statusActionPill(l.cancel, Colors.redAccent, () => _confirmCancel(context, p));
+      action = _statusActionPill(l.cancel, t.error, () => _confirmCancel(context, p));
     } else if (p.isRateLimited) {
       title = syncCooldownTitle(p.rateLimitReason, l);
-      titleColor = Colors.orangeAccent;
+      titleColor = t.warning;
     } else if (uploaded > 0) {
       // Uploads finished, reconciler is resolving jobs in the background.
       title = l.syncCardProcessing;
@@ -187,37 +190,37 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
       progressText = l.syncProcessingBackgroundHint;
     } else if (attention > 0) {
       title = l.syncCardNeedsAttention(attention);
-      titleColor = Colors.orangeAccent;
-      action = _statusActionPill(l.sync, Colors.deepPurpleAccent, () async {
+      titleColor = t.warning;
+      action = _statusActionPill(l.sync, t.accent, () async {
         if (await confirmSyncForCustomStt(context) && context.mounted) p.syncWals();
       });
     } else if (readyToBackUp > 0) {
       title = l.syncCardReadyCount(readyToBackUp);
-      action = _statusActionPill(l.sync, Colors.deepPurpleAccent, () async {
+      action = _statusActionPill(l.sync, t.accent, () async {
         if (await confirmSyncForCustomStt(context) && context.mounted) p.syncWals();
       });
     } else if (hasAnyRecording) {
       title = l.syncCardAllBackedUp;
-      titleColor = Colors.grey.shade400;
+      titleColor = t.textSecondary;
     } else {
       // No recordings — same calm baseline; the card never pops in/out.
       title = l.syncCardAllBackedUp;
-      titleColor = Colors.grey.shade400;
+      titleColor = t.textSecondary;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           if (showSpinner) ...[
-            const SizedBox(
+            SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Colors.deepPurpleAccent),
+                valueColor: AlwaysStoppedAnimation(t.accent),
               ),
             ),
             const SizedBox(width: 12),
@@ -237,7 +240,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
                   const SizedBox(height: 3),
                   Text(
                     progressText,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w400),
+                    style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w400),
                   ),
                 ],
               ],
@@ -268,28 +271,29 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   // ─────────────────────────────────────────
 
   Widget _buildConversationsCard(SyncProvider syncProvider) {
+    final t = context.omi;
     final count = syncProvider.syncedConversationsPointers.length;
     return GestureDetector(
       onTap: () => routeToPage(context, const SyncedConversationsPage()),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
         child: Row(
           children: [
             Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.15), shape: BoxShape.circle),
-              child: const Center(child: FaIcon(FontAwesomeIcons.check, color: Colors.green, size: 14)),
+              decoration: BoxDecoration(color: t.success.withValues(alpha: 0.15), shape: BoxShape.circle),
+              child: Center(child: FaIcon(FontAwesomeIcons.check, color: t.success, size: 14)),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 context.l10n.nConversationsCreated(count),
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
               ),
             ),
-            FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade600, size: 12),
+            FaIcon(FontAwesomeIcons.chevronRight, color: t.textTertiary, size: 12),
           ],
         ),
       ),
@@ -301,23 +305,24 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   // ─────────────────────────────────────────
 
   Widget _buildErrorCard(SyncState syncState, SyncProvider syncProvider) {
+    final t = context.omi;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.08),
+        color: t.error.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.2)),
+        border: Border.all(color: t.error.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          const FaIcon(FontAwesomeIcons.circleExclamation, color: Colors.redAccent, size: 16),
+          FaIcon(FontAwesomeIcons.circleExclamation, color: t.error, size: 16),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               SyncProvider.isPendingUploadError(syncState.errorMessage)
                   ? context.l10n.syncStatusFailed
                   : syncState.errorMessage ?? context.l10n.syncFailed,
-              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+              style: TextStyle(color: t.error, fontSize: 13),
             ),
           ),
           const SizedBox(width: 8),
@@ -326,12 +331,12 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.15),
+                color: t.error.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(100),
               ),
               child: Text(
                 context.l10n.retry,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.error, fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ),
           ),
@@ -345,6 +350,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   // ─────────────────────────────────────────
 
   Widget _buildStorageSettings(UserProvider userProvider) {
+    final t = context.omi;
     final isPhoneOn = SharedPreferencesUtil().unlimitedLocalStorageEnabled;
     final isCloudOn = userProvider.privateCloudSyncEnabled;
 
@@ -355,11 +361,11 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(
             context.l10n.storageSection,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ),
         Container(
-          decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
           child: Column(
             children: [
               _settingRow(
@@ -372,7 +378,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
                   ).push(MaterialPageRoute(builder: (_) => const LocalStoragePage())).then((_) => setState(() {}));
                 },
               ),
-              const Divider(height: 1, color: Color(0xFF3C3C43), indent: 52),
+              Divider(height: 1, color: t.divider, indent: 52),
               _settingRow(
                 icon: FontAwesomeIcons.cloud,
                 label: context.l10n.storeAudioOnCloud,
@@ -393,6 +399,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
     required bool isOn,
     required VoidCallback onTap,
   }) {
+    final t = context.omi;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -400,20 +407,20 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
           children: [
-            FaIcon(icon, color: const Color(0xFF8E8E93), size: 18),
+            FaIcon(icon, color: t.textSecondary, size: 18),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w400),
+                style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w400),
               ),
             ),
             Text(
               isOn ? context.l10n.on : context.l10n.off,
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 14, fontWeight: FontWeight.w400),
+              style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w400),
             ),
             const SizedBox(width: 10),
-            FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade600, size: 12),
+            FaIcon(FontAwesomeIcons.chevronRight, color: t.textTertiary, size: 12),
           ],
         ),
       ),
@@ -425,20 +432,21 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   // ─────────────────────────────────────────
 
   Widget _buildRecordingsHeader(int total) {
+    final t = context.omi;
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 2),
       child: Row(
         children: [
           Text(
             context.l10n.recordings,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
           ),
           const SizedBox(width: 8),
-          Text('$total', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+          Text('$total', style: TextStyle(color: t.textTertiary, fontSize: 13)),
           const Spacer(),
           Text(
             context.l10n.newestFirst,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.w400),
+            style: TextStyle(color: t.textTertiary, fontSize: 11, fontWeight: FontWeight.w400),
           ),
         ],
       ),
@@ -446,6 +454,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   }
 
   Widget _buildFilterChips() {
+    final t = context.omi;
     Widget chip(WalDisplayFilter f, String label) {
       final selected = _filter == f;
       return Expanded(
@@ -457,13 +466,13 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: selected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+              color: selected ? t.rowFill : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               label,
               style: TextStyle(
-                color: selected ? Colors.white : Colors.grey.shade500,
+                color: selected ? t.textPrimary : t.textSecondary,
                 fontSize: 13,
                 fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
               ),
@@ -475,7 +484,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
 
     return Container(
       padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(10)),
       child: Row(
         children: [
           chip(WalDisplayFilter.all, context.l10n.all),
@@ -494,6 +503,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   /// rounded top corners, the last gets rounded bottom corners. Dividers are
   /// drawn between rows. This preserves the design while staying lazy.
   Widget _buildWalListSliver(SyncProvider syncProvider, List<Wal> wals) {
+    final t = context.omi;
     if (wals.isEmpty) {
       final emptyMsg = switch (_filter) {
         WalDisplayFilter.synced => context.l10n.noSyncedRecordingsYet,
@@ -505,9 +515,9 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
         sliver: SliverToBoxAdapter(
           child: Container(
             padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
             child: Center(
-              child: Text(emptyMsg, style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+              child: Text(emptyMsg, style: TextStyle(color: t.textSecondary, fontSize: 14)),
             ),
           ),
         ),
@@ -524,13 +534,14 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   }
 
   Widget _buildWalListItem(SyncProvider syncProvider, List<Wal> wals, int i) {
+    final t = context.omi;
     final wal = wals[i];
     final state = wal.syncDisplayState;
     final isFirst = i == 0;
     final isLast = i == wals.length - 1;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C1E),
+        color: t.bgSecondary,
         borderRadius: BorderRadius.vertical(
           top: isFirst ? const Radius.circular(20) : Radius.zero,
           bottom: isLast ? const Radius.circular(20) : Radius.zero,
@@ -552,27 +563,28 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
                 title: uploading ? context.l10n.deleteWhileProcessingTitle : context.l10n.deleteRecording,
                 message: uploading ? context.l10n.deleteWhileProcessingMessage : context.l10n.thisCannotBeUndone,
                 confirmLabel: context.l10n.delete,
-                confirmColor: Colors.red,
+                confirmColor: t.error,
               );
             },
             background: Container(
               alignment: Alignment.centerRight,
               padding: const EdgeInsets.only(right: 20.0),
-              color: Colors.red,
-              child: const Icon(Icons.delete, color: Colors.white),
+              color: t.error,
+              child: Icon(Icons.delete, color: t.textPrimary),
             ),
             onDismissed: (direction) {
               syncProvider.deleteWal(wal);
             },
             child: _walRow(wal),
           ),
-          if (!isLast) const Divider(height: 1, color: Color(0xFF2C2C2E), indent: 16, endIndent: 16),
+          if (!isLast) Divider(height: 1, color: t.bgTertiary, indent: 16, endIndent: 16),
         ],
       ),
     );
   }
 
   Widget _walRow(Wal wal) {
+    final t = context.omi;
     final date = DateTime.fromMillisecondsSinceEpoch(wal.timerStart * 1000).toLocal();
     final timeStr = dateTimeFormat('h:mm a', date);
     final dateStr = '${_monthName(date.month)} ${date.day}';
@@ -614,7 +626,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
                   Text(
                     '$dateStr \u00b7 $timeStr${duration != null ? ' \u00b7 $duration' : ''}',
                     style: TextStyle(
-                      color: isSynced ? Colors.grey.shade500 : Colors.white,
+                      color: isSynced ? t.textSecondary : t.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -638,11 +650,12 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   }
 
   Widget _rowTrailing(Wal wal, WalSyncDisplayState state) {
+    final t = context.omi;
     if (state == WalSyncDisplayState.syncing) {
-      return const SizedBox(
+      return SizedBox(
         width: 16,
         height: 16,
-        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.deepPurpleAccent)),
+        child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(t.accent)),
       );
     }
     if (state == WalSyncDisplayState.failed || state == WalSyncDisplayState.retrying) {
@@ -651,40 +664,41 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: Colors.deepPurpleAccent.withValues(alpha: 0.15),
+            color: t.accent.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(100),
           ),
           child: Text(
             context.l10n.retry,
-            style: const TextStyle(color: Colors.deepPurpleAccent, fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.accent, fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ),
       );
     }
-    return FaIcon(FontAwesomeIcons.chevronRight, color: Colors.grey.shade600, size: 12);
+    return FaIcon(FontAwesomeIcons.chevronRight, color: t.textTertiary, size: 12);
   }
 
   /// Row subtitle (color, icon, label). Colors stay restrained: grey for
   /// neutral/active, amber for auto-retry, red for failed/corrupted. Purple
   /// is reserved for actions and the spinner — not body text.
   (Color, FaIconData, String) _rowVisual(WalSyncDisplayState state) {
+    final t = context.omi;
     switch (state) {
       case WalSyncDisplayState.synced:
-        return (Colors.grey.shade500, FontAwesomeIcons.cloudArrowUp, context.l10n.syncStatusConversationCreated);
+        return (t.textSecondary, FontAwesomeIcons.cloudArrowUp, context.l10n.syncStatusConversationCreated);
       case WalSyncDisplayState.syncing:
-        return (Colors.grey.shade300, FontAwesomeIcons.arrowsRotate, context.l10n.syncStatusBackingUp);
+        return (t.textSecondary, FontAwesomeIcons.arrowsRotate, context.l10n.syncStatusBackingUp);
       case WalSyncDisplayState.uploaded:
-        return (Colors.grey.shade400, FontAwesomeIcons.cloud, context.l10n.syncStatusUploaded);
+        return (t.textSecondary, FontAwesomeIcons.cloud, context.l10n.syncStatusUploaded);
       case WalSyncDisplayState.waiting:
-        return (Colors.grey.shade500, FontAwesomeIcons.cloudArrowUp, context.l10n.syncStatusWaiting);
+        return (t.textSecondary, FontAwesomeIcons.cloudArrowUp, context.l10n.syncStatusWaiting);
       case WalSyncDisplayState.retrying:
-        return (Colors.orangeAccent, FontAwesomeIcons.arrowsRotate, context.l10n.syncStatusRetrying);
+        return (t.warning, FontAwesomeIcons.arrowsRotate, context.l10n.syncStatusRetrying);
       case WalSyncDisplayState.failed:
-        return (Colors.redAccent, FontAwesomeIcons.circleExclamation, context.l10n.syncStatusFailed);
+        return (t.error, FontAwesomeIcons.circleExclamation, context.l10n.syncStatusFailed);
       case WalSyncDisplayState.corrupted:
-        return (Colors.redAccent, FontAwesomeIcons.triangleExclamation, context.l10n.syncStatusFileUnavailable);
+        return (t.error, FontAwesomeIcons.triangleExclamation, context.l10n.syncStatusFileUnavailable);
       case WalSyncDisplayState.outsideRecoveryWindow:
-        return (Colors.redAccent, FontAwesomeIcons.clockRotateLeft, context.l10n.syncStatusTooOld);
+        return (t.error, FontAwesomeIcons.clockRotateLeft, context.l10n.syncStatusTooOld);
     }
   }
 
@@ -693,9 +707,10 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   // ─────────────────────────────────────────
 
   void _showInfoSheet(BuildContext context) {
+    final t = context.omi;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1F1F25),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       isScrollControlled: true,
       builder: (context) {
@@ -711,16 +726,16 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
                   child: Container(
                     width: 36,
                     height: 4,
-                    decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+                    decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
                   ),
                 ),
                 const SizedBox(height: 22),
                 Text(
                   l.howSyncingWorks,
-                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 10),
-                Text(l.syncFlowIntro, style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.45)),
+                Text(l.syncFlowIntro, style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.45)),
                 const SizedBox(height: 22),
                 _syncFlowStep(1, l.syncStepUpload, l.syncStepUploadDesc),
                 const SizedBox(height: 16),
@@ -728,7 +743,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
                 const SizedBox(height: 16),
                 _syncFlowStep(3, l.syncStepBackedUp, l.syncStepBackedUpDesc),
                 const SizedBox(height: 22),
-                Text(l.syncFailureFootnote, style: TextStyle(color: Colors.grey.shade500, fontSize: 13, height: 1.45)),
+                Text(l.syncFailureFootnote, style: TextStyle(color: t.textSecondary, fontSize: 13, height: 1.45)),
               ],
             ),
           ),
@@ -738,6 +753,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   }
 
   Widget _syncFlowStep(int n, String title, String desc) {
+    final t = context.omi;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -745,7 +761,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
           width: 22,
           child: Text(
             '$n.',
-            style: const TextStyle(color: Colors.deepPurpleAccent, fontSize: 15, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.accent, fontSize: 15, fontWeight: FontWeight.w600),
           ),
         ),
         const SizedBox(width: 8),
@@ -755,10 +771,10 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
             children: [
               Text(
                 title,
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 3),
-              Text(desc, style: TextStyle(color: Colors.grey.shade400, fontSize: 13, height: 1.45)),
+              Text(desc, style: TextStyle(color: t.textSecondary, fontSize: 13, height: 1.45)),
             ],
           ),
         ),
@@ -771,6 +787,7 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
   // ─────────────────────────────────────────
 
   void _showManageStorageSheet(BuildContext context, SyncProvider provider) {
+    final t = context.omi;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -783,14 +800,14 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
             title: context.l10n.deleteSyncedFiles,
             message: context.l10n.deleteSyncedFilesMessage,
             confirmLabel: context.l10n.clear,
-            confirmColor: Colors.red,
+            confirmColor: t.error,
           );
           if (confirmed == true && context.mounted) {
             await provider.deleteAllSyncedWals();
             if (context.mounted) {
               ScaffoldMessenger.of(
                 context,
-              ).showSnackBar(SnackBar(content: Text(context.l10n.syncedFilesDeleted), backgroundColor: Colors.green));
+              ).showSnackBar(SnackBar(content: Text(context.l10n.syncedFilesDeleted), backgroundColor: t.success));
             }
           }
         },
@@ -801,14 +818,14 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
             title: context.l10n.deletePendingFiles,
             message: context.l10n.deletePendingFilesWarning,
             confirmLabel: context.l10n.clear,
-            confirmColor: Colors.red,
+            confirmColor: t.error,
           );
           if (confirmed == true && context.mounted) {
             await provider.deleteAllPendingWals();
             if (context.mounted) {
               ScaffoldMessenger.of(
                 context,
-              ).showSnackBar(SnackBar(content: Text(context.l10n.pendingFilesDeleted), backgroundColor: Colors.green));
+              ).showSnackBar(SnackBar(content: Text(context.l10n.pendingFilesDeleted), backgroundColor: t.success));
             }
           }
         },
@@ -819,14 +836,14 @@ class _AutoSyncPageState extends State<AutoSyncPage> {
             title: context.l10n.deleteAllFiles,
             message: context.l10n.deleteAllFilesWarning,
             confirmLabel: context.l10n.clearAll,
-            confirmColor: Colors.red,
+            confirmColor: t.error,
           );
           if (confirmed == true && context.mounted) {
             await provider.deleteAllClearableWals();
             if (context.mounted) {
               ScaffoldMessenger.of(
                 context,
-              ).showSnackBar(SnackBar(content: Text(context.l10n.allFilesDeleted), backgroundColor: Colors.green));
+              ).showSnackBar(SnackBar(content: Text(context.l10n.allFilesDeleted), backgroundColor: t.success));
             }
           }
         },
@@ -882,14 +899,15 @@ class _ManageStorageSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final syncedCount = provider.syncedWals.length;
     final pendingCount = provider.pendingDeletableWals.length;
     final totalCount = provider.clearableWalsCount;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1C1C1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
         top: false,
@@ -901,17 +919,17 @@ class _ManageStorageSheet extends StatelessWidget {
               Container(
                 width: 36,
                 height: 4,
-                decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: t.textTertiary, borderRadius: BorderRadius.circular(2)),
               ),
               const SizedBox(height: 20),
               Text(
                 context.l10n.manageStorage,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 24),
               _StorageRow(
                 icon: FontAwesomeIcons.circleCheck,
-                iconColor: Colors.green,
+                iconColor: t.success,
                 title: context.l10n.synced,
                 subtitle: context.l10n.safelyBackedUp,
                 count: syncedCount,
@@ -921,7 +939,7 @@ class _ManageStorageSheet extends StatelessWidget {
               const SizedBox(height: 12),
               _StorageRow(
                 icon: FontAwesomeIcons.clockRotateLeft,
-                iconColor: Colors.orange,
+                iconColor: t.warning,
                 title: context.l10n.pending,
                 subtitle: context.l10n.notYetSynced,
                 count: pendingCount,
@@ -938,13 +956,13 @@ class _ManageStorageSheet extends StatelessWidget {
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
+                        borderRadius: BorderRadius.circular(t.rowRadius),
+                        side: BorderSide(color: t.error.withValues(alpha: 0.3)),
                       ),
                     ),
                     child: Text(
                       context.l10n.clearAll,
-                      style: TextStyle(color: Colors.red.shade300, fontSize: 15, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: t.error, fontSize: 15, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ),
@@ -980,9 +998,10 @@ class _StorageRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Row(
         children: [
           Container(
@@ -1003,21 +1022,21 @@ class _StorageRow extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: t.rowFill,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text('$count', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                      child: Text('$count', style: TextStyle(color: t.textSecondary, fontSize: 12)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 3),
-                Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                Text(subtitle, style: TextStyle(color: t.textTertiary, fontSize: 12)),
               ],
             ),
           ),
@@ -1027,13 +1046,13 @@ class _StorageRow extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: (isWarning ? Colors.orange : Colors.red).withValues(alpha: 0.12),
+                  color: (isWarning ? t.warning : t.error).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
                   clearLabel,
                   style: TextStyle(
-                    color: isWarning ? Colors.orange : Colors.red.shade300,
+                    color: isWarning ? t.warning : t.error,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),

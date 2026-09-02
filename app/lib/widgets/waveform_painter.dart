@@ -1,23 +1,32 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class WaveformPainter extends CustomPainter {
   final bool isPlaying;
   final List<double>? waveformData;
   final double playbackProgress;
 
-  const WaveformPainter({required this.isPlaying, this.waveformData, this.playbackProgress = 0.0});
+  /// Theme tokens — a painter has no BuildContext, so the caller passes them in.
+  final OmiTokens t;
+
+  const WaveformPainter({
+    required this.isPlaying,
+    required this.t,
+    this.waveformData,
+    this.playbackProgress = 0.0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.grey.shade600
+      ..color = t.textTertiary
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
     final activePaint = Paint()
-      ..color = Colors.white
+      ..color = t.textPrimary
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
 
@@ -79,7 +88,7 @@ class WaveformPainter extends CustomPainter {
     if (isPlaying && playbackProgress > 0) {
       final progressX = (barCount * playbackProgress) * (barWidth + spacing);
       final dotPaint = Paint()
-        ..color = const Color(0xFF4A90E2) // Blue color like in the image
+        ..color = t.accent
         ..style = PaintingStyle.fill;
 
       // Draw the progress dot above the waveform
@@ -91,7 +100,7 @@ class WaveformPainter extends CustomPainter {
 
       // Draw a subtle vertical line from dot to waveform
       final linePaint = Paint()
-        ..color = const Color(0xFF4A90E2).withValues(alpha: 0.5)
+        ..color = t.accent.withValues(alpha: 0.5)
         ..strokeWidth = 1.0;
 
       canvas.drawLine(Offset(progressX, size.height * 0.05 + 6), Offset(progressX, size.height * 0.95), linePaint);
@@ -121,6 +130,7 @@ class WaveformPainter extends CustomPainter {
 
     return oldDelegate.isPlaying != isPlaying ||
         oldDelegate.waveformData != waveformData ||
+        oldDelegate.t != t ||
         progressDiff > 0.01; // Only repaint if progress changed by more than 1%
   }
 }

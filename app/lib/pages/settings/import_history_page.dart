@@ -14,6 +14,8 @@ import 'package:omi/backend/http/api/imports.dart';
 import 'package:omi/l10n/app_localizations.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 /// Renders an import job's creation timestamp for its history row.
 ///
@@ -131,6 +133,8 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
   }
 
   Future<void> _startLimitlessImport() async {
+    final t = context.omi;
+
     try {
       if (!mounted) return;
       PlatformManager.instance.analytics.importStarted(source: 'limitless');
@@ -154,7 +158,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
       if (filePath == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.couldNotAccessFile), backgroundColor: Colors.red.shade700),
+            SnackBar(content: Text(context.l10n.couldNotAccessFile), backgroundColor: t.error),
           );
         }
         if (mounted) {
@@ -183,12 +187,12 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
+                  Icon(Icons.check_circle, color: t.textPrimary),
                   const SizedBox(width: 12),
                   Expanded(child: Text(context.l10n.importStarted)),
                 ],
               ),
-              backgroundColor: Colors.green.shade700,
+              backgroundColor: t.success,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -200,12 +204,12 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.white),
+                  Icon(Icons.error_outline, color: t.textPrimary),
                   const SizedBox(width: 12),
                   Expanded(child: Text(context.l10n.failedToStartImport)),
                 ],
               ),
-              backgroundColor: Colors.red.shade700,
+              backgroundColor: t.error,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -219,7 +223,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.l10n.importErrorOpeningFilePicker(e.message ?? '')),
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: t.error,
           ),
         );
       }
@@ -229,34 +233,36 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
       if (mounted) {
         setState(() => _isUploading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.importErrorGeneric(e.toString())), backgroundColor: Colors.red.shade700),
+          SnackBar(content: Text(context.l10n.importErrorGeneric(e.toString())), backgroundColor: t.error),
         );
       }
     }
   }
 
   Future<void> _showDeleteLimitlessDialog() async {
+    final t = context.omi;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F1F25),
+        backgroundColor: t.bgSecondary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           context.l10n.deleteAllLimitlessConversations,
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         content: Text(
           context.l10n.deleteAllLimitlessWarning,
-          style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+          style: TextStyle(color: t.textSecondary, fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(context.l10n.cancel, style: TextStyle(color: Colors.grey.shade400)),
+            child: Text(context.l10n.cancel, style: TextStyle(color: t.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(context.l10n.delete, style: const TextStyle(color: Colors.red)),
+            child: Text(context.l10n.delete, style: TextStyle(color: t.error)),
           ),
         ],
       ),
@@ -268,12 +274,12 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF1F1F25),
+          backgroundColor: t.bgSecondary,
           content: Row(
             children: [
-              const CircularProgressIndicator(color: Colors.white),
+              CircularProgressIndicator(color: t.textPrimary),
               const SizedBox(width: 16),
-              Text(context.l10n.deleting, style: const TextStyle(color: Colors.white)),
+              Text(context.l10n.deleting, style: TextStyle(color: t.textPrimary)),
             ],
           ),
         ),
@@ -289,12 +295,12 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
+                  Icon(Icons.check_circle, color: t.textPrimary),
                   const SizedBox(width: 12),
                   Expanded(child: Text(context.l10n.deletedLimitlessConversations(deletedCount))),
                 ],
               ),
-              backgroundColor: Colors.green.shade700,
+              backgroundColor: t.success,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -304,12 +310,12 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.white),
+                  Icon(Icons.error_outline, color: t.textPrimary),
                   const SizedBox(width: 12),
                   Expanded(child: Text(context.l10n.failedToDeleteConversations)),
                 ],
               ),
-              backgroundColor: Colors.red.shade700,
+              backgroundColor: t.error,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -326,15 +332,17 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
     required bool isAvailable,
     required VoidCallback onTap,
   }) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1F1F25),
+          color: t.bgSecondary,
           borderRadius: BorderRadius.circular(12),
-          border: isAvailable ? Border.all(color: Colors.deepPurple.withValues(alpha: 0.3), width: 1) : null,
+          border: isAvailable ? Border.all(color: t.accent.withValues(alpha: 0.3), width: 1) : null,
         ),
         child: Row(
           children: [
@@ -350,8 +358,8 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                   return Container(
                     width: 48,
                     height: 48,
-                    decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(10)),
-                    child: const Icon(Icons.device_unknown, color: Colors.grey),
+                    decoration: BoxDecoration(color: t.textSecondary, borderRadius: BorderRadius.circular(10)),
+                    child: Icon(Icons.device_unknown, color: t.textSecondary),
                   );
                 },
               ),
@@ -367,7 +375,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                       Text(
                         name,
                         style: TextStyle(
-                          color: isAvailable ? Colors.white : Colors.grey.shade500,
+                          color: isAvailable ? t.textPrimary : t.textSecondary,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -377,12 +385,12 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade800,
+                            color: t.textSecondary,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             context.l10n.comingSoon,
-                            style: TextStyle(color: Colors.grey.shade400, fontSize: 10, fontWeight: FontWeight.w500),
+                            style: TextStyle(color: t.textSecondary, fontSize: 10, fontWeight: FontWeight.w500),
                           ),
                         ),
                       ],
@@ -390,7 +398,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                   ),
                   if (description.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(description, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                    Text(description, style: TextStyle(color: t.textSecondary, fontSize: 13)),
                   ],
                 ],
               ),
@@ -398,22 +406,22 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
             // Arrow or upload indicator
             if (isAvailable)
               _isUploading
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.deepPurple),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: t.accent),
                     )
                   : Container(
                       width: 30,
                       height: 30,
                       decoration: BoxDecoration(
-                        color: Colors.deepPurple.withValues(alpha: 0.8),
+                        color: t.accent.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const FaIcon(FontAwesomeIcons.plus, color: Colors.white, size: 16),
+                      child: FaIcon(FontAwesomeIcons.plus, color: t.textPrimary, size: 16),
                     )
             else
-              Icon(Icons.lock_outline, color: Colors.grey.shade700, size: 20),
+              OmiIconWidget(icon: OmiIcon.lock, color: t.textSecondary, size: 20),
           ],
         ),
       ),
@@ -421,6 +429,8 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
   }
 
   Widget _buildImportSources() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -435,20 +445,20 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
           child: Row(
             children: [
               Container(
                 width: 48,
                 height: 48,
-                decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.devices_other, color: Colors.grey.shade600, size: 24),
+                decoration: BoxDecoration(color: t.textSecondary, borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.devices_other, color: t.textSecondary, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
                   context.l10n.otherDevicesComingSoon,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 14, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textSecondary, fontSize: 14, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -459,6 +469,8 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
   }
 
   Widget _buildJobCard(ImportJobResponse job) {
+    final t = context.omi;
+
     FaIconData statusIcon;
     Color statusColor;
     String statusText;
@@ -466,7 +478,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
     switch (job.status) {
       case ImportJobStatus.pending:
         statusIcon = FontAwesomeIcons.hourglass;
-        statusColor = Colors.orange;
+        statusColor = t.warning;
         statusText = context.l10n.statusPending;
         break;
       case ImportJobStatus.processing:
@@ -476,12 +488,12 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
         break;
       case ImportJobStatus.completed:
         statusIcon = FontAwesomeIcons.check;
-        statusColor = Colors.green;
+        statusColor = t.success;
         statusText = context.l10n.statusCompleted;
         break;
       case ImportJobStatus.failed:
         statusIcon = FontAwesomeIcons.circleExclamation;
-        statusColor = Colors.red;
+        statusColor = t.error;
         statusText = context.l10n.statusFailed;
         break;
     }
@@ -492,7 +504,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -525,7 +537,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                       style: TextStyle(color: statusColor, fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                     if (dateTimeStr.isNotEmpty && job.status == ImportJobStatus.completed)
-                      Text(dateTimeStr, style: TextStyle(color: Colors.grey.shade600, fontSize: 10)),
+                      Text(dateTimeStr, style: TextStyle(color: t.textSecondary, fontSize: 10)),
                   ],
                 ),
               ),
@@ -538,7 +550,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: chip.skipped ? Colors.white.withValues(alpha: 0.12) : Colors.green.withValues(alpha: 0.15),
+                      color: chip.skipped ? t.rowFillHover : t.success.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -547,7 +559,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                         Text(
                           context.l10n.nConversations(chip.count),
                           style: TextStyle(
-                            color: chip.skipped ? Colors.white70 : Colors.green.shade400,
+                            color: chip.skipped ? t.textSecondary : t.success,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -555,7 +567,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                         const SizedBox(width: 4),
                         Icon(
                           chip.skipped ? Icons.history : Icons.check_circle,
-                          color: chip.skipped ? Colors.white70 : Colors.green.shade400,
+                          color: chip.skipped ? t.textSecondary : t.success,
                           size: 14,
                         ),
                       ],
@@ -589,11 +601,11 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                       children: [
                         Text(
                           context.l10n.estimatedTimeRemaining(estimatedTime),
-                          style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                          style: TextStyle(color: t.textSecondary, fontSize: 12),
                         ),
                         Text(
                           '${job.processedFiles ?? 0}/${job.totalFiles}',
-                          style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                          style: TextStyle(color: t.textSecondary, fontSize: 12),
                         ),
                       ],
                     ),
@@ -602,7 +614,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: job.progress,
-                        backgroundColor: Colors.grey.shade800,
+                        backgroundColor: t.textSecondary,
                         color: Colors.blue,
                         minHeight: 6,
                       ),
@@ -617,7 +629,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
             const SizedBox(height: 8),
             Text(
               job.error!,
-              style: TextStyle(color: Colors.red.shade300, fontSize: 12),
+              style: TextStyle(color: t.error, fontSize: 12),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -628,15 +640,17 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
   }
 
   Widget _buildShimmerLoading() {
+    final t = context.omi;
+
     return Column(
       children: List.generate(3, (index) {
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
           child: ShimmerWithTimeout(
-            baseColor: Colors.grey[800]!,
-            highlightColor: Colors.grey[600]!,
+            baseColor: t.bgTertiary,
+            highlightColor: t.textTertiary,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -646,14 +660,14 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                     Container(
                       width: 26,
                       height: 26,
-                      decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(6)),
+                      decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(6)),
                     ),
                     const SizedBox(width: 8),
                     // Status icon shimmer
                     Container(
                       width: 18,
                       height: 18,
-                      decoration: BoxDecoration(color: Colors.grey[800], shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: t.bgTertiary, shape: BoxShape.circle),
                     ),
                     const SizedBox(width: 6),
                     // Status text shimmer
@@ -664,13 +678,13 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                           Container(
                             width: 80,
                             height: 14,
-                            decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4)),
+                            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(4)),
                           ),
                           const SizedBox(height: 4),
                           Container(
                             width: 120,
                             height: 10,
-                            decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(4)),
+                            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(4)),
                           ),
                         ],
                       ),
@@ -679,7 +693,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                     Container(
                       width: 100,
                       height: 24,
-                      decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
                     ),
                   ],
                 ),
@@ -692,6 +706,8 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
   }
 
   Widget _buildImportHistory() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -700,7 +716,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Text(
             context.l10n.importHistory,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
           ),
         ),
         // Content based on state
@@ -710,13 +726,13 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
             child: Row(
               children: [
-                Icon(Icons.history, color: Colors.grey.shade600, size: 24),
+                OmiIconWidget(icon: OmiIcon.rewind, color: t.textSecondary, size: 24),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Text(context.l10n.noImportsYet, style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                  child: Text(context.l10n.noImportsYet, style: TextStyle(color: t.textSecondary, fontSize: 14)),
                 ),
               ],
             ),
@@ -729,10 +745,12 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         title: Text(context.l10n.importData, style: const TextStyle(fontWeight: FontWeight.w600)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 20),
@@ -751,8 +769,8 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
               child: Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
-                child: const Center(child: FaIcon(FontAwesomeIcons.arrowsRotate, size: 16.0, color: Colors.white)),
+                decoration: BoxDecoration(color: t.textTertiary, shape: BoxShape.circle),
+                child: Center(child: FaIcon(FontAwesomeIcons.arrowsRotate, size: 16.0, color: t.textPrimary)),
               ),
             ),
           ),
@@ -764,7 +782,7 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
               itemBuilder: (context) => [
                 PullDownMenuItem(
                   title: context.l10n.deleteImportedData,
-                  iconWidget: const FaIcon(FontAwesomeIcons.trashCan, size: 16, color: Colors.red),
+                  iconWidget: FaIcon(FontAwesomeIcons.trashCan, size: 16, color: t.error),
                   onTap: () {
                     _showDeleteLimitlessDialog();
                   },
@@ -778,9 +796,9 @@ class _ImportHistoryPageState extends State<ImportHistoryPage> {
                 child: Container(
                   width: 36,
                   height: 36,
-                  decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), shape: BoxShape.circle),
-                  child: const Center(
-                    child: FaIcon(FontAwesomeIcons.ellipsisVertical, size: 16.0, color: Colors.white),
+                  decoration: BoxDecoration(color: t.textTertiary, shape: BoxShape.circle),
+                  child: Center(
+                    child: FaIcon(FontAwesomeIcons.ellipsisVertical, size: 16.0, color: t.textPrimary),
                   ),
                 ),
               ),

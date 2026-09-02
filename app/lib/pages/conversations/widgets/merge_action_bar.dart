@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 
 import 'package:omi/pages/conversations/widgets/merge_confirmation_dialog.dart';
 import 'package:omi/providers/conversation_provider.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MergeActionBar extends StatefulWidget {
   const MergeActionBar({super.key});
@@ -36,6 +38,7 @@ class _MergeActionBarState extends State<MergeActionBar> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Consumer<ConversationProvider>(
       builder: (context, provider, child) {
         final isActive = provider.isSelectionModeActive;
@@ -54,16 +57,26 @@ class _MergeActionBarState extends State<MergeActionBar> with SingleTickerProvid
             position: _slideAnimation,
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1C),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                color: t.bgSecondary,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(t.cardRadius)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, -4)),
+                  BoxShadow(
+                    // Glass allows only the ambient shadow; Classic keeps its black lift.
+                    color: t.isGlass ? const Color(0x1A000000) : t.bgPrimary.withValues(alpha: 0.5),
+                    blurRadius: t.isGlass ? 8 : 20,
+                    offset: const Offset(0, -4),
+                  ),
                 ],
               ),
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    20,
+                    20,
+                    BottomNavMetrics.actionSheetBottomPadding(context, classic: 20),
+                  ),
                   child: Row(
                     children: [
                       // Cancel button
@@ -76,7 +89,7 @@ class _MergeActionBarState extends State<MergeActionBar> with SingleTickerProvid
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           child: Text(
                             context.l10n.cancel,
-                            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 17, fontWeight: FontWeight.w500),
+                            style: TextStyle(color: t.textSecondary, fontSize: 17, fontWeight: FontWeight.w500),
                           ),
                         ),
                       ),
@@ -89,7 +102,7 @@ class _MergeActionBarState extends State<MergeActionBar> with SingleTickerProvid
                         child: Text(
                           context.l10n.selectedCount(count, ''),
                           key: ValueKey(count),
-                          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                         ),
                       ),
 
@@ -102,7 +115,7 @@ class _MergeActionBarState extends State<MergeActionBar> with SingleTickerProvid
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           decoration: BoxDecoration(
-                            color: canMerge ? const Color(0xFF7C3AED) : const Color(0xFF2C2C2E),
+                            color: canMerge ? t.accent : t.bgTertiary,
                             borderRadius: BorderRadius.circular(22),
                           ),
                           child: Row(
@@ -111,13 +124,13 @@ class _MergeActionBarState extends State<MergeActionBar> with SingleTickerProvid
                               Icon(
                                 Icons.merge_rounded,
                                 size: 18,
-                                color: canMerge ? Colors.white : const Color(0xFF636366),
+                                color: canMerge ? t.textPrimary : t.textTertiary,
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 context.l10n.merge,
                                 style: TextStyle(
-                                  color: canMerge ? Colors.white : const Color(0xFF636366),
+                                  color: canMerge ? t.textPrimary : t.textTertiary,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -138,6 +151,7 @@ class _MergeActionBarState extends State<MergeActionBar> with SingleTickerProvid
   }
 
   Future<void> _handleMerge(BuildContext context, ConversationProvider provider) async {
+    final t = context.omi;
     HapticFeedback.mediumImpact();
     final confirmed = await MergeConfirmationDialog.show(context, provider.selectedConversations);
     if (confirmed && context.mounted) {
@@ -151,19 +165,20 @@ class _MergeActionBarState extends State<MergeActionBar> with SingleTickerProvid
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(context.l10n.mergingInBackground),
-              backgroundColor: const Color(0xFF2C2C2E),
+              backgroundColor: t.bgTertiary,
               behavior: SnackBarBehavior.floating,
               margin: const EdgeInsets.all(16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               duration: const Duration(seconds: 3),
-              action: SnackBarAction(label: context.l10n.ok, textColor: Colors.white70, onPressed: () {}),
+              action: SnackBarAction(
+                  label: context.l10n.ok, textColor: t.textPrimary.withValues(alpha: 0.7), onPressed: () {}),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(context.l10n.failedToStartMerge),
-              backgroundColor: Colors.red.shade700,
+              backgroundColor: t.error,
               behavior: SnackBarBehavior.floating,
               margin: const EdgeInsets.all(16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

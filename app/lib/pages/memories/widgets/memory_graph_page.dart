@@ -19,6 +19,7 @@ import 'package:omi/backend/http/api/knowledge_graph_api.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class GraphNode3D {
   final String id;
@@ -408,6 +409,7 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
   }
 
   void _populateGraph(Map<String, dynamic> data) {
+    final t = context.omi;
     simulation.nodes.clear();
     simulation.edges.clear();
     simulation.nodeMap.clear();
@@ -459,7 +461,7 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
         id: nodeId,
         label: label,
         nodeType: nodeType,
-        baseColor: isUser ? Colors.white : _colorForType(nodeType),
+        baseColor: isUser ? t.textPrimary : _colorForType(nodeType),
         initialPosition: isUser ? v.Vector3.zero() : _randomPos3D(),
         isFixed: isUser,
       );
@@ -474,7 +476,7 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
         id: primaryUserId,
         label: userLabel,
         nodeType: 'person',
-        baseColor: Colors.white,
+        baseColor: t.textPrimary,
         initialPosition: v.Vector3.zero(),
         isFixed: true,
       );
@@ -516,6 +518,8 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
     );
   }
 
+  /// Categorical palette: five node-type hues that must stay mutually
+  /// distinguishable, not five semantic roles. Left un-themed on purpose.
   Color _colorForType(String nodeType) {
     switch (nodeType) {
       case 'person':
@@ -532,6 +536,7 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
   }
 
   Future<void> _shareGraph() async {
+    final t = context.omi;
     PlatformManager.instance.analytics.brainMapShareClicked();
     try {
       final boundary = _graphKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
@@ -550,9 +555,9 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
       canvas.drawImage(image, Offset.zero, paint);
 
       // Draw minimal branding "omi.me" at top center
-      const textSpan = TextSpan(
+      final textSpan = TextSpan(
         text: 'omi.me',
-        style: TextStyle(color: Colors.white, fontSize: 72, fontWeight: FontWeight.bold, letterSpacing: -1.0),
+        style: TextStyle(color: t.textPrimary, fontSize: 72, fontWeight: FontWeight.bold, letterSpacing: -1.0),
       );
       final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
       textPainter.layout();
@@ -585,12 +590,13 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     if (widget.embedded) {
-      return ColoredBox(color: Colors.black, child: _buildBody());
+      return ColoredBox(color: t.bgPrimary, child: _buildBody());
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: t.bgPrimary,
       extendBodyBehindAppBar: widget.showAppBar,
       appBar: widget.showAppBar
           ? AppBar(
@@ -615,14 +621,15 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
   }
 
   Widget _buildBody() {
+    final t = context.omi;
     if (_isLoading) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: Colors.purpleAccent),
+            CircularProgressIndicator(color: t.accent),
             const SizedBox(height: 16),
-            Text(context.l10n.loadingKnowledgeGraph, style: const TextStyle(color: Colors.white70)),
+            Text(context.l10n.loadingKnowledgeGraph, style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7))),
           ],
         ),
       );
@@ -635,11 +642,11 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+              Icon(Icons.error_outline, color: t.error, size: 48),
               const SizedBox(height: 16),
               Text(
                 _error!,
-                style: const TextStyle(color: Colors.white70),
+                style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7)),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -647,7 +654,7 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
               // (black-on-black on this theme), an invisible label.
               ElevatedButton(
                 onPressed: _loadGraph,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+                style: ElevatedButton.styleFrom(backgroundColor: t.textPrimary, foregroundColor: t.bgPrimary),
                 child: Text(context.l10n.retry),
               ),
             ],
@@ -677,24 +684,25 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.hub_outlined, color: Colors.white30, size: 64),
+                Icon(Icons.hub_outlined, color: t.textTertiary, size: 64),
                 const SizedBox(height: 16),
-                Text(context.l10n.noKnowledgeGraphYet, style: const TextStyle(color: Colors.white70, fontSize: 18)),
+                Text(context.l10n.noKnowledgeGraphYet,
+                    style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7), fontSize: 18)),
                 const SizedBox(height: 12),
                 Text(
                   _isRebuilding
                       ? context.l10n.buildingKnowledgeGraphFromMemories
                       : context.l10n.knowledgeGraphWillBuildAutomatically,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white38, fontSize: 14),
+                  style: TextStyle(color: t.textPrimary.withValues(alpha: 0.38), fontSize: 14),
                 ),
                 const SizedBox(height: 24),
                 if (_isRebuilding)
                   SizedBox(
                     width: 200,
                     child: LinearProgressIndicator(
-                      backgroundColor: Colors.white10,
-                      color: Colors.purpleAccent,
+                      backgroundColor: t.rowFill,
+                      color: t.accent,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   )
@@ -704,8 +712,8 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
                     icon: const Icon(Icons.auto_fix_high),
                     label: Text(context.l10n.buildGraphButton),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purpleAccent.withValues(alpha: 0.2),
-                      foregroundColor: Colors.purpleAccent,
+                      backgroundColor: t.accent.withValues(alpha: 0.2),
+                      foregroundColor: t.accent,
                     ),
                   ),
               ],
@@ -758,6 +766,7 @@ class _MemoryGraphPageState extends State<MemoryGraphPage> with SingleTickerProv
                         nodes: simulation.nodes,
                         edges: simulation.edges,
                         nodeMap: simulation.nodeMap,
+                        t: context.omi,
                         rotationX: _rotationX,
                         rotationY: _rotationY,
                         panX: _panX,
@@ -902,10 +911,14 @@ class GraphPainter3D extends CustomPainter {
   final Paint _nodePaint = Paint();
   final Paint _ringPaint = Paint()..style = PaintingStyle.stroke;
 
+  /// Theme tokens — a painter has no BuildContext, so the caller passes them in.
+  final OmiTokens t;
+
   GraphPainter3D({
     required this.nodes,
     required this.edges,
     required this.nodeMap,
+    required this.t,
     required this.rotationX,
     required this.rotationY,
     required this.panX,
@@ -976,7 +989,7 @@ class GraphPainter3D extends CustomPainter {
       final alpha = ((p1.alpha + p2.alpha) / 2.0 * 0.10).clamp(0.0, 1.0);
       if (alpha < 0.05) continue;
 
-      _edgePaint.color = Colors.white.withValues(alpha: alpha);
+      _edgePaint.color = t.textPrimary.withValues(alpha: alpha);
       _edgePaint.strokeWidth = 0.8 * ((p1.scale + p2.scale) / 2);
 
       // Drawn above with logic
@@ -991,7 +1004,7 @@ class GraphPainter3D extends CustomPainter {
       if (isDimmed) {
         _edgePaint.color = _edgePaint.color.withValues(alpha: alpha * 0.1);
       } else if (isHighlightedEdge) {
-        _edgePaint.color = Colors.white.withValues(alpha: max(alpha, 0.8)); // Pop
+        _edgePaint.color = t.textPrimary.withValues(alpha: max(alpha, 0.8)); // Pop
       }
 
       canvas.drawLine(Offset(p1.x, p1.y), Offset(p2.x, p2.y), _edgePaint);
@@ -1002,7 +1015,7 @@ class GraphPainter3D extends CustomPainter {
         final textSpan = TextSpan(
           text: edge.label,
           style: TextStyle(
-            color: Colors.white54.withValues(alpha: alpha * 2),
+            color: t.textPrimary.withValues(alpha: 0.54).withValues(alpha: alpha * 2),
             fontSize: (9 * avgScale).clamp(7, 11),
           ),
         );
@@ -1033,8 +1046,8 @@ class GraphPainter3D extends CustomPainter {
         centerOffset + Offset(-radius * 0.25, -radius * 0.25),
         radius * 1.2,
         [
-          Colors.white.withValues(alpha: p.alpha * 0.9),
-          Color.lerp(Colors.white, node.baseColor, 0.5)!.withValues(alpha: p.alpha),
+          t.textPrimary.withValues(alpha: p.alpha * 0.9),
+          Color.lerp(t.textPrimary, node.baseColor, 0.5)!.withValues(alpha: p.alpha),
           node.baseColor.withValues(alpha: p.alpha),
         ],
         [0.0, 0.3, 1.0],
@@ -1048,7 +1061,7 @@ class GraphPainter3D extends CustomPainter {
         final textSpan = TextSpan(
           text: node.label,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: screenshotMode ? 0.95 : p.alpha * 0.9),
+            color: t.textPrimary.withValues(alpha: screenshotMode ? 0.95 : p.alpha * 0.9),
             fontSize: screenshotMode ? 11.0 : (10 * p.scale).clamp(8, 14),
             fontWeight: FontWeight.w600,
           ),

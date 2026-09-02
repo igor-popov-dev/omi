@@ -25,6 +25,28 @@ class $AssetsCompetitorLogosGen {
 class $AssetsFontsGen {
   const $AssetsFontsGen();
 
+  /// File path: assets/fonts/NotoEmoji-OFL.txt
+  String get notoEmojiOFL => 'assets/fonts/NotoEmoji-OFL.txt';
+
+  /// File path: assets/fonts/NotoEmoji-VariableFont_wght.ttf
+  String get notoEmojiVariableFontWght =>
+      'assets/fonts/NotoEmoji-VariableFont_wght.ttf';
+
+  /// File path: assets/fonts/OpenRunde-Bold.otf
+  String get openRundeBold => 'assets/fonts/OpenRunde-Bold.otf';
+
+  /// File path: assets/fonts/OpenRunde-Medium.otf
+  String get openRundeMedium => 'assets/fonts/OpenRunde-Medium.otf';
+
+  /// File path: assets/fonts/OpenRunde-OFL.txt
+  String get openRundeOFL => 'assets/fonts/OpenRunde-OFL.txt';
+
+  /// File path: assets/fonts/OpenRunde-Regular.otf
+  String get openRundeRegular => 'assets/fonts/OpenRunde-Regular.otf';
+
+  /// File path: assets/fonts/OpenRunde-Semibold.otf
+  String get openRundeSemibold => 'assets/fonts/OpenRunde-Semibold.otf';
+
   /// File path: assets/fonts/SFPRODISPLAYBLACKITALIC.OTF
   String get sfprodisplayblackitalic =>
       'assets/fonts/SFPRODISPLAYBLACKITALIC.OTF';
@@ -56,6 +78,13 @@ class $AssetsFontsGen {
 
   /// List of all assets
   List<String> get values => [
+        notoEmojiOFL,
+        notoEmojiVariableFontWght,
+        openRundeBold,
+        openRundeMedium,
+        openRundeOFL,
+        openRundeRegular,
+        openRundeSemibold,
         sfprodisplayblackitalic,
         sfprodisplaybold,
         sfprodisplayheavyitalic,
@@ -485,19 +514,6 @@ class $AssetsIntegrationAppLogosGen {
       ];
 }
 
-class $AssetsSoundsGen {
-  const $AssetsSoundsGen();
-
-  /// File path: assets/sounds/thinking.mp3
-  String get thinking => 'assets/sounds/thinking.mp3';
-
-  /// File path: assets/sounds/voice_start.mp3
-  String get voiceStart => 'assets/sounds/voice_start.mp3';
-
-  /// List of all assets
-  List<String> get values => [thinking, voiceStart];
-}
-
 abstract final class Assets {
   static const $AssetsCompetitorLogosGen competitorLogos =
       $AssetsCompetitorLogosGen();
@@ -505,7 +521,6 @@ abstract final class Assets {
   static const $AssetsImagesGen images = $AssetsImagesGen();
   static const $AssetsIntegrationAppLogosGen integrationAppLogos =
       $AssetsIntegrationAppLogosGen();
-  static const $AssetsSoundsGen sounds = $AssetsSoundsGen();
   static const String shorebird = 'shorebird.yaml';
 
   /// List of all assets

@@ -57,6 +57,7 @@ import 'package:omi/providers/task_integration_provider.dart';
 import 'package:omi/services/integrations/apple_reminders_sync_service.dart';
 import 'package:omi/services/quick_actions_service.dart';
 import 'package:omi/utils/offline_sync_policy.dart';
+import 'package:omi/utils/bottom_nav_metrics.dart';
 import 'package:omi/utils/device.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/services/announcement_service.dart';
@@ -77,6 +78,9 @@ import 'package:omi/widgets/bottom_nav_bar.dart';
 import 'package:omi/pages/onboarding/interactive_device_onboarding/interactive_device_onboarding_wrapper.dart';
 
 import 'widgets/battery_info_widget.dart';
+
+import 'package:omi/utils/theme/glass_effects.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class HomePageWrapper extends StatefulWidget {
   final String? navigateToRoute;
@@ -144,6 +148,21 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver, TickerProviderStateMixin {
   ForegroundUtil foregroundUtil = ForegroundUtil();
+
+  /// Радиус пилюли бара «Ask Omi anything…» — общий для Classic и Glass,
+  /// им же режется размытие, чтобы blur не вылезал из скруглений.
+  static const double _chatBarRadius = 32;
+
+  /// Размытие под баром. Тот же литерал, что у пилюли навигации
+  /// (`_glassPillBlurSigma` = 32) и по той же причине: бар и пилюля стоят
+  /// впритык друг к другу внизу главной, разная сигма читалась бы как два
+  /// разных материала.
+  static const double _chatBarBlurSigma = 32;
+
+  /// Заливка бара в Glass: белый 0.30 — литерал пилюли навигации
+  /// (`_glassPillFill`). Токен `bgSecondary` здесь не годится: 0.55 серого
+  /// поверх свежего размытия снова превращают бар в непрозрачную плиту.
+  static const Color _glassChatBarFill = Color(0x4DFFFFFF);
 
   final _upgrader = MyUpgrader(debugLogging: false, debugDisplayOnce: false);
   bool scriptsInProgress = false;
@@ -784,6 +803,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return MyUpgradeAlert(
       upgrader: _upgrader,
       dialogStyle: Platform.isIOS ? UpgradeDialogStyle.cupertino : UpgradeDialogStyle.material,
@@ -804,16 +824,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
               //       MaterialBanner(
               //         content: const Text(
               //           'No internet connection. Please check your connection.',
-              //           style: TextStyle(color: Colors.white70),
+              //           style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7)),
               //         ),
-              //         backgroundColor: const Color(0xFF424242), // Dark gray instead of red
-              //         leading: const Icon(Icons.wifi_off, color: Colors.white70),
+              //         backgroundColor: const t.divider, // Dark gray instead of red
+              //         leading: const Icon(Icons.wifi_off, color: t.textPrimary.withValues(alpha: 0.7)),
               //         actions: [
               //           TextButton(
               //             onPressed: () {
               //               ScaffoldMessenger.of(ctx).hideCurrentMaterialBanner();
               //             },
-              //             child: const Text('Dismiss', style: TextStyle(color: Colors.white70)),
+              //             child: const Text('Dismiss', style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7))),
               //           ),
               //         ],
               //       ),
@@ -829,10 +849,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                 //     MaterialBanner(
                 //       content: const Text(
                 //         'Internet connection is restored.',
-                //         style: TextStyle(color: Colors.white),
+                //         style: TextStyle(color: t.textPrimary),
                 //       ),
-                //       backgroundColor: const Color(0xFF2E7D32), // Dark green instead of bright green
-                //       leading: const Icon(Icons.wifi, color: Colors.white),
+                //       backgroundColor: const t.success, // Dark green instead of bright green
+                //       leading: const Icon(Icons.wifi, color: t.textPrimary),
                 //       actions: [
                 //         TextButton(
                 //           onPressed: () {
@@ -840,7 +860,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                 //               ScaffoldMessenger.of(ctx).hideCurrentMaterialBanner();
                 //             }
                 //           },
-                //           child: const Text('Dismiss', style: TextStyle(color: Colors.white)),
+                //           child: const Text('Dismiss', style: TextStyle(color: t.textPrimary)),
                 //         ),
                 //       ],
                 //       onVisible: () => Future.delayed(const Duration(seconds: 3), () {
@@ -878,7 +898,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
           selector: (_, homeProvider) => homeProvider.selectedIndex,
           builder: (context, selectedIndex, _) {
             return Scaffold(
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              // bgPrimary, not colorScheme.primary: in Glass primary is the blue
+              // accent, and using it here floods the whole home screen with it.
+              backgroundColor: context.omi.bgPrimary,
               resizeToAvoidBottomInset: false,
               appBar: selectedIndex == 5 ? null : _buildAppBar(context),
               body: GestureDetector(
@@ -932,7 +954,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                               },
                             ),
                             if (home.selectedIndex == 0)
-                              Positioned(left: 16, right: 16, bottom: 78, child: _buildChatBar(context)),
+                              Positioned(
+                                left: 16,
+                                right: 16,
+                                // Classic — прежние 78 pt внахлёст с градиентным
+                                // баром; Glass — над плавающей пилюлей.
+                                bottom: BottomNavMetrics.askOmiBottom(context),
+                                child: _buildChatBar(context),
+                              ),
                           ],
                         );
                       },
@@ -953,42 +982,85 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
     );
   }
 
+  /// Оболочка бара «Ask Omi anything…».
+  ///
+  /// Classic собирается ровно как раньше — одним `Container` с заливкой
+  /// `bgSecondary`, рамкой и трёхслойным чёрным свечением.
+  ///
+  /// Glass разбирает ту же коробку на три слоя, потому что тень обязана остаться
+  /// снаружи клипа, а blur — под заливкой: тень (`DecoratedBox`) → [glassBlur]
+  /// → полупрозрачная пилюля. Заливка при этом уходит с `bgSecondary`
+  /// (0x8BBEBEC4, 0.55 серого — сплошная плита поверх размытия) на белый 0.30,
+  /// тот же литерал, что у пилюли навигации прямо под баром: два стекла в одной
+  /// точке экрана должны быть одним материалом.
+  Widget _chatBarShell(OmiTokens t, {required Widget child}) {
+    final radius = BorderRadius.circular(_chatBarRadius);
+    if (!t.isGlass) {
+      return Container(
+        height: 62,
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: radius,
+          border: Border.all(color: t.bgTertiary, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: t.bgPrimary.withValues(alpha: 0.65),
+              blurRadius: 60,
+              spreadRadius: 14,
+              offset: const Offset(0, -16),
+            ),
+            BoxShadow(
+              color: t.bgPrimary.withValues(alpha: 0.45),
+              blurRadius: 32,
+              spreadRadius: 6,
+              offset: const Offset(0, -8),
+            ),
+            BoxShadow(color: t.bgPrimary.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: child,
+      );
+    }
+    return DecoratedBox(
+      // Glass allows a single ambient shadow; она живёт снаружи ClipRRect,
+      // иначе клип срезал бы её вместе с размытием.
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, -2))],
+      ),
+      child: glassBlur(
+        borderRadius: radius,
+        sigma: _chatBarBlurSigma,
+        child: Container(
+          height: 62,
+          decoration: BoxDecoration(
+            color: _glassChatBarFill,
+            borderRadius: radius,
+            border: Border.all(color: t.bgTertiary, width: 1),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   Widget _buildChatBar(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
         PlatformManager.instance.analytics.bottomNavigationTabClicked('Chat');
         Navigator.push(context, MaterialPageRoute(builder: (context) => const ChatPage(isPivotBottom: false)));
       },
-      child: Container(
-        height: 62,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1F1F25),
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: const Color(0xFF35343B), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.65),
-              blurRadius: 60,
-              spreadRadius: 14,
-              offset: const Offset(0, -16),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.45),
-              blurRadius: 32,
-              spreadRadius: 6,
-              offset: const Offset(0, -8),
-            ),
-            BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 2)),
-          ],
-        ),
+      child: _chatBarShell(
+        t,
         child: Row(
           children: [
             const SizedBox(width: 18),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Ask Omi anything about your life...',
-                style: TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+                style: TextStyle(color: t.textSecondary, fontSize: 15),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1005,8 +1077,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                 width: 42,
                 height: 42,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: const FaIcon(FontAwesomeIcons.microphone, size: 15, color: Colors.black),
+                decoration: BoxDecoration(color: t.textPrimary, shape: BoxShape.circle),
+                child: FaIcon(FontAwesomeIcons.microphone, size: 15, color: t.bgPrimary),
               ),
             ),
             // Self-host patch, not for upstream: the same hands-free voice-mode
@@ -1022,9 +1094,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final t = context.omi;
     return AppBar(
       automaticallyImplyLeading: false,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      // Glass: шапка прозрачна, чтобы матовая подложка шла до верха экрана;
+      // Classic — прежняя сплошная surface.
+      backgroundColor: t.isGlass ? Colors.transparent : Theme.of(context).colorScheme.surface,
+      scrolledUnderElevation: t.isGlass ? 0 : null,
+      surfaceTintColor: t.isGlass ? Colors.transparent : null,
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1056,20 +1133,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
                           color: isSyncing
-                              ? Colors.deepPurple.withValues(alpha: 0.2)
+                              ? t.accent.withValues(alpha: 0.2)
                               : hasPendingOnDevice
-                              ? Colors.orange.withValues(alpha: 0.15)
-                              : const Color(0xFF1F1F25),
+                                  ? t.warning.withValues(alpha: 0.15)
+                                  : t.bgSecondary,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.cloud_rounded,
                           size: 18,
                           color: isSyncing
-                              ? Colors.deepPurpleAccent
+                              ? t.accent
                               : hasPendingOnDevice
-                              ? Colors.orangeAccent
-                              : Colors.white70,
+                                  ? t.warning
+                                  : t.textPrimary.withValues(alpha: 0.7),
                         ),
                       ),
                     );
@@ -1095,14 +1172,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: homeProvider.showConvoSearchBar
-                                ? Colors.deepPurple.withValues(alpha: 0.5)
-                                : const Color(0xFF1F1F25),
+                            color: homeProvider.showConvoSearchBar ? t.accent.withValues(alpha: 0.5) : t.bgSecondary,
                             shape: BoxShape.circle,
                           ),
                           child: IconButton(
                             padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.search, size: 18, color: Colors.white70),
+                            icon: Icon(Icons.search, size: 18, color: t.textPrimary.withValues(alpha: 0.7)),
                             onPressed: () {
                               HapticFeedback.mediumImpact();
                               homeProvider.toggleConvoSearchBar();
@@ -1115,13 +1190,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                         Container(
                           width: 36,
                           height: 36,
-                          decoration: BoxDecoration(
-                            color: Colors.deepPurple.withValues(alpha: 0.5),
-                            shape: BoxShape.circle,
-                          ),
+                          decoration: BoxDecoration(color: t.accent.withValues(alpha: 0.5), shape: BoxShape.circle),
                           child: IconButton(
                             padding: EdgeInsets.zero,
-                            icon: const FaIcon(FontAwesomeIcons.calendarDay, size: 16, color: Colors.white),
+                            icon: FaIcon(FontAwesomeIcons.calendarDay, size: 16, color: t.textPrimary),
                             onPressed: () async {
                               HapticFeedback.mediumImpact();
                               await showConversationDateRangePicker(context);
@@ -1147,10 +1219,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                       Container(
                         width: 36,
                         height: 36,
-                        decoration: const BoxDecoration(color: Color(0xFF1F1F25), shape: BoxShape.circle),
+                        decoration: BoxDecoration(color: t.bgSecondary, shape: BoxShape.circle),
                         child: IconButton(
                           padding: EdgeInsets.zero,
-                          icon: const FaIcon(FontAwesomeIcons.arrowUpFromBracket, size: 16, color: Colors.white70),
+                          icon: FaIcon(
+                            FontAwesomeIcons.arrowUpFromBracket,
+                            size: 16,
+                            color: t.textPrimary.withValues(alpha: 0.7),
+                          ),
                           onPressed: () {
                             HapticFeedback.mediumImpact();
                             PlatformManager.instance.analytics.exportTasksBannerClicked();
@@ -1165,7 +1241,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: showCompleted ? Colors.deepPurple.withValues(alpha: 0.5) : const Color(0xFF1F1F25),
+                          color: showCompleted ? t.accent.withValues(alpha: 0.5) : t.bgSecondary,
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
@@ -1173,7 +1249,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                           icon: FaIcon(
                             FontAwesomeIcons.solidCircleCheck,
                             size: 16,
-                            color: showCompleted ? Colors.white : Colors.white70,
+                            color: showCompleted ? t.textPrimary : t.textPrimary.withValues(alpha: 0.7),
                           ),
                           onPressed: () {
                             HapticFeedback.mediumImpact();
@@ -1221,8 +1297,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
                         child: Container(
                           width: 36,
                           height: 36,
-                          decoration: const BoxDecoration(color: Color(0xFF1F1F25), shape: BoxShape.circle),
-                          child: const Icon(Icons.add, size: 18, color: Colors.white70),
+                          decoration: BoxDecoration(color: t.bgSecondary, shape: BoxShape.circle),
+                          child: Icon(Icons.add, size: 18, color: t.textPrimary.withValues(alpha: 0.7)),
                         ),
                       ),
                     ),
@@ -1233,10 +1309,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver, Ticker
               Container(
                 width: 36,
                 height: 36,
-                decoration: const BoxDecoration(color: Color(0xFF1F1F25), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: t.bgSecondary, shape: BoxShape.circle),
                 child: IconButton(
                   padding: EdgeInsets.zero,
-                  icon: const FaIcon(FontAwesomeIcons.gear, size: 16, color: Colors.white70),
+                  icon: FaIcon(FontAwesomeIcons.gear, size: 16, color: t.textPrimary.withValues(alpha: 0.7)),
                   onPressed: () {
                     HapticFeedback.mediumImpact();
                     PlatformManager.instance.analytics.pageOpened('Settings');
@@ -1303,6 +1379,7 @@ class _TabLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     final itemCount = tabIndex == 3 ? 6 : 5;
     return IgnorePointer(
       child: ListView.builder(
@@ -1312,12 +1389,12 @@ class _TabLoadingSkeleton extends StatelessWidget {
         itemBuilder: (context, index) => Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: ShimmerWithTimeout(
-            baseColor: const Color(0xFF1F1F25),
-            highlightColor: const Color(0xFF303038),
+            baseColor: t.bgSecondary,
+            highlightColor: t.bgTertiary,
             child: Container(
               height: index == 0 ? 34 : 76,
               width: double.infinity,
-              decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(18)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(18)),
             ),
           ),
         ),

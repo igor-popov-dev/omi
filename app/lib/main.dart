@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:ui';
 // trigger rebuild
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -71,6 +70,7 @@ import 'package:omi/providers/people_provider.dart';
 import 'package:omi/providers/speech_profile_provider.dart';
 import 'package:omi/providers/sync_provider.dart';
 import 'package:omi/providers/task_integration_provider.dart';
+import 'package:omi/providers/theme_provider.dart';
 import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/providers/upstream_sync_provider.dart';
 import 'package:omi/providers/user_provider.dart';
@@ -93,6 +93,8 @@ import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/platform/platform_service.dart';
 import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:omi/utils/notification_channel_strings.dart';
+import 'package:omi/utils/theme/glass_backdrop.dart';
+import 'package:omi/utils/theme/omi_theme.dart';
 
 /// Параметры Firebase для текущего флейвора — считаются одинаково во ВСЕХ движках.
 FirebaseOptions _firebaseOptionsForFlavor() => Env.profile == AppEnvironmentProfile.localDev
@@ -424,6 +426,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             };
             capture.onVoiceModeCallEnd = voiceCallSession.end;
             capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
+              // Живая иконка в чате дышит по громкости ответа ассистента.
+              outputEnvelope: capture.voiceOutputEnvelope,
               events: freeFormModeProjectionEvents(
                 // Гейт по активности: поздние события уже остановленной сессии
                 // (хвост speaking-end и т.п.) перещёлкивали индикатор обратно в
@@ -525,6 +529,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // не должен уходить, пока плашку никто не смотрит.
         ChangeNotifierProvider(lazy: true, create: (context) => UpstreamSyncProvider()..refresh()),
         ChangeNotifierProvider(create: (context) => LocaleProvider()),
+        ChangeNotifierProvider(create: (context) => ThemeProvider()),
         ChangeNotifierProvider(create: (context) => AnnouncementProvider()),
         // A call must hush the phone's own always-on recording, or one call becomes two
         // conversations and the two captures fight over the microphone (lane 6 tick 22).
@@ -547,6 +552,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
       ],
       builder: (context, child) {
+        final themeProvider = context.watch<ThemeProvider>();
         return WithForegroundTask(
           child: MaterialApp(
             debugShowCheckedModeBanner: F.env == Environment.dev,
@@ -560,33 +566,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               GlobalCupertinoLocalizations.delegate,
             ],
             supportedLocales: AppLocalizations.supportedLocales,
-            theme: ThemeData(
-              useMaterial3: false,
-              colorScheme: const ColorScheme.dark(
-                primary: Colors.black,
-                secondary: Color(0xFF35343B),
-                surface: Colors.black38,
-              ),
-              snackBarTheme: const SnackBarThemeData(
-                backgroundColor: Color(0xFF1F1F25),
-                contentTextStyle: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w500),
-              ),
-              textTheme: TextTheme(
-                titleLarge: const TextStyle(fontSize: 18, color: Colors.white),
-                titleMedium: const TextStyle(fontSize: 16, color: Colors.white),
-                bodyMedium: const TextStyle(fontSize: 14, color: Colors.white),
-                labelMedium: TextStyle(fontSize: 12, color: Colors.grey.shade200),
-              ),
-              textSelectionTheme: const TextSelectionThemeData(
-                cursorColor: Colors.white,
-                selectionColor: Colors.white24,
-                selectionHandleColor: Colors.white,
-              ),
-              cupertinoOverrideTheme: const CupertinoThemeData(
-                primaryColor: Colors.white, // Controls the selection handles on iOS
-              ),
-            ),
-            themeMode: ThemeMode.dark,
+            theme: themeProvider.themeData,
             builder: (context, child) {
               FlutterError.onError = (FlutterErrorDetails details) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -599,14 +579,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               };
               final content = child!;
               final guidedContent = BluetoothGuidanceListener(child: content);
+              // Т8: матовое стекло существует только в Glass — в Classic слой
+              // не вставляется в дерево вовсе.
+              final themed = themeProvider.isGlass ? GlassBackdrop(child: guidedContent) : guidedContent;
               return PlatformService.isIOS && Env.posthogApiKey != null
-                  ? RageClickContextTracker(child: guidedContent)
-                  : guidedContent;
+                  ? RageClickContextTracker(child: themed)
+                  : themed;
             },
-            home: TalkerWrapper(
-              talker: Logger.instance.talker,
-              options: const TalkerWrapperOptions(enableErrorAlerts: false, enableExceptionAlerts: false),
-              child: const AppShell(),
+            home: AnnotatedRegion<SystemUiOverlayStyle>(
+              // Glass is a light theme, so the status bar and the Android
+              // navigation bar both need dark icons on transparent bars; see
+              // [omiSystemUiOverlayStyle]. This region spans the whole app, so
+              // it is what drives the navigation bar at the bottom of the
+              // screen — an AppBar only ever overrides the status bar half.
+              value: omiSystemUiOverlayStyle(themeProvider.isGlass),
+              child: TalkerWrapper(
+                talker: Logger.instance.talker,
+                options: const TalkerWrapperOptions(enableErrorAlerts: false, enableExceptionAlerts: false),
+                child: const AppShell(),
+              ),
             ),
           ),
         );

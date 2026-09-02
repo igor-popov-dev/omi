@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:omi/backend/http/api/users.dart';
 import 'package:omi/services/wals/sync_rate_limit_reconciliation.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class FairUsePage extends StatefulWidget {
   const FairUsePage({super.key});
@@ -59,15 +61,17 @@ class _FairUsePageState extends State<FairUsePage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: t.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: t.bgPrimary,
         title: Text(context.l10n.fairUsePolicy),
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios), onPressed: () => Navigator.of(context).pop()),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? Center(child: CircularProgressIndicator(color: t.textPrimary))
           : _error != null
               ? _buildError()
               : _status == null
@@ -94,6 +98,8 @@ class _FairUsePageState extends State<FairUsePage> {
   }
 
   Widget _buildError() {
+    final t = context.omi;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -102,13 +108,13 @@ class _FairUsePageState extends State<FairUsePage> {
           children: [
             Text(
               context.l10n.fairUseLoadError,
-              style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 15),
+              style: TextStyle(color: t.textSecondary, fontSize: 15),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             TextButton(
               onPressed: _loadStatus,
-              child: Text(context.l10n.retry, style: const TextStyle(color: Color(0xFF8B5CF6))),
+              child: Text(context.l10n.retry, style: TextStyle(color: t.accent)),
             ),
           ],
         ),
@@ -117,6 +123,8 @@ class _FairUsePageState extends State<FairUsePage> {
   }
 
   Widget _buildStatusBanner() {
+    final t = context.omi;
+
     final stage = _status!['stage'] as String? ?? 'none';
     if (stage == 'none') return const SizedBox.shrink();
 
@@ -127,15 +135,15 @@ class _FairUsePageState extends State<FairUsePage> {
 
     switch (stage) {
       case 'warning':
-        dotColor = const Color(0xFFFBBF24);
+        dotColor = t.warning;
         stageLabel = context.l10n.fairUseStageWarning;
         break;
       case 'throttle':
-        dotColor = const Color(0xFFF97316);
+        dotColor = t.warning;
         stageLabel = context.l10n.fairUseStageThrottle;
         break;
       case 'restrict':
-        dotColor = const Color(0xFFEF4444);
+        dotColor = t.error;
         stageLabel = context.l10n.fairUseStageRestrict;
         break;
       default:
@@ -168,7 +176,7 @@ class _FairUsePageState extends State<FairUsePage> {
                     SnackBar(
                       content: Text(context.l10n.fairUseCaseRefCopied(caseRef)),
                       duration: const Duration(seconds: 2),
-                      backgroundColor: const Color(0xFF2C2C2E),
+                      backgroundColor: t.bgTertiary,
                     ),
                   );
                 },
@@ -177,10 +185,10 @@ class _FairUsePageState extends State<FairUsePage> {
                   children: [
                     Text(
                       caseRef,
-                      style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 12, fontFamily: 'monospace'),
+                      style: TextStyle(color: t.textSecondary, fontSize: 12, fontFamily: 'monospace'),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.copy, size: 12, color: Color(0xFF8E8E93)),
+                    OmiIconWidget(icon: OmiIcon.copy, size: 12, color: t.textSecondary),
                   ],
                 ),
               ),
@@ -191,6 +199,8 @@ class _FairUsePageState extends State<FairUsePage> {
   }
 
   Widget _buildUsageSection() {
+    final t = context.omi;
+
     final usagePct = _status!['usage_pct'] as Map<String, dynamic>? ?? {};
     final limits = _status!['limits'] as Map<String, dynamic>? ?? {};
     final speechToday = (_status!['speech_hours_today'] as num?)?.toDouble() ?? 0;
@@ -199,13 +209,13 @@ class _FairUsePageState extends State<FairUsePage> {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.cardRadius)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             context.l10n.fairUseSpeechUsage,
-            style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 16),
           _buildUsageBar(
@@ -234,11 +244,13 @@ class _FairUsePageState extends State<FairUsePage> {
   }
 
   Widget _buildUsageBar({required String label, required double hours, required double limit, required double pct}) {
+    final t = context.omi;
+
     final barColor = pct >= 100
-        ? const Color(0xFFEF4444)
+        ? t.error
         : pct >= 80
-            ? const Color(0xFFFBBF24)
-            : const Color(0xFF8B5CF6);
+            ? t.warning
+            : t.accent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,10 +258,10 @@ class _FairUsePageState extends State<FairUsePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13)),
+            Text(label, style: TextStyle(color: t.textSecondary, fontSize: 13)),
             Text(
               '${hours.toStringAsFixed(1)}h / ${limit.toStringAsFixed(0)}h',
-              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+              style: TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -258,7 +270,7 @@ class _FairUsePageState extends State<FairUsePage> {
           borderRadius: BorderRadius.circular(3),
           child: LinearProgressIndicator(
             value: (pct / 100).clamp(0.0, 1.0),
-            backgroundColor: const Color(0xFF2C2C2E),
+            backgroundColor: t.bgTertiary,
             valueColor: AlwaysStoppedAnimation<Color>(barColor),
             minHeight: 4,
           ),
@@ -268,6 +280,8 @@ class _FairUsePageState extends State<FairUsePage> {
   }
 
   Widget _buildBudgetSection() {
+    final t = context.omi;
+
     final stage = _status!['stage'] as String? ?? 'none';
     if (stage != 'restrict') return const SizedBox.shrink();
 
@@ -284,7 +298,7 @@ class _FairUsePageState extends State<FairUsePage> {
     final usedMin = (usedMs / 60000).round();
     final limitMin = (dailyLimitMs / 60000).round();
     final pct = (usedMs / dailyLimitMs * 100).clamp(0.0, 100.0);
-    final barColor = exhausted ? const Color(0xFFEF4444) : const Color(0xFF8B5CF6);
+    final barColor = exhausted ? t.error : t.accent;
 
     String resetLabel = '';
     if (resetsAt.isNotEmpty) {
@@ -305,7 +319,7 @@ class _FairUsePageState extends State<FairUsePage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: exhausted ? const Color(0xFFEF4444).withValues(alpha: 0.06) : const Color(0xFF1C1C1E),
+          color: exhausted ? t.error.withValues(alpha: 0.06) : t.bgSecondary,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -316,11 +330,11 @@ class _FairUsePageState extends State<FairUsePage> {
               children: [
                 Text(
                   context.l10n.fairUseDailyTranscription,
-                  style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
                 ),
                 Text(
                   context.l10n.fairUseBudgetUsed('$usedMin', '$limitMin'),
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -329,7 +343,7 @@ class _FairUsePageState extends State<FairUsePage> {
               borderRadius: BorderRadius.circular(3),
               child: LinearProgressIndicator(
                 value: (pct / 100).clamp(0.0, 1.0),
-                backgroundColor: const Color(0xFF2C2C2E),
+                backgroundColor: t.bgTertiary,
                 valueColor: AlwaysStoppedAnimation<Color>(barColor),
                 minHeight: 4,
               ),
@@ -338,12 +352,12 @@ class _FairUsePageState extends State<FairUsePage> {
               const SizedBox(height: 10),
               Text(
                 context.l10n.fairUseBudgetExhausted,
-                style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.error, fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ],
             if (resetLabel.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(resetLabel, style: const TextStyle(color: Color(0xFF636366), fontSize: 12)),
+              Text(resetLabel, style: TextStyle(color: t.textTertiary, fontSize: 12)),
             ],
           ],
         ),
@@ -352,6 +366,8 @@ class _FairUsePageState extends State<FairUsePage> {
   }
 
   Widget _buildMessageBanner() {
+    final t = context.omi;
+
     final message = _status!['message'] as String? ?? '';
     if (message.isEmpty) return const SizedBox.shrink();
 
@@ -359,14 +375,14 @@ class _FairUsePageState extends State<FairUsePage> {
       padding: const EdgeInsets.only(top: 12),
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(12)),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline, color: Color(0xFF8E8E93), size: 16),
+            OmiIconWidget(icon: OmiIcon.info, color: t.textSecondary, size: 16),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(message, style: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 13, height: 1.4)),
+              child: Text(message, style: TextStyle(color: t.textSecondary, fontSize: 13, height: 1.4)),
             ),
           ],
         ),
@@ -375,6 +391,8 @@ class _FairUsePageState extends State<FairUsePage> {
   }
 
   Widget _buildAboutFooter() {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
@@ -382,12 +400,15 @@ class _FairUsePageState extends State<FairUsePage> {
         children: [
           Text(
             context.l10n.fairUseAboutTitle,
-            style: const TextStyle(color: Color(0xFF636366), fontSize: 12, fontWeight: FontWeight.w500),
+            style: TextStyle(color: t.textTertiary, fontSize: 12, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 4),
           Text(
             context.l10n.fairUseAboutBody,
-            style: const TextStyle(color: Color(0xFF48484A), fontSize: 12, height: 1.4),
+            // [OmiTokens.divider] is a separator tone, not an ink tone: under
+            // Glass it is a hairline and disappears as body copy. Classic keeps
+            // the exact shade it renders today.
+            style: TextStyle(color: t.isGlass ? t.textSecondary : t.divider, fontSize: 12, height: 1.4),
           ),
         ],
       ),

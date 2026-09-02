@@ -9770,12 +9770,6 @@ class AppLocalizationsBs extends AppLocalizations {
   String get copyMessage => 'Kopiraj poruku';
 
   @override
-  String get copyCode => 'Copy code';
-
-  @override
-  String get codeCopied => 'Code copied to clipboard';
-
-  @override
   String get searchSettings => 'Pretraži postavke…';
 
   @override
@@ -9922,6 +9916,18 @@ class AppLocalizationsBs extends AppLocalizations {
   }
 
   @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get appearanceClassic => 'Classic';
+
+  @override
+  String get appearanceGlass => 'Glass';
+
+  @override
+  String get appearanceGlassBeta => 'Glass (beta)';
+
+  @override
   String get voiceNoSpeechDetected => 'No speech detected — record again';
 
   @override
@@ -9937,10 +9943,4 @@ class AppLocalizationsBs extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
-
-  @override
-  String get voiceMessageShowText => 'Show text';
-
-  @override
-  String get voiceMessageHideText => 'Hide text';
 }

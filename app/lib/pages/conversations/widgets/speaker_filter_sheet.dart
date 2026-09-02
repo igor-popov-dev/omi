@@ -5,10 +5,12 @@ import 'package:omi/backend/schema/person.dart';
 import 'package:omi/providers/conversation_provider.dart';
 import 'package:omi/providers/people_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 typedef SpeakerSelected = Future<void> Function(String? speakerId);
 
 Future<void> showSpeakerFilterSheet(BuildContext context) async {
+  final t = context.omi;
   final conversationProvider = context.read<ConversationProvider>();
   final people = context.read<PeopleProvider>().people;
   final l10n = context.l10n;
@@ -18,7 +20,7 @@ Future<void> showSpeakerFilterSheet(BuildContext context) async {
 
   await showModalBottomSheet<void>(
     context: context,
-    backgroundColor: const Color(0xFF1F1F25),
+    backgroundColor: t.bgSecondary,
     showDragHandle: true,
     builder: (sheetContext) {
       return SpeakerFilterSheet(
@@ -72,12 +74,14 @@ class SpeakerFilterSheet extends StatelessWidget {
                 shrinkWrap: true,
                 children: [
                   _speakerTile(
+                    context,
                     key: const Key('speaker_filter_all'),
                     name: allLabel,
                     speakerId: null,
                     icon: Icons.people_outline,
                   ),
                   _speakerTile(
+                    context,
                     key: const Key('speaker_filter_user'),
                     name: userLabel,
                     speakerId: 'user',
@@ -85,6 +89,7 @@ class SpeakerFilterSheet extends StatelessWidget {
                   ),
                   for (final person in people)
                     _speakerTile(
+                      context,
                       key: Key('speaker_filter_${person.id}'),
                       name: person.name,
                       speakerId: person.id,
@@ -99,13 +104,15 @@ class SpeakerFilterSheet extends StatelessWidget {
     );
   }
 
-  Widget _speakerTile({required Key key, required String name, required String? speakerId, required IconData icon}) {
+  Widget _speakerTile(BuildContext context,
+      {required Key key, required String name, required String? speakerId, required IconData icon}) {
+    final t = context.omi;
     final selected = speakerId == selectedSpeakerId;
     return ListTile(
       key: key,
       leading: Icon(icon),
       title: Text(name),
-      trailing: selected ? const Icon(Icons.check, color: Colors.deepPurpleAccent) : null,
+      trailing: selected ? Icon(Icons.check, color: t.accent) : null,
       onTap: () async {
         await onSelected(speakerId);
       },

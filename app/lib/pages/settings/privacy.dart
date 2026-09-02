@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class PrivacyInfoPage extends StatelessWidget {
   const PrivacyInfoPage({super.key});
@@ -7,7 +8,7 @@ class PrivacyInfoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
         title: Text(context.l10n.privacyInformation),
         elevation: 0,

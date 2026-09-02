@@ -2,11 +2,11 @@ import 'dart:io';
 import 'package:omi/utils/platform/platform_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:omi/app_globals.dart';
 import 'package:omi/backend/preferences.dart';
 import 'package:omi/core/app_shell.dart';
 import 'package:omi/services/auth_service.dart';
+import 'package:omi/pages/settings/appearance_settings_page.dart';
 import 'package:omi/pages/settings/developer.dart';
 import 'package:omi/pages/settings/notifications_settings_page.dart';
 import 'package:omi/pages/settings/permissions_page.dart';
@@ -14,12 +14,16 @@ import 'package:omi/pages/settings/profile.dart';
 import 'package:omi/pages/memories/page.dart';
 import 'package:omi/pages/settings/integrations_page.dart';
 import 'package:omi/pages/settings/usage_page.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
 import 'package:omi/pages/referral/referral_page.dart';
 import 'package:omi/providers/device_provider.dart';
 import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/utils/auth/clear_user_state.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/utils/platform/platform_service.dart';
+import 'package:omi/utils/theme/glass_effects.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -34,7 +38,7 @@ import '../conversations/sync_page.dart';
 
 class _SearchableItem {
   final String title;
-  final Widget icon;
+  final SettingsIconBuilder icon;
   final VoidCallback onTap;
 
   const _SearchableItem({required this.title, required this.icon, required this.onTap});
@@ -122,42 +126,52 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
   Widget _buildSettingsItem({
     required String title,
-    required Widget icon,
+    required SettingsIconBuilder icon,
     required VoidCallback onTap,
     bool showBetaTag = false,
     bool showNewTag = false,
     Widget? trailingChip,
   }) {
+    final t = context.omi;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 1),
-        decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+        // Glass follows the macOS "General" list: every row is its own card
+        // with a gap, so the section around it stays transparent (see
+        // [_buildSectionContainer]) and no second fill shows through the
+        // corners. Classic keeps the 1px seam that made the rows read as one
+        // slab.
+        margin: EdgeInsets.only(bottom: t.isGlass ? 8 : 1),
+        decoration: BoxDecoration(
+          color: t.bgSecondary,
+          borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           child: Row(
             children: [
-              SizedBox(width: 24, height: 24, child: icon),
+              SettingsIconChip.plain(icon: icon),
               const SizedBox(width: 16),
               Expanded(
                 child: Row(
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+                      style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
                     ),
                     if (showBetaTag) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.2),
+                          color: t.warning.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           context.l10n.beta,
-                          style: const TextStyle(
-                            color: Colors.orange,
+                          style: TextStyle(
+                            color: t.warning,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -170,13 +184,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.2),
+                          color: t.success.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           context.l10n.newTag,
-                          style: const TextStyle(
-                            color: Colors.green,
+                          style: TextStyle(
+                            color: t.success,
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -188,7 +202,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Color(0xFF3C3C43), size: 20),
+              OmiIconWidget(icon: OmiIcon.chevronRight, color: t.isGlass ? t.textTertiary : t.divider, size: 20),
             ],
           ),
         ),
@@ -196,14 +210,35 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     );
   }
 
+  /// Groups rows into a section.
+  ///
+  /// Glass paints nothing here — each row is already a card, so a fill of its
+  /// own would peek out from behind the row corners. Classic keeps the single
+  /// rounded slab it has always drawn.
   Widget _buildSectionContainer({required List<Widget> children}) {
+    final t = context.omi;
+
+    if (t.isGlass) {
+      return Column(children: children);
+    }
+
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(20)),
       child: Column(children: children),
     );
   }
 
+  /// Separator between two rows of a section: a hairline in Classic, nothing in
+  /// Glass (the rows are separate cards there and the gap does the job).
+  Widget _rowDivider() {
+    final t = context.omi;
+    if (t.isGlass) return const SizedBox.shrink();
+    return Divider(height: 1, color: t.divider);
+  }
+
   Widget _buildVersionInfoSection() {
+    final t = context.omi;
+
     if (!Platform.isIOS && !Platform.isAndroid) {
       return const SizedBox.shrink();
     }
@@ -215,14 +250,14 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       children: [
         Text(
           displayText,
-          style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.w400),
+          style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w400),
         ),
         const SizedBox(width: 2),
         GestureDetector(
           onTap: _copyVersionInfo,
           child: Container(
             padding: const EdgeInsets.all(2),
-            child: const Icon(Icons.copy, size: 12, color: Color(0xFF8E8E93)),
+            child: OmiIconWidget(icon: OmiIcon.copy, size: 12, color: t.textSecondary),
           ),
         ),
       ],
@@ -242,6 +277,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }
 
   void _showCopyNotification() {
+    final t = context.omi;
+
     final overlay = Overlay.of(context);
     late OverlayEntry overlayEntry;
 
@@ -257,7 +294,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               width: MediaQuery.of(context).size.width * 0.7,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: t.isGlass ? t.bgSecondary : Colors.black87,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),
@@ -266,7 +303,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               child: Text(
                 context.l10n.appAndDeviceCopied,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                style: TextStyle(color: t.textPrimary, fontSize: 14),
               ),
             ),
           ),
@@ -279,6 +316,16 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     Future.delayed(const Duration(seconds: 2), () {
       overlayEntry.remove();
     });
+  }
+
+  /// Leading icon of a settings row.
+  ///
+  /// Classic resolves [OmiTokens.textSecondary] to `#8E8E93` — the exact tint
+  /// these rows have always used — so this stays pixel-identical there and
+  /// picks up the ink tone under Glass.
+  SettingsIconBuilder _rowIcon(BuildContext context, OmiIcon icon) {
+    final color = context.omi.textSecondary;
+    return (size) => OmiIconWidget(icon: icon, color: color, size: size);
   }
 
   List<_SearchableItem> _buildSearchableItems(BuildContext context) {
@@ -302,16 +349,18 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
     void goToMemories() => routeToPage(context, const MemoriesPage());
     void goToDeveloper() async => await routeToPage(context, const DeveloperSettingsPage());
+    void goToAppearance() => routeToPage(context, const AppearanceSettingsPage());
 
-    const profileIcon = FaIcon(FontAwesomeIcons.solidUser, color: Color(0xFF8E8E93), size: 20);
-    const notifIcon = FaIcon(FontAwesomeIcons.solidBell, color: Color(0xFF8E8E93), size: 20);
-    const usageIcon = FaIcon(FontAwesomeIcons.chartLine, color: Color(0xFF8E8E93), size: 20);
-    const deviceIcon = FaIcon(FontAwesomeIcons.bluetooth, color: Color(0xFF8E8E93), size: 20);
-    const permIcon = FaIcon(FontAwesomeIcons.shieldHalved, color: Color(0xFF8E8E93), size: 20);
-    const memIcon = FaIcon(FontAwesomeIcons.brain, color: Color(0xFF8E8E93), size: 20);
-    const devIcon = FaIcon(FontAwesomeIcons.code, color: Color(0xFF8E8E93), size: 20);
-    const intIcon = FaIcon(FontAwesomeIcons.networkWired, color: Color(0xFF8E8E93), size: 20);
-    const syncIcon = FaIcon(FontAwesomeIcons.solidCloud, color: Color(0xFF8E8E93), size: 20);
+    final profileIcon = _rowIcon(context, OmiIcon.user);
+    final notifIcon = _rowIcon(context, OmiIcon.bell);
+    final usageIcon = _rowIcon(context, OmiIcon.chart);
+    final deviceIcon = _rowIcon(context, OmiIcon.bluetooth);
+    final permIcon = _rowIcon(context, OmiIcon.shield);
+    final memIcon = _rowIcon(context, OmiIcon.brain);
+    final devIcon = _rowIcon(context, OmiIcon.code);
+    final intIcon = _rowIcon(context, OmiIcon.integrations);
+    final syncIcon = _rowIcon(context, OmiIcon.cloud);
+    final appearanceIcon = _rowIcon(context, OmiIcon.palette);
 
     final items = <_SearchableItem>[
       // --- Profile ---
@@ -362,7 +411,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       if (PlatformService.isIntercomSupported) ...[
         _SearchableItem(
           title: context.l10n.feedbackBug,
-          icon: const FaIcon(FontAwesomeIcons.solidEnvelope, color: Color(0xFF8E8E93), size: 20),
+          icon: _rowIcon(context, OmiIcon.envelope),
           onTap: () async {
             final Uri url = Uri.parse('https://feedback.omi.me/');
             if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.inAppBrowserView);
@@ -370,7 +419,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
         ),
         _SearchableItem(
           title: context.l10n.helpCenter,
-          icon: const FaIcon(FontAwesomeIcons.book, color: Color(0xFF8E8E93), size: 20),
+          icon: _rowIcon(context, OmiIcon.book),
           onTap: () async {
             final Uri url = Uri.parse('https://help.omi.me/en/');
             if (await canLaunchUrl(url)) {
@@ -383,6 +432,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           },
         ),
       ],
+      // --- Appearance ---
+      _SearchableItem(title: context.l10n.appearance, icon: appearanceIcon, onTap: goToAppearance),
+      _SearchableItem(title: context.l10n.appearanceClassic, icon: appearanceIcon, onTap: goToAppearance),
+      _SearchableItem(title: context.l10n.appearanceGlassBeta, icon: appearanceIcon, onTap: goToAppearance),
       // --- Developer ---
       _SearchableItem(title: context.l10n.developerSettings, icon: devIcon, onTap: goToDeveloper),
       _SearchableItem(title: context.l10n.apiKeys, icon: devIcon, onTap: goToDeveloper),
@@ -397,7 +450,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       // --- What's New ---
       _SearchableItem(
         title: context.l10n.whatsNew,
-        icon: const FaIcon(FontAwesomeIcons.solidStar, color: Color(0xFF8E8E93), size: 20),
+        icon: _rowIcon(context, OmiIcon.star),
         onTap: () {
           PlatformManager.instance.analytics.whatsNewOpened();
           ChangelogSheet.showWithLoading(context, () => getAppChangelogs(limit: 5));
@@ -406,13 +459,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       // --- Referral ---
       _SearchableItem(
         title: context.l10n.referralProgram,
-        icon: const FaIcon(FontAwesomeIcons.gift, color: Color(0xFF8E8E93), size: 20),
+        icon: _rowIcon(context, OmiIcon.gift),
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ReferralPage())),
       ),
       // --- Sign Out ---
       _SearchableItem(
         title: context.l10n.signOut,
-        icon: const FaIcon(FontAwesomeIcons.rightFromBracket, color: Color(0xFF8E8E93), size: 20),
+        icon: _rowIcon(context, OmiIcon.signOut),
         onTap: () async {
           final navigator = Navigator.of(context);
           navigator.pop();
@@ -447,17 +500,19 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }
 
   Widget _buildSearchResults(BuildContext context) {
+    final t = context.omi;
+
     final allItems = _buildSearchableItems(context);
     final query = _searchQuery.toLowerCase();
     final filtered = allItems.where((item) => item.title.toLowerCase().contains(query)).toList();
 
     if (filtered.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.only(top: 48),
+          padding: const EdgeInsets.only(top: 48),
           child: Text(
             'No results',
-            style: TextStyle(color: Color(0xFF8E8E93), fontSize: 16, fontWeight: FontWeight.w400),
+            style: TextStyle(color: t.textSecondary, fontSize: 16, fontWeight: FontWeight.w400),
           ),
         ),
       );
@@ -472,6 +527,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   Widget _buildOmiModeContent(BuildContext context) {
     return Consumer<UsageProvider>(
       builder: (context, usageProvider, child) {
+        final t = context.omi;
+
         return Column(
           children: [
             // Profile & Notifications Section
@@ -480,7 +537,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 // Wrapped 2025 - temporarily disabled
                 // _buildSettingsItem(
                 //   title: context.l10n.wrapped2025,
-                //   icon: FaIcon(FontAwesomeIcons.gift, color: Color(0xFF8E8E93), size: 20),
+                //   icon: OmiIconWidget(icon: OmiIcon.gift, color: t.textSecondary, size: 20),
                 //   showNewTag: true,
                 //   onTap: () {
                 //     Navigator.of(context).push(
@@ -493,43 +550,43 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 // const Divider(height: 1, color: Color(0xFF3C3C43)),
                 _buildSettingsItem(
                   title: context.l10n.profile,
-                  icon: const FaIcon(FontAwesomeIcons.solidUser, color: Color(0xFF8E8E93), size: 20),
+                  icon: _rowIcon(context, OmiIcon.user),
                   onTap: () {
                     routeToPage(context, const ProfilePage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.notifications,
-                  icon: const FaIcon(FontAwesomeIcons.solidBell, color: Color(0xFF8E8E93), size: 20),
+                  icon: _rowIcon(context, OmiIcon.bell),
                   onTap: () {
                     routeToPage(context, const NotificationsSettingsPage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                _rowDivider(),
                 Consumer<UsageProvider>(
                   builder: (context, usageProvider, child) {
                     final sp = usageProvider.subscription?.subscription.plan;
                     final isUnlimited = sp?.isPaid ?? false;
                     return _buildSettingsItem(
                       title: context.l10n.planAndUsage,
-                      icon: const FaIcon(FontAwesomeIcons.chartLine, color: Color(0xFF8E8E93), size: 20),
+                      icon: _rowIcon(context, OmiIcon.chart),
                       trailingChip: isUnlimited
                           ? Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.amber.withValues(alpha: 0.2),
+                                color: t.warning.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const FaIcon(FontAwesomeIcons.crown, color: Colors.amber, size: 10),
+                                  OmiIconWidget(icon: OmiIcon.crown, color: t.warning, size: 10),
                                   const SizedBox(width: 4),
                                   Text(
                                     context.l10n.pro.toUpperCase(),
-                                    style: const TextStyle(
-                                      color: Colors.amber,
+                                    style: TextStyle(
+                                      color: t.warning,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.5,
@@ -545,10 +602,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     );
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.offlineSync,
-                  icon: const FaIcon(FontAwesomeIcons.solidCloud, color: Color(0xFF8E8E93), size: 20),
+                  icon: _rowIcon(context, OmiIcon.cloud),
                   onTap: () {
                     final page =
                         SharedPreferencesUtil().deviceSupportsMultiFileSync ? const AutoSyncPage() : const SyncPage();
@@ -562,10 +619,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     }
                     return Column(
                       children: [
-                        const Divider(height: 1, color: Color(0xFF3C3C43)),
+                        _rowDivider(),
                         _buildSettingsItem(
                           title: context.l10n.deviceSettings,
-                          icon: const FaIcon(FontAwesomeIcons.bluetooth, color: Color(0xFF8E8E93), size: 20),
+                          icon: _rowIcon(context, OmiIcon.bluetooth),
                           onTap: () {
                             Navigator.of(context).push(MaterialPageRoute(builder: (context) => const DeviceSettings()));
                           },
@@ -574,19 +631,19 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     );
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.integrations,
-                  icon: const FaIcon(FontAwesomeIcons.networkWired, color: Color(0xFF8E8E93), size: 20),
+                  icon: _rowIcon(context, OmiIcon.integrations),
                   showBetaTag: true,
                   onTap: () {
                     Navigator.of(context).push(MaterialPageRoute(builder: (context) => const IntegrationsPage()));
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.permissions,
-                  icon: const FaIcon(FontAwesomeIcons.shieldHalved, color: Color(0xFF8E8E93), size: 20),
+                  icon: _rowIcon(context, OmiIcon.shield),
                   onTap: () {
                     PlatformManager.instance.analytics.permissionsSettingsOpened();
                     routeToPage(context, const PermissionsPage());
@@ -602,7 +659,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 if (PlatformService.isIntercomSupported) ...[
                   _buildSettingsItem(
                     title: context.l10n.feedbackBug,
-                    icon: const FaIcon(FontAwesomeIcons.solidEnvelope, color: Color(0xFF8E8E93), size: 20),
+                    icon: _rowIcon(context, OmiIcon.envelope),
                     onTap: () async {
                       final Uri url = Uri.parse('https://feedback.omi.me/');
                       if (await canLaunchUrl(url)) {
@@ -610,10 +667,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       }
                     },
                   ),
-                  const Divider(height: 1, color: Color(0xFF3C3C43)),
+                  _rowDivider(),
                   _buildSettingsItem(
                     title: context.l10n.helpCenter,
-                    icon: const FaIcon(FontAwesomeIcons.book, color: Color(0xFF8E8E93), size: 20),
+                    icon: _rowIcon(context, OmiIcon.book),
                     onTap: () async {
                       final Uri url = Uri.parse('https://help.omi.me/en/');
                       if (await canLaunchUrl(url)) {
@@ -625,28 +682,36 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       }
                     },
                   ),
-                  const Divider(height: 1, color: Color(0xFF3C3C43)),
+                  _rowDivider(),
                 ],
                 _buildSettingsItem(
+                  title: context.l10n.appearance,
+                  icon: _rowIcon(context, OmiIcon.palette),
+                  onTap: () {
+                    routeToPage(context, const AppearanceSettingsPage());
+                  },
+                ),
+                _rowDivider(),
+                _buildSettingsItem(
                   title: context.l10n.developerSettings,
-                  icon: const FaIcon(FontAwesomeIcons.code, color: Color(0xFF8E8E93), size: 20),
+                  icon: _rowIcon(context, OmiIcon.code),
                   onTap: () async {
                     await routeToPage(context, const DeveloperSettingsPage());
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.whatsNew,
-                  icon: const FaIcon(FontAwesomeIcons.solidStar, color: Color(0xFF8E8E93), size: 20),
+                  icon: _rowIcon(context, OmiIcon.star),
                   onTap: () {
                     PlatformManager.instance.analytics.whatsNewOpened();
                     ChangelogSheet.showWithLoading(context, () => getAppChangelogs(limit: 5));
                   },
                 ),
-                const Divider(height: 1, color: Color(0xFF3C3C43)),
+                _rowDivider(),
                 _buildSettingsItem(
                   title: context.l10n.referralProgram,
-                  icon: const FaIcon(FontAwesomeIcons.gift, color: Color(0xFF8E8E93), size: 20),
+                  icon: _rowIcon(context, OmiIcon.gift),
                   showNewTag: true,
                   onTap: () {
                     Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ReferralPage()));
@@ -661,7 +726,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               children: [
                 _buildSettingsItem(
                   title: context.l10n.signOut,
-                  icon: const FaIcon(FontAwesomeIcons.rightFromBracket, color: Color(0xFF8E8E93), size: 20),
+                  icon: _rowIcon(context, OmiIcon.signOut),
                   onTap: () async {
                     final navigator = Navigator.of(context);
 
@@ -710,135 +775,183 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     );
   }
 
+  /// Радиус шторки — скруглены только верхние углы, нижние уходят за экран.
+  static const BorderRadius _sheetRadius =
+      BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28));
+
+  /// Размытие страницы под шторкой.
+  ///
+  /// Больше, чем у плавающих пилюль (32): пилюля глушит полосу контента, а
+  /// шторка накрывает целую страницу с текстом и должна сделать его
+  /// нечитаемым целиком. Меньше фоновой подложки (48) — та размывает
+  /// фотографию, здесь же под фильтром мелкий шрифт, и 38 его уже растворяют.
+  static const double _sheetBlurSigma = 38;
+
+  /// Вуаль шторки в Glass.
+  ///
+  /// Токен `bgPrimary` (белый 0.46) остался бы честным, будь под шторкой
+  /// blur, — но его не было, и страница просвечивала прямо сквозь пункты
+  /// меню, на что и жаловался Игорь. Размытие снимает разборчивость, вуаль
+  /// добивает остаточный контраст: белый 0.62 гасит смазанные пятна текста
+  /// до фона, но пропускает достаточно, чтобы за стеклом угадывалась
+  /// подложка [GlassBackdrop], а не глухая плита.
+  ///
+  /// Плотнее токена ровно потому, что здесь стекло стоит не на подложке, а на
+  /// экране, полном собственного текста.
+  static const Color _glassSheetVeil = Color(0x9EFFFFFF);
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: Color(0xFF000000),
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
-        child: Column(
-          children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              height: 4,
-              width: 36,
-              decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
-            ),
-            // Header
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-              child: _isSearching
-                  ? Padding(
-                      key: const ValueKey('search-header'),
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _searchController,
-                              focusNode: _searchFocusNode,
-                              autofocus: true,
-                              style: const TextStyle(color: Colors.white, fontSize: 14),
-                              cursorColor: Colors.white,
-                              decoration: InputDecoration(
-                                hintText: context.l10n.searchSettings,
-                                hintStyle: const TextStyle(color: Colors.white60, fontSize: 14),
-                                filled: true,
-                                fillColor: const Color(0xFF1C1C1E),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                  borderSide: BorderSide.none,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                  borderSide: BorderSide.none,
-                                ),
-                                prefixIcon: const Icon(Icons.search, color: Colors.white60),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? GestureDetector(
-                                        onTap: () {
-                                          setState(() => _searchQuery = '');
-                                          _searchController.clear();
-                                        },
-                                        child: const Icon(Icons.close, color: Colors.white60),
-                                      )
-                                    : null,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+    final t = context.omi;
+
+    final content = ClipRRect(
+      borderRadius: _sheetRadius,
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            height: 4,
+            width: 36,
+            decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
+          ),
+          // Header
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+            child: _isSearching
+                ? Padding(
+                    key: const ValueKey('search-header'),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _searchController,
+                            focusNode: _searchFocusNode,
+                            autofocus: true,
+                            style: TextStyle(color: t.textPrimary, fontSize: 14),
+                            cursorColor: t.textPrimary,
+                            decoration: InputDecoration(
+                              hintText: context.l10n.searchSettings,
+                              hintStyle: TextStyle(color: t.textSecondary, fontSize: 14),
+                              filled: true,
+                              fillColor: t.bgSecondary,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
                               ),
-                              onChanged: (value) => setState(() => _searchQuery = value),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _isSearching = false;
-                                _searchQuery = '';
-                                _searchController.clear();
-                              });
-                              _searchFocusNode.unfocus();
-                            },
-                            child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.white, fontSize: 16)),
-                          ),
-                        ],
-                      ),
-                    )
-                  : Padding(
-                      key: const ValueKey('normal-header'),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      child: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              setState(() => _isSearching = true);
-                              Future.microtask(() => _searchFocusNode.requestFocus());
-                            },
-                            child: const Icon(Icons.search, color: Colors.white, size: 22),
-                          ),
-                          Expanded(
-                            child: Center(
-                              child: Text(
-                                context.l10n.settings,
-                                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
                               ),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                              child: Text(
-                                context.l10n.done,
-                                style: const TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w600),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                borderSide: BorderSide.none,
                               ),
+                              prefixIcon: OmiIconWidget(icon: OmiIcon.search, color: t.textSecondary, size: 24),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? GestureDetector(
+                                      onTap: () {
+                                        setState(() => _searchQuery = '');
+                                        _searchController.clear();
+                                      },
+                                      child: OmiIconWidget(icon: OmiIcon.close, color: t.textSecondary, size: 24),
+                                    )
+                                  : null,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                             ),
+                            onChanged: (value) => setState(() => _searchQuery = value),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isSearching = false;
+                              _searchQuery = '';
+                              _searchController.clear();
+                            });
+                            _searchFocusNode.unfocus();
+                          },
+                          child: Text(context.l10n.cancel, style: TextStyle(color: t.textPrimary, fontSize: 16)),
+                        ),
+                      ],
                     ),
+                  )
+                : Padding(
+                    key: const ValueKey('normal-header'),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _isSearching = true);
+                            Future.microtask(() => _searchFocusNode.requestFocus());
+                          },
+                          child: OmiIconWidget(icon: OmiIcon.search, color: t.textPrimary, size: 22),
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              context.l10n.settings,
+                              style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                                color: (t.isGlass ? t.accent : Colors.white), borderRadius: BorderRadius.circular(20)),
+                            child: Text(
+                              context.l10n.done,
+                              style: TextStyle(
+                                  color: (t.isGlass ? t.onAccent : Colors.black),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 16),
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _isSearching && _searchQuery.isNotEmpty
+                  ? _buildSearchResults(context)
+                  : _buildOmiModeContent(context),
             ),
-            const SizedBox(height: 16),
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _isSearching && _searchQuery.isNotEmpty
-                    ? _buildSearchResults(context)
-                    : _buildOmiModeContent(context),
-              ),
-            ),
-          ],
+          ),
+        ],
+      ),
+    );
+
+    final height = MediaQuery.of(context).size.height * 0.9;
+
+    if (!t.isGlass) {
+      return Container(
+        height: height,
+        decoration: BoxDecoration(color: t.bgPrimary, borderRadius: _sheetRadius),
+        child: content,
+      );
+    }
+
+    // Glass: под шторкой честное стекло — сначала размывается всё, что уже
+    // нарисовано ниже (страница + подложка), и только поверх ложится вуаль.
+    return SizedBox(
+      height: height,
+      child: glassBlur(
+        borderRadius: _sheetRadius,
+        sigma: _sheetBlurSigma,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: _glassSheetVeil, borderRadius: _sheetRadius),
+          child: content,
         ),
       ),
     );

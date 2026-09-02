@@ -11,6 +11,8 @@ import 'package:omi/pages/apps/app_detail/app_detail.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/extensions/string.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
 
 class AppSectionCard extends StatelessWidget {
   final String title;
@@ -19,6 +21,8 @@ class AppSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     if (apps.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -51,7 +55,7 @@ class AppSectionCard extends StatelessWidget {
             padding: const EdgeInsets.only(left: 8.0, top: 8.0, bottom: 16.0),
             child: Text(
               title,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w500),
+              style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w500),
             ),
           ),
           Expanded(
@@ -83,6 +87,8 @@ class SectionAppItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, child) {
+        final t = context.omi;
+
         return GestureDetector(
           onTap: () async {
             PlatformManager.instance.analytics.pageOpened('App Detail From Popular Apps Section');
@@ -109,21 +115,21 @@ class SectionAppItemCard extends StatelessWidget {
                       image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
                     ),
                   ),
-                  placeholder: (context, url) => const SizedBox(
+                  placeholder: (context, url) => SizedBox(
                     width: 50,
                     height: 50,
                     child: Center(
                       child: CircularProgressIndicator(
                         strokeWidth: 2.0,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                       ),
                     ),
                   ),
                   errorWidget: (context, url, error) => Container(
                     width: 50,
                     height: 50,
-                    decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.error_outline, color: Colors.white54, size: 24),
+                    decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(8)),
+                    child: OmiIconWidget(icon: OmiIcon.errorCircle, color: t.textSecondary, size: 24),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -137,7 +143,7 @@ class SectionAppItemCard extends StatelessWidget {
                         app.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white, fontSize: 15),
+                        style: TextStyle(fontWeight: FontWeight.w500, color: t.textPrimary, fontSize: 15),
                       ),
                       Padding(
                         padding: const EdgeInsets.only(top: 2.0),
@@ -145,7 +151,7 @@ class SectionAppItemCard extends StatelessWidget {
                           app.description.decodeString,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          style: TextStyle(color: t.textSecondary, fontSize: 13),
                         ),
                       ),
                       if (app.ratingAvg != null)
@@ -154,9 +160,9 @@ class SectionAppItemCard extends StatelessWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Icon(Icons.star, color: Colors.white, size: 14),
+                              Icon(Icons.star, color: t.textPrimary, size: 14),
                               const SizedBox(width: 3),
-                              Text(app.getRatingAvg()!, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                              Text(app.getRatingAvg()!, style: TextStyle(fontSize: 12, color: t.textSecondary)),
                             ],
                           ),
                         ),

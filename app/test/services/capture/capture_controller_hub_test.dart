@@ -26,7 +26,8 @@ import 'package:omi/services/voice_hub/hub_controller.dart';
 import 'package:omi/services/voice_hub/hub_ptt_capture.dart';
 import 'package:omi/services/voice_hub/hub_session.dart';
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
-import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceSessionId, idleVoiceTurnProjection;
+import 'package:omi/services/voice_hub/voice_turn_machine.dart'
+    show VoiceSessionId, VoiceTurnUiProjection, idleVoiceTurnProjection;
 
 class _TestConnectivityPlatform extends ConnectivityPlatform {
   @override
@@ -148,6 +149,10 @@ class _FakeHubSession implements HubSession {
   final List<String> userTexts = [];
   @override
   void clearPlayback() {}
+
+  int muted = 0;
+  @override
+  void muteCurrentResponse() => muted += 1;
   @override
   void teardown() {}
 }
@@ -505,6 +510,57 @@ void main() {
       await provider.recoverFreeFormVoiceMode(StateError('drop 2'));
       expect(provider.freeFormModeActive.value, isFalse);
       expect(captureCalls, 2);
+    });
+
+    // Ручной barge-in с иконки. Прерывание обязано ГЛУШИТЬ остаток ответа, а
+    // не только чистить буфер: сервер об отмене не знает и продолжает слать
+    // сгенерированное, поэтому один сброс дал бы паузу вместо тишины.
+    group('interruptAssistantSpeech', () {
+      test('во время речи глушит ответ, гасит уровень и возвращает слушание', () async {
+        final provider = CaptureProvider();
+        provider.freeFormVoiceMode = buildMode();
+        await provider.startFreeFormVoiceMode();
+        provider.hubProjection.value = const VoiceTurnUiProjection(
+          isListening: false,
+          isLocked: false,
+          isFollowUp: false,
+          transcript: '',
+          hint: '',
+          isThinking: false,
+          isResponseWaiting: false,
+          isResponseActive: true,
+        );
+        provider.voiceOutputEnvelope.push(Uint8List.fromList(List<int>.filled(2400, 40)));
+        provider.voiceOutputEnvelope.noteSpeakingStart();
+        provider.voiceOutputEnvelope.advance(0.1);
+
+        final handled = provider.interruptAssistantSpeech();
+
+        expect(handled, isTrue);
+        expect(session.muted, 1);
+        expect(provider.voiceOutputEnvelope.level.value, 0);
+        expect(provider.hubProjection.value.isListening, isTrue);
+        expect(provider.freeFormModeActive.value, isTrue, reason: 'прерывание не выключает режим');
+      });
+
+      // Нажатие на молчащую иконку означает прежнее — выключить режим, и
+      // сказать об этом должен именно возврат false: иначе кнопка проглотит
+      // нажатие и поминутный сокет останется висеть.
+      test('вне речи не срабатывает', () async {
+        final provider = CaptureProvider();
+        provider.freeFormVoiceMode = buildMode();
+        await provider.startFreeFormVoiceMode();
+        provider.hubProjection.value = freeFormListeningProjection;
+
+        expect(provider.interruptAssistantSpeech(), isFalse);
+        expect(session.muted, 0);
+      });
+
+      test('при выключенном режиме не срабатывает', () {
+        final provider = CaptureProvider();
+
+        expect(provider.interruptAssistantSpeech(), isFalse);
+      });
     });
 
     // The indicator's only source of truth is the hub's own events, and the

@@ -9,4 +9,4 @@ BUNDLE_DISPLAY_NAME=Omi Dev
 APP_BUNDLE_IDENTIFIER=com.friend-app-with-wearable.ios12.development
 AUTH_CALLBACK_SCHEME=omi-dev
 INFOPLIST_FILE=Runner/Info-Dev.plist
-GOOGLE_REVERSE_CLIENT_ID=com.googleusercontent.apps.1031333818730-dusn243nct6i5rgfpfkj5mchuj1qnmde
+GOOGLE_REVERSE_CLIENT_ID=com.googleusercontent.apps.1012069752426-doluonf2ibp33pipb6ksem8mkudb0o0s

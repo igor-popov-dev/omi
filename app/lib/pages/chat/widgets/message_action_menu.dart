@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 
 import 'markdown_message_widget.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class MessageActionMenu extends StatelessWidget {
   final Function()? onCopy;
@@ -26,6 +27,7 @@ class MessageActionMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       decoration: const BoxDecoration(
         color: Colors.black54,
@@ -39,28 +41,32 @@ class MessageActionMenu extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(t.rowRadius)),
               child: getMarkdownWidget(
                 context,
                 '${message.substring(0, message.length > 200 ? 200 : message.length)}...',
               ),
             ),
             const SizedBox(height: 16),
-            _buildActionButton(title: context.l10n.copy, icon: const Icon(Icons.copy), onTap: onCopy),
+            _buildActionButton(context, title: context.l10n.copy, icon: const Icon(Icons.copy), onTap: onCopy),
             _buildActionButton(
+              context,
               title: context.l10n.selectText,
               icon: const Icon(Icons.description_outlined),
               onTap: onSelectText,
             ),
-            _buildActionButton(title: context.l10n.share, icon: const FaIcon(FontAwesomeIcons.share), onTap: onShare),
+            _buildActionButton(context,
+                title: context.l10n.share, icon: const FaIcon(FontAwesomeIcons.share), onTap: onShare),
             if (onThumbsDown != null) ...[
               _buildActionButton(
+                context,
                 title: context.l10n.notHelpful,
                 icon: const Icon(Icons.thumb_down_alt_outlined),
                 onTap: onThumbsDown,
               ),
             ],
             _buildActionButton(
+              context,
               title: context.l10n.report,
               icon: const Icon(Icons.report_gmailerrorred),
               onTap: onReport,
@@ -73,13 +79,15 @@ class MessageActionMenu extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton({
+  Widget _buildActionButton(
+    BuildContext context, {
     required String title,
     required Widget icon,
     required Function()? onTap,
     bool isDestructive = false,
   }) {
-    final color = isDestructive ? Colors.red : Colors.white;
+    final t = context.omi;
+    final color = isDestructive ? t.error : t.textPrimary;
     return InkWell(
       onTap: onTap,
       child: Padding(

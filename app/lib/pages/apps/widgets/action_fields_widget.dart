@@ -6,6 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:omi/pages/apps/providers/add_app_provider.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class ActionFieldsWidget extends StatelessWidget {
   const ActionFieldsWidget({super.key});
@@ -14,6 +17,8 @@ class ActionFieldsWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AddAppProvider>(
       builder: (context, provider, child) {
+        final t = context.omi;
+
         // Only show if external integration is selected and actions are available
         if (!provider.isCapabilitySelectedById('external_integration') || provider.getActionTypes().isEmpty) {
           return const SizedBox.shrink();
@@ -30,12 +35,12 @@ class ActionFieldsWidget extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Scopes', style: TextStyle(color: Colors.grey.shade300, fontSize: 16)),
+                      Text('Scopes', style: TextStyle(color: t.textSecondary, fontSize: 16)),
                       GestureDetector(
                         onTap: () {
                           launchUrl(Uri.parse('https://docs.omi.me/doc/developer/apps/Integrations'));
                         },
-                        child: FaIcon(FontAwesomeIcons.solidCircleQuestion, color: Colors.grey.shade500, size: 18),
+                        child: FaIcon(FontAwesomeIcons.solidCircleQuestion, color: t.textSecondary, size: 18),
                       ),
                     ],
                   ),
@@ -55,29 +60,17 @@ class ActionFieldsWidget extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF2A2A2E),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Center(
-                                    child: FaIcon(
-                                      _getIconForAction(actionType.id),
-                                      color: Colors.grey.shade400,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
+                                SettingsIconChip.boxed(
+                                    icon: (size) =>
+                                        FaIcon(_getIconForAction(actionType.id), color: t.textSecondary, size: size)),
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Text(
                                     actionType.getLocalizedTitle(context),
-                                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                                    style: TextStyle(color: t.textPrimary, fontSize: 16),
                                   ),
                                 ),
-                                Switch(
+                                OmiSwitch(
                                   value: isSelected,
                                   onChanged: (value) {
                                     if (value) {
@@ -86,14 +79,14 @@ class ActionFieldsWidget extends StatelessWidget {
                                       provider.removeActionByType(actionType.id);
                                     }
                                   },
-                                  activeThumbColor: const Color(0xFF6366F1),
+                                  classicActiveThumbColor: t.accent,
                                 ),
                               ],
                             ),
                             if (!isLast)
                               Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 12),
-                                child: Divider(color: Colors.grey.shade800, height: 1),
+                                child: Divider(color: t.textSecondary, height: 1),
                               ),
                           ],
                         );

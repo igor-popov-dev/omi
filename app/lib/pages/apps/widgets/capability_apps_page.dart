@@ -8,7 +8,7 @@ import 'package:omi/backend/schema/app.dart';
 import 'package:omi/pages/apps/widgets/capability_category_section.dart';
 import 'package:omi/utils/app_localizations_helper.dart';
 import 'package:omi/utils/logger.dart';
-import 'package:omi/utils/ui_guidelines.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class CapabilityAppsPage extends StatefulWidget {
   final AppCapability capability;
@@ -63,9 +63,11 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
   }
 
   Widget _buildShimmerCategorySection() {
+    final t = context.omi;
+
     return ShimmerWithTimeout(
-      baseColor: AppStyles.backgroundSecondary,
-      highlightColor: AppStyles.backgroundTertiary,
+      baseColor: t.bgSecondary,
+      highlightColor: t.bgTertiary,
       child: Container(
         margin: const EdgeInsets.only(top: 12, bottom: 14),
         child: Column(
@@ -80,7 +82,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                     width: 140,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundSecondary,
+                      color: t.bgSecondary,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -89,7 +91,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                     width: 40,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: AppStyles.backgroundSecondary,
+                      color: t.bgSecondary,
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
@@ -119,7 +121,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: AppStyles.backgroundSecondary,
+                          color: t.bgSecondary,
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -133,7 +135,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                               width: double.infinity,
                               height: 16,
                               decoration: BoxDecoration(
-                                color: AppStyles.backgroundSecondary,
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
@@ -142,7 +144,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                               width: 80,
                               height: 12,
                               decoration: BoxDecoration(
-                                color: AppStyles.backgroundSecondary,
+                                color: t.bgSecondary,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
@@ -154,7 +156,7 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                         width: 60,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: AppStyles.backgroundSecondary,
+                          color: t.bgSecondary,
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
@@ -180,16 +182,18 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         title: Text(
           widget.capability.getLocalizedTitle(context),
-          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+          style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios, color: t.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -201,24 +205,24 @@ class _CapabilityAppsPageState extends State<CapabilityAppsPage> {
                 await _loadCapabilityApps();
               },
               // The arc is drawn on backgroundColor, so it must not also be white.
-              color: Colors.black,
-              backgroundColor: Colors.white,
+              color: (t.isGlass ? t.onAccent : Colors.black),
+              backgroundColor: (t.isGlass ? t.accent : Colors.white),
               child: _totalCount == 0
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.apps_outlined, size: 64, color: Colors.grey.shade600),
+                          Icon(Icons.apps_outlined, size: 64, color: t.textSecondary),
                           const SizedBox(height: 16),
-                          const Text(
+                          Text(
                             'No apps found',
-                            style: TextStyle(fontSize: 18, color: Colors.white70),
+                            style: TextStyle(fontSize: 18, color: t.textSecondary),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Check back later for new apps',
-                            style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                            style: TextStyle(fontSize: 14, color: t.textSecondary),
                             textAlign: TextAlign.center,
                           ),
                         ],

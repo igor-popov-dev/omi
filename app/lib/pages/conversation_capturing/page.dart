@@ -23,6 +23,7 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/confirmation_dialog.dart';
 import 'package:omi/widgets/photo_viewer_page.dart';
 import 'package:omi/widgets/transcript.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class ConversationCapturingPage extends StatefulWidget {
   final String? topConversationId;
@@ -198,10 +199,10 @@ class _ConversationCapturingPageState extends State<ConversationCapturingPage> w
           canPop: true,
           child: Scaffold(
             key: scaffoldKey,
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             appBar: AppBar(
               automaticallyImplyLeading: false,
-              backgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: context.omi.bgPrimary,
               title: Row(
                 mainAxisSize: MainAxisSize.max,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

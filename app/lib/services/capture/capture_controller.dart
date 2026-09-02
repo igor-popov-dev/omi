@@ -37,6 +37,7 @@ import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart'
     show freeFormListeningProjection, freeFormMicBusyProjection;
 import 'package:omi/services/voice_hub/voice_turn_driver.dart';
 import 'package:omi/services/voice_hub/voice_chat_log.dart';
+import 'package:omi/services/voice_hub/voice_output_envelope.dart';
 import 'package:omi/services/voice_hub/voice_turn_machine.dart' show VoiceTurnUiProjection, idleVoiceTurnProjection;
 import 'package:omi/services/voice_playback/omi_voice_playback_service.dart';
 import 'package:omi/services/sockets/transcription_service.dart';
@@ -112,6 +113,12 @@ class CaptureController extends ChangeNotifier
   /// turn is active — a UI consumer can watch this unconditionally without
   /// checking `hubTurnDriver`/`pttHubEnabled` itself.
   final ValueNotifier<VoiceTurnUiProjection> hubProjection = ValueNotifier(idleVoiceTurnProjection);
+
+  /// Громкость речи ассистента 0..1 для живой иконки (`OmiVoiceOrb`).
+  /// Наполняется обёрткой плеера (`envelopeTappedPlayerFactory`) в
+  /// production-сборке; в тестах и без неё остаётся нулём, и иконка тогда
+  /// живёт одним темпом фазы.
+  final VoiceOutputEnvelope voiceOutputEnvelope = VoiceOutputEnvelope();
 
   // Optional, settable dependency for the hands-free (server-VAD) voice
   // mode toggle (ДОПОЛНЕНИЕ 22.08 п.1). Nullable and unset by production
@@ -240,6 +247,32 @@ class CaptureController extends ChangeNotifier
           : '[VoiceMode] микрофон вернулся — продолжаю слушать',
     );
     hubProjection.value = interrupted ? freeFormMicBusyProjection : freeFormListeningProjection;
+  }
+
+  /// Ручной barge-in: пользователь ткнул в живую иконку, пока ассистент
+  /// говорил. Три вещи разом — замолчать (и не доиграть остаток, см.
+  /// [HubSession.muteCurrentResponse]), погасить уровень в иконке, вернуть
+  /// индикатор в «слушаю».
+  ///
+  /// Проекцию двигаем сами: нативный `clear()` буфер сбрасывает, но
+  /// `onDrained` при этом не шлёт, а значит `onSpeakingEnd` не придёт и
+  /// иконка осталась бы в фазе речи над замолчавшим ассистентом.
+  ///
+  /// Возвращает `false`, если прерывать было нечего — вызывающий тогда
+  /// трактует нажатие как обычное (выключение режима).
+  bool interruptAssistantSpeech() {
+    final mode = freeFormVoiceMode;
+    if (mode == null || !freeFormModeActive.value) return false;
+    if (!hubProjection.value.isResponseActive) return false;
+
+    mode.hub.muteCurrentResponse();
+    voiceOutputEnvelope.clear();
+    hubProjection.value = freeFormListeningProjection;
+    // Прерывание — это активность: без отметки авто-выключение по тишине
+    // отсчитывало бы паузу с последней реплики, а разговор только что
+    // продолжился.
+    mode.noteActivity();
+    return true;
   }
 
   /// Resets [freeFormModeActive]/[hubProjection] to idle WITHOUT calling

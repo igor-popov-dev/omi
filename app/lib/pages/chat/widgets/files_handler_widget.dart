@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:omi/backend/schema/message.dart';
 import 'package:omi/pages/chat/widgets/voice_message_widget.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class FilesHandlerWidget extends StatelessWidget {
   final ServerMessage message;
@@ -39,6 +40,7 @@ class FilesHandlerWidget extends StatelessWidget {
 
   Widget _buildStrip(BuildContext context, List<MessageFile> files) {
     {
+      final t = context.omi;
       return SizedBox(
         width: MediaQuery.sizeOf(context).width * 0.9,
         height: MediaQuery.sizeOf(context).height * 0.12,
@@ -65,13 +67,13 @@ class FilesHandlerWidget extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.insert_drive_file, color: Colors.white),
+                    Icon(Icons.insert_drive_file, color: t.textPrimary),
                     const SizedBox(height: 6),
                     Text(
                       files[index].name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      style: TextStyle(color: t.textPrimary, fontSize: 14),
                     ),
                   ],
                 ),
@@ -84,6 +86,7 @@ class FilesHandlerWidget extends StatelessWidget {
   }
 
   Widget _buildImageThumbnail(BuildContext context, MessageFile file) {
+    final t = context.omi;
     final thumbnail = file.thumbnail;
     final width = MediaQuery.sizeOf(context).width * 0.28;
     final height = MediaQuery.sizeOf(context).width * 0.22;
@@ -117,7 +120,7 @@ class FilesHandlerWidget extends StatelessWidget {
       placeholder: (context, url) => SizedBox(
         width: width,
         height: height,
-        child: const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.white))),
+        child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary))),
       ),
       errorWidget: (context, url, error) => Container(
         margin: const EdgeInsets.only(bottom: 6, top: 2),
@@ -127,7 +130,7 @@ class FilesHandlerWidget extends StatelessWidget {
         ),
         width: width,
         height: height,
-        child: const Center(child: Icon(Icons.image, color: Colors.white54)),
+        child: Center(child: Icon(Icons.image, color: t.textPrimary.withValues(alpha: 0.54))),
       ),
     );
   }

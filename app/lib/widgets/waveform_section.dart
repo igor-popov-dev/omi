@@ -8,6 +8,7 @@ import 'package:omi/models/playback_state.dart';
 import 'package:omi/providers/sync_provider.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/widgets/waveform_painter.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class WaveformSection extends StatefulWidget {
   final int seconds;
@@ -85,14 +86,16 @@ class _WaveformSectionState extends State<WaveformSection> {
   }
 
   Widget _buildWaveformVisualization(BuildContext context) {
+    final t = context.omi;
     if (widget.isProcessingWaveform) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: Colors.white70, strokeWidth: 2),
+            CircularProgressIndicator(color: t.textPrimary.withValues(alpha: 0.7), strokeWidth: 2),
             const SizedBox(height: 12),
-            Text(context.l10n.loadingYourRecording, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(context.l10n.loadingYourRecording,
+                style: TextStyle(color: t.textPrimary.withValues(alpha: 0.7), fontSize: 12)),
           ],
         ),
       );
@@ -111,6 +114,7 @@ class _WaveformSectionState extends State<WaveformSection> {
                   child: CustomPaint(
                     painter: WaveformPainter(
                       isPlaying: widget.isPlaying,
+                      t: context.omi,
                       waveformData: widget.waveformData,
                       playbackProgress: _lastProgress,
                     ),
@@ -125,6 +129,7 @@ class _WaveformSectionState extends State<WaveformSection> {
   }
 
   Widget _buildTimeIndicators(BuildContext context) {
+    final t = context.omi;
     final totalDur = Duration(seconds: widget.seconds);
 
     // Always show 4 time markers like in ss1.jpeg (0:00, 0:01, 0:02, 0:03)
@@ -153,7 +158,7 @@ class _WaveformSectionState extends State<WaveformSection> {
                 marker,
                 style: Theme.of(
                   context,
-                ).textTheme.labelMedium!.copyWith(color: Colors.grey.shade500, fontWeight: FontWeight.w400),
+                ).textTheme.labelMedium!.copyWith(color: t.textSecondary, fontWeight: FontWeight.w400),
               ),
             )
             .toList(),

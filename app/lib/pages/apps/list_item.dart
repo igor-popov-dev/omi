@@ -11,6 +11,7 @@ import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/dialog.dart';
 import 'package:omi/widgets/extensions/string.dart';
 import 'app_detail/app_detail.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AppListItem extends StatelessWidget {
   final App app;
@@ -33,6 +34,8 @@ class AppListItem extends StatelessWidget {
         return (enabled: app.enabled, isLoading: isLoading);
       },
       builder: (context, state, child) {
+        final t = context.omi;
+
         return GestureDetector(
           onTap: () async {
             PlatformManager.instance.analytics.pageOpened('App Detail');
@@ -42,7 +45,7 @@ class AppListItem extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             margin: EdgeInsets.only(bottom: 8, top: index == 0 ? 16 : 0),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F1F25).withValues(alpha: 0.3),
+              color: t.textTertiary,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -53,7 +56,7 @@ class AppListItem extends StatelessWidget {
                   child: Container(
                     width: 60,
                     height: 60,
-                    decoration: BoxDecoration(color: const Color(0xFF35343B), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(12)),
                     child: CachedNetworkImage(
                       imageUrl: app.getImageUrl(),
                       httpHeaders: const {
@@ -62,18 +65,18 @@ class AppListItem extends StatelessWidget {
                       },
                       fit: BoxFit.cover,
                       placeholder: (context, url) => ShimmerWithTimeout(
-                        baseColor: const Color(0xFF1F1F25),
-                        highlightColor: const Color(0xFF35343B),
+                        baseColor: t.bgSecondary,
+                        highlightColor: t.bgTertiary,
                         child: Container(
                           width: double.infinity,
                           height: double.infinity,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1F1F25),
+                            color: t.bgSecondary,
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
-                      errorWidget: (context, url, error) => Icon(Icons.apps, size: 30, color: Colors.grey.shade600),
+                      errorWidget: (context, url, error) => Icon(Icons.apps, size: 30, color: t.textSecondary),
                     ),
                   ),
                 ),
@@ -87,14 +90,14 @@ class AppListItem extends StatelessWidget {
                     children: [
                       Text(
                         app.name.decodeString + (app.private && showPrivateIcon ? " 🔒".decodeString : ''),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: t.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         app.description.length > 50 ? '${app.description.substring(0, 50)}...' : app.description,
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                        style: TextStyle(fontSize: 13, color: t.textSecondary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -102,14 +105,14 @@ class AppListItem extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.star_rounded, color: Colors.white, size: 14),
+                            Icon(Icons.star_rounded, color: t.textPrimary, size: 14),
                             const SizedBox(width: 4),
                             Text(
                               app.getRatingAvg()!,
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade300),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: t.textSecondary),
                             ),
                             const SizedBox(width: 4),
-                            Text('(${app.ratingCount})', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                            Text('(${app.ratingCount})', style: TextStyle(fontSize: 12, color: t.textSecondary)),
                           ],
                         ),
                       ],
@@ -124,13 +127,13 @@ class AppListItem extends StatelessWidget {
                     ? Container(
                         width: 72,
                         height: 32,
-                        decoration: BoxDecoration(color: Colors.grey.shade700, borderRadius: BorderRadius.circular(16)),
-                        child: const Center(
+                        decoration: BoxDecoration(color: t.textSecondary, borderRadius: BorderRadius.circular(16)),
+                        child: Center(
                           child: SizedBox(
                             height: 16,
                             width: 16,
                             child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(t.textPrimary),
                               strokeWidth: 2,
                             ),
                           ),
@@ -171,7 +174,7 @@ class AppListItem extends StatelessWidget {
                           width: 72,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: state.enabled ? Colors.grey.shade700 : Colors.white,
+                            color: state.enabled ? t.textSecondary : (t.isGlass ? t.accent : Colors.white),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Center(
@@ -181,7 +184,7 @@ class AppListItem extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: state.enabled ? Colors.white : Colors.black,
+                                color: state.enabled ? t.textPrimary : (t.isGlass ? t.onAccent : Colors.black),
                               ),
                             ),
                           ),

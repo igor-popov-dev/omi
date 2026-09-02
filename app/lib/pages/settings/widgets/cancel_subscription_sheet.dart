@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:omi/providers/usage_provider.dart';
 import 'package:omi/utils/alerts/app_snackbar.dart';
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 /// Full-screen 3-step cancellation flow shown as a page (not a sheet).
 class CancelSubscriptionFlow extends StatefulWidget {
@@ -114,9 +115,9 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
       child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundColor: context.omi.bgPrimary,
           appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: context.omi.bgPrimary,
             elevation: 0,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios, size: 18),
@@ -136,6 +137,8 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
   }
 
   Widget _stepIndicator() {
+    final t = context.omi;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(3, (i) {
@@ -145,7 +148,7 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
           height: 4,
           margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.grey.shade800,
+            color: active ? (t.isGlass ? t.accent : Colors.white) : t.textSecondary,
             borderRadius: BorderRadius.circular(2),
           ),
         );
@@ -156,6 +159,8 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
   // ─── Step 1: Pick a reason ───
 
   Widget _stepReason() {
+    final t = context.omi;
+
     final canContinue = _selectedReason != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,10 +172,10 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
             children: [
               Text(
                 context.l10n.whyAreYouCanceling,
-                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700),
+                style: TextStyle(color: t.textPrimary, fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
-              Text(context.l10n.cancelReasonSubtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+              Text(context.l10n.cancelReasonSubtitle, style: TextStyle(color: t.textSecondary, fontSize: 15)),
             ],
           ),
         ),
@@ -198,10 +203,10 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade900,
-                  foregroundColor: Colors.black,
-                  disabledForegroundColor: Colors.grey.shade700,
+                  backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                  disabledBackgroundColor: t.textSecondary,
+                  foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
+                  disabledForegroundColor: t.textSecondary,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
@@ -218,15 +223,17 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
   }
 
   Widget _reasonTile(_Reason reason) {
+    final t = context.omi;
+
     final selected = _selectedReason == reason.key;
     return GestureDetector(
       onTap: () => setState(() => _selectedReason = reason.key),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: selected ? Colors.grey.shade900 : Colors.grey.shade900.withValues(alpha: 0.5),
+          color: selected ? t.textSecondary : t.textTertiary,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? Colors.grey.shade600 : Colors.grey.shade800),
+          border: Border.all(color: selected ? t.textSecondary : t.textSecondary),
         ),
         child: Row(
           children: [
@@ -234,24 +241,24 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: selected ? Colors.grey.shade800 : Colors.grey.shade800.withValues(alpha: 0.5),
+                color: selected ? t.textSecondary : t.textTertiary,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
-                child: FaIcon(reason.icon, size: 14, color: selected ? Colors.white : Colors.grey.shade600),
+                child: FaIcon(reason.icon, size: 14, color: selected ? t.textPrimary : t.textSecondary),
               ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 _label(reason.key),
-                style: TextStyle(color: selected ? Colors.white : Colors.grey.shade400, fontSize: 15),
+                style: TextStyle(color: selected ? t.textPrimary : t.textSecondary, fontSize: 15),
               ),
             ),
             Icon(
               selected ? Icons.check_circle_rounded : Icons.circle_outlined,
               size: 22,
-              color: selected ? Colors.white : Colors.grey.shade700,
+              color: selected ? t.textPrimary : t.textSecondary,
             ),
           ],
         ),
@@ -282,6 +289,8 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
       };
 
   Widget _stepFeedback() {
+    final t = context.omi;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -292,10 +301,10 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
             children: [
               Text(
                 _feedbackTitle(),
-                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700),
+                style: TextStyle(color: t.textPrimary, fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
-              Text(_feedbackSubtitle(), style: TextStyle(color: Colors.grey.shade500, fontSize: 15)),
+              Text(_feedbackSubtitle(), style: TextStyle(color: t.textSecondary, fontSize: 15)),
             ],
           ),
         ),
@@ -306,23 +315,23 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
             controller: _detailsController,
             maxLines: 5,
             maxLength: 300,
-            style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.5),
+            style: TextStyle(color: t.textPrimary, fontSize: 15, height: 1.5),
             decoration: InputDecoration(
               filled: true,
-              fillColor: Colors.grey.shade900.withValues(alpha: 0.5),
+              fillColor: t.textTertiary,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.grey.shade800),
+                borderSide: BorderSide(color: t.textSecondary),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.grey.shade800),
+                borderSide: BorderSide(color: t.textSecondary),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.grey.shade600),
+                borderSide: BorderSide(color: t.textSecondary),
               ),
-              counterStyle: TextStyle(color: Colors.grey.shade700),
+              counterStyle: TextStyle(color: t.textSecondary),
               contentPadding: const EdgeInsets.all(16),
             ),
           ),
@@ -340,8 +349,8 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
                   child: ElevatedButton(
                     onPressed: _next,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
+                      backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                      foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -356,7 +365,7 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
                   onTap: _next,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Text(context.l10n.skipForNow, style: TextStyle(color: Colors.grey.shade600, fontSize: 15)),
+                    child: Text(context.l10n.skipForNow, style: TextStyle(color: t.textSecondary, fontSize: 15)),
                   ),
                 ),
               ],
@@ -370,6 +379,8 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
   // ─── Step 3: Confirm ───
 
   Widget _stepConfirm() {
+    final t = context.omi;
+
     final provider = context.read<UsageProvider>();
     final sub = provider.subscription?.subscription;
     String renewalDate = '';
@@ -388,12 +399,12 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
             children: [
               Text(
                 context.l10n.justAMoment,
-                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700),
+                style: TextStyle(color: t.textPrimary, fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               Text(
                 context.l10n.cancelConsequencesSubtitle,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                style: TextStyle(color: t.textSecondary, fontSize: 15),
               ),
             ],
           ),
@@ -405,22 +416,22 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.orange.shade900.withValues(alpha: 0.2),
+              color: t.warning.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.orange.shade800.withValues(alpha: 0.3)),
+              border: Border.all(color: t.warning.withValues(alpha: 0.3)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: FaIcon(FontAwesomeIcons.circleInfo, size: 14, color: Colors.orange.shade400),
+                  child: FaIcon(FontAwesomeIcons.circleInfo, size: 14, color: t.warning),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     context.l10n.cancelBillingPeriodInfo(renewalDate),
-                    style: TextStyle(color: Colors.orange.shade300, fontSize: 13, height: 1.5),
+                    style: TextStyle(color: t.warning, fontSize: 13, height: 1.5),
                   ),
                 ),
               ],
@@ -462,8 +473,8 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
                             Navigator.of(context).pop(false);
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
+                      backgroundColor: (t.isGlass ? t.accent : Colors.white),
+                      foregroundColor: (t.isGlass ? t.onAccent : Colors.black),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -480,14 +491,14 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: _isCancelling
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.grey),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: t.textSecondary),
                           )
                         : Text(
                             context.l10n.confirmAndCancel,
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
+                            style: TextStyle(color: t.textSecondary, fontSize: 15),
                           ),
                   ),
                 ),
@@ -500,14 +511,16 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
   }
 
   Widget _featureRow(FaIconData icon, String text) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: Colors.grey.shade900.withValues(alpha: 0.5),
+          color: t.textTertiary,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade800),
+          border: Border.all(color: t.textSecondary),
         ),
         child: Row(
           children: [
@@ -515,14 +528,14 @@ class _CancelSubscriptionFlowState extends State<CancelSubscriptionFlow> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: Colors.grey.shade800.withValues(alpha: 0.5),
+                color: t.textTertiary,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Center(child: FaIcon(icon, size: 14, color: Colors.grey.shade500)),
+              child: Center(child: FaIcon(icon, size: 14, color: t.textSecondary)),
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(text, style: TextStyle(color: Colors.grey.shade400, fontSize: 14, height: 1.3)),
+              child: Text(text, style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.3)),
             ),
           ],
         ),

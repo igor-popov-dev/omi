@@ -23,6 +23,10 @@ import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/logger.dart';
 import 'package:omi/utils/other/temp.dart';
 import 'package:omi/widgets/dialog.dart';
+import 'package:omi/pages/settings/widgets/glass_icon_chip.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
+import 'package:omi/utils/theme/omi_icons.dart';
+import 'package:omi/widgets/omi_switch.dart';
 
 class DeviceSettings extends StatefulWidget {
   const DeviceSettings({super.key});
@@ -145,6 +149,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   Widget _buildSectionHeader(String title, {String? subtitle}) {
+    final t = context.omi;
+
     return Padding(
       padding: const EdgeInsets.only(left: 4, right: 4, bottom: 12),
       child: Column(
@@ -152,11 +158,11 @@ class _DeviceSettingsState extends State<DeviceSettings> {
         children: [
           Text(
             title,
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 6),
-            Text(subtitle, style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+            Text(subtitle, style: TextStyle(color: t.textSecondary, fontSize: 14)),
           ],
         ],
       ),
@@ -174,6 +180,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
     Widget? trailing,
     bool showChevron = true,
   }) {
+    final t = context.omi;
+
     // A trailing widget (e.g. a toggle) owns the row's right edge and the
     // interaction, so suppress the chevron in that case.
     final bool showChevronResolved = showChevron && trailing == null;
@@ -181,7 +189,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       child: Row(
         children: [
-          SizedBox(width: 24, height: 24, child: FaIcon(icon, color: const Color(0xFF8E8E93), size: 20)),
+          SettingsIconChip.plain(icon: (size) => FaIcon(icon, color: t.textSecondary, size: size)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -190,13 +198,13 @@ class _DeviceSettingsState extends State<DeviceSettings> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w400),
+                  style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w400),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Color(0xFF8E8E93), fontSize: 13, fontWeight: FontWeight.w400),
+                    style: TextStyle(color: t.textSecondary, fontSize: 13, fontWeight: FontWeight.w400),
                   ),
                 ],
               ],
@@ -205,16 +213,17 @@ class _DeviceSettingsState extends State<DeviceSettings> {
           if (chipValue != null) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(100)),
+              decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(100)),
               child: Text(
                 chipValue,
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                style: TextStyle(color: t.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ),
             if (showChevronResolved) const SizedBox(width: 8),
           ],
           if (trailing != null) trailing,
-          if (showChevronResolved) const Icon(Icons.chevron_right, color: Color(0xFF3C3C43), size: 20),
+          if (showChevronResolved)
+            OmiIconWidget(icon: OmiIcon.chevronRight, color: t.isGlass ? t.textTertiary : t.divider, size: 20),
         ],
       ),
     );
@@ -240,6 +249,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   Widget _buildDeviceInfoSection(BtDevice? device, DeviceProvider provider) {
+    final t = context.omi;
+
     final deviceName = device?.name ?? 'Omi DevKit';
     final deviceId = device?.id ?? '12AB34CD:56EF78GH';
     const firmwarePolicy = FirmwareUpdateBuildPolicy.current;
@@ -254,7 +265,10 @@ class _DeviceSettingsState extends State<DeviceSettings> {
     }
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+      ),
       child: Column(
         children: [
           _buildProfileStyleItem(
@@ -264,7 +278,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             copyValue: deviceName,
             showChevron: false,
           ),
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.fingerprint,
             title: context.l10n.deviceId,
@@ -273,7 +287,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             showChevron: false,
           ),
           if (allowsFirmwareUpdate) ...[
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             _buildProfileStyleItem(
               icon: FontAwesomeIcons.download,
               title: context.l10n.firmware,
@@ -286,7 +300,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
               ),
             ),
           ],
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.sdCard,
             title: 'Offline Sync',
@@ -312,16 +326,16 @@ class _DeviceSettingsState extends State<DeviceSettings> {
           // Auto-sync toggle — Omi devices only. Lets users opt out of having
           // offline recordings automatically synced to Omi on connect.
           if (device?.type == DeviceType.omi) ...[
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             _buildProfileStyleItem(
               icon: FontAwesomeIcons.arrowsRotate,
               title: context.l10n.autoSync,
               subtitle: context.l10n.autoSyncDescription,
               showChevron: false,
-              trailing: Switch(
+              trailing: OmiSwitch(
                 value: _autoSyncOfflineRecordings,
-                activeThumbColor: Colors.white,
-                activeTrackColor: const Color(0xFF8B5CF6),
+                classicActiveThumbColor: t.textPrimary,
+                classicActiveTrackColor: t.accent,
                 onChanged: (value) {
                   setState(() => _autoSyncOfflineRecordings = value);
                   SharedPreferencesUtil().autoSyncOfflineRecordings = value;
@@ -329,7 +343,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
               ),
             ),
           ],
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.stethoscope,
             title: context.l10n.diagnostics,
@@ -341,12 +355,17 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   Widget _buildHardwareInfoSection(BtDevice? device) {
+    final t = context.omi;
+
     final hardwareRevision = device?.hardwareRevision ?? 'XIAO';
     final modelNumber = device?.modelNumber ?? 'Omi DevKit';
     final manufacturer = device?.manufacturerName ?? 'Based Hardware';
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+      ),
       child: Column(
         children: [
           _buildProfileStyleItem(
@@ -356,7 +375,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             copyValue: hardwareRevision,
             showChevron: false,
           ),
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.hashtag,
             title: context.l10n.modelNumber,
@@ -364,7 +383,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             copyValue: modelNumber,
             showChevron: false,
           ),
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.industry,
             title: context.l10n.manufacturer,
@@ -406,11 +425,12 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   void _showSingleTapActionSheet() {
+    final t = context.omi;
     int currentAction = SharedPreferencesUtil().singleTapAction;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (sheetContext) {
         return SafeArea(
@@ -421,30 +441,32 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                 margin: const EdgeInsets.only(top: 12, bottom: 16),
                 width: 36,
                 height: 4,
-                decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
               ),
-              const Text(
+              Text(
                 'Одиночное нажатие',
-                style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 16),
               ListTile(
-                title: const Text(
+                title: Text(
                   'Вопрос Omi (ответ нотификацией)',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                  style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                 ),
-                trailing: currentAction == 0 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                trailing:
+                    currentAction == 0 ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                 onTap: () {
                   setState(() => SharedPreferencesUtil().singleTapAction = 0);
                   Navigator.pop(sheetContext);
                 },
               ),
               ListTile(
-                title: const Text(
+                title: Text(
                   'Голосовой режим (разговор с ассистентом)',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                  style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                 ),
-                trailing: currentAction == 1 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                trailing:
+                    currentAction == 1 ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20) : null,
                 onTap: () {
                   setState(() => SharedPreferencesUtil().singleTapAction = 1);
                   Navigator.pop(sheetContext);
@@ -459,11 +481,13 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   void _showDoubleTapActionSheet() {
+    final t = context.omi;
+
     int currentAction = SharedPreferencesUtil().doubleTapAction;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -480,19 +504,21 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                       margin: const EdgeInsets.only(top: 12, bottom: 16),
                       width: 36,
                       height: 4,
-                      decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
                     ),
                     Text(
                       context.l10n.doubleTapAction,
-                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 16),
                     ListTile(
                       title: Text(
                         context.l10n.endAndProcess,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                        style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                       ),
-                      trailing: currentAction == 0 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      trailing: currentAction == 0
+                          ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20)
+                          : null,
                       onTap: () {
                         setState(() => SharedPreferencesUtil().doubleTapAction = 0);
                         Navigator.pop(sheetContext);
@@ -501,9 +527,11 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                     ListTile(
                       title: Text(
                         context.l10n.deviceOnboardingMuteUnmute,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                        style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                       ),
-                      trailing: currentAction == 1 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      trailing: currentAction == 1
+                          ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20)
+                          : null,
                       onTap: () {
                         setState(() => SharedPreferencesUtil().doubleTapAction = 1);
                         Navigator.pop(sheetContext);
@@ -512,9 +540,11 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                     ListTile(
                       title: Text(
                         context.l10n.starOngoing,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                        style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                       ),
-                      trailing: currentAction == 2 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      trailing: currentAction == 2
+                          ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20)
+                          : null,
                       onTap: () {
                         setState(() => SharedPreferencesUtil().doubleTapAction = 2);
                         Navigator.pop(sheetContext);
@@ -525,11 +555,13 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                     // с ассистентом, не доставая телефон. Закончить может сам
                     // ассистент («всё, пока» → end_conversation).
                     ListTile(
-                      title: const Text(
+                      title: Text(
                         'Голосовой режим (разговор с ассистентом)',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                        style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                       ),
-                      trailing: currentAction == 3 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      trailing: currentAction == 3
+                          ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20)
+                          : null,
                       onTap: () {
                         setState(() => SharedPreferencesUtil().doubleTapAction = 3);
                         Navigator.pop(sheetContext);
@@ -538,11 +570,13 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                     // Аварийный вариант: только ВЫКЛЮЧИТЬ разговор, не прощаясь
                     // с нейронкой (пара к singleTapAction=1, который запускает).
                     ListTile(
-                      title: const Text(
+                      title: Text(
                         'Завершить голосовой режим (без прощания)',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+                        style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w400),
                       ),
-                      trailing: currentAction == 4 ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                      trailing: currentAction == 4
+                          ? OmiIconWidget(icon: OmiIcon.check, color: t.textPrimary, size: 20)
+                          : null,
                       onTap: () {
                         setState(() => SharedPreferencesUtil().doubleTapAction = 4);
                         Navigator.pop(sheetContext);
@@ -560,9 +594,11 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   void _showBrightnessSheet() {
+    final t = context.omi;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -577,18 +613,18 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                       margin: const EdgeInsets.only(bottom: 16),
                       width: 36,
                       height: 4,
-                      decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           context.l10n.ledBrightness,
-                          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                         ),
                         Text(
                           '${_dimRatio.round()}%',
-                          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -596,9 +632,9 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                     SliderTheme(
                       data: SliderThemeData(
                         activeTrackColor: Colors.white,
-                        inactiveTrackColor: Colors.grey.shade800,
+                        inactiveTrackColor: t.textSecondary,
                         thumbColor: Colors.white,
-                        overlayColor: Colors.white.withValues(alpha: 0.1),
+                        overlayColor: t.rowFillHover,
                         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12, elevation: 2),
                         overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
                         trackHeight: 6,
@@ -629,8 +665,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(context.l10n.off, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                        Text(context.l10n.max, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                        Text(context.l10n.off, style: TextStyle(color: t.textSecondary, fontSize: 12)),
+                        Text(context.l10n.max, style: TextStyle(color: t.textSecondary, fontSize: 12)),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -645,9 +681,11 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   void _showMicGainSheet() {
+    final t = context.omi;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: t.bgSecondary,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -684,30 +722,30 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                       margin: const EdgeInsets.only(bottom: 16),
                       width: 36,
                       height: 4,
-                      decoration: BoxDecoration(color: const Color(0xFF3C3C43), borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(color: t.divider, borderRadius: BorderRadius.circular(2)),
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           context.l10n.micGain,
-                          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                         ),
                         Text(
                           getGainLabel(currentLevel),
-                          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: t.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(getGainDescription(currentLevel), style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                    Text(getGainDescription(currentLevel), style: TextStyle(color: t.textSecondary, fontSize: 13)),
                     const SizedBox(height: 24),
                     SliderTheme(
                       data: SliderThemeData(
                         activeTrackColor: Colors.white,
-                        inactiveTrackColor: Colors.grey.shade800,
+                        inactiveTrackColor: t.textSecondary,
                         thumbColor: Colors.white,
-                        overlayColor: Colors.white.withValues(alpha: 0.1),
+                        overlayColor: t.rowFillHover,
                         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12, elevation: 2),
                         overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
                         trackHeight: 6,
@@ -738,8 +776,8 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(context.l10n.mute, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                        Text(context.l10n.max, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                        Text(context.l10n.mute, style: TextStyle(color: t.textSecondary, fontSize: 12)),
+                        Text(context.l10n.max, style: TextStyle(color: t.textSecondary, fontSize: 12)),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -782,15 +820,17 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   Widget _buildPresetButton(String label, int level, int currentLevel, VoidCallback onTap) {
+    final t = context.omi;
+
     final isSelected = level == currentLevel;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white.withValues(alpha: 0.1) : const Color(0xFF2A2A2E),
+          color: isSelected ? t.rowFillHover : t.bgTertiary,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isSelected ? Colors.white.withValues(alpha: 0.5) : Colors.transparent, width: 1),
+          border: Border.all(color: isSelected ? t.textTertiary : Colors.transparent, width: 1),
         ),
         child: Center(
           child: Text(
@@ -798,7 +838,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected ? Colors.white : Colors.grey.shade400,
+              color: isSelected ? t.textPrimary : t.textSecondary,
             ),
           ),
         ),
@@ -834,11 +874,16 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   Widget _buildCustomizationSection(BtDevice? device, DeviceProvider provider) {
+    final t = context.omi;
+
     final doubleTapAction = SharedPreferencesUtil().doubleTapAction;
     final supportsFind = device?.type == DeviceType.omi && !FirmwareUpdateBuildPolicy.current.isOpenGlassDevice(device);
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+      ),
       child: Column(
         children: [
           if (supportsFind) ...[
@@ -848,15 +893,15 @@ class _DeviceSettingsState extends State<DeviceSettings> {
               title: context.l10n.findDevice,
               showChevron: false,
               trailing: _isFindingDevice
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary),
                     )
                   : null,
               onTap: () => _findDevice(provider),
             ),
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
           ],
           // Single Tap — self-host патч (Игорь, 24.08): одиночное нажатие
           // настраивается, как двойное. Строки нарочно не в l10n.
@@ -866,7 +911,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             chipValue: _getSingleTapActionLabel(SharedPreferencesUtil().singleTapAction),
             onTap: _showSingleTapActionSheet,
           ),
-          const Divider(height: 1, color: Color(0xFF3C3C43)),
+          Divider(height: 1, color: t.divider),
           // Double Tap
           _buildProfileStyleItem(
             icon: FontAwesomeIcons.handPointer,
@@ -876,7 +921,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
           ),
           // LED Brightness
           if (_isDimRatioLoaded && _hasDimmingFeature == true) ...[
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             _buildProfileStyleItem(
               icon: FontAwesomeIcons.lightbulb,
               title: context.l10n.ledBrightness,
@@ -886,7 +931,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
           ],
           // Mic Gain
           if (_isMicGainLoaded && _hasMicGainFeature == true) ...[
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             _buildProfileStyleItem(
               icon: FontAwesomeIcons.microphone,
               title: context.l10n.micGain,
@@ -900,8 +945,13 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   Widget _buildActionsSection(DeviceProvider provider) {
+    final t = context.omi;
+
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: BorderRadius.circular(t.isGlass ? t.settingsCardRadius : 20),
+      ),
       child: Column(
         children: [
           if (provider.isConnected) ...[
@@ -935,15 +985,15 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 child: Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 24,
                       height: 24,
-                      child: FaIcon(FontAwesomeIcons.linkSlash, color: Colors.redAccent, size: 20),
+                      child: FaIcon(FontAwesomeIcons.linkSlash, color: t.error, size: 20),
                     ),
                     const SizedBox(width: 16),
                     Text(
                       provider.connectedDevice == null ? context.l10n.unpairDevice : context.l10n.disconnectDevice,
-                      style: const TextStyle(color: Colors.redAccent, fontSize: 17, fontWeight: FontWeight.w400),
+                      style: TextStyle(color: t.error, fontSize: 17, fontWeight: FontWeight.w400),
                     ),
                   ],
                 ),
@@ -952,7 +1002,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
           ],
           // Unpair Device - only for Limitless devices
           if (provider.isConnected && provider.connectedDevice?.type == DeviceType.limitless) ...[
-            const Divider(height: 1, color: Color(0xFF3C3C43)),
+            Divider(height: 1, color: t.divider),
             GestureDetector(
               onTap: () async {
                 showDialog(
@@ -992,15 +1042,15 @@ class _DeviceSettingsState extends State<DeviceSettings> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 child: Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 24,
                       height: 24,
-                      child: FaIcon(FontAwesomeIcons.ban, color: Colors.orange, size: 20),
+                      child: FaIcon(FontAwesomeIcons.ban, color: t.warning, size: 20),
                     ),
                     const SizedBox(width: 16),
                     Text(
                       context.l10n.unpairAndForget,
-                      style: const TextStyle(color: Colors.orange, fontSize: 17, fontWeight: FontWeight.w400),
+                      style: TextStyle(color: t.warning, fontSize: 17, fontWeight: FontWeight.w400),
                     ),
                   ],
                 ),
@@ -1013,29 +1063,31 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   }
 
   Widget _buildDisconnectedOverlay() {
+    final t = context.omi;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(14)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 64,
             height: 64,
-            decoration: BoxDecoration(color: const Color(0xFF2A2A2E), borderRadius: BorderRadius.circular(16)),
-            child: Center(child: FaIcon(FontAwesomeIcons.linkSlash, color: Colors.grey.shade500, size: 24)),
+            decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(16)),
+            child: Center(child: FaIcon(FontAwesomeIcons.linkSlash, color: t.textSecondary, size: 24)),
           ),
           const SizedBox(height: 20),
           Text(
             context.l10n.deviceNotConnected,
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
             context.l10n.connectDeviceMessage,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 14, height: 1.4),
+            style: TextStyle(color: t.textSecondary, fontSize: 14, height: 1.4),
           ),
         ],
       ),
@@ -1046,10 +1098,12 @@ class _DeviceSettingsState extends State<DeviceSettings> {
   Widget build(BuildContext context) {
     return Consumer<DeviceProvider>(
       builder: (context, provider, child) {
+        final t = context.omi;
+
         return Scaffold(
-          backgroundColor: const Color(0xFF0D0D0D),
+          backgroundColor: t.bgPrimary,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF0D0D0D),
+            backgroundColor: t.bgPrimary,
             elevation: 0,
             leading: IconButton(
               icon: const FaIcon(FontAwesomeIcons.chevronLeft, size: 18),
@@ -1057,7 +1111,7 @@ class _DeviceSettingsState extends State<DeviceSettings> {
             ),
             title: Text(
               context.l10n.deviceSettings,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
             ),
             centerTitle: true,
           ),

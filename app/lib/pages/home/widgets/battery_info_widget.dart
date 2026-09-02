@@ -20,6 +20,7 @@ import 'package:omi/utils/device.dart';
 import 'package:omi/utils/enums.dart';
 import 'package:omi/utils/l10n_extensions.dart';
 import 'package:omi/utils/other/temp.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class BatteryInfoWidget extends StatefulWidget {
   const BatteryInfoWidget({super.key});
@@ -84,6 +85,7 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Selector<HomeProvider, bool>(
       selector: (context, state) => state.selectedIndex == 0,
       builder: (context, isMemoriesPage, child) {
@@ -108,7 +110,7 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                 child: Container(
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(18)),
+                  decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(18)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -139,15 +141,15 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                               color: batteryLevel > 75
                                   ? const Color.fromARGB(255, 0, 255, 8)
                                   : batteryLevel > 20
-                                      ? Colors.yellow.shade700
-                                      : Colors.red,
+                                      ? t.warning
+                                      : t.error,
                               shape: BoxShape.circle,
                             ),
                           ),
                         const SizedBox(width: 4.0),
                         Text(
                           '$batteryLevel%',
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: t.textPrimary, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ],
@@ -168,11 +170,8 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                     child: Container(
                       height: 36,
                       width: 36,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1F1F25),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 16),
+                      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(18)),
+                      child: Icon(Icons.phone_in_talk_rounded, color: t.textPrimary, size: 16),
                     ),
                   ),
                 ],
@@ -186,7 +185,7 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                 child: Container(
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  decoration: BoxDecoration(color: const Color(0xFF1F1F25), borderRadius: BorderRadius.circular(18)),
+                  decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(18)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -199,14 +198,17 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                           children: [
                             Image.asset(DeviceUtils.getDeviceImageFromBtDevice(pairedDevice), fit: BoxFit.contain),
                             // Slash line across the image
-                            Positioned.fill(child: CustomPaint(painter: SlashLinePainter())),
+                            Positioned.fill(child: CustomPaint(painter: SlashLinePainter(color: t.error))),
                           ],
                         ),
                       ),
                       const SizedBox(width: 6.0),
                       Text(
                         context.l10n.disconnected,
-                        style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: Colors.white70, fontSize: 12),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium!
+                            .copyWith(color: t.textPrimary.withValues(alpha: 0.7), fontSize: 12),
                       ),
                     ],
                   ),
@@ -228,10 +230,7 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                     child: Container(
                       height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1F1F25),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
+                      decoration: BoxDecoration(color: t.bgSecondary, borderRadius: BorderRadius.circular(18)),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -241,13 +240,13 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                           isConnecting && isMemoriesPage
                               ? Text(
                                   context.l10n.searching,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.bodyMedium!.copyWith(color: Colors.white, fontSize: 12),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium!
+                                      .copyWith(color: t.textPrimary, fontSize: 12),
                                 )
                               : isMemoriesPage
-                                  ? Text(context.l10n.connect,
-                                      style: const TextStyle(color: Colors.white, fontSize: 12))
+                                  ? Text(context.l10n.connect, style: TextStyle(color: t.textPrimary, fontSize: 12))
                                   : const SizedBox.shrink(),
                         ],
                       ),
@@ -265,7 +264,7 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                             duration: const Duration(milliseconds: 200),
                             height: 36,
                             decoration: BoxDecoration(
-                              color: isRecording ? Colors.red.shade700 : Colors.deepPurple,
+                              color: isRecording ? t.error : t.accent,
                               borderRadius: BorderRadius.circular(18),
                             ),
                             child: Row(
@@ -284,15 +283,15 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                                       crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
                                         if (isRecording)
-                                          const Icon(Icons.stop_rounded, size: 14, color: Colors.white)
+                                          Icon(Icons.stop_rounded, size: 14, color: t.textPrimary)
                                         else if (isInitialising)
-                                          const SizedBox(
+                                          SizedBox(
                                             width: 12,
                                             height: 12,
-                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: t.textPrimary),
                                           )
                                         else
-                                          const FaIcon(FontAwesomeIcons.microphone, size: 12, color: Colors.white),
+                                          FaIcon(FontAwesomeIcons.microphone, size: 12, color: t.textPrimary),
                                         const SizedBox(width: 6),
                                         Text(
                                           isRecording
@@ -300,8 +299,8 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                                               : isInitialising
                                                   ? '...'
                                                   : context.l10n.record,
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: t.textPrimary,
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -311,7 +310,7 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                                   ),
                                 ),
                                 if (showChevron) ...[
-                                  Container(width: 1, height: 18, color: Colors.white.withValues(alpha: 0.25)),
+                                  Container(width: 1, height: 18, color: t.textPrimary.withValues(alpha: 0.25)),
                                   GestureDetector(
                                     behavior: HitTestBehavior.opaque,
                                     onTap: () => _showRecordOptions(context),
@@ -319,11 +318,7 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
                                       height: 36,
                                       alignment: Alignment.center,
                                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                                      child: const Icon(
-                                        Icons.keyboard_arrow_down_rounded,
-                                        size: 18,
-                                        color: Colors.white,
-                                      ),
+                                      child: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: t.textPrimary),
                                     ),
                                   ),
                                 ],
@@ -344,10 +339,15 @@ class _BatteryInfoWidgetState extends State<BatteryInfoWidget> {
 }
 
 class SlashLinePainter extends CustomPainter {
+  /// Stroke color — a painter has no BuildContext, so the token is resolved by the caller.
+  final Color color;
+
+  const SlashLinePainter({required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.red
+      ..color = color
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -384,11 +384,12 @@ class RecordOptionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1F1F25),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: t.bgSecondary,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -398,7 +399,10 @@ class RecordOptionsSheet extends StatelessWidget {
             child: Container(
               width: 36,
               height: 4,
-              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                color: t.textPrimary.withValues(alpha: 0.24),
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
           const SizedBox(height: 18),
@@ -431,6 +435,7 @@ class _RecordOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.omi;
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -438,7 +443,7 @@ class _RecordOption extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(color: const Color(0xFF2A2A33), borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(color: t.bgTertiary, borderRadius: BorderRadius.circular(t.cardRadius)),
         child: Row(
           children: [
             Container(
@@ -447,20 +452,20 @@ class _RecordOption extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF7B5CFF), Color(0xFF5733E0)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.deepPurple.withValues(alpha: 0.35),
-                    blurRadius: 14,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                // Glass: flat accent, no glow. Classic: the original purple gradient and shadow.
+                color: t.isGlass ? t.accent : null,
+                gradient: t.isGlass
+                    ? null
+                    : const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF7B5CFF), Color(0xFF5733E0)],
+                      ),
+                boxShadow: t.isGlass
+                    ? null
+                    : [BoxShadow(color: t.accent.withValues(alpha: 0.35), blurRadius: 14, offset: const Offset(0, 4))],
               ),
-              child: FaIcon(icon, color: Colors.white, size: 18),
+              child: FaIcon(icon, color: t.textPrimary, size: 18),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -470,14 +475,14 @@ class _RecordOption extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: t.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                  Text(subtitle, style: TextStyle(color: t.textSecondary, fontSize: 12)),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.grey[500], size: 22),
+            Icon(Icons.chevron_right_rounded, color: t.textSecondary, size: 22),
           ],
         ),
       ),

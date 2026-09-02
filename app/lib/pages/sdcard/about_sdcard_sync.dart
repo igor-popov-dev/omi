@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:omi/utils/l10n_extensions.dart';
+import 'package:omi/utils/theme/omi_tokens.dart';
 
 class AboutSdCardSync extends StatefulWidget {
   const AboutSdCardSync({super.key});
@@ -13,9 +14,9 @@ class _AboutSdCardSyncState extends State<AboutSdCardSync> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: context.omi.bgPrimary,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: context.omi.bgPrimary,
         automaticallyImplyLeading: true,
         centerTitle: true,
         leading: IconButton(
