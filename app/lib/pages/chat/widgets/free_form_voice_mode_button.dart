@@ -99,7 +99,9 @@ class FreeFormVoiceModeButton extends StatelessWidget {
                     // снова.
                     duration: const Duration(milliseconds: 200),
                     child: phase == null
-                        ? _PlainButton(active: active, key: ValueKey(active))
+                        ? (active
+                            ? const _StopButton(key: ValueKey('stop'))
+                            : const _IdleOrbButton(key: ValueKey('idle-orb')))
                         : _OrbButton(
                             key: const ValueKey('orb'),
                             phase: phase,
@@ -145,25 +147,47 @@ class FreeFormVoiceModeButton extends StatelessWidget {
   }
 }
 
-/// Кнопка вне разговора: прежний круг с иконкой.
-class _PlainButton extends StatelessWidget {
-  const _PlainButton({required this.active, super.key});
+/// Кнопка вне разговора: тот же orb, что живёт на кнопке во время разговора,
+/// но застывший и всегда в чёрной теме (решение Игоря 02.09 — прежний серый
+/// круг с «волной» ему не нравился). Тема фиксирована и не следует за
+/// настройкой «Voice icon theme»: настройка описывает живую иконку разговора,
+/// а в покое кнопка должна выглядеть одинаково и узнаваемо.
+class _IdleOrbButton extends StatelessWidget {
+  const _IdleOrbButton({super.key});
 
-  final bool active;
+  @override
+  Widget build(BuildContext context) {
+    const side = _kOrbDiameter * kOmiVoiceOrbPadding;
+    return const OverflowBox(
+      maxWidth: side,
+      maxHeight: side,
+      child: OmiVoiceOrb(
+        phase: OmiVoiceOrbPhase.listening,
+        theme: OmiVoiceOrbTheme.black,
+        diameter: _kOrbDiameter,
+        animated: false,
+      ),
+    );
+  }
+}
+
+/// Кнопка во время разговора вне хода (фазы нет): белый круг с иконкой стоп.
+class _StopButton extends StatelessWidget {
+  const _StopButton({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 38,
       width: 38,
-      decoration: BoxDecoration(
-        color: active ? Colors.white : const Color(0xFF4A4A4F),
+      decoration: const BoxDecoration(
+        color: Colors.white,
         shape: BoxShape.circle,
       ),
-      child: Center(
+      child: const Center(
         child: FaIcon(
-          active ? FontAwesomeIcons.stop : FontAwesomeIcons.waveSquare,
-          color: active ? const Color(0xFF1f1f25) : Colors.grey.shade400,
+          FontAwesomeIcons.stop,
+          color: Color(0xFF1f1f25),
           size: 16,
         ),
       ),

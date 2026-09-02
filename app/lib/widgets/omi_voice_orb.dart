@@ -169,10 +169,16 @@ class OmiVoiceOrb extends StatefulWidget {
     this.theme = OmiVoiceOrbTheme.gradient,
     this.diameter = 48,
     this.level = 0,
+    this.animated = true,
   });
 
   final OmiVoiceOrbPhase phase;
   final OmiVoiceOrbTheme theme;
+
+  /// `false` — иконка рисуется один раз и замирает (тикер не запускается
+  /// вовсе, как при системном «уменьшить движение»). Нужно кнопке голосового
+  /// режима в покое: там orb — обложка, а не индикатор живого разговора.
+  final bool animated;
 
   /// Диаметр круга в покое. Виджет занимает [kOmiVoiceOrbPadding] от него.
   final double diameter;
@@ -221,7 +227,7 @@ class _OmiVoiceOrbState extends State<OmiVoiceOrb> with SingleTickerProviderStat
     // людей от постоянной анимации в поле зрения болит голова. Иконка тогда
     // рисуется один раз и замирает, оставаясь на своём месте и в своей теме.
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    if (reduceMotion) {
+    if (reduceMotion || !widget.animated) {
       if (_ticker.isActive) _ticker.stop();
     } else if (!_ticker.isActive) {
       _ticker.start();
