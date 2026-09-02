@@ -198,6 +198,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sounds/
+    # Фразы-статусы ask_claude (bridge/tools/gen_progress_phrases.py); папки
+    # assets у Flutter не рекурсивны — подпапка объявляется отдельно.
+    - assets/sounds/progress/
     - assets/images/stars.png
     - assets/images/herologo.png
     - assets/fonts/

@@ -9755,6 +9755,12 @@ class AppLocalizationsTr extends AppLocalizations {
   String get copyMessage => 'Mesajı kopyala';
 
   @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get codeCopied => 'Code copied to clipboard';
+
+  @override
   String get searchSettings => 'Ayarlarda ara…';
 
   @override
@@ -9914,4 +9920,10 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
+
+  @override
+  String get voiceMessageShowText => 'Show text';
+
+  @override
+  String get voiceMessageHideText => 'Hide text';
 }

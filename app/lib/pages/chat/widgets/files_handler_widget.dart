@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:omi/backend/schema/message.dart';
+import 'package:omi/pages/chat/widgets/voice_message_widget.dart';
 
 class FilesHandlerWidget extends StatelessWidget {
   final ServerMessage message;
-  const FilesHandlerWidget({super.key, required this.message});
+  final Function(String)? onAskOmi;
+  const FilesHandlerWidget({super.key, required this.message, this.onAskOmi});
 
   bool _isLocalPath(String? path) {
     if (path == null || path.isEmpty) return false;
@@ -19,12 +21,29 @@ class FilesHandlerWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     if (message.files.isEmpty || message.filesId.isEmpty) {
       return const SizedBox.shrink();
-    } else {
+    }
+    // Spoken assistant replies get a real player (voice_message_widget.dart)
+    // instead of the generic "document" tile; other attachments keep the strip.
+    final audioFiles = message.files.where((file) => file.isAudio).toList();
+    final otherFiles = message.files.where((file) => !file.isAudio).toList();
+    if (audioFiles.isEmpty) return _buildStrip(context, otherFiles);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final file in audioFiles) VoiceMessageWidget(message: message, file: file, onAskOmi: onAskOmi),
+        if (otherFiles.isNotEmpty) _buildStrip(context, otherFiles),
+      ],
+    );
+  }
+
+  Widget _buildStrip(BuildContext context, List<MessageFile> files) {
+    {
       return SizedBox(
         width: MediaQuery.sizeOf(context).width * 0.9,
         height: MediaQuery.sizeOf(context).height * 0.12,
         child: ListView.separated(
-          itemCount: message.files.length,
+          itemCount: files.length,
           shrinkWrap: true,
           reverse: true,
           scrollDirection: Axis.horizontal,
@@ -32,8 +51,8 @@ class FilesHandlerWidget extends StatelessWidget {
             return const SizedBox(width: 6);
           },
           itemBuilder: (context, index) {
-            if (message.files[index].mimeTypeToFileType() == 'image') {
-              return _buildImageThumbnail(context, index);
+            if (files[index].mimeTypeToFileType() == 'image') {
+              return _buildImageThumbnail(context, files[index]);
             } else {
               return Container(
                 decoration: BoxDecoration(
@@ -49,7 +68,7 @@ class FilesHandlerWidget extends StatelessWidget {
                     const Icon(Icons.insert_drive_file, color: Colors.white),
                     const SizedBox(height: 6),
                     Text(
-                      message.files[index].name,
+                      files[index].name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -64,8 +83,8 @@ class FilesHandlerWidget extends StatelessWidget {
     }
   }
 
-  Widget _buildImageThumbnail(BuildContext context, int index) {
-    final thumbnail = message.files[index].thumbnail;
+  Widget _buildImageThumbnail(BuildContext context, MessageFile file) {
+    final thumbnail = file.thumbnail;
     final width = MediaQuery.sizeOf(context).width * 0.28;
     final height = MediaQuery.sizeOf(context).width * 0.22;
 

@@ -362,8 +362,15 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                   ),
                   child: Consumer2<HomeProvider, VoiceRecorderProvider>(
                     builder: (context, home, voiceRecorderProvider, child) {
-                      bool shouldShowSendButton(MessageProvider p) {
-                        return !p.sendingMessage && !voiceRecorderProvider.isActive;
+                      // Видимость кнопки «отправить» НЕ зависит от `sendingMessage`.
+                      // Пока предыдущий ответ стримится (на self-host это десятки
+                      // секунд, а зависший SSE держит флаг до перезапуска приложения),
+                      // набранный текст оставался вообще без кнопки отправки — справа
+                      // виден только микрофон, который в этой ветке больше не прячется
+                      // при непустом черновике (939dbd2). Отправляемость решает
+                      // `canSend` ниже, кнопка при этом гаснет.
+                      bool shouldShowSendButton() {
+                        return !voiceRecorderProvider.isActive;
                       }
 
                       bool shouldShowVoiceRecorderButton() {
@@ -718,15 +725,17 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                     ),
                                                   ),
                                                 ),
-                                              // Send button — only when there's text and not in voice mode
-                                              if (!voiceRecorderProvider.isActive && shouldShowSendButton(provider))
+                                              // Send button — as soon as the composer holds something to
+                                              // send (text or an attachment) and voice mode is not active.
+                                              if (!voiceRecorderProvider.isActive && shouldShowSendButton())
                                                 ValueListenableBuilder<TextEditingValue>(
                                                   valueListenable: textController,
                                                   builder: (context, value, child) {
                                                     bool hasText = value.text.trim().isNotEmpty;
-                                                    if (!hasText) return const SizedBox.shrink();
+                                                    bool hasFiles = provider.selectedFiles.isNotEmpty;
+                                                    if (!hasText && !hasFiles) return const SizedBox.shrink();
 
-                                                    bool canSend = hasText &&
+                                                    bool canSend = (hasText || hasFiles) &&
                                                         !provider.sendingMessage &&
                                                         !provider.isUploadingFiles &&
                                                         connectivityProvider.isConnected;
@@ -740,21 +749,27 @@ class ChatPageState extends State<ChatPage> with AutomaticKeepAliveClientMixin {
                                                             ? () {
                                                                 HapticFeedback.mediumImpact();
                                                                 String message = textController.text.trim();
-                                                                if (message.isEmpty) return;
+                                                                if (message.isEmpty && !hasFiles) return;
                                                                 _sendMessageUtil(message);
                                                               }
                                                             : null,
                                                         child: Container(
                                                           height: 38,
                                                           width: 38,
-                                                          decoration: const BoxDecoration(
-                                                            color: Colors.white,
+                                                          decoration: BoxDecoration(
+                                                            // Приглушённая, пока отправлять нельзя (идёт
+                                                            // предыдущий ответ, грузятся файлы, нет сети) —
+                                                            // белая кнопка, которая не реагирует на тап,
+                                                            // читается как поломка.
+                                                            color: canSend ? Colors.white : const Color(0xFF4A4A4F),
                                                             shape: BoxShape.circle,
                                                           ),
-                                                          child: const Center(
+                                                          child: Center(
                                                             child: FaIcon(
                                                               FontAwesomeIcons.arrowUp,
-                                                              color: Color(0xFF1f1f25),
+                                                              color: canSend
+                                                                  ? const Color(0xFF1f1f25)
+                                                                  : Colors.grey.shade400,
                                                               size: 16,
                                                             ),
                                                           ),

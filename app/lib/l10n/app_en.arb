@@ -11517,6 +11517,14 @@
     "@copyMessage": {
         "description": "Label of the copy-message action on an AI chat message"
     },
+    "copyCode": "Copy code",
+    "@copyCode": {
+        "description": "Copy button on a code block and the copy-all-code action of an AI chat message"
+    },
+    "codeCopied": "Code copied to clipboard",
+    "@codeCopied": {
+        "description": "Snackbar shown after code from a chat message was copied"
+    },
     "searchSettings": "Search settings…",
     "@searchSettings": {
         "description": "Placeholder of the search input in the settings drawer"
@@ -11713,5 +11721,7 @@
     },
     "sttLiveTranscribing": "Transcribing speech…",
     "sttWaitingForSpeech": "Listening — waiting for speech",
-    "sttReconnecting": "Transcription connection lost — reconnecting…"
+    "sttReconnecting": "Transcription connection lost — reconnecting…",
+    "voiceMessageShowText": "Show text",
+    "voiceMessageHideText": "Hide text"
 }

@@ -48,6 +48,7 @@ import 'package:omi/providers/announcement_provider.dart';
 import 'package:omi/providers/app_provider.dart';
 import 'package:omi/providers/auth_provider.dart';
 import 'package:omi/providers/capture_provider.dart';
+import 'package:omi/services/voice_call/voice_call_notification_permission.dart';
 import 'package:omi/services/voice_call/voice_call_session.dart';
 import 'package:omi/services/voice_hub/earcon.dart';
 import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart';
@@ -403,8 +404,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               // Прогрев «думаю» на старте режима: холодный первый play() —
               // сотни миллисекунд, сигнал опаздывал к концу фразы или терялся.
               unawaited(thinkingEarcon.preload());
-              unawaited(thinkingWaitEarcon.preload());
-              unawaited(thinkingWaitMoreEarcon.preload());
+              // Фразы-статусы ожидания ask_claude: греем только плеер, файл
+              // выбирается по активности в момент фразы (см. ProgressVoice).
+              unawaited(progressVoice.preload());
             };
             // Telecom call shell: the running voice session is a self-managed
             // Android call (CallStyle notification, hang-up on the lock
@@ -413,7 +415,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             // just runs without the shell.
             final voiceCallSession = VoiceCallSession();
             voiceCallSession.onEndedBySystem = capture.stopFreeFormVoiceMode;
-            capture.onVoiceModeCallStart = voiceCallSession.start;
+            // Self-host (02.09): без POST_NOTIFICATIONS (слетает после
+            // `adb install -r`) уведомление «идёт разговор» не показывается —
+            // спрашиваем перед звонком, только с экрана, один раз за запуск.
+            capture.onVoiceModeCallStart = () async {
+              await ensureVoiceCallNotificationPermission();
+              await voiceCallSession.start();
+            };
             capture.onVoiceModeCallEnd = voiceCallSession.end;
             capture.freeFormVoiceMode = createProductionFreeFormVoiceMode(
               events: freeFormModeProjectionEvents(

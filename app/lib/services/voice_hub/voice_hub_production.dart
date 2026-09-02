@@ -188,10 +188,12 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     // Подтверждение «услышал, думаю» в блокирующем режиме — звук (файл Игоря),
     // а не фраза «секунду, уточню» (см. earcon.dart).
     onBlockingCallStart: () => unawaited(thinkingEarcon.play()),
-    // Тишина после сигнала дольше ~5 с читается как поломка — голосовой
-    // комментарий о задержке (записанные фразы, см. earcon.dart).
-    onBlockingWaitLong: () => unawaited(thinkingWaitEarcon.play()),
-    onBlockingWaitLonger: () => unawaited(thinkingWaitMoreEarcon.play()),
+    // Тишина после сигнала дольше ~5 с читается как поломка — фраза о том,
+    // чем мозг занят СЕЙЧАС (тип — из событий progress моста: «читаю файл»,
+    // «спрашиваю память»…), и дальше каждые ~12 с, пока ответа нет (см.
+    // earcon.dart: ProgressVoice). Разброс ±3 с — чтобы не метроном.
+    onBlockingWait: (activity, _) => unawaited(progressVoice.play(activity)),
+    blockingWaitJitter: const Duration(seconds: 3),
   );
 
   return VoiceHubTurnDriver(VoiceHubTurnDriverDeps(
@@ -345,10 +347,12 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     // Подтверждение «услышал, думаю» в блокирующем режиме — звук (файл Игоря),
     // а не фраза «секунду, уточню» (см. earcon.dart).
     onBlockingCallStart: () => unawaited(thinkingEarcon.play()),
-    // Тишина после сигнала дольше ~5 с читается как поломка — голосовой
-    // комментарий о задержке (записанные фразы, см. earcon.dart).
-    onBlockingWaitLong: () => unawaited(thinkingWaitEarcon.play()),
-    onBlockingWaitLonger: () => unawaited(thinkingWaitMoreEarcon.play()),
+    // Тишина после сигнала дольше ~5 с читается как поломка — фраза о том,
+    // чем мозг занят СЕЙЧАС (тип — из событий progress моста: «читаю файл»,
+    // «спрашиваю память»…), и дальше каждые ~12 с, пока ответа нет (см.
+    // earcon.dart: ProgressVoice). Разброс ±3 с — чтобы не метроном.
+    onBlockingWait: (activity, _) => unawaited(progressVoice.play(activity)),
+    blockingWaitJitter: const Duration(seconds: 3),
   );
 
   // Wrapped so every content event rearms the silence-timeout clock: the

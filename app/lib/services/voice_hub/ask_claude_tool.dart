@@ -10,6 +10,8 @@
 //    "tools_enabled": true|false (opt., default false),
 //    "voice": true|false (opt., default false)}
 //   -> text/event-stream, "data: {...}\n\n" per line:
+//        {"type": "progress", "activity": "<kind>", "tool": "<name>"|null}
+//                                          (as the brain's activity changes)
 //        {"type": "delta", "text": "..."}  (repeated)
 //        {"type": "done", "text": "<full answer>"}
 //        {"type": "error", "code": "...", "message": "..."}  (instead of done)
@@ -40,12 +42,14 @@
 // gate reflects THIS invocation, not just "the hub always/never wants it".
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
 import 'package:omi/utils/logger.dart';
 
 import 'hub_session.dart' show HubToolCallRequest, VoiceToolDeclaration;
+import 'progress_phrases.dart' show ClaudeActivity;
 
 /// The name Gemini must call to reach the bridge — matches
 /// [askClaudeToolDeclaration.name] and the argument shape both the setup
@@ -220,10 +224,16 @@ class AskClaudeBridgeClient {
   /// nothing at all. An empty answer is treated the same way and for the same
   /// reason: the point of this call is words to say out loud, and zero of them
   /// is a failure the user must hear about, not silence to paper over.
+  ///
+  /// [onProgress] receives the bridge's `progress` events as they stream in —
+  /// what the brain is doing right now (reading a file, asking memory…), see
+  /// `progress_phrases.dart`. Never affects the answer; a missing or unknown
+  /// activity maps to [ClaudeActivity.generic].
   Future<String> ask({
     required String question,
     String context = '',
     bool toolsEnabled = false,
+    void Function(ClaudeActivity activity, String? tool)? onProgress,
   }) async {
     final request = http.Request('POST', endpoint)
       ..headers['Content-Type'] = 'application/json'
@@ -282,6 +292,15 @@ class AskClaudeBridgeClient {
           if (code is String && code.isNotEmpty) code,
           if (message is String && message.isNotEmpty) message,
         ].join(': ');
+        continue;
+      }
+      if (event['type'] == 'progress') {
+        final activity = event['activity'];
+        final tool = event['tool'];
+        onProgress?.call(
+          ClaudeActivity.fromWire(activity is String ? activity : null),
+          tool is String ? tool : null,
+        );
         continue;
       }
       final text = event['text'];
@@ -360,17 +379,24 @@ class AskClaudeToolExecutor {
 
   /// Голосовой комментарий о задержке в БЛОКИРУЮЩЕМ режиме: модель молчит до
   /// ответа, и после сигнала «услышал» тишина дольше нескольких секунд
-  /// читается как поломка. [onBlockingWaitLong] срабатывает, если ответ не
-  /// пришёл за [blockingWaitNotice] после старта вызова (production —
-  /// «секунду, думаю, это займёт секунд пятнадцать-двадцать»);
-  /// [onBlockingWaitLonger] — ещё через [blockingWaitRepeat] («ещё немного,
-  /// почти готово»). Каждый — один раз на вызов; оба снимаются, как только
-  /// ответ (или ошибка) пришёл, и переармливаются более новым вызовом —
-  /// устаревший вызов не должен комментировать чужое ожидание.
-  final void Function()? onBlockingWaitLong;
-  final void Function()? onBlockingWaitLonger;
+  /// читается как поломка. Срабатывает, если ответ не пришёл за
+  /// [blockingWaitNotice] после старта вызова, и дальше каждые
+  /// [blockingWaitRepeat] (± [blockingWaitJitter], чтобы ритм не был
+  /// метрономом), пока ответ (или ошибка) не пришёл. Получает ПОСЛЕДНЮЮ
+  /// известную активность мозга — из событий `progress` моста (до первого
+  /// события — [ClaudeActivity.think]) — и порядковый номер срабатывания;
+  /// production играет фразу этого типа (`ProgressVoice`, earcon.dart), и
+  /// повторное срабатывание на той же активности даёт другой вариант фразы.
+  /// Без оценок времени и без отдельного «ещё немного, почти готово»
+  /// (уточнение Игоря 02.09): каждый раз — что идёт сейчас.
+  ///
+  /// Таймеры снимаются, как только ответ пришёл, и переармливаются более
+  /// новым вызовом — устаревший вызов не должен комментировать чужое
+  /// ожидание; его события `progress` тоже игнорируются.
+  final void Function(ClaudeActivity activity, int nth)? onBlockingWait;
   final Duration blockingWaitNotice;
   final Duration blockingWaitRepeat;
+  final Duration blockingWaitJitter;
 
   AskClaudeToolExecutor({
     required this.client,
@@ -378,53 +404,76 @@ class AskClaudeToolExecutor {
     this.announce,
     this.blockingDelivery,
     this.onBlockingCallStart,
-    this.onBlockingWaitLong,
-    this.onBlockingWaitLonger,
+    this.onBlockingWait,
     this.blockingWaitNotice = const Duration(seconds: 5),
-    this.blockingWaitRepeat = const Duration(seconds: 20),
+    // 12 с, а не прежние 20: с фразами по делу («читаю файл», «запускаю
+    // команду») ожидание перестаёт быть тишиной, и раз в ~10–15 с — ритм
+    // живого «я тут, вот что делаю», а не назойливость.
+    this.blockingWaitRepeat = const Duration(seconds: 12),
+    this.blockingWaitJitter = Duration.zero,
     this.timeout = const Duration(seconds: 60),
     this.now = DateTime.now,
-  });
+    Random? random,
+  }) : _random = random ?? Random();
 
-  /// Таймеры комментария о задержке и поколение вызова, которому они
-  /// принадлежат (см. [_announceGeneration]): завершившийся СТАРЫЙ вызов не
-  /// должен снимать таймеры нового.
-  Timer? _waitNoticeTimer;
-  Timer? _waitRepeatTimer;
+  final Random _random;
+
+  /// Таймер комментария о задержке и поколение вызова, которому он
+  /// принадлежит (см. [_announceGeneration]): завершившийся СТАРЫЙ вызов не
+  /// должен снимать таймер нового.
+  Timer? _waitTimer;
   int _waitGeneration = 0;
+  int _waitCount = 0;
+
+  /// Последняя активность мозга по событиям `progress` текущего вызова.
+  ClaudeActivity _lastActivity = ClaudeActivity.think;
+
+  /// Что мозг делает сейчас — по последнему событию `progress`; до первого
+  /// события (и вне блокирующего вызова) — «думаю».
+  ClaudeActivity get lastActivity => _lastActivity;
 
   void _armWaitNotices(int generation) {
     _cancelWaitNotices();
-    if (onBlockingWaitLong == null && onBlockingWaitLonger == null) return;
+    if (onBlockingWait == null) return;
     _waitGeneration = generation;
-    _waitNoticeTimer = Timer(blockingWaitNotice, () {
-      _waitNoticeTimer = null;
-      _fireWaitNotice(onBlockingWaitLong, 'первый');
-      if (onBlockingWaitLonger == null) return;
-      _waitRepeatTimer = Timer(blockingWaitRepeat, () {
-        _waitRepeatTimer = null;
-        _fireWaitNotice(onBlockingWaitLonger, 'повторный');
-      });
-    });
+    _waitCount = 0;
+    _lastActivity = ClaudeActivity.think;
+    _waitTimer = Timer(blockingWaitNotice, () => _fireWaitNotice(generation));
   }
 
-  void _fireWaitNotice(void Function()? notice, String label) {
-    if (notice == null) return;
+  void _fireWaitNotice(int generation) {
+    _waitTimer = null;
+    if (generation != _waitGeneration) return;
+    final nth = ++_waitCount;
+    final activity = _lastActivity;
     // Fail-open: комментарий — вежливость; ошибка озвучки не должна
     // трогать сам вызов (его таймеры и результат).
     try {
-      notice();
+      onBlockingWait?.call(activity, nth);
     } catch (e) {
-      Logger.error('[ask_claude] не удалось озвучить $label комментарий о задержке: $e');
+      Logger.error('[ask_claude] не удалось озвучить комментарий №$nth о задержке (${activity.name}): $e');
     }
+    // Следующий — через repeat ± jitter, пока ответ не снимет таймер.
+    var next = blockingWaitRepeat;
+    if (blockingWaitJitter > Duration.zero) {
+      final span = blockingWaitJitter.inMilliseconds;
+      next += Duration(milliseconds: _random.nextInt(2 * span + 1) - span);
+    }
+    _waitTimer = Timer(next, () => _fireWaitNotice(generation));
   }
 
   void _cancelWaitNotices({int? generation}) {
     if (generation != null && generation != _waitGeneration) return;
-    _waitNoticeTimer?.cancel();
-    _waitRepeatTimer?.cancel();
-    _waitNoticeTimer = null;
-    _waitRepeatTimer = null;
+    _waitTimer?.cancel();
+    _waitTimer = null;
+  }
+
+  /// Событие `progress` вызова поколения [generation]: запоминаем активность
+  /// только для НОВЕЙШЕГО вызова — устаревший не должен подменять статус.
+  void _noteProgress(int generation, String callId, ClaudeActivity activity, String? tool) {
+    if (generation != _announceGeneration) return;
+    _lastActivity = activity;
+    Logger.debug('[ask_claude] $callId прогресс: ${activity.name}${tool == null ? '' : ' ($tool)'}');
   }
 
   /// Handed to the model the instant it asks, so it can carry the conversation
@@ -519,7 +568,10 @@ class AskClaudeToolExecutor {
     // answer are not, they are user content.
     final startedAt = DateTime.now();
     Logger.debug('[ask_claude] запрос ${call.callId} -> ${client.endpoint}');
-    final output = await _resolve(call);
+    final output = await _resolve(
+      call,
+      onProgress: (activity, tool) => _noteProgress(generation, call.callId, activity, tool),
+    );
     // Ответ (или ошибка) есть — комментировать ожидание больше нечего.
     if (blocking) _cancelWaitNotices(generation: generation);
     final elapsed = DateTime.now().difference(startedAt);
@@ -582,7 +634,10 @@ class AskClaudeToolExecutor {
       'Пересказ может быть неполным или неточным — отвечай на дословную речь пользователя '
       'из поля «Вопрос».';
 
-  Future<String> _resolve(HubToolCallRequest call) async {
+  Future<String> _resolve(
+    HubToolCallRequest call, {
+    void Function(ClaudeActivity activity, String? tool)? onProgress,
+  }) async {
     final Map<String, dynamic> args;
     try {
       final decoded = jsonDecode(call.argumentsJson);
@@ -616,7 +671,9 @@ class AskClaudeToolExecutor {
     // exact failure this tool exists to avoid. Only an explicit false opts out.
     final useTools = args['use_tools'] != false;
     try {
-      return await client.ask(question: question, context: context.toString(), toolsEnabled: useTools).timeout(timeout);
+      return await client
+          .ask(question: question, context: context.toString(), toolsEnabled: useTools, onProgress: onProgress)
+          .timeout(timeout);
     } on TimeoutException {
       // Phrased as an instruction, not a bare error: this string is what the
       // model reads before speaking, and silence is the failure we are fixing.

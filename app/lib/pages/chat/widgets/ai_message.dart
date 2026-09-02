@@ -429,6 +429,18 @@ class NormalMessageWidget extends StatefulWidget {
   State<NormalMessageWidget> createState() => _NormalMessageWidgetState();
 }
 
+/// "Copy message" action of the long-press toolbar of an AI message.
+Future<void> _copyWholeMessage(BuildContext context, String messageText) =>
+    copyToClipboardWithFeedback(context, messageText, context.l10n.messageCopied);
+
+/// "Copy code" action of the long-press toolbar: all fenced blocks joined by a
+/// blank line. Non-null only when the message contains code blocks.
+VoidCallback? _copyCodeBlocks(BuildContext context, String messageText) {
+  final blocks = extractCodeBlocks(messageText);
+  if (blocks.isEmpty) return null;
+  return () => copyToClipboardWithFeedback(context, blocks.join('\n\n'), context.l10n.codeCopied);
+}
+
 class _NormalMessageWidgetState extends State<NormalMessageWidget> {
   bool _showDots = true;
   Timer? _dotsTimer;
@@ -490,7 +502,7 @@ class _NormalMessageWidgetState extends State<NormalMessageWidget> {
       mainAxisAlignment: MainAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        FilesHandlerWidget(message: widget.message),
+        FilesHandlerWidget(message: widget.message, onAskOmi: widget.onAskOmi),
         widget.showTypingIndicator && widget.messageText.isEmpty
             ? Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -550,7 +562,9 @@ class _NormalMessageWidgetState extends State<NormalMessageWidget> {
         //         ),
         //       )
         //     : const SizedBox.shrink(),
-        widget.messageText.isEmpty
+        // A spoken reply keeps its text folded under the player's "Show text"
+        // chevron (voice_message_widget.dart) instead of duplicating it here.
+        widget.messageText.isEmpty || widget.message.voiceFile != null
             ? const SizedBox.shrink()
             : Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -562,9 +576,14 @@ class _NormalMessageWidgetState extends State<NormalMessageWidget> {
                         selectedText = selectedContent?.plainText;
                       },
                       contextMenuBuilder: (context, selectableRegionState) {
-                        return omiSelectionMenuBuilder(context, selectableRegionState, (text) {
-                          widget.onAskOmi?.call(text);
-                        }, selectedText: selectedText);
+                        return omiSelectionMenuBuilder(
+                          context,
+                          selectableRegionState,
+                          (text) => widget.onAskOmi?.call(text),
+                          selectedText: selectedText,
+                          onCopyMessage: () => _copyWholeMessage(context, widget.messageText),
+                          onCopyCode: _copyCodeBlocks(context, widget.messageText),
+                        );
                       },
                       child: getMarkdownWidget(context, widget.messageText, onAskOmi: widget.onAskOmi),
                     );
@@ -776,9 +795,14 @@ class _MemoriesMessageWidgetState extends State<MemoriesMessageWidget> {
                           selectedText = selectedContent?.plainText;
                         },
                         contextMenuBuilder: (context, selectableRegionState) {
-                          return omiSelectionMenuBuilder(context, selectableRegionState, (text) {
-                            widget.onAskOmi?.call(text);
-                          }, selectedText: selectedText);
+                          return omiSelectionMenuBuilder(
+                            context,
+                            selectableRegionState,
+                            (text) => widget.onAskOmi?.call(text),
+                            selectedText: selectedText,
+                            onCopyMessage: () => _copyWholeMessage(context, widget.messageText),
+                            onCopyCode: _copyCodeBlocks(context, widget.messageText),
+                          );
                         },
                         child: getMarkdownWidget(context, widget.messageText, onAskOmi: widget.onAskOmi),
                       );

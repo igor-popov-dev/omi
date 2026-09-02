@@ -9813,6 +9813,12 @@ class AppLocalizationsTa extends AppLocalizations {
   String get copyMessage => 'செய்தியை நகலெடு';
 
   @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get codeCopied => 'Code copied to clipboard';
+
+  @override
   String get searchSettings => 'அமைப்புகளில் தேடு…';
 
   @override
@@ -9972,4 +9978,10 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
+
+  @override
+  String get voiceMessageShowText => 'Show text';
+
+  @override
+  String get voiceMessageHideText => 'Hide text';
 }

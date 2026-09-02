@@ -9792,6 +9792,12 @@ class AppLocalizationsTe extends AppLocalizations {
   String get copyMessage => 'సందేశాన్ని కాపీ చేయండి';
 
   @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get codeCopied => 'Code copied to clipboard';
+
+  @override
   String get searchSettings => 'సెట్టింగ్‌లలో శోధించండి…';
 
   @override
@@ -9951,4 +9957,10 @@ class AppLocalizationsTe extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
+
+  @override
+  String get voiceMessageShowText => 'Show text';
+
+  @override
+  String get voiceMessageHideText => 'Hide text';
 }

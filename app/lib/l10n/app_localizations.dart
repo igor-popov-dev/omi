@@ -18171,6 +18171,18 @@ abstract class AppLocalizations {
   /// **'Copy message'**
   String get copyMessage;
 
+  /// Copy button on a code block and the copy-all-code action of an AI chat message
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get copyCode;
+
+  /// Snackbar shown after code from a chat message was copied
+  ///
+  /// In en, this message translates to:
+  /// **'Code copied to clipboard'**
+  String get codeCopied;
+
   /// Placeholder of the search input in the settings drawer
   ///
   /// In en, this message translates to:
@@ -18440,6 +18452,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Transcription connection lost — reconnecting…'**
   String get sttReconnecting;
+
+  /// No description provided for @voiceMessageShowText.
+  ///
+  /// In en, this message translates to:
+  /// **'Show text'**
+  String get voiceMessageShowText;
+
+  /// No description provided for @voiceMessageHideText.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide text'**
+  String get voiceMessageHideText;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

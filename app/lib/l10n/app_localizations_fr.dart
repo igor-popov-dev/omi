@@ -9830,6 +9830,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get copyMessage => 'Copier le message';
 
   @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get codeCopied => 'Code copied to clipboard';
+
+  @override
   String get searchSettings => 'Rechercher dans les paramètres…';
 
   @override
@@ -9989,4 +9995,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
+
+  @override
+  String get voiceMessageShowText => 'Show text';
+
+  @override
+  String get voiceMessageHideText => 'Hide text';
 }

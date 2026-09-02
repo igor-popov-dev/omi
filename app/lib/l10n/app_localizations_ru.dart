@@ -9779,6 +9779,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get copyMessage => 'Копировать сообщение';
 
   @override
+  String get copyCode => 'Копировать код';
+
+  @override
+  String get codeCopied => 'Код скопирован в буфер обмена';
+
+  @override
   String get searchSettings => 'Поиск в настройках…';
 
   @override
@@ -9939,4 +9945,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Связь с распознаванием потеряна — переподключаюсь…';
+
+  @override
+  String get voiceMessageShowText => 'Показать текст';
+
+  @override
+  String get voiceMessageHideText => 'Скрыть текст';
 }

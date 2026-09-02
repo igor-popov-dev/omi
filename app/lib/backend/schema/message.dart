@@ -75,10 +75,34 @@ class MessageFile {
   String mimeType;
   DateTime createdAt;
 
-  MessageFile(this.openaiFileId, this.thumbnail, this.name, this.mimeType, this.id, this.createdAt, this.thumbnailName);
+  /// Self-host extensions of the file document (assistant voice messages from
+  /// `bin/send_voice_message.py`). Not part of the generated wire model, so
+  /// they are read from the raw JSON next to it.
+  ///
+  /// [url] is either absolute or an API path relative to `Env.apiBaseUrl`
+  /// (`v2/chat/files/{id}/audio`); [durationSec] is known before the audio is
+  /// fetched; [kind] is `voice_message` for spoken assistant replies.
+  String? url;
+  double? durationSec;
+  String? kind;
+
+  static const String voiceMessageKind = 'voice_message';
+
+  MessageFile(
+    this.openaiFileId,
+    this.thumbnail,
+    this.name,
+    this.mimeType,
+    this.id,
+    this.createdAt,
+    this.thumbnailName, {
+    this.url,
+    this.durationSec,
+    this.kind,
+  });
 
   static MessageFile fromJson(Map<String, dynamic> json) {
-    return MessageFile.fromGenerated(wire.GeneratedFileChat.fromJson(json));
+    return MessageFile.fromGenerated(wire.GeneratedFileChat.fromJson(json))..applyExtras(json);
   }
 
   factory MessageFile.fromGenerated(wire.GeneratedFileChat generated) {
@@ -93,6 +117,42 @@ class MessageFile {
     );
   }
 
+  /// Copies the self-host fields out of a raw file JSON (see [url]).
+  void applyExtras(Map<String, dynamic> json) {
+    final rawUrl = json['url'];
+    if (rawUrl is String && rawUrl.isNotEmpty) url = rawUrl;
+    final rawDuration = json['duration_sec'];
+    if (rawDuration is num) durationSec = rawDuration.toDouble();
+    if (rawDuration is String) durationSec = double.tryParse(rawDuration);
+    final rawKind = json['kind'];
+    if (rawKind is String && rawKind.isNotEmpty) kind = rawKind;
+  }
+
+  /// Applies [applyExtras] to [files] from the raw `files` list of a message JSON.
+  static void applyExtrasFromMessageJson(List<MessageFile> files, Map<String, dynamic> json) {
+    final rawFiles = json['files'];
+    if (rawFiles is! List) return;
+    for (final raw in rawFiles) {
+      if (raw is! Map) continue;
+      final rawMap = Map<String, dynamic>.from(raw);
+      final id = rawMap['id'];
+      if (id is! String) continue;
+      for (final file in files) {
+        if (file.id == id) file.applyExtras(rawMap);
+      }
+    }
+  }
+
+  bool get isAudio => mimeType.startsWith('audio');
+
+  bool get isVoiceMessage => isAudio && (kind == voiceMessageKind || url != null);
+
+  Duration? get duration {
+    final seconds = durationSec;
+    if (seconds == null || seconds <= 0) return null;
+    return Duration(milliseconds: (seconds * 1000).round());
+  }
+
   wire.GeneratedFileChat toGenerated() {
     return wire.GeneratedFileChat(
       createdAt: createdAt,
@@ -105,11 +165,18 @@ class MessageFile {
     );
   }
 
-  Map<String, dynamic> toJson() => toGenerated().toJson();
+  Map<String, dynamic> toJson() => {
+        ...toGenerated().toJson(),
+        if (url != null) 'url': url,
+        if (durationSec != null) 'duration_sec': durationSec,
+        if (kind != null) 'kind': kind,
+      };
 
   String mimeTypeToFileType() {
     if (mimeType.contains('image')) {
       return 'image';
+    } else if (isAudio) {
+      return 'audio';
     } else {
       return 'file';
     }
@@ -271,21 +338,33 @@ class ServerMessage {
   static ServerMessage fromGeneratedWireJson(Map<String, dynamic> json) {
     final generated = wire.GeneratedMessage.fromJson(json);
     final fromIntegration = (json['from_integration'] as bool?) ?? generated.fromExternalIntegration;
-    return ServerMessage.fromGenerated(
+    final message = ServerMessage.fromGenerated(
       generated,
       fromIntegration: fromIntegration,
       contentBlocks: _decodeContentBlocks(json['content_blocks'], generated.metadata),
     );
+    MessageFile.applyExtrasFromMessageJson(message.files, json);
+    return message;
   }
 
   static ServerMessage fromResponseJson(Map<String, dynamic> json) {
     final generated = wire.GeneratedResponseMessage.fromJson(json);
     final fromIntegration = (json['from_integration'] as bool?) ?? generated.fromExternalIntegration;
-    return ServerMessage.fromGeneratedResponse(
+    final message = ServerMessage.fromGeneratedResponse(
       generated,
       fromIntegration: fromIntegration,
       contentBlocks: _decodeContentBlocks(json['content_blocks'], generated.metadata),
     );
+    MessageFile.applyExtrasFromMessageJson(message.files, json);
+    return message;
+  }
+
+  /// The spoken version of an assistant reply, if this message carries one.
+  MessageFile? get voiceFile {
+    for (final file in files) {
+      if (file.isVoiceMessage) return file;
+    }
+    return null;
   }
 
   factory ServerMessage.fromGenerated(

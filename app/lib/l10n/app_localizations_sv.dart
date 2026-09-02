@@ -9748,6 +9748,12 @@ class AppLocalizationsSv extends AppLocalizations {
   String get copyMessage => 'Kopiera meddelande';
 
   @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get codeCopied => 'Code copied to clipboard';
+
+  @override
   String get searchSettings => 'Sök inställningar…';
 
   @override
@@ -9906,4 +9912,10 @@ class AppLocalizationsSv extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
+
+  @override
+  String get voiceMessageShowText => 'Show text';
+
+  @override
+  String get voiceMessageHideText => 'Hide text';
 }

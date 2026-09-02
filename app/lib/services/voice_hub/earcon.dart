@@ -15,6 +15,9 @@ import 'package:just_audio/just_audio.dart';
 
 import 'package:omi/utils/logger.dart';
 
+import 'progress_phrase_bank.g.dart';
+import 'progress_phrases.dart';
+
 class Earcon {
   final String asset;
 
@@ -84,25 +87,9 @@ class Earcon {
   }
 
   Future<AudioPlayer> _load() async {
-    // handleAudioSessionActivation: false — КРИТИЧНО. Дефолтный AudioPlayer
-    // при play() захватывает аудиофокус, и живой голосовой сокет умирает:
-    // на телефоне обрыв сессии наступал через ~90 мс после старта вызова
-    // ask_claude (логкат 24.08 03:31:45.528 запрос -> .619 обрыв). Сигнал
-    // должен ПОДМЕШИВАТЬСЯ к сессии, а не отбирать у неё звук.
-    final player = AudioPlayer(handleAudioSessionActivation: false);
+    final player = await _newConversationPlayer(volume);
     try {
-      // Атрибуты РАЗГОВОРНОГО потока, не медиа (баг Игоря 24.08: «слышал один
-      // раз в начале, после похода в Claude — тишина навсегда»). Медиа-звук
-      // посреди живой сессии переключал Bluetooth с разговорного профиля (SCO)
-      // на музыкальный (A2DP) — разговорный маршрут к гарнитуре рушился, и
-      // весь дальнейший голос ассистента уходил в никуда. Сигнал обязан играть
-      // тем же трактом, что и голос.
-      await player.setAndroidAudioAttributes(const AndroidAudioAttributes(
-        usage: AndroidAudioUsage.voiceCommunication,
-        contentType: AndroidAudioContentType.sonification,
-      ));
       await player.setAsset(asset);
-      await player.setVolume(volume);
     } catch (_) {
       _disposeQuietly(player);
       rethrow;
@@ -127,6 +114,125 @@ class Earcon {
   void dispose() => _release();
 }
 
+/// Плеер, подмешивающийся к живой голосовой сессии, — общий для сигналов
+/// ([Earcon]) и фраз-статусов ([ProgressVoice]); asset выставляет вызывающий.
+///
+/// handleAudioSessionActivation: false — КРИТИЧНО. Дефолтный AudioPlayer
+/// при play() захватывает аудиофокус, и живой голосовой сокет умирает:
+/// на телефоне обрыв сессии наступал через ~90 мс после старта вызова
+/// ask_claude (логкат 24.08 03:31:45.528 запрос -> .619 обрыв). Звук
+/// должен ПОДМЕШИВАТЬСЯ к сессии, а не отбирать у неё аудио.
+///
+/// Атрибуты РАЗГОВОРНОГО потока, не медиа (баг Игоря 24.08: «слышал один
+/// раз в начале, после похода в Claude — тишина навсегда»). Медиа-звук
+/// посреди живой сессии переключал Bluetooth с разговорного профиля (SCO)
+/// на музыкальный (A2DP) — разговорный маршрут к гарнитуре рушился, и
+/// весь дальнейший голос ассистента уходил в никуда. Всё, что играет
+/// поверх сессии, обязано играть тем же трактом, что и голос.
+Future<AudioPlayer> _newConversationPlayer(double volume) async {
+  final player = AudioPlayer(handleAudioSessionActivation: false);
+  try {
+    await player.setAndroidAudioAttributes(const AndroidAudioAttributes(
+      usage: AndroidAudioUsage.voiceCommunication,
+      contentType: AndroidAudioContentType.sonification,
+    ));
+    await player.setVolume(volume);
+  } catch (_) {
+    Earcon._disposeQuietly(player);
+    rethrow;
+  }
+  return player;
+}
+
+/// Фразы о ходе работы блокирующего ask_claude (см. progress_phrases.dart):
+/// «читаю файл», «спрашиваю память», «почти готово» — по типу активности,
+/// который присылает мост, случайный вариант без повтора подряд.
+///
+/// Записанные файлы, а не TTS и не просьба к Gemini: пока висит tool call,
+/// модель молчит и на клиентский текст (замер 24.08 — ждёт все результаты,
+/// не говоря ни слова), а системный TTS играет медиатрактом и рвёт
+/// разговорный Bluetooth-маршрут (та же история, что у сигналов выше).
+/// Файлы — той же природы, что thinking.mp3, только голосом самой сессии
+/// (Charon, генератор bridge/tools/gen_progress_phrases.py).
+///
+/// ОДИН плеер на весь банк (setAsset на каждую фразу, ~десятки мс на файл в
+/// секунду-две), а не [Earcon] на каждый из 40 файлов: фраза ожидания не
+/// требует мгновенности сигнала «услышал», а 40 декодированных плееров в
+/// памяти — цена не по задаче.
+class ProgressVoice {
+  final ProgressPhraseBank bank;
+  final double volume;
+
+  ProgressVoice(this.bank, {this.volume = 1.0});
+
+  AudioPlayer? _player;
+  Future<AudioPlayer>? _preparing;
+
+  /// Замок на время звучания — как у [Earcon.play]: фраза поверх фразы
+  /// (таймер догнал долгий файл) пропускается, а не рвёт setAsset.
+  bool _playing = false;
+
+  /// Последняя произнесённая фраза — для лога и тестов.
+  ProgressPhrase? lastSpoken;
+
+  /// Прогрев плеера (атрибуты тракта) на старте голосового режима; сам файл
+  /// выбирается в момент [play].
+  Future<void> preload() async {
+    try {
+      await _ensurePlayer();
+    } catch (e) {
+      Logger.error('[ProgressVoice] не удалось подготовить плеер: $e');
+      _release();
+    }
+  }
+
+  Future<void> play(ClaudeActivity activity) async {
+    if (_playing) {
+      Logger.debug('[ProgressVoice] фраза ещё звучит — ${activity.name} пропущен');
+      return;
+    }
+    final phrase = bank.pick(activity);
+    if (phrase == null) {
+      Logger.debug('[ProgressVoice] нет фраз для ${activity.name}');
+      return;
+    }
+    _playing = true;
+    try {
+      final player = await _ensurePlayer();
+      await player.setAsset(phrase.asset);
+      lastSpoken = phrase;
+      Logger.debug('[ProgressVoice] ${activity.name}: «${phrase.text}»');
+      // play() у just_audio завершается по КОНЦУ файла; pause() после него
+      // сбрасывает `playing`, иначе следующий play() был бы no-op (см. Earcon).
+      await player.play();
+      await player.pause();
+    } catch (e) {
+      Logger.error('[ProgressVoice] не удалось проиграть ${phrase.asset}: $e');
+      _release();
+    } finally {
+      _playing = false;
+    }
+  }
+
+  Future<AudioPlayer> _ensurePlayer() {
+    final ready = _player;
+    if (ready != null) return Future.value(ready);
+    return _preparing ??= _newConversationPlayer(volume).then((player) {
+      _player = player;
+      return player;
+    }).whenComplete(() => _preparing = null);
+  }
+
+  void _release() {
+    final player = _player;
+    _player = null;
+    _preparing = null;
+    if (player != null) Earcon._disposeQuietly(player);
+  }
+
+  void dispose() => _release();
+}
+
 /// «Голосовой режим включён» — играет на старте разговора.
 ///
 /// Обе громкости подняты до 1.0 (просьба Игоря 24.08 вечером): прежние
@@ -139,14 +245,9 @@ final Earcon voiceStartEarcon = Earcon('assets/sounds/voice_start.mp3', volume: 
 /// ask_claude.
 final Earcon thinkingEarcon = Earcon('assets/sounds/thinking.mp3', volume: 1.0);
 
-/// Голосовой комментарий о задержке блокирующего ask_claude (см.
-/// `AskClaudeToolExecutor.onBlockingWaitLong`): ответа нет ~5 с — «Секунду,
-/// думаю, это займёт секунд пятнадцать-двадцать». Записанный файл, а не TTS
-/// и не просьба к Gemini: пока висит tool call, модель молчит и на клиентский
-/// текст (замер 24.08 — ждёт все результаты, не говоря ни слова), а системный
-/// TTS играет медиатрактом и рвёт разговорный Bluetooth-маршрут (та же
-/// история, что у сигналов выше). Файл — той же природы, что thinking.mp3.
-final Earcon thinkingWaitEarcon = Earcon('assets/sounds/thinking_wait.mp3', volume: 1.0);
-
-/// Повтор ещё через ~20 с ожидания — «Ещё немного, почти готово».
-final Earcon thinkingWaitMoreEarcon = Earcon('assets/sounds/thinking_wait_more.mp3', volume: 1.0);
+/// Фразы о ходе блокирующего ask_claude (см. [ProgressVoice] и
+/// `AskClaudeToolExecutor.onBlockingWait`): ответа нет ~5 с — фраза о том,
+/// чем мозг занят сейчас, и дальше периодически, пока ответа нет. Заменяет
+/// прежние thinking_wait.mp3 / thinking_wait_more.mp3 (чужой голос, всегда
+/// одно и то же, с оценкой времени — жалоба Игоря 02.09).
+final ProgressVoice progressVoice = ProgressVoice(ProgressPhraseBank(progressPhraseAssets), volume: 1.0);

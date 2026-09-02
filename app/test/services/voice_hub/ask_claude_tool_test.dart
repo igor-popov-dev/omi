@@ -10,6 +10,7 @@ import 'package:http/testing.dart';
 
 import 'package:omi/services/voice_hub/ask_claude_tool.dart';
 import 'package:omi/services/voice_hub/hub_session.dart';
+import 'package:omi/services/voice_hub/progress_phrases.dart';
 
 String _sse(List<Map<String, dynamic>> events) => events.map((e) => 'data: ${jsonEncode(e)}\n\n').join();
 
@@ -282,6 +283,44 @@ void main() {
         client.ask(question: 'q'),
         throwsA(isA<AskClaudeBridgeException>()),
       );
+    });
+
+    test('progress events reach onProgress in order and never leak into the answer', () async {
+      final client = AskClaudeBridgeClient(
+          httpClient: MockClient((r) async => http.Response(
+                _sse([
+                  {'type': 'progress', 'activity': 'think', 'tool': null},
+                  {'type': 'progress', 'activity': 'read', 'tool': 'Read'},
+                  {'type': 'delta', 'text': 'от'},
+                  {'type': 'progress', 'activity': 'nonsense', 'tool': 'X'},
+                  {'type': 'progress', 'tool': 'Y'},
+                  {'type': 'delta', 'text': 'вет'},
+                  {'type': 'done', 'text': 'ответ'},
+                ]),
+                200,
+                headers: _utf8EventStreamHeaders,
+              )));
+      final seen = <String>[];
+      final answer = await client.ask(
+        question: 'q',
+        onProgress: (activity, tool) => seen.add('${activity.name}/${tool ?? '-'}'),
+      );
+      expect(answer, 'ответ');
+      expect(seen, ['think/-', 'read/Read', 'generic/X', 'generic/Y'],
+          reason: 'неизвестный или отсутствующий тип — generic, а не пропуск');
+    });
+
+    test('progress events are ignored without onProgress', () async {
+      final client = AskClaudeBridgeClient(
+          httpClient: MockClient((r) async => http.Response(
+                _sse([
+                  {'type': 'progress', 'activity': 'memory', 'tool': 'mcp__memory__memory_search'},
+                  {'type': 'done', 'text': 'ок'},
+                ]),
+                200,
+                headers: _utf8EventStreamHeaders,
+              )));
+      expect(await client.ask(question: 'q'), 'ок');
     });
   });
 
@@ -768,19 +807,23 @@ void main() {
       expect(earcons, 1);
     });
 
-    test('blocking: wait notices fire at 5s and +20s of silence, each once, and stop when the answer lands', () async {
+    test('blocking: wait notices repeat periodically with the latest bridge activity, and stop when the answer lands',
+        () async {
       // Тишина после сигнала «услышал» дольше нескольких секунд читается как
-      // поломка — голосовой комментарий о задержке, один раз, потом повтор.
-      final slow = Completer<http.Response>();
-      final client = AskClaudeBridgeClient(httpClient: MockClient((r) => slow.future));
+      // поломка — фраза о том, чем мозг занят сейчас (по событиям progress
+      // моста), и дальше периодически, пока ответа нет.
+      final body = StreamController<List<int>>();
+      final client = AskClaudeBridgeClient(
+        httpClient: MockClient.streaming(
+            (request, _) async => http.StreamedResponse(body.stream, 200, headers: _utf8EventStreamHeaders)),
+      );
       final notices = <String>[];
       final executor = AskClaudeToolExecutor(
         client: client,
         sendToolResult: (_, __, ___) {},
         announce: (_) {},
         blockingDelivery: () => true,
-        onBlockingWaitLong: () => notices.add('long'),
-        onBlockingWaitLonger: () => notices.add('longer'),
+        onBlockingWait: (activity, nth) => notices.add('$nth:${activity.name}'),
         blockingWaitNotice: const Duration(milliseconds: 30),
         blockingWaitRepeat: const Duration(milliseconds: 30),
       );
@@ -790,21 +833,59 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 10));
       expect(notices, isEmpty, reason: 'до порога — молчим');
       await Future<void>.delayed(const Duration(milliseconds: 35));
-      expect(notices, ['long']);
-      await Future<void>.delayed(const Duration(milliseconds: 35));
-      expect(notices, ['long', 'longer']);
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      expect(notices, ['long', 'longer'], reason: 'каждый комментарий — один раз');
+      expect(notices, ['1:think'], reason: 'до первого события progress — «думаю»');
 
+      body.add(utf8.encode(_sse([
+        {'type': 'progress', 'activity': 'memory', 'tool': 'mcp__memory__memory_search'}
+      ])));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(notices, ['1:think', '2:memory'], reason: 'повтор — про текущее занятие');
+      expect(executor.lastActivity, ClaudeActivity.memory);
+
+      body.add(utf8.encode(_sse([
+        {'type': 'progress', 'activity': 'finishing', 'tool': null},
+        {'type': 'progress', 'activity': 'что-то новое', 'tool': null},
+      ])));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(notices, ['1:think', '2:memory', '3:generic'], reason: 'неизвестный тип — общие фразы');
+
+      body.add(utf8.encode(_sse([
+        {'type': 'done', 'text': 'ок'}
+      ])));
+      await body.close();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(notices.length, 3, reason: 'после ответа — тишина');
+    });
+
+    test('blocking: wait jitter stays within ±jitter of the repeat interval', () async {
+      final slow = Completer<http.Response>();
+      final client = AskClaudeBridgeClient(httpClient: MockClient((r) => slow.future));
+      final stamps = <DateTime>[];
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: (_, __, ___) {},
+        announce: (_) {},
+        blockingDelivery: () => true,
+        onBlockingWait: (_, __) => stamps.add(DateTime.now()),
+        blockingWaitNotice: const Duration(milliseconds: 10),
+        blockingWaitRepeat: const Duration(milliseconds: 40),
+        blockingWaitJitter: const Duration(milliseconds: 10),
+      );
+      executor.handle(
+          HubToolCallRequest(name: askClaudeToolName, callId: 'j1', argumentsJson: jsonEncode({'question': 'q'})));
+      await Future<void>.delayed(const Duration(milliseconds: 140));
       slow.complete(http.Response(
-        _sse([
-          {'type': 'done', 'text': 'ок'}
-        ]),
-        200,
-        headers: _utf8EventStreamHeaders,
-      ));
+          _sse([
+            {'type': 'done', 'text': 'ок'}
+          ]),
+          200,
+          headers: _utf8EventStreamHeaders));
+      expect(stamps.length, greaterThanOrEqualTo(3));
+      for (var i = 1; i < stamps.length; i++) {
+        final gap = stamps[i].difference(stamps[i - 1]).inMilliseconds;
+        expect(gap, inInclusiveRange(28, 70), reason: 'интервал №$i: $gap мс');
+      }
       await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(notices, ['long', 'longer']);
     });
 
     test('blocking: an answer before the threshold cancels the wait notice; announce path never arms it', () async {
@@ -823,8 +904,7 @@ void main() {
         sendToolResult: (_, __, ___) {},
         announce: (_) {},
         blockingDelivery: () => blocking,
-        onBlockingWaitLong: () => notices++,
-        onBlockingWaitLonger: () => notices++,
+        onBlockingWait: (_, __) => notices++,
         blockingWaitNotice: const Duration(milliseconds: 20),
         blockingWaitRepeat: const Duration(milliseconds: 20),
       );
@@ -853,7 +933,7 @@ void main() {
         sendToolResult: (_, __, ___) {},
         announce: (_) {},
         blockingDelivery: () => true,
-        onBlockingWaitLong: () => notices.add('long'),
+        onBlockingWait: (_, __) => notices.add('long'),
         blockingWaitNotice: const Duration(milliseconds: 40),
       );
 

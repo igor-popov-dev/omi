@@ -9735,6 +9735,12 @@ class AppLocalizationsSk extends AppLocalizations {
   String get copyMessage => 'Kopírovať správu';
 
   @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get codeCopied => 'Code copied to clipboard';
+
+  @override
   String get searchSettings => 'Hľadať v nastaveniach…';
 
   @override
@@ -9895,4 +9901,10 @@ class AppLocalizationsSk extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
+
+  @override
+  String get voiceMessageShowText => 'Show text';
+
+  @override
+  String get voiceMessageHideText => 'Hide text';
 }

@@ -42,11 +42,15 @@ class VoiceCallSession implements VoiceCallSessionFlutterApi {
     try {
       final established = await _hostApi.start(sessionId);
       if (!established) {
-        Logger.debug('[VoiceCallSession] no call shell for session $sessionId (telecom refused)');
+        // Warning, not debug: without the shell there is no «идёт разговор»
+        // notification and no background-mic legality — this is the first
+        // thing to look for when the status-bar icon is missing.
+        Logger.warning('[VoiceCallSession] no call shell for session $sessionId '
+            '(telecom refused / timed out — see logcat VoiceCallController)');
       }
     } catch (e) {
       // MissingPluginException on iOS, or any platform failure: carry on.
-      Logger.debug('[VoiceCallSession] start($sessionId) failed, running without a call shell: $e');
+      Logger.warning('[VoiceCallSession] start($sessionId) failed, running without a call shell: $e');
     }
   }
 

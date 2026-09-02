@@ -50,11 +50,17 @@ class OmiToolbarDivider extends StatelessWidget {
   }
 }
 
+/// Builds the long-press / selection toolbar of a chat message.
+///
+/// [onCopyMessage] adds "Copy message" (whole message, no selection needed);
+/// [onCopyCode] adds "Copy code" — pass it only when the message has code blocks.
 Widget omiSelectionMenuBuilder(
   BuildContext context,
   dynamic delegate,
   Function(String) onAskOmi, {
   String? selectedText,
+  VoidCallback? onCopyMessage,
+  VoidCallback? onCopyCode,
 }) {
   final List<Widget> toolbarItems = [];
   String text = selectedText ?? '';
@@ -89,6 +95,22 @@ Widget omiSelectionMenuBuilder(
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(context.l10n.messageCopied), duration: const Duration(seconds: 2)));
+        },
+      ),
+    );
+  }
+
+  for (final (label, onPressed) in [(context.l10n.copyMessage, onCopyMessage), (context.l10n.copyCode, onCopyCode)]) {
+    if (onPressed == null) continue;
+    if (toolbarItems.isNotEmpty) {
+      toolbarItems.add(const OmiToolbarDivider());
+    }
+    toolbarItems.add(
+      OmiToolbarAction(
+        label: label,
+        onPressed: () {
+          delegate.hideToolbar();
+          onPressed();
         },
       ),
     );

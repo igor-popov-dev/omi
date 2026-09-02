@@ -17,6 +17,7 @@ import 'package:omi/services/notifications/action_item_notification_handler.dart
 import 'package:omi/services/notifications/important_conversation_notification_handler.dart';
 import 'package:omi/services/notifications/merge_notification_handler.dart';
 import 'package:omi/services/notifications/notification_interface.dart';
+import 'package:omi/services/voice_message/voice_message_player.dart';
 import 'package:omi/services/voice_playback/omi_voice_playback_service.dart';
 import 'package:omi/utils/analytics/intercom.dart';
 import 'package:omi/utils/logger.dart';
@@ -244,7 +245,17 @@ class _FCMNotificationService implements NotificationInterface {
         final notificationType = data['notification_type'];
         if (notificationType == 'plugin' || notificationType == 'daily_summary') {
           data['from_integration'] = data['from_integration'] == 'true';
-          _serverMessageStreamController.add(ServerMessage.fromJson(data));
+          final serverMessage = ServerMessage.fromJson(data);
+          // Spoken assistant reply (bin/send_voice_message.py): attach the audio
+          // so the chat bubble shows the player right away, and play it — unless
+          // a Gemini voice call / device reply is talking, then it only shows.
+          final voiceRef = VoiceMessageRef.fromPushData(data);
+          if (voiceRef != null) {
+            serverMessage.files = [voiceRef.toMessageFile(serverMessage.createdAt)];
+            serverMessage.filesId = [voiceRef.fileId];
+            unawaited(VoiceMessagePlayer.instance.play(voiceRef, fromPush: true));
+          }
+          _serverMessageStreamController.add(serverMessage);
         }
         if (noti != null && _shouldShowForegroundNotificationOnFCMMessageReceived()) {
           if (!OmiVoicePlaybackService.instance.isSpeaking) {
@@ -265,6 +276,12 @@ class _FCMNotificationService implements NotificationInterface {
 
     void handleNotificationTap(RemoteMessage? message) {
       if (message == null) return;
+      // Tapping a voice-message push opens the chat (navigate_to=/chat/omi) and
+      // starts that message; the bubble picks the playback state up by id.
+      final voiceRef = VoiceMessageRef.fromPushData(message.data);
+      if (voiceRef != null) {
+        unawaited(VoiceMessagePlayer.instance.play(voiceRef, fromPush: true));
+      }
       final navigateTo = NotificationUtil.navigateToFromFcmData(message.data);
       if (navigateTo != null) {
         NotificationUtil.handleNavigateTo(navigateTo);

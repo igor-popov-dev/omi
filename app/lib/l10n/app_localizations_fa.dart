@@ -9745,6 +9745,12 @@ class AppLocalizationsFa extends AppLocalizations {
   String get copyMessage => 'کپی پیام';
 
   @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get codeCopied => 'Code copied to clipboard';
+
+  @override
   String get searchSettings => 'جستجوی تنظیمات…';
 
   @override
@@ -9902,4 +9908,10 @@ class AppLocalizationsFa extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
+
+  @override
+  String get voiceMessageShowText => 'Show text';
+
+  @override
+  String get voiceMessageHideText => 'Hide text';
 }

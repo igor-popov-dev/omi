@@ -9749,6 +9749,12 @@ class AppLocalizationsBn extends AppLocalizations {
   String get copyMessage => 'বার্তা অনুলিপি করুন';
 
   @override
+  String get copyCode => 'Copy code';
+
+  @override
+  String get codeCopied => 'Code copied to clipboard';
+
+  @override
   String get searchSettings => 'সেটিংস অনুসন্ধান করুন…';
 
   @override
@@ -9907,4 +9913,10 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get sttReconnecting => 'Transcription connection lost — reconnecting…';
+
+  @override
+  String get voiceMessageShowText => 'Show text';
+
+  @override
+  String get voiceMessageHideText => 'Hide text';
 }
