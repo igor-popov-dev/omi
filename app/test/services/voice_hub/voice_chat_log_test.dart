@@ -1,4 +1,6 @@
 // Self-host patch, not for upstream: see lib/services/voice_hub/voice_chat_log.dart.
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/voice_chat_log.dart';
@@ -18,18 +20,74 @@ void main() {
 
     tearDown(() => log.dispose());
 
-    test('buffers instead of posting per fragment', () async {
+    // 02.09: история должна появляться в чате после каждой реплики, а не по
+    // завершении режима — коммит реплики сразу уходит на сервер.
+    test('posts every committed turn right away, without waiting for the mode to stop', () async {
       log.addUserTurn('что я ел вчера');
+      expect(posted.single.single.text, 'что я ел вчера');
+
+      // Ответ приходит спустя секунды — предыдущий запрос давно завершён.
+      await Future<void>.delayed(Duration.zero);
       log.addAssistantTurn('вчера была паста');
 
-      // A live conversation emits a fragment every few hundred ms; one request
-      // per fragment would compete with the audio socket for the uplink.
-      expect(posted, isEmpty);
+      expect(posted.map((b) => b.single.text), ['что я ел вчера', 'вчера была паста']);
+      expect(posted.map((b) => b.single.sender), ['human', 'ai']);
+    });
+
+    test('flush after per-turn posting never sends a turn twice', () async {
+      log.addUserTurn('привет');
+      await Future<void>.delayed(Duration.zero);
+      log.addAssistantTurn('здравствуй');
 
       await log.flush();
+      await log.flush();
 
-      expect(posted.single.map((t) => t.text), ['что я ел вчера', 'вчера была паста']);
-      expect(posted.single.map((t) => t.sender), ['human', 'ai']);
+      expect(posted.expand((b) => b).map((t) => t.text), ['привет', 'здравствуй']);
+    });
+
+    test('turns committed while a post is in flight wait and keep spoken order', () async {
+      final gate = Completer<bool>();
+      var calls = 0;
+      final slow = VoiceChatLog(post: (turns) async {
+        posted.add(turns);
+        if (++calls == 1) return gate.future;
+        return true;
+      });
+
+      slow.addUserTurn('первая');
+      slow.addAssistantTurn('вторая');
+      slow.addUserTurn('третья');
+      // Первый запрос ещё на проводе — второй не стартует параллельно.
+      expect(posted, hasLength(1));
+
+      gate.complete(true);
+      await slow.flush();
+
+      expect(posted.map((b) => b.map((t) => t.text).join(',')), ['первая', 'вторая,третья']);
+      slow.dispose();
+    });
+
+    test('fires onStored after each successful post so chat can reload', () async {
+      var stored = 0;
+      log.onStored = () => stored++;
+
+      log.addUserTurn('привет');
+      await log.flush();
+      log.addAssistantTurn('здравствуй');
+      await log.flush();
+
+      expect(stored, 2);
+    });
+
+    test('does not fire onStored when the post is refused', () async {
+      var stored = 0;
+      final refused = VoiceChatLog(post: (_) async => false)..onStored = () => stored++;
+
+      refused.addUserTurn('привет');
+      await refused.flush();
+
+      expect(stored, 0);
+      refused.dispose();
     });
 
     test('drops blank turns rather than storing empty bubbles', () async {
@@ -41,7 +99,7 @@ void main() {
       expect(posted, isEmpty);
     });
 
-    test('flush is a no-op when nothing is buffered', () async {
+    test('flush is a no-op when nothing is queued', () async {
       await log.flush();
       expect(posted, isEmpty);
     });
@@ -55,14 +113,41 @@ void main() {
       failing.dispose();
     });
 
-    test('a full batch posts immediately instead of growing unbounded', () async {
-      for (var i = 0; i < VoiceChatLog.maxTurnsPerFlush; i++) {
-        log.addUserTurn('реплика $i');
-      }
-      // Give the fire-and-forget flush a turn of the event loop.
-      await Future<void>.delayed(Duration.zero);
+    test('a failed post drops its batch and the next turn still goes out', () async {
+      var calls = 0;
+      final flaky = VoiceChatLog(post: (turns) async {
+        posted.add(turns);
+        if (++calls == 1) throw StateError('network down');
+        return true;
+      });
 
-      expect(posted.single, hasLength(VoiceChatLog.maxTurnsPerFlush));
+      flaky.addUserTurn('пропала');
+      await flaky.flush();
+      flaky.addAssistantTurn('дошла');
+      await flaky.flush();
+
+      expect(posted.map((b) => b.single.text), ['пропала', 'дошла']);
+      flaky.dispose();
+    });
+
+    test('a queue larger than the server cap goes out in capped batches', () async {
+      final gate = Completer<bool>();
+      var calls = 0;
+      final slow = VoiceChatLog(post: (turns) async {
+        posted.add(turns);
+        if (++calls == 1) return gate.future;
+        return true;
+      });
+
+      slow.addUserTurn('первая'); // на проводе
+      for (var i = 0; i < VoiceChatLog.maxTurnsPerFlush + 3; i++) {
+        slow.addUserTurn('реплика $i'); // копятся за ней
+      }
+      gate.complete(true);
+      await slow.flush();
+
+      expect(posted.map((b) => b.length), [1, VoiceChatLog.maxTurnsPerFlush, 3]);
+      slow.dispose();
     });
 
     test('turns carry the moment they were spoken, not the moment they were posted', () async {

@@ -69,6 +69,28 @@
 // withdrawn (`onResumptionHandle(null)`) the moment a generation starts and
 // re-offered only at its `turnComplete`.
 //
+// Дословная речь для ask_claude (self-host патч 02.09, TS-аналога нет).
+// Наблюдение Игоря: в аргумент `question` инструмента Gemini кладёт СВОЙ
+// пересказ сказанного, и часть фраз до Claude не доходит. Сессия поэтому
+// копит `serverContent.inputTranscription` (STT самого Gemini, включён в
+// setup-фрейме) за текущий ход пользователя — все сегменты с момента
+// последнего завершённого ответа ассистента / предыдущего tool-call — и
+// прикладывает накопленное к каждому `HubToolCallRequest.userTranscript`;
+// `AskClaudeToolExecutor` подставляет его вместо пересказа модели.
+// Буфер сбрасывается на: новую PTT-активность (`beginTurn`), `interrupted`
+// (перебивание — речь до него принадлежит старому ходу), `turnComplete`,
+// который мы засчитываем (ответ ассистента закончен), выдачу tool-call'ов
+// (склейка «с последнего toolCall»), отмену хода и сброс сессии.
+// Гонка: транскрипция за ход и toolCall идут почти одновременно (замер
+// 23.08: финальный транскрипт и первое аудио ответа в 10 мс друг от друга),
+// и порядок не гарантирован. Если toolCall пришёл при ПУСТОМ буфере, его
+// выдача откладывается на [transcriptGrace] в ожидании транскрипта; первый
+// пришедший кусок даёт ещё [transcriptSettle] на хвост (не больше
+// [_maxSettleRounds] раз), после чего вызов уходит с тем, что накопилось —
+// либо вовсе без транскрипта (executor тогда берёт пересказ модели). Пока
+// вызов отложен, его id уже в `_pendingToolCallIds`, так что `turnComplete`
+// ждёт результата ровно как раньше.
+//
 // One scope cut carried over from `hub_session.dart` (already decided
 // there, not re-litigated here): no `setSinkId` — not a TS concern in this
 // file to begin with.
@@ -103,11 +125,23 @@ class GeminiHubSession extends BaseHubSession {
     super.tools,
     super.resumptionHandle,
     this.freeFormMode = false,
+    this.transcriptGrace = const Duration(milliseconds: 700),
+    this.transcriptSettle = const Duration(milliseconds: 300),
   });
 
   /// See file header. Default `false` == today's manual-VAD/PTT behavior,
   /// unchanged.
   final bool freeFormMode;
+
+  /// Сколько ждать транскрипцию хода, если toolCall пришёл раньше неё (см.
+  /// шапку файла, «Дословная речь для ask_claude»). `Duration.zero` — не
+  /// ждать вовсе (вызов уходит сразу, без транскрипта).
+  final Duration transcriptGrace;
+
+  /// После первого куска транскрипта, пришедшего в окно [transcriptGrace] —
+  /// пауза на возможный хвост (многосегментная фраза).
+  final Duration transcriptSettle;
+  static const int _maxSettleRounds = 4;
 
   @override
   HubProvider get provider => HubProvider.gemini;
@@ -134,6 +168,16 @@ class GeminiHubSession extends BaseHubSession {
   bool _responsePending = false;
   final Set<String> _pendingToolCallIds = {};
   int _syntheticToolCallCounter = 0;
+
+  // Дословная речь пользователя за текущий ход (см. шапку файла). Куски
+  // `inputTranscription` — дельты, склеиваются как есть; `_userSpeechBoundary`
+  // помечает границу сегмента (сервер увидел новую речь после паузы), чтобы
+  // сегменты не слиплись в одно слово.
+  final StringBuffer _userTranscript = StringBuffer();
+  bool _userSpeechBoundary = false;
+  List<HubToolCallRequest>? _deferredToolCalls;
+  Object? _deferredToolCallsTimer;
+  int _deferredSettleRounds = 0;
 
   // Session resumption (design doc §10, measured 24.08). `_latestHandle` is
   // the freshest token the server offered; `_replyInFlight` is true while the
@@ -235,6 +279,7 @@ class GeminiHubSession extends BaseHubSession {
       // replacement.
       _responsePending = false;
       _pendingToolCallIds.clear();
+      _dropDeferredToolCalls();
     }
     if (freeFormMode) {
       // One call switches the mode ON for the whole session — not one call
@@ -251,6 +296,9 @@ class GeminiHubSession extends BaseHubSession {
     }
     if (_activityOpen) return;
     _activityOpen = true;
+    // Новое нажатие — новый ход пользователя: речь предыдущего хода к этому
+    // вызову не относится.
+    _resetUserTranscript();
     if (isOpen) {
       send({
         'realtimeInput': {'activityStart': {}},
@@ -290,11 +338,15 @@ class GeminiHubSession extends BaseHubSession {
       _streamingActive = false;
       _pendingActivityStart = false;
       _pendingToolCallIds.clear();
+      _dropDeferredToolCalls();
+      _resetUserTranscript();
       return;
     }
     // Abandon (silent tap / cancel), keeping the warm socket.
     _responsePending = false;
     _pendingToolCallIds.clear();
+    _dropDeferredToolCalls();
+    _resetUserTranscript();
     _pendingActivityStart = false;
     if (_activityOpen && isOpen) {
       send({
@@ -357,6 +409,8 @@ class GeminiHubSession extends BaseHubSession {
     _pendingActivityStart = false;
     _responsePending = false;
     _pendingToolCallIds.clear();
+    _dropDeferredToolCalls();
+    _resetUserTranscript();
     _streamingActive = false;
     // NOT cleared: `_latestHandle`/`_replyInFlight` are about the CONVERSATION,
     // which outlives this socket — that is the whole point of resumption. The
@@ -408,6 +462,88 @@ class GeminiHubSession extends BaseHubSession {
   /// (`_streamingActive`) — see file header.
   bool get _turnGateOpen => freeFormMode ? _streamingActive : _responsePending;
 
+  // MARK: Verbatim user transcript for tool calls (see file header)
+
+  void _resetUserTranscript() {
+    _userTranscript.clear();
+    _userSpeechBoundary = false;
+  }
+
+  void _appendUserTranscript(String text) {
+    if (text.isEmpty) return;
+    if (_userSpeechBoundary && _userTranscript.isNotEmpty) {
+      final soFar = _userTranscript.toString();
+      if (!soFar.endsWith(' ') && !text.startsWith(' ')) _userTranscript.write(' ');
+    }
+    _userSpeechBoundary = false;
+    _userTranscript.write(text);
+    // A tool call was waiting for exactly this; give the tail a moment to land.
+    if (_deferredToolCalls != null) _rearmDeferredToolCalls(settle: true);
+  }
+
+  /// Snapshot of the current turn's verbatim speech, `null` when nothing came.
+  String? get _userTranscriptOrNull {
+    final text = _userTranscript.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  void _emitToolRequests(List<HubToolCallRequest> requests) {
+    final transcript = _userTranscriptOrNull;
+    if (transcript == null) {
+      Logger.debug('[hub-tool] tool-call без транскрипта хода — executor возьмёт пересказ модели');
+    }
+    for (final request in requests) {
+      emitToolRequest(HubToolCallRequest(
+        name: request.name,
+        callId: request.callId,
+        argumentsJson: request.argumentsJson,
+        userTranscript: transcript,
+      ));
+    }
+    // «С момента последнего toolCall»: следующий вызов в том же ходе получит
+    // только то, что сказано после этого.
+    _resetUserTranscript();
+  }
+
+  void _deferToolCalls(List<HubToolCallRequest> requests) {
+    _deferredToolCalls = [...?_deferredToolCalls, ...requests];
+    _deferredSettleRounds = 0;
+    _rearmDeferredToolCalls(settle: false);
+  }
+
+  void _rearmDeferredToolCalls({required bool settle}) {
+    final handle = _deferredToolCallsTimer;
+    if (handle != null) clock.clearTimer(handle);
+    _deferredToolCallsTimer = null;
+    if (settle && ++_deferredSettleRounds > _maxSettleRounds) {
+      _flushDeferredToolCalls();
+      return;
+    }
+    _deferredToolCallsTimer = clock.setTimer(settle ? transcriptSettle : transcriptGrace, _flushDeferredToolCalls);
+  }
+
+  void _flushDeferredToolCalls() {
+    final handle = _deferredToolCallsTimer;
+    if (handle != null) clock.clearTimer(handle);
+    _deferredToolCallsTimer = null;
+    final requests = _deferredToolCalls;
+    _deferredToolCalls = null;
+    _deferredSettleRounds = 0;
+    if (requests == null) return;
+    _emitToolRequests(requests);
+  }
+
+  /// Turn abandoned/interrupted/torn down: the calls never reach the host,
+  /// exactly like their ids are dropped from `_pendingToolCallIds` on the
+  /// same paths (Gemini cancels a function call it interrupted itself).
+  void _dropDeferredToolCalls() {
+    final handle = _deferredToolCallsTimer;
+    if (handle != null) clock.clearTimer(handle);
+    _deferredToolCallsTimer = null;
+    _deferredToolCalls = null;
+    _deferredSettleRounds = 0;
+  }
+
   // MARK: Receive
 
   @override
@@ -452,6 +588,7 @@ class GeminiHubSession extends BaseHubSession {
       // activityEnd to close the window); without this guard it acts on
       // half-heard audio.
       if (!_turnGateOpen) return;
+      final requests = <HubToolCallRequest>[];
       for (final callRaw in calls) {
         final call = callRaw as Map<String, dynamic>;
         final name = call['name'] is String ? call['name'] as String : '';
@@ -460,8 +597,16 @@ class GeminiHubSession extends BaseHubSession {
         final args = (call['args'] as Map<String, dynamic>?) ?? const {};
         final argsJson = jsonEncode(args);
         if (name.isNotEmpty) {
-          emitToolRequest(HubToolCallRequest(name: name, callId: callId, argumentsJson: argsJson));
+          requests.add(HubToolCallRequest(name: name, callId: callId, argumentsJson: argsJson));
         }
+      }
+      if (requests.isEmpty) return;
+      // Транскрипт хода ещё не пришёл — подождать его (см. шапку файла), а
+      // не отдавать Claude пересказ модели.
+      if (_userTranscript.isEmpty && transcriptGrace > Duration.zero) {
+        _deferToolCalls(requests);
+      } else {
+        _emitToolRequests(requests);
       }
       return;
     }
@@ -475,6 +620,10 @@ class GeminiHubSession extends BaseHubSession {
       // header).
       if (!freeFormMode) _responsePending = false;
       _pendingToolCallIds.clear();
+      _dropDeferredToolCalls();
+      // Речь, накопленная до перебивания, — старый ход; новая реплика
+      // пользователя (её транскрипт ещё в пути) начнёт буфер заново.
+      _resetUserTranscript();
       clearPlayback();
       // Self-host patch: tell the host the reply was cut mid-air, so history
       // records what was actually heard instead of what was generated.
@@ -485,12 +634,16 @@ class GeminiHubSession extends BaseHubSession {
     // must not silently read as "user stopped talking".
     final speechState = sc['speechState'];
     if (speechState == 'SPEECH') {
+      _userSpeechBoundary = true;
       emitUserSpeechState(true);
     } else if (speechState == 'NON_SPEECH') {
       emitUserSpeechState(false);
     }
     final it = sc['inputTranscription'] as Map<String, dynamic>?;
-    if (it != null && it['text'] is String) emitInputTranscript(it['text'] as String, false);
+    if (it != null && it['text'] is String) {
+      _appendUserTranscript(it['text'] as String);
+      emitInputTranscript(it['text'] as String, false);
+    }
     final ot = sc['outputTranscription'] as Map<String, dynamic>?;
     if (ot != null && ot['text'] is String) {
       _markReplyInFlight();
@@ -543,6 +696,7 @@ class GeminiHubSession extends BaseHubSession {
         flushPlayback();
         emitAssistantText('', true);
         emitTurnDone();
+        _resetUserTranscript(); // ответ ассистента закончен — следующий ход с чистого листа
         // `_streamingActive` stays true: unlike manual mode, this does NOT
         // close input — the next server-detected utterance is accepted
         // without another beginTurn() call (see file header).
@@ -556,6 +710,7 @@ class GeminiHubSession extends BaseHubSession {
         flushPlayback();
         emitAssistantText('', true);
         emitTurnDone();
+        _resetUserTranscript();
       }
     }
   }

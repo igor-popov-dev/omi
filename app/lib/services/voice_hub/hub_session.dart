@@ -135,18 +135,33 @@ class HubToolCallRequest {
   final String callId;
   final String argumentsJson;
 
-  const HubToolCallRequest({required this.name, required this.callId, required this.argumentsJson});
+  /// Self-host patch (02.09): дословная речь пользователя за этот ход — STT
+  /// провайдера (`inputTranscription`), накопленная сессией с момента
+  /// последнего ответа ассистента / предыдущего tool-call. `null`, когда
+  /// транскрипция за ход не пришла (или провайдер её не даёт). Нужна
+  /// `ask_claude`: аргумент `question` от модели — её пересказ, и он терял
+  /// части сказанного; мост должен получать то, что человек произнёс.
+  final String? userTranscript;
+
+  const HubToolCallRequest({
+    required this.name,
+    required this.callId,
+    required this.argumentsJson,
+    this.userTranscript,
+  });
 
   @override
   bool operator ==(Object other) =>
       other is HubToolCallRequest &&
       other.name == name &&
       other.callId == callId &&
-      other.argumentsJson == argumentsJson;
+      other.argumentsJson == argumentsJson &&
+      other.userTranscript == userTranscript;
   @override
-  int get hashCode => Object.hash(name, callId, argumentsJson);
+  int get hashCode => Object.hash(name, callId, argumentsJson, userTranscript);
   @override
-  String toString() => 'HubToolCallRequest(name: $name, callId: $callId, argumentsJson: $argumentsJson)';
+  String toString() => 'HubToolCallRequest(name: $name, callId: $callId, argumentsJson: $argumentsJson'
+      '${userTranscript == null ? '' : ', userTranscript: $userTranscript'})';
 }
 
 // ---------------------------------------------------------------------------

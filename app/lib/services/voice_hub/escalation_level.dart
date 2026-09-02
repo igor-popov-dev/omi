@@ -132,6 +132,21 @@ const String _kChimeRule = 'Do NOT announce the call and do NOT say filler phras
     'so the user already knows they were heard. Call the tool silently; when the result arrives, '
     'just speak the answer itself.';
 
+// Дословность аргумента `question` (наблюдение Игоря 02.09: Gemini клал в
+// ask_claude свой пересказ, и часть фраз до Claude не доходила). Страховка
+// со стороны кода — подстановка STT-транскрипта хода в
+// `AskClaudeToolExecutor`; промпт нужен, чтобы и без транскрипта (гонка
+// событий) модель не «сжимала» сказанное. Для высоких уровней — жёсткая
+// формулировка: там через Claude идёт ВСЁ, и любое сокращение — потеря.
+const String _kVerbatimRule = 'When you call ask_claude, put the user\'s speech into `question` VERBATIM '
+    'and IN FULL, in the user\'s own language — word for word, no summarizing, no paraphrasing, no '
+    'translation. The smart model must receive exactly what the user said, not your retelling of it.';
+const String _kVerbatimRuleStrict = 'STRICT RULE for the ask_claude `question` argument: pass the user\'s '
+    'speech COMPLETELY and VERBATIM, word for word, in the user\'s own language. Omit nothing, do not '
+    'summarize, do not paraphrase, do not translate, do not add anything of your own. If the phrase is '
+    'long, pass it whole anyway — every sentence, every detail. Shortening it loses information the '
+    'smart model can never recover.';
+
 /// Инструкции сессии для уровня. Чистая функция — тестируется без prefs.
 String hubInstructionsForLevel(ClaudeEscalationLevel level) => switch (level) {
       ClaudeEscalationLevel.geminiOnly => '$_kPersona'
@@ -142,22 +157,23 @@ String hubInstructionsForLevel(ClaudeEscalationLevel level) => switch (level) {
       ClaudeEscalationLevel.onRequest => '$_kPersona'
           'Handle the whole conversation yourself. Call the ask_claude tool ONLY when the user '
           'explicitly asks to consult Claude / the smart model in that same turn (e.g. «спроси '
-          'Клода», «уточни у умной модели»). Never call it on your own initiative. $_kFillerRule '
-          '$_kEndRule',
+          'Клода», «уточни у умной модели»). Never call it on your own initiative. $_kVerbatimRule '
+          '$_kFillerRule $_kEndRule',
       ClaudeEscalationLevel.balanced => '$_kPersona'
           'For anything that needs real reasoning, remembered context, or looking something up — '
           "rather than a quick reply you're confident in — use the ask_claude tool instead of "
-          'guessing. $_kFillerRule $_kEndRule',
+          'guessing. $_kVerbatimRule $_kFillerRule $_kEndRule',
       ClaudeEscalationLevel.aggressive => '$_kPersona'
           'You personally answer ONLY small talk and instant conversational replies. For anything '
           "factual, personal (the user's memory, health, food, calendar, mail), computational, or "
           'multi-step — call the ask_claude tool instead of answering yourself. When in doubt, '
-          'call it. $_kChimeRule $_kEndRule',
+          'call it. $_kVerbatimRuleStrict $_kChimeRule $_kEndRule',
       ClaudeEscalationLevel.fullProxy => '$_kPersona'
           'You are the voice and ears of this conversation, NOT its brain. For EVERY substantive '
           'user message call the ask_claude tool and then speak its answer in your own natural '
           'voice. Do not compose substantive answers yourself — only greetings, acknowledgements '
-          'and clarifying questions may be answered directly. $_kChimeRule $_kEndRule',
+          'and clarifying questions may be answered directly. $_kVerbatimRuleStrict $_kChimeRule '
+          '$_kEndRule',
     };
 
 // Описание инструмента тоже меняется по уровню: Gemini решает, звать ли тул,
@@ -175,6 +191,14 @@ const String _kToolDescriptionTail = ' СНАЧАЛА вслух скажи ро
 const String _kToolDescriptionTailChime = ' НЕ объявляй вызов вслух и не говори "секунду" — телефон сам '
     'проигрывает короткий звуковой сигнал в момент вызова. Вызови инструмент молча и озвучь '
     'пришедший ответ.';
+
+// Та же дословность — в description инструмента (Gemini читает его при
+// каждом вызове). Русский, как и весь description.
+const String _kToolVerbatim = ' В `question` передавай речь пользователя ДОСЛОВНО и ПОЛНОСТЬЮ, на его языке, '
+    'без сокращений, пересказа и перевода.';
+const String _kToolVerbatimStrict = ' ЖЁСТКОЕ ПРАВИЛО для `question`: речь пользователя ЦЕЛИКОМ и ДОСЛОВНО, '
+    'слово в слово, на его языке. Ничего не опускай, не суммируй, не переводи, не добавляй от себя; '
+    'длинную фразу передавай всё равно целиком — каждое предложение.';
 
 String _toolPolicyForLevel(ClaudeEscalationLevel level) => switch (level) {
       // geminiOnly до описания не доходит — инструмента нет в каталоге.
@@ -198,10 +222,11 @@ String _toolPolicyForLevel(ClaudeEscalationLevel level) => switch (level) {
 List<VoiceToolDeclaration> hubToolsForLevel(ClaudeEscalationLevel level) {
   if (level == ClaudeEscalationLevel.geminiOnly) return const [endConversationToolDeclaration];
   final tail = level.blockingDelivery ? _kToolDescriptionTailChime : _kToolDescriptionTail;
+  final verbatim = level.blockingDelivery ? _kToolVerbatimStrict : _kToolVerbatim;
   return [
     VoiceToolDeclaration(
       name: askClaudeToolDeclaration.name,
-      description: '$_kToolDescriptionHead${_toolPolicyForLevel(level)}$tail',
+      description: '$_kToolDescriptionHead${_toolPolicyForLevel(level)}$verbatim$tail',
       parameters: askClaudeToolDeclaration.parameters,
     ),
     endConversationToolDeclaration,

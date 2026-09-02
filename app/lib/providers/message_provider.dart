@@ -355,8 +355,10 @@ class MessageProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future refreshMessages({bool dropdownSelected = false}) async {
-    setLoadingMessages(true);
+  /// [silent] (self-host): перечитать без индикатора загрузки — для фоновых
+  /// перечиток после каждой реплики голосового режима.
+  Future refreshMessages({bool dropdownSelected = false, bool silent = false}) async {
+    if (!silent) setLoadingMessages(true);
     if (SharedPreferencesUtil().cachedMessages.isNotEmpty) {
       setHasCachedMessages(true);
     }
@@ -368,7 +370,7 @@ class MessageProvider extends ChangeNotifier {
       setHasCachedMessages(true);
     }
     messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    setLoadingMessages(false);
+    if (!silent) setLoadingMessages(false);
     notifyListeners();
   }
 

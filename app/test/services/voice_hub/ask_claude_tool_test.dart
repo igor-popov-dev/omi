@@ -389,6 +389,119 @@ void main() {
       expect(jsonDecode(captured!.body)['context'], deviceClockContext(DateTime(2026, 8, 23, 19, 37)));
     });
 
+    // Дословная речь хода (HubToolCallRequest.userTranscript, из STT сессии)
+    // — главный вопрос к мосту; пересказ модели едет контекстом. Наблюдение
+    // Игоря 02.09: пересказ терял части сказанного.
+    group('verbatim user transcript', () {
+      Future<({http.Request request, _ToolResult result})> run(HubToolCallRequest call) async {
+        http.Request? captured;
+        final client = AskClaudeBridgeClient(httpClient: MockClient((r) async {
+          captured = r;
+          return http.Response(
+              _sse([
+                {'type': 'done', 'text': 'ANSWER'}
+              ]),
+              200);
+        }));
+        final recorder = _toolResultRecorder();
+        final executor = AskClaudeToolExecutor(
+          client: client,
+          sendToolResult: recorder.callback,
+          now: () => DateTime(2026, 9, 2, 12, 0),
+        );
+        executor.handle(call);
+        final result = await recorder.result;
+        return (request: captured!, result: result);
+      }
+
+      test('the transcript replaces the model\'s paraphrase as the question; the paraphrase becomes context', () async {
+        final r = await run(HubToolCallRequest(
+          name: askClaudeToolName,
+          callId: 'c1',
+          argumentsJson: jsonEncode({'question': 'планы на завтра'}),
+          userTranscript: 'слушай, а какие у меня планы на завтра, там вроде встреча была с утра',
+        ));
+        final body = jsonDecode(r.request.body) as Map<String, dynamic>;
+        expect(body['question'], 'слушай, а какие у меня планы на завтра, там вроде встреча была с утра');
+        final context = body['context'] as String;
+        expect(context, startsWith(deviceClockContext(DateTime(2026, 9, 2, 12, 0))));
+        expect(context, contains('пересказал'));
+        expect(context, contains('«планы на завтра»'));
+        expect(r.result.output, 'ANSWER');
+      });
+
+      test('a paraphrase identical to the transcript is not repeated in the context', () async {
+        final r = await run(HubToolCallRequest(
+          name: askClaudeToolName,
+          callId: 'c1',
+          argumentsJson: jsonEncode({'question': 'который час?'}),
+          userTranscript: 'который час?',
+        ));
+        final body = jsonDecode(r.request.body) as Map<String, dynamic>;
+        expect(body['question'], 'который час?');
+        expect(body['context'], deviceClockContext(DateTime(2026, 9, 2, 12, 0)));
+      });
+
+      test('no transcript (it lost the race or the provider gave none): the model\'s question is used as before',
+          () async {
+        final r = await run(HubToolCallRequest(
+          name: askClaudeToolName,
+          callId: 'c1',
+          argumentsJson: jsonEncode({'question': 'пересказ модели'}),
+        ));
+        final body = jsonDecode(r.request.body) as Map<String, dynamic>;
+        expect(body['question'], 'пересказ модели');
+        expect(body['context'], deviceClockContext(DateTime(2026, 9, 2, 12, 0)));
+      });
+
+      test('a blank transcript counts as none', () async {
+        final r = await run(HubToolCallRequest(
+          name: askClaudeToolName,
+          callId: 'c1',
+          argumentsJson: jsonEncode({'question': 'пересказ модели'}),
+          userTranscript: '   ',
+        ));
+        expect((jsonDecode(r.request.body) as Map<String, dynamic>)['question'], 'пересказ модели');
+      });
+
+      test('a transcript rescues a call the model made without a question', () async {
+        final r = await run(const HubToolCallRequest(
+          name: askClaudeToolName,
+          callId: 'c1',
+          argumentsJson: '{}',
+          userTranscript: 'что я сегодня ел',
+        ));
+        expect((jsonDecode(r.request.body) as Map<String, dynamic>)['question'], 'что я сегодня ел');
+        expect(r.result.output, 'ANSWER');
+      });
+
+      test('with announce: the delivered answer is labeled with the user\'s own words', () async {
+        final client = AskClaudeBridgeClient(
+            httpClient: MockClient((r) async => http.Response(
+                  _sse([
+                    {'type': 'done', 'text': 'сорок два'}
+                  ]),
+                  200,
+                  headers: _utf8EventStreamHeaders,
+                )));
+        final recorder = _toolResultRecorder();
+        final announced = <String>[];
+        final executor =
+            AskClaudeToolExecutor(client: client, sendToolResult: recorder.callback, announce: announced.add);
+
+        executor.handle(HubToolCallRequest(
+          name: askClaudeToolName,
+          callId: 'c1',
+          argumentsJson: jsonEncode({'question': 'смысл жизни'}),
+          userTranscript: 'а в чём вообще смысл жизни, как думаешь',
+        ));
+        await recorder.result;
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        expect(announced.single, contains('«а в чём вообще смысл жизни, как думаешь»'));
+      });
+    });
+
     test('a missing/empty question never calls the bridge and returns an error result', () async {
       var calls = 0;
       final client = AskClaudeBridgeClient(httpClient: MockClient((r) async {
@@ -653,6 +766,123 @@ void main() {
           HubToolCallRequest(name: askClaudeToolName, callId: 'a1', argumentsJson: jsonEncode({'question': 'q2'})));
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(earcons, 1);
+    });
+
+    test('blocking: wait notices fire at 5s and +20s of silence, each once, and stop when the answer lands', () async {
+      // Тишина после сигнала «услышал» дольше нескольких секунд читается как
+      // поломка — голосовой комментарий о задержке, один раз, потом повтор.
+      final slow = Completer<http.Response>();
+      final client = AskClaudeBridgeClient(httpClient: MockClient((r) => slow.future));
+      final notices = <String>[];
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: (_, __, ___) {},
+        announce: (_) {},
+        blockingDelivery: () => true,
+        onBlockingWaitLong: () => notices.add('long'),
+        onBlockingWaitLonger: () => notices.add('longer'),
+        blockingWaitNotice: const Duration(milliseconds: 30),
+        blockingWaitRepeat: const Duration(milliseconds: 30),
+      );
+
+      executor.handle(
+          HubToolCallRequest(name: askClaudeToolName, callId: 'w1', argumentsJson: jsonEncode({'question': 'q'})));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(notices, isEmpty, reason: 'до порога — молчим');
+      await Future<void>.delayed(const Duration(milliseconds: 35));
+      expect(notices, ['long']);
+      await Future<void>.delayed(const Duration(milliseconds: 35));
+      expect(notices, ['long', 'longer']);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(notices, ['long', 'longer'], reason: 'каждый комментарий — один раз');
+
+      slow.complete(http.Response(
+        _sse([
+          {'type': 'done', 'text': 'ок'}
+        ]),
+        200,
+        headers: _utf8EventStreamHeaders,
+      ));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(notices, ['long', 'longer']);
+    });
+
+    test('blocking: an answer before the threshold cancels the wait notice; announce path never arms it', () async {
+      var blocking = true;
+      final client = AskClaudeBridgeClient(
+          httpClient: MockClient((r) async => http.Response(
+                _sse([
+                  {'type': 'done', 'text': 'ок'}
+                ]),
+                200,
+                headers: _utf8EventStreamHeaders,
+              )));
+      var notices = 0;
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: (_, __, ___) {},
+        announce: (_) {},
+        blockingDelivery: () => blocking,
+        onBlockingWaitLong: () => notices++,
+        onBlockingWaitLonger: () => notices++,
+        blockingWaitNotice: const Duration(milliseconds: 20),
+        blockingWaitRepeat: const Duration(milliseconds: 20),
+      );
+
+      executor.handle(
+          HubToolCallRequest(name: askClaudeToolName, callId: 'b1', argumentsJson: jsonEncode({'question': 'q'})));
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(notices, 0, reason: 'ответ пришёл раньше порога — таймер снят');
+
+      blocking = false;
+      executor.handle(
+          HubToolCallRequest(name: askClaudeToolName, callId: 'a1', argumentsJson: jsonEncode({'question': 'q2'})));
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(notices, 0, reason: 'на неблокирующем пути филлер говорит сама модель');
+    });
+
+    test('blocking: a superseding call re-arms the notice; the old call finishing does not cancel it', () async {
+      final slowOld = Completer<http.Response>();
+      final slowNew = Completer<http.Response>();
+      var calls = 0;
+      final client =
+          AskClaudeBridgeClient(httpClient: MockClient((r) => ++calls == 1 ? slowOld.future : slowNew.future));
+      final notices = <String>[];
+      final executor = AskClaudeToolExecutor(
+        client: client,
+        sendToolResult: (_, __, ___) {},
+        announce: (_) {},
+        blockingDelivery: () => true,
+        onBlockingWaitLong: () => notices.add('long'),
+        blockingWaitNotice: const Duration(milliseconds: 40),
+      );
+
+      executor.handle(
+          HubToolCallRequest(name: askClaudeToolName, callId: 'old', argumentsJson: jsonEncode({'question': 'q1'})));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      executor.handle(
+          HubToolCallRequest(name: askClaudeToolName, callId: 'new', argumentsJson: jsonEncode({'question': 'q2'})));
+      // Старый вызов завершается — таймер НОВОГО должен пережить это.
+      slowOld.complete(http.Response(
+        _sse([
+          {'type': 'done', 'text': 'старый'}
+        ]),
+        200,
+        headers: _utf8EventStreamHeaders,
+      ));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(notices, isEmpty, reason: 'переармлено новым вызовом — отсчёт пошёл заново');
+      await Future<void>.delayed(const Duration(milliseconds: 45));
+      expect(notices, ['long'], reason: 'ровно один комментарий — за новый вызов');
+
+      slowNew.complete(http.Response(
+        _sse([
+          {'type': 'done', 'text': 'новый'}
+        ]),
+        200,
+        headers: _utf8EventStreamHeaders,
+      ));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
     });
 
     test('blocking: a superseded call gets a stale stub, only the newest gets the real answer', () async {

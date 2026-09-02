@@ -10,6 +10,8 @@
 // free-form mode has no PTT reducer (no turn ids/locks/follow-ups/deadlines
 // to track), so this is a direct, stateless event->projection mapping, not a
 // state-machine port.
+import 'dart:async';
+
 import 'hub_controller.dart';
 import 'voice_chat_log.dart';
 import 'voice_turn_coordinator.dart' show VoiceTurnPresenter;
@@ -90,6 +92,10 @@ const VoiceTurnUiProjection _speakingProjection = VoiceTurnUiProjection(
   isResponseActive: true,
 );
 
+/// Пауза между концом речи (по VAD) и сигналом «думаю». Короче — сигнал
+/// лезет в паузы внутри фразы; длиннее — теряется смысл «услышал сразу».
+const Duration thinkingSignalDebounce = Duration(milliseconds: 250);
+
 /// Builds the `HubControllerEvents` a `createProductionFreeFormVoiceMode`
 /// call should be given so a running mode's listening/speaking state reaches
 /// [applyProjection] (typically the setter for `CaptureController.hubProjection`,
@@ -110,14 +116,48 @@ const VoiceTurnUiProjection _speakingProjection = VoiceTurnUiProjection(
 /// mic and the begin frame, so the hub cannot rebuild under it on its own;
 /// the caller is expected to `restart()` the mode, which keeps the
 /// conversation and spends the notice instead of taking the drop.
+///
+/// [onThinkingStart] — звук «услышал, думаю» (production: `thinkingEarcon`).
+/// Срабатывает через [thinkingSignalDebounce] после конца речи пользователя
+/// (server VAD), если за это время речь не возобновилась и ассистент не начал
+/// (и не продолжает) говорить. Колбэк, а не плеер: это чистое отображение
+/// событий, ему незачем знать про just_audio, а тестам — про платформенные
+/// каналы (тот же приём, что `CaptureController.onVoiceModeStartSound`).
 HubControllerEvents freeFormModeProjectionEvents({
   required VoiceTurnPresenter applyProjection,
   required void Function(Object error) onDisconnected,
   required void Function() onSocketExpiring,
   VoiceChatLog? chatLog,
+  void Function()? onThinkingStart,
 }) {
   final userSaid = StringBuffer();
   final assistantSaid = StringBuffer();
+
+  // Сигнал «думаю» — по концу речи пользователя, а не по решению Gemini
+  // вызвать ask_claude (баг Игоря: тот срабатывал только на высоких уровнях
+  // ползунка и с задержкой на само решение модели — после фразы обычно была
+  // тишина). Дебаунс нужен потому, что VAD режет речь и на паузах внутри
+  // фразы: без него сигнал звучал бы посреди предложения. Возобновившаяся
+  // речь или начавшийся ответ снимают таймер; на фоне говорящего ассистента
+  // (ложное срабатывание VAD, реплика поверх ответа без barge-in) сигнал не
+  // играет — он звучал бы поверх голоса.
+  Timer? thinkingSignal;
+  var assistantSpeaking = false;
+
+  void cancelThinkingSignal() {
+    thinkingSignal?.cancel();
+    thinkingSignal = null;
+  }
+
+  void armThinkingSignal() {
+    if (onThinkingStart == null) return;
+    cancelThinkingSignal();
+    thinkingSignal = Timer(thinkingSignalDebounce, () {
+      thinkingSignal = null;
+      if (assistantSpeaking) return;
+      onThinkingStart();
+    });
+  }
 
   // Реплика штампуется временем НАЧАЛА речи, а не временем коммита (баг Игоря
   // 24.08: фрагменты диалога в чате не в том порядке). Коммиты происходят
@@ -161,6 +201,8 @@ HubControllerEvents freeFormModeProjectionEvents({
   return HubControllerEvents(
     onConnected: (_) => applyProjection(freeFormListeningProjection),
     onError: (error) {
+      cancelThinkingSignal();
+      assistantSpeaking = false;
       // Flush what was already spoken before the drop: it happened, so it
       // belongs in history even though the session did not survive.
       commitUser();
@@ -174,8 +216,14 @@ HubControllerEvents freeFormModeProjectionEvents({
     // actually finished playing (design doc §9), so resetting the indicator
     // on it would show "Слушаю…" over a still-speaking assistant;
     // `onSpeakingEnd` (the player draining) is the audible truth.
-    onUserSpeechState: (isSpeaking) => applyProjection(isSpeaking ? _hearingProjection : _thinkingProjection),
+    onUserSpeechState: (isSpeaking) {
+      isSpeaking ? cancelThinkingSignal() : armThinkingSignal();
+      applyProjection(isSpeaking ? _hearingProjection : _thinkingProjection);
+    },
     onSpeakingStart: () {
+      // Ответ пошёл раньше дебаунса — сигнал «думаю» уже не к месту.
+      cancelThinkingSignal();
+      assistantSpeaking = true;
       // The user's utterance is over the moment the model starts answering.
       commitUser();
       // Звук может пойти раньше первого фрагмента транскрипта — начало
@@ -183,8 +231,13 @@ HubControllerEvents freeFormModeProjectionEvents({
       assistantStartedAt ??= DateTime.now();
       applyProjection(_speakingProjection);
     },
-    onSpeakingEnd: () => applyProjection(freeFormListeningProjection),
+    onSpeakingEnd: () {
+      assistantSpeaking = false;
+      applyProjection(freeFormListeningProjection);
+    },
     onInterrupted: () {
+      // Ответ оборван — следующий конец речи пользователя снова достоин сигнала.
+      assistantSpeaking = false;
       // The user talked over the reply: close the line as partially spoken and
       // drop nothing else — whatever the model generates after this belongs to
       // the next turn, not to the one that was cut.

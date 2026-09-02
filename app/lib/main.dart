@@ -398,7 +398,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             // constructing it here is side-effect-free, same as
             // `hubTurnDriver` above (no I/O until `startFreeFormVoiceMode`
             // actually calls `FreeFormVoiceMode.start()`).
-            capture.onVoiceModeStartSound = () => voiceStartEarcon.play();
+            capture.onVoiceModeStartSound = () {
+              unawaited(voiceStartEarcon.play());
+              // Прогрев «думаю» на старте режима: холодный первый play() —
+              // сотни миллисекунд, сигнал опаздывал к концу фразы или терялся.
+              unawaited(thinkingEarcon.preload());
+              unawaited(thinkingWaitEarcon.preload());
+              unawaited(thinkingWaitMoreEarcon.preload());
+            };
             // Telecom call shell: the running voice session is a self-managed
             // Android call (CallStyle notification, hang-up on the lock
             // screen, background-mic legality) — voice-call-mode-design.md.
@@ -422,6 +429,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 // each pretending the other never happened.
                 chatLog: capture.voiceChatLog,
                 onSocketExpiring: capture.rebuildFreeFormVoiceModeSocket,
+                // Звук «услышал, думаю» по концу речи пользователя (тот же гейт
+                // по активности, что и у индикатора выше: хвост событий уже
+                // остановленной сессии не должен звучать).
+                onThinkingStart: () {
+                  if (capture.freeFormModeActive.value) unawaited(thinkingEarcon.play());
+                },
               ),
               // Read per arm, not captured once: the user can change the
               // auto-off in Developer -> Experimental while the app is

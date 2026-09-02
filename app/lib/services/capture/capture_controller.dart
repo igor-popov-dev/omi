@@ -255,11 +255,13 @@ class CaptureController extends ChangeNotifier
     // стороне VoiceCallSession; при завершении, начатом самим звонком
     // (красная кнопка / настоящий вызов), native уже всё снёс — end() no-op.
     unawaited(onVoiceModeCallEnd?.call() ?? Future<void>.value());
-    // The tail of the conversation is still buffered — post it, THEN reload
-    // chat history so the spoken dialogue shows up right away. Записи и
-    // раньше долетали до сервера, но чат их не перечитывал — разговор
-    // «не появлялся», пока экран не переоткроют (жалоба Игоря 24.08 ~02:45).
-    // Единая точка: сюда приходят и ручная остановка, и idle-timeout, и обрыв.
+    // Реплики уходят в чат по одной сразу после произнесения (onStored выше
+    // перечитывает чат после каждой); здесь — только хвост, если последняя
+    // запись ещё в пути, плюс контрольная перечитка. flush() не шлёт уже
+    // отправленное повторно. Записи и раньше долетали до сервера, но чат их
+    // не перечитывал — разговор «не появлялся», пока экран не переоткроют
+    // (жалоба Игоря 24.08 ~02:45). Единая точка: сюда приходят и ручная
+    // остановка, и idle-timeout, и обрыв.
     unawaited(voiceChatLog.flush().then((_) => externalActions.refreshChatMessages()));
   }
 
@@ -563,6 +565,16 @@ class CaptureController extends ChangeNotifier
       onConnectionStateChanged(isConnected);
     });
     BleBridge.instance.addBatchRecordingFinalizedListener(_onOfflineRecordingFinalized);
+    // Self-host patch (02.09): каждая записанная реплика голосового режима
+    // сразу уходит на сервер (см. voice_chat_log.dart) — и чат перечитывается
+    // тут же, а не по завершении режима. Читаем `externalActions` в момент
+    // вызова, а не захватываем: он подменяется через updateExternalActions
+    // (`this.` — параметр конструктора с тем же именем затеняет поле).
+    voiceChatLog.onStored = () => unawaited(
+      this.externalActions.refreshChatMessages().catchError(
+        (Object e) => Logger.debug('[VoiceChatLog] чат не перечитан после реплики: $e'),
+      ),
+    );
   }
 
   // True while the audio session is interrupted (phone call, Siri, alarm).

@@ -2,6 +2,7 @@
 // mapping, so this stays a hermetic unit test with no HubController/session
 // fakes needed: `freeFormModeProjectionEvents` builds a `HubControllerEvents`
 // and this file just invokes its callbacks directly.
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omi/services/voice_hub/free_form_voice_mode_projection.dart';
@@ -130,6 +131,111 @@ void main() {
       for (final p in applied) {
         expect(p, isNot(equals(idleVoiceTurnProjection)));
       }
+    });
+  });
+
+  // Сигнал «услышал, думаю» привязан к концу речи пользователя (VAD), а не к
+  // решению Gemini вызвать ask_claude: раньше после фразы обычно была тишина.
+  group('сигнал «думаю» по концу речи', () {
+    late int signals;
+    late HubControllerEvents events;
+
+    setUp(() {
+      signals = 0;
+      events = freeFormModeProjectionEvents(
+        applyProjection: (_) {},
+        onDisconnected: (_) {},
+        onSocketExpiring: () {},
+        onThinkingStart: () => signals += 1,
+      );
+    });
+
+    test('звучит один раз через дебаунс после конца речи', () {
+      fakeAsync((async) {
+        events.onUserSpeechState!(true);
+        events.onUserSpeechState!(false);
+        async.elapse(thinkingSignalDebounce - const Duration(milliseconds: 1));
+        expect(signals, 0, reason: 'до истечения дебаунса — тишина');
+        async.elapse(const Duration(milliseconds: 1));
+        expect(signals, 1);
+        async.elapse(const Duration(seconds: 5));
+        expect(signals, 1, reason: 'таймер одноразовый');
+      });
+    });
+
+    test('возобновившаяся речь снимает таймер — пауза внутри фразы не даёт сигнала', () {
+      fakeAsync((async) {
+        events.onUserSpeechState!(false);
+        async.elapse(const Duration(milliseconds: 100));
+        events.onUserSpeechState!(true);
+        async.elapse(const Duration(seconds: 1));
+        expect(signals, 0);
+
+        events.onUserSpeechState!(false);
+        async.elapse(thinkingSignalDebounce);
+        expect(signals, 1);
+      });
+    });
+
+    test('ответ, начавшийся до истечения дебаунса, снимает таймер', () {
+      fakeAsync((async) {
+        events.onUserSpeechState!(false);
+        async.elapse(const Duration(milliseconds: 100));
+        events.onSpeakingStart!();
+        async.elapse(const Duration(seconds: 1));
+        expect(signals, 0);
+      });
+    });
+
+    test('не звучит, пока ассистент говорит', () {
+      fakeAsync((async) {
+        events.onSpeakingStart!();
+        // Ложное срабатывание VAD (или реплика поверх ответа без barge-in).
+        events.onUserSpeechState!(true);
+        events.onUserSpeechState!(false);
+        async.elapse(const Duration(seconds: 1));
+        expect(signals, 0);
+
+        events.onSpeakingEnd!();
+        events.onUserSpeechState!(true);
+        events.onUserSpeechState!(false);
+        async.elapse(thinkingSignalDebounce);
+        expect(signals, 1);
+      });
+    });
+
+    test('после перебивания сигнал снова разрешён', () {
+      fakeAsync((async) {
+        events.onSpeakingStart!();
+        events.onUserSpeechState!(true);
+        events.onInterrupted!();
+        events.onUserSpeechState!(false);
+        async.elapse(thinkingSignalDebounce);
+        expect(signals, 1);
+      });
+    });
+
+    test('обрыв сессии снимает таймер', () {
+      fakeAsync((async) {
+        events.onUserSpeechState!(false);
+        events.onError!(const HubControllerError(reason: 'boom', retryable: false, aliveForMs: 0));
+        async.elapse(const Duration(seconds: 1));
+        expect(signals, 0);
+      });
+    });
+
+    test('без колбэка конец речи по-прежнему проецирует «думаю»', () {
+      final applied = <VoiceTurnUiProjection>[];
+      final bare = freeFormModeProjectionEvents(
+        applyProjection: applied.add,
+        onDisconnected: (_) {},
+        onSocketExpiring: () {},
+      );
+      fakeAsync((async) {
+        bare.onUserSpeechState!(false);
+        async.elapse(const Duration(seconds: 1));
+        expect(applied.single.isThinking, isTrue);
+      });
     });
   });
 

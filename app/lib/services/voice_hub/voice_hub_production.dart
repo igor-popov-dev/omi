@@ -188,6 +188,10 @@ VoiceHubTurnDriver createProductionVoiceHubTurnDriver({
     // Подтверждение «услышал, думаю» в блокирующем режиме — звук (файл Игоря),
     // а не фраза «секунду, уточню» (см. earcon.dart).
     onBlockingCallStart: () => unawaited(thinkingEarcon.play()),
+    // Тишина после сигнала дольше ~5 с читается как поломка — голосовой
+    // комментарий о задержке (записанные фразы, см. earcon.dart).
+    onBlockingWaitLong: () => unawaited(thinkingWaitEarcon.play()),
+    onBlockingWaitLonger: () => unawaited(thinkingWaitMoreEarcon.play()),
   );
 
   return VoiceHubTurnDriver(VoiceHubTurnDriverDeps(
@@ -341,6 +345,10 @@ FreeFormVoiceMode createProductionFreeFormVoiceMode({
     // Подтверждение «услышал, думаю» в блокирующем режиме — звук (файл Игоря),
     // а не фраза «секунду, уточню» (см. earcon.dart).
     onBlockingCallStart: () => unawaited(thinkingEarcon.play()),
+    // Тишина после сигнала дольше ~5 с читается как поломка — голосовой
+    // комментарий о задержке (записанные фразы, см. earcon.dart).
+    onBlockingWaitLong: () => unawaited(thinkingWaitEarcon.play()),
+    onBlockingWaitLonger: () => unawaited(thinkingWaitMoreEarcon.play()),
   );
 
   // Wrapped so every content event rearms the silence-timeout clock: the

@@ -69,7 +69,10 @@ const VoiceToolDeclaration askClaudeToolDeclaration = VoiceToolDeclaration(
     'properties': {
       'question': {
         'type': 'string',
-        'description': 'Вопрос пользователя дословно или перефразированный, с нужным контекстом.',
+        'description': 'Речь пользователя ДОСЛОВНО и ПОЛНОСТЬЮ — всё, что он сказал в этом ходе, на его '
+            'языке, слово в слово: без сокращений, пересказа, перевода, обобщений и добавлений от '
+            'себя. Длинную фразу передавай целиком, ничего не опуская. Умная модель сама разберётся, '
+            'что важно; пропущенное тобой она не узнает никогда.',
       },
       'use_tools': {
         'type': 'boolean',
@@ -355,15 +358,74 @@ class AskClaudeToolExecutor {
   /// второй вызов и два ответа подряд (жалоба Игоря 24.08 про перебивание).
   final void Function()? onBlockingCallStart;
 
+  /// Голосовой комментарий о задержке в БЛОКИРУЮЩЕМ режиме: модель молчит до
+  /// ответа, и после сигнала «услышал» тишина дольше нескольких секунд
+  /// читается как поломка. [onBlockingWaitLong] срабатывает, если ответ не
+  /// пришёл за [blockingWaitNotice] после старта вызова (production —
+  /// «секунду, думаю, это займёт секунд пятнадцать-двадцать»);
+  /// [onBlockingWaitLonger] — ещё через [blockingWaitRepeat] («ещё немного,
+  /// почти готово»). Каждый — один раз на вызов; оба снимаются, как только
+  /// ответ (или ошибка) пришёл, и переармливаются более новым вызовом —
+  /// устаревший вызов не должен комментировать чужое ожидание.
+  final void Function()? onBlockingWaitLong;
+  final void Function()? onBlockingWaitLonger;
+  final Duration blockingWaitNotice;
+  final Duration blockingWaitRepeat;
+
   AskClaudeToolExecutor({
     required this.client,
     required this.sendToolResult,
     this.announce,
     this.blockingDelivery,
     this.onBlockingCallStart,
+    this.onBlockingWaitLong,
+    this.onBlockingWaitLonger,
+    this.blockingWaitNotice = const Duration(seconds: 5),
+    this.blockingWaitRepeat = const Duration(seconds: 20),
     this.timeout = const Duration(seconds: 60),
     this.now = DateTime.now,
   });
+
+  /// Таймеры комментария о задержке и поколение вызова, которому они
+  /// принадлежат (см. [_announceGeneration]): завершившийся СТАРЫЙ вызов не
+  /// должен снимать таймеры нового.
+  Timer? _waitNoticeTimer;
+  Timer? _waitRepeatTimer;
+  int _waitGeneration = 0;
+
+  void _armWaitNotices(int generation) {
+    _cancelWaitNotices();
+    if (onBlockingWaitLong == null && onBlockingWaitLonger == null) return;
+    _waitGeneration = generation;
+    _waitNoticeTimer = Timer(blockingWaitNotice, () {
+      _waitNoticeTimer = null;
+      _fireWaitNotice(onBlockingWaitLong, 'первый');
+      if (onBlockingWaitLonger == null) return;
+      _waitRepeatTimer = Timer(blockingWaitRepeat, () {
+        _waitRepeatTimer = null;
+        _fireWaitNotice(onBlockingWaitLonger, 'повторный');
+      });
+    });
+  }
+
+  void _fireWaitNotice(void Function()? notice, String label) {
+    if (notice == null) return;
+    // Fail-open: комментарий — вежливость; ошибка озвучки не должна
+    // трогать сам вызов (его таймеры и результат).
+    try {
+      notice();
+    } catch (e) {
+      Logger.error('[ask_claude] не удалось озвучить $label комментарий о задержке: $e');
+    }
+  }
+
+  void _cancelWaitNotices({int? generation}) {
+    if (generation != null && generation != _waitGeneration) return;
+    _waitNoticeTimer?.cancel();
+    _waitRepeatTimer?.cancel();
+    _waitNoticeTimer = null;
+    _waitRepeatTimer = null;
+  }
 
   /// Handed to the model the instant it asks, so it can carry the conversation
   /// instead of standing still. Deliberately an instruction, not data: a bare
@@ -448,6 +510,7 @@ class AskClaudeToolExecutor {
       sendToolResult(call.callId, call.name, _pendingResult);
     } else if (blocking) {
       onBlockingCallStart?.call();
+      _armWaitNotices(generation);
     }
     // Self-host patch: this round trip used to be invisible. When it failed the
     // model simply went quiet and the mode died, and logcat showed nothing at
@@ -457,6 +520,8 @@ class AskClaudeToolExecutor {
     final startedAt = DateTime.now();
     Logger.debug('[ask_claude] запрос ${call.callId} -> ${client.endpoint}');
     final output = await _resolve(call);
+    // Ответ (или ошибка) есть — комментировать ожидание больше нечего.
+    if (blocking) _cancelWaitNotices(generation: generation);
     final elapsed = DateTime.now().difference(startedAt);
     final failed = output.startsWith('Error:');
     final summary = '[ask_claude] ${call.callId} ${failed ? 'ОШИБКА' : 'ответ'} '
@@ -482,18 +547,40 @@ class AskClaudeToolExecutor {
     sendToolResult(call.callId, call.name, output);
   }
 
-  /// The question text of a call, for labeling its delivered answer.
-  /// Parse errors return null — доставка важнее подписи (у `_resolve` своя,
-  /// говорящая обработка кривых аргументов).
+  /// The question text of a call, for labeling its delivered answer — the
+  /// user's own words when the session captured them, else the model's
+  /// argument. Parse errors return null — доставка важнее подписи (у
+  /// `_resolve` своя, говорящая обработка кривых аргументов).
   static String? _questionOf(HubToolCallRequest call) {
+    final verbatim = _verbatimOf(call);
+    if (verbatim != null) return verbatim;
     try {
-      final decoded = jsonDecode(call.argumentsJson);
-      final q = decoded is Map<String, dynamic> ? decoded['question'] : null;
-      return q is String ? q : null;
+      return _modelQuestionOf(jsonDecode(call.argumentsJson));
     } catch (_) {
       return null;
     }
   }
+
+  /// Дословная речь хода из сессии (`HubToolCallRequest.userTranscript`),
+  /// `null` если её нет или она пуста.
+  static String? _verbatimOf(HubToolCallRequest call) {
+    final text = call.userTranscript?.trim();
+    return text == null || text.isEmpty ? null : text;
+  }
+
+  static String? _modelQuestionOf(Object? decodedArgs) {
+    final q = decodedArgs is Map<String, dynamic> ? decodedArgs['question'] : null;
+    return q is String && q.trim().isNotEmpty ? q.trim() : null;
+  }
+
+  /// Как пересказ модели едет вместе с дословным вопросом: отдельной строкой
+  /// контекста (мост печатает `context` перед «Вопрос: …»), явно помеченной
+  /// как пересказ, чтобы мозг отвечал на дословную речь, а пересказ читал как
+  /// подсказку. Не отправляется, если пересказ совпадает с дословным текстом.
+  static String modelParaphraseContext(String paraphrase) =>
+      'Как голосовой ассистент (Gemini) пересказал этот вопрос для себя: «$paraphrase». '
+      'Пересказ может быть неполным или неточным — отвечай на дословную речь пользователя '
+      'из поля «Вопрос».';
 
   Future<String> _resolve(HubToolCallRequest call) async {
     final Map<String, dynamic> args;
@@ -503,18 +590,33 @@ class AskClaudeToolExecutor {
     } catch (e) {
       return 'Error: could not parse ask_claude arguments: $e';
     }
-    final question = args['question'];
-    if (question is! String || question.isEmpty) {
+    // Дословная речь пользователя (STT сессии) — ГЛАВНЫЙ вопрос, безусловно,
+    // когда она есть: аргумент модели — её пересказ, и он терял части
+    // сказанного (наблюдение Игоря 02.09; критично на правом крае ползунка,
+    // где через Claude идёт всё подряд). Пересказ едет отдельной строкой
+    // контекста, чтобы мозг видел и то, как Gemini понял вопрос. Без
+    // транскрипта (пришёл позже вызова, провайдер не дал) — прежний путь:
+    // вопрос модели как есть.
+    final verbatim = _verbatimOf(call);
+    final modelQuestion = _modelQuestionOf(args);
+    final question = verbatim ?? modelQuestion;
+    if (question == null) {
       return 'Error: ask_claude called without a question';
     }
+    final context = StringBuffer(deviceClockContext(now()));
+    if (verbatim != null && modelQuestion != null && modelQuestion != verbatim) {
+      context
+        ..write('\n')
+        ..write(modelParaphraseContext(modelQuestion));
+    }
+    Logger.debug('[ask_claude] ${call.callId}: вопрос — '
+        '${verbatim != null ? 'дословная речь (${verbatim.length} симв.)' : 'пересказ модели (транскрипта нет)'}');
     // Default ON, not off: without tools the bridge starts Claude with no MCP servers at
     // all, so it knows nothing about the user and answers "I have no memory tools" — the
     // exact failure this tool exists to avoid. Only an explicit false opts out.
     final useTools = args['use_tools'] != false;
     try {
-      return await client
-          .ask(question: question, context: deviceClockContext(now()), toolsEnabled: useTools)
-          .timeout(timeout);
+      return await client.ask(question: question, context: context.toString(), toolsEnabled: useTools).timeout(timeout);
     } on TimeoutException {
       // Phrased as an instruction, not a bare error: this string is what the
       // model reads before speaking, and silence is the failure we are fixing.

@@ -109,6 +109,39 @@ void main() {
       }
     });
 
+    test('every level with the tool demands the user\'s speech verbatim in `question`', () {
+      // Наблюдение Игоря 02.09: Gemini клал в ask_claude пересказ, и часть
+      // фраз до Claude не доходила. Код страхует STT-транскриптом
+      // (AskClaudeToolExecutor), промпт — на случай гонки без транскрипта.
+      for (final level in withTool) {
+        expect(hubInstructionsForLevel(level), contains('VERBATIM'), reason: '$level');
+        final description = hubToolsForLevel(level).firstWhere((t) => t.name == askClaudeToolName).description;
+        expect(description, contains('ДОСЛОВНО'), reason: '$level');
+      }
+      expect(askClaudeToolDeclaration.parameters['properties']['question']['description'], contains('ДОСЛОВНО'));
+    });
+
+    test('fullProxy (and aggressive) state the verbatim rule strictly: omit nothing, no summary, no translation', () {
+      // Правый край — критичен: через Claude идёт всё подряд, и любое
+      // сокращение — потеря (уточнение Игоря 02.09).
+      for (final level in [ClaudeEscalationLevel.fullProxy, ClaudeEscalationLevel.aggressive]) {
+        final instructions = hubInstructionsForLevel(level);
+        expect(instructions, contains('STRICT RULE'), reason: '$level');
+        expect(instructions, contains('COMPLETELY and VERBATIM'), reason: '$level');
+        expect(instructions, contains('Omit nothing'), reason: '$level');
+        expect(instructions, contains('do not translate'), reason: '$level');
+        expect(instructions, contains('do not add anything of your own'), reason: '$level');
+        expect(instructions, contains('If the phrase is long, pass it whole anyway'), reason: '$level');
+        final description = hubToolsForLevel(level).firstWhere((t) => t.name == askClaudeToolName).description;
+        expect(description, contains('ЖЁСТКОЕ ПРАВИЛО'), reason: '$level');
+        expect(description, contains('ЦЕЛИКОМ и ДОСЛОВНО'), reason: '$level');
+      }
+      // Мягкие уровни — обычная формулировка, без «жёсткого правила».
+      for (final level in [ClaudeEscalationLevel.onRequest, ClaudeEscalationLevel.balanced]) {
+        expect(hubInstructionsForLevel(level), isNot(contains('STRICT RULE')), reason: '$level');
+      }
+    });
+
     test('tool description policy escalates with the slider', () {
       String askClaudeDescription(ClaudeEscalationLevel level) =>
           hubToolsForLevel(level).firstWhere((t) => t.name == askClaudeToolName).description;

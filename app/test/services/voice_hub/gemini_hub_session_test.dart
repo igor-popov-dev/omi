@@ -132,6 +132,9 @@ class _Harness {
 
   final List<String> assistantTexts = [];
 
+  /// Every tool call the session surfaced, transcript attachment included.
+  final List<HubToolCallRequest> toolRequests = [];
+
   _Harness._(this.session, this.socketFactory, this.player);
 
   factory _Harness({
@@ -163,6 +166,7 @@ class _Harness {
         onAssistantText: (text, isFinal, identity) {
           if (text.isNotEmpty) h.assistantTexts.add(text);
         },
+        onToolRequest: (call, identity) => h.toolRequests.add(call),
       ),
     );
     h = _Harness._(session, socketFactory, player);
@@ -698,6 +702,217 @@ void main() {
       h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
       // The withdrawal still fires (safety), but nothing is offered back.
       expect(h.resumptionHandles, [null]);
+    });
+  });
+
+  // Дословная речь для ask_claude (шапка gemini_hub_session.dart, «Дословная
+  // речь для ask_claude»): транскрипт хода прикладывается к tool-call'у, а
+  // вызов, обогнавший транскрипт, ждёт его ограниченное время.
+  group('verbatim user transcript on tool calls', () {
+    const askClaude = [
+      VoiceToolDeclaration(name: 'ask_claude', description: 'd', parameters: {'type': 'object'}),
+    ];
+    Map<String, dynamic> toolCall(String id, [Map<String, dynamic> args = const {'question': 'пересказ'}]) => {
+          'toolCall': {
+            'functionCalls': [
+              {'id': id, 'name': 'ask_claude', 'args': args}
+            ]
+          }
+        };
+    Map<String, dynamic> transcript(String text) => _serverContent({
+          'inputTranscription': {'text': text}
+        });
+    const grace = Duration(milliseconds: 700);
+    const settle = Duration(milliseconds: 300);
+
+    Future<_Harness> freeForm(_FakeHubClock clock) async {
+      final h = _Harness(freeFormMode: true, tools: askClaude, clock: clock);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      return h;
+    }
+
+    test('the accumulated transcript of the turn rides the tool call, chunks glued as deltas', () async {
+      final clock = _FakeHubClock();
+      final h = await freeForm(clock);
+      h.socketFactory.message(jsonEncode(transcript('какие у меня ')));
+      h.socketFactory.message(jsonEncode(transcript('планы на завтра')));
+      h.socketFactory.message(jsonEncode(toolCall('c1')));
+
+      expect(h.toolRequests, hasLength(1));
+      expect(h.toolRequests.single.callId, 'c1');
+      expect(h.toolRequests.single.userTranscript, 'какие у меня планы на завтра');
+      // The model's own argument still travels untouched.
+      expect(jsonDecode(h.toolRequests.single.argumentsJson), {'question': 'пересказ'});
+    });
+
+    test('segments separated by a pause (new SPEECH verdict) are joined with a space', () async {
+      final clock = _FakeHubClock();
+      final h = await freeForm(clock);
+      h.socketFactory.message(jsonEncode(_serverContent({'speechState': 'SPEECH'})));
+      h.socketFactory.message(jsonEncode(transcript('первая часть')));
+      h.socketFactory.message(jsonEncode(_serverContent({'speechState': 'NON_SPEECH'})));
+      h.socketFactory.message(jsonEncode(_serverContent({'speechState': 'SPEECH'})));
+      h.socketFactory.message(jsonEncode(transcript('вторая часть')));
+      h.socketFactory.message(jsonEncode(toolCall('c1')));
+
+      expect(h.toolRequests.single.userTranscript, 'первая часть вторая часть');
+    });
+
+    test('a tool call that beats the transcript waits for it, then settles for the tail', () async {
+      final clock = _FakeHubClock();
+      final h = await freeForm(clock);
+      h.socketFactory.message(jsonEncode(toolCall('c1')));
+      expect(h.toolRequests, isEmpty, reason: 'deferred: nothing to attach yet');
+
+      h.socketFactory.message(jsonEncode(transcript('что я ел ')));
+      expect(h.toolRequests, isEmpty, reason: 'first chunk landed — give the tail a moment');
+      h.socketFactory.message(jsonEncode(transcript('сегодня на обед')));
+      clock.fireDuration(settle);
+
+      expect(h.toolRequests, hasLength(1));
+      expect(h.toolRequests.single.callId, 'c1');
+      expect(h.toolRequests.single.userTranscript, 'что я ел сегодня на обед');
+      // The grace timer was replaced by the settle timer, not left to fire twice.
+      expect(() => clock.fireDuration(grace), throwsStateError);
+    });
+
+    test('a transcript that never comes: the call goes out after the grace window with no transcript', () async {
+      final clock = _FakeHubClock();
+      final h = await freeForm(clock);
+      h.socketFactory.message(jsonEncode(toolCall('c1')));
+      expect(h.toolRequests, isEmpty);
+      clock.fireDuration(grace);
+
+      expect(h.toolRequests, hasLength(1));
+      expect(h.toolRequests.single.userTranscript, isNull);
+      expect(jsonDecode(h.toolRequests.single.argumentsJson), {'question': 'пересказ'});
+    });
+
+    test('turnComplete while a call is deferred still waits for the tool result (pending id is set)', () async {
+      final clock = _FakeHubClock();
+      final socketFactory = _RecordingSocketFactory();
+      final requests = <HubToolCallRequest>[];
+      var turnDone = 0;
+      final session = GeminiHubSession(
+        token: 'auth_tokens/x',
+        instructions: 'INSTR',
+        socketFactory: socketFactory.factory,
+        playerFactory: (spec) async => _FakeVoicePlayer(),
+        clock: clock,
+        freeFormMode: true,
+        tools: askClaude,
+        events: HubSessionEvents(
+          onToolRequest: (call, _) => requests.add(call),
+          onTurnDone: (_) => turnDone++,
+        ),
+      );
+      final warm = session.ensureWarm();
+      await Future<void>.value();
+      await Future<void>.value();
+      socketFactory.open();
+      socketFactory.message(jsonEncode({'setupComplete': <String, dynamic>{}}));
+      await warm;
+      session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+
+      socketFactory.message(jsonEncode(toolCall('c1')));
+      socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(turnDone, 0, reason: 'the deferred call is already pending — the turn must not close under it');
+      clock.fireDuration(grace);
+      expect(requests, hasLength(1));
+      session.sendToolResult('c1', 'ask_claude', 'ok');
+      socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+      expect(turnDone, 1);
+    });
+
+    test('a finished assistant reply resets the buffer — the next call does not inherit old speech', () async {
+      final clock = _FakeHubClock();
+      final h = await freeForm(clock);
+      h.socketFactory.message(jsonEncode(transcript('старый вопрос')));
+      h.socketFactory.message(jsonEncode(_serverContent(_audioPart('a1'))));
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+
+      h.socketFactory.message(jsonEncode(toolCall('c1')));
+      expect(h.toolRequests, isEmpty, reason: 'buffer is empty again, so the call waits');
+      h.socketFactory.message(jsonEncode(transcript('новый вопрос')));
+      clock.fireDuration(settle);
+      expect(h.toolRequests.single.userTranscript, 'новый вопрос');
+    });
+
+    test('emitting a call consumes the buffer: a later call in the same turn starts from scratch', () async {
+      final clock = _FakeHubClock();
+      final h = await freeForm(clock);
+      h.socketFactory.message(jsonEncode(transcript('вопрос раз')));
+      h.socketFactory.message(jsonEncode(toolCall('c1')));
+      h.socketFactory.message(jsonEncode(toolCall('c2')));
+      clock.fireDuration(grace);
+
+      expect(h.toolRequests.map((r) => r.callId), ['c1', 'c2']);
+      expect(h.toolRequests[0].userTranscript, 'вопрос раз');
+      expect(h.toolRequests[1].userTranscript, isNull);
+    });
+
+    test('interrupted drops the old speech and any deferred call', () async {
+      final clock = _FakeHubClock();
+      final h = await freeForm(clock);
+      h.socketFactory.message(jsonEncode(transcript('перебитая речь')));
+      h.socketFactory.message(jsonEncode(_serverContent({'interrupted': true})));
+      h.socketFactory.message(jsonEncode(toolCall('c1')));
+      expect(h.toolRequests, isEmpty);
+      h.socketFactory.message(jsonEncode(_serverContent({'interrupted': true})));
+      // The interrupted call was cancelled, not emitted — and its grace timer
+      // went with it, so there is nothing left to fire.
+      expect(h.toolRequests, isEmpty);
+      expect(() => clock.fireDuration(grace), throwsStateError);
+      // A fresh utterance after the barge-in starts from a clean buffer.
+      h.socketFactory.message(jsonEncode(transcript('новая реплика')));
+      h.socketFactory.message(jsonEncode(toolCall('c2')));
+      expect(h.toolRequests.single.userTranscript, 'новая реплика');
+    });
+
+    test('manual mode: a new press starts a fresh buffer; the committed turn\'s transcript rides the call', () async {
+      final clock = _FakeHubClock();
+      final h = _Harness(tools: askClaude, clock: clock);
+      await _connect(h);
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+      h.socketFactory.message(jsonEncode(transcript('первое нажатие')));
+      h.session.commitTurn();
+      h.socketFactory.message(jsonEncode(_serverContent({'turnComplete': true})));
+
+      h.session.beginTurn(const HubBeginTurnOptions(turnId: 't2', responseId: 'r2'));
+      h.session.commitTurn();
+      h.socketFactory.message(jsonEncode(transcript('второе нажатие')));
+      h.socketFactory.message(jsonEncode(toolCall('c1')));
+
+      expect(h.toolRequests.single.userTranscript, 'второе нажатие');
+    });
+
+    test('transcriptGrace: zero disables the wait — the call goes out at once without a transcript', () async {
+      final clock = _FakeHubClock();
+      final socketFactory = _RecordingSocketFactory();
+      final requests = <HubToolCallRequest>[];
+      final session = GeminiHubSession(
+        token: 'auth_tokens/x',
+        instructions: 'INSTR',
+        socketFactory: socketFactory.factory,
+        playerFactory: (spec) async => _FakeVoicePlayer(),
+        clock: clock,
+        freeFormMode: true,
+        tools: askClaude,
+        transcriptGrace: Duration.zero,
+        events: HubSessionEvents(onToolRequest: (call, _) => requests.add(call)),
+      );
+      final warm = session.ensureWarm();
+      await Future<void>.value();
+      await Future<void>.value();
+      socketFactory.open();
+      socketFactory.message(jsonEncode({'setupComplete': <String, dynamic>{}}));
+      await warm;
+      session.beginTurn(const HubBeginTurnOptions(turnId: tid, responseId: rid));
+
+      socketFactory.message(jsonEncode(toolCall('c1')));
+      expect(requests, hasLength(1));
+      expect(requests.single.userTranscript, isNull);
     });
   });
 

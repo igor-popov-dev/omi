@@ -46,8 +46,10 @@ class ProviderCaptureExternalActions implements CaptureExternalActions {
     );
   }
 
+  // Self-host: тихая перечитка — вызывается после каждой реплики голосового
+  // режима, и зелёная полоса «синхронизация» на каждую фразу мешала бы.
   @override
-  Future<void> refreshChatMessages() => messageProvider.refreshMessages();
+  Future<void> refreshChatMessages() => messageProvider.refreshMessages(silent: true);
 
   @override
   void addProcessingConversation(ServerConversation conversation) {
