@@ -57,6 +57,7 @@ from models.conversation import Conversation
 from models.conversation_enums import ConversationSource, ConversationStatus
 from utils.conversations.factory import deserialize_conversations
 from utils.conversations.render import conversations_to_string
+from utils.llm.temporal import current_date_for_uid
 from models.notification_message import NotificationMessage
 from utils.apps import get_available_apps
 from utils.notifications import send_notification, send_notification_async
@@ -502,6 +503,56 @@ def _proactive_daily_cap_reached(uid: str) -> bool:
 
 MENTOR_RATE_LIMIT_SECONDS = 300  # 5 minutes between mentor notifications
 
+# The cheapest gate call is the one not made. One attempt costs 0.342% of the user's five-hour
+# subscription window (lane7 tick 59) — 81k tokens, 92% of them the facts block — and the live
+# mentor spends 52% of a window a day on attempts, while 105 attempts in the production log
+# already died with "You've hit your session limit". A buffer that carries almost no speech
+# cannot produce a notification: the gate is asked to point at a SPECIFIC thing the user is
+# agreeing to, scheduling or committing to in the current conversation, and four characters of
+# "Угу" contain nothing to point at.
+#
+# Measured on the live path (25.08, lane7 tick 64, marathon/deploy/lane7-buffer-substance.py),
+# 73 distinct production buffers with 506 gate draws between them, paired prompt-to-score inside
+# one bridge session:
+#
+#     substance, chars   buffers   draws   max score   >=0.78
+#              0- 200        16      19        0.15         0
+#            200- 500        11      23        0.93        10
+#            500-1500        22     209        0.91        33
+#           1500+            24     255        0.91        77
+#
+# The lowest-substance buffer that ever cleared the threshold carries 391 characters; nothing
+# below 353 has ever scored above 0.20. The gap is in the SCORES, not in the lengths — the
+# lengths run continuously (3, 4, 12, 35, 51, 57, 59, 75, 125, ...) — so this cannot be a
+# plateau-centre constant like MENTOR_PAST_MIN_TRANSCRIPT_CHARS. It is a margin: 200 leaves
+# 191 characters between the rule and the poorest material that has ever passed, and it is the
+# same number tick 51 arrived at by reading the live windows by eye.
+#
+# The obvious objection is that one live draw proves little, because the gate is bimodal — the
+# same rich prompt scored 0.10 and 0.91 on different draws (tick 48). Re-drawn deliberately:
+# a 4-character buffer gave 0.02 five times out of five, a 129-character one 0.10/0.10/0.10/
+# 0.10/0.15, and a 184-character one 0.05/0.05/0.15. Poor buffers are not bimodal; there is
+# nothing for the draw to disagree about.
+#
+# Nothing is lost by staying silent here. The trigger hands over the WHOLE accumulated buffer,
+# not just the new segments (utils/mentor_notifications.py), so a conversation skipped now is
+# evaluated again a few segments later with everything it said meanwhile still in it.
+#
+# Set to 0 to disable the rule — no buffer is shorter than nothing, so the comparison itself
+# is the switch and there is no second branch to keep honest.
+MENTOR_MIN_BUFFER_CHARS = 200
+
+
+def _buffer_substance_chars(messages: list[dict]) -> int:
+    """How much speech the buffer actually carries, ignoring the speaker markup around it.
+
+    Counted the same way the past-conversation rule counts a transcript
+    (`_has_context_for_mentor`): the texts themselves. The rendered block is not the measure —
+    "[Игорь]: " is nine characters per line, so ten "Угу" render as 130 characters of nothing.
+    """
+    return sum(len(str((m or {}).get('text') or '').strip()) for m in (messages or []))
+
+
 # Firestore can stop answering entirely, and on this deployment it does so daily. The project is
 # on the free plan, whose 50k document reads per day run out: the log shows windows of refusal on
 # 21.08 and again on 23.08 (08:49-09:56, then from 19:57), each lasting an hour or more.
@@ -678,7 +729,15 @@ MENTOR_PAST_CONVERSATIONS_SCANNED = 15
 # The wide read is capped because each document carries its transcript, and this sits on the
 # live transcript path.
 MENTOR_PAST_HOURS_TARGET = 24.0
-MENTOR_PAST_CONVERSATIONS_SCANNED_DEEP = 45
+# The cap was 45 until it was measured against the store the mentor actually reads. The
+# instrument that sized it had been pointed at Firestore, which this deployment stopped
+# writing to; there the account held 35 documents spanning 43h, so 45 looked generous.
+# The live store holds 140 spanning 79h, and the production log agrees: every deepened read
+# logs reach_now=10.2h against a 24h target — the second read has never once met it.
+# Measured on the live store: 45 docs reach 11.5h, 80 reach 28.7h, 100 reach 31.8h; the
+# reads cost 12ms, 25ms and 28ms. Only MENTOR_PAST_CONVERSATIONS of them ever enter a
+# prompt, so a wider scan buys reach without paying a single extra token.
+MENTOR_PAST_CONVERSATIONS_SCANNED_DEEP = 80
 # A conversation still being written has no summary yet — that is what the transcript
 # fallback above is for — so "has something to say" cannot mean "has a summary". One lone
 # segment is the reconnect husk; two is the shortest exchange that can carry a commitment.
@@ -724,9 +783,19 @@ def _read_past_for_mentor(uid: str) -> list[dict]:
     deeper = conversations_db.get_conversations(uid, limit=MENTOR_PAST_CONVERSATIONS_SCANNED_DEEP, offset=0) or []
     if len(deeper) <= len(recent):
         return recent
+    # A deep read that still falls short is the failure this whole path was built to prevent,
+    # and until now it looked identical in the log to one that succeeded: both printed a
+    # reach_now and moved on. It stayed unnoticed for a day and a half of production that way.
+    # A full pool short of the target means the cap is the binding constraint, not the account.
+    reach_now = _mentor_past_reach_hours(deeper)
+    short = (
+        " short_of_target=1"
+        if reach_now < MENTOR_PAST_HOURS_TARGET and len(deeper) >= MENTOR_PAST_CONVERSATIONS_SCANNED_DEEP
+        else ""
+    )
     logger.info(
         f"mentor_proactive past_window_deepened uid={uid} reach={reach:.1f}h "
-        f"docs={len(recent)}->{len(deeper)} reach_now={_mentor_past_reach_hours(deeper):.1f}h"
+        f"docs={len(recent)}->{len(deeper)} reach_now={reach_now:.1f}h{short}"
     )
     return deeper
 
@@ -797,20 +866,69 @@ def _merge_past_for_mentor(primary: list[dict], extra: list[dict]) -> list[dict]
     return sorted(merged, key=lambda c: _mentor_conversation_time(c) or epoch, reverse=True)
 
 
+# A summary is evidence that something was said, not evidence of what — and the summariser
+# writes prose either way. The live account holds a conversation whose whole transcript is the
+# three characters "Ти-" and whose overview is 268 characters explaining, at length, that there
+# is nothing here ("вероятно, диктофон сработал случайно"). It passed as readable, ranked well
+# on those 268 characters, and on 25.08 took a slot in the block away from a real conversation
+# (lane7 tick 63, marathon/deploy/lane7-husks.py). So let a summary vouch for a conversation
+# only when the transcript it summarises carries something.
+#
+# Measured on the live pool of 78: every threshold between 20 and 120 characters drops exactly
+# that one document and nothing else — the single-segment documents split into one 3-character
+# husk and dictations of 125 characters and up. 200 starts eating the dictations. The value
+# below sits in the middle of the plateau rather than at an edge of it, because there is
+# nothing in the gap to tune against.
+#
+# Over the whole 140-document account it is not one husk but six, so this is a class and not an
+# accident: 133 readable documents become 127, nothing becomes readable that was not, and the
+# six transcripts in full are "Ти-", "Угу", "Кей. Ой.", "О чём нужно знать?", "Это в приложении
+# клон." and "Сердце напополам. Так." — each carrying 246 to 306 characters of summary written
+# about it. The fourth is a real question and the honest cost of the rule; a question with no
+# answer recorded is not something the mentor can collide anything against.
+#
+# The test applies only to a document that HAS a transcript. A conversation carrying a summary
+# and no segments at all is the Omi-STT path, where the summary is the whole of what the mentor
+# was ever meant to read; there is no transcript there to disagree with it, and dropping those
+# would blind the mentor on that path to save it from one husk.
+MENTOR_PAST_MIN_TRANSCRIPT_CHARS = 60
+
+
 def _has_context_for_mentor(conversation: dict) -> bool:
     """Whether this past conversation can contribute anything the mentor could read."""
-    structured = conversation.get('structured') or {}
-    if str(structured.get('overview') or '').strip():
-        return True
     segments = conversation.get('transcript_segments') or []
-    with_text = [s for s in segments if str((s or {}).get('text') or '').strip()]
-    return len(with_text) >= MENTOR_PAST_MIN_SEGMENTS
+    with_text = [t for t in (str((s or {}).get('text') or '').strip() for s in segments) if t]
+    if len(with_text) >= MENTOR_PAST_MIN_SEGMENTS:
+        return True
+    if not str((conversation.get('structured') or {}).get('overview') or '').strip():
+        return False
+    return not with_text or sum(len(t) for t in with_text) >= MENTOR_PAST_MIN_TRANSCRIPT_CHARS
 
 
 # One slot of the five is reserved for the newest readable conversation no matter what it says.
 # It is usually the immediate predecessor of the live one — the same sitting, cut in two by the
 # silence timer — so dropping it would break the mentor's sense of what is happening right now.
 MENTOR_PAST_RECENCY_SLOTS = 1
+
+# ...and one for the best conversation old enough to be "yesterday". Ranking by overlap alone
+# spends every remaining slot on the last few hours, because what a person says now resembles
+# what they said an hour ago: measured over the 48 live positions where the deep read fires
+# (25.08, lane7 tick 63, marathon/deploy/lane7-oldest-slot.py), the pool reached back 27.8h
+# median while the block the model actually read reached 14.3h and cleared 24h in 15 of them.
+# The block was built for "yesterday you said you fly out Thursday at two", and that line is
+# never in the last few hours by construction — the deep read paid for the hours and the
+# ranking handed them back.
+#
+# Reserving one slot for the highest-scoring document past this age clears the target in all
+# 48 positions. It is not free: the displaced candidate scores 0.154 (median worst-of-four)
+# against 0.116 for the promoted one, so a third of one slot's relevance buys the day. Zero of
+# the 33 exchanges promoted a document with no overlap at all, which is the case that would
+# have made it a bad trade.
+#
+# The floor is the target rather than half of it because the class is dated: a 12h floor moves
+# the median to 23.4h but still clears the target in only 22 of 48 — it buys hours without
+# buying yesterday. Set to 0 to go back to pure ranking.
+MENTOR_PAST_OLDEST_SLOT_HOURS = 24.0
 
 _MENTOR_WORD_RE = re.compile(r'[a-zA-Zа-яёА-ЯЁ0-9]+')
 # Prefix length for the crude stemmer below. Russian inflection ("рейс", "рейса", "рейсом")
@@ -894,18 +1012,89 @@ def _pick_past_for_mentor(readable: list[dict], current_messages: list[dict]) ->
     scored = [_mentor_cosine(current_tokens, toks, idf) for toks in pool_tokens]
 
     # Ties — and an all-zero pool is nothing but ties — fall back to position, i.e. to time.
-    order = sorted(range(len(tail)), key=lambda i: (-scored[i], i))[:slots]
+    ranked = sorted(range(len(tail)), key=lambda i: (-scored[i], i))
+    reserved = _mentor_slot_for_yesterday(tail, scored) if slots > 1 else None
+    if reserved is None:
+        order = ranked[:slots]
+    else:
+        order = [reserved] + [i for i in ranked if i != reserved][: slots - 1]
     return head + [tail[i] for i in sorted(order)]
+
+
+def _mentor_slot_for_yesterday(tail: list[dict], scored: list[float]) -> int | None:
+    """Index of the best-scoring conversation old enough to be yesterday, or None if there is none.
+
+    None is the honest answer for an account that has not been talking for a day yet, and it
+    leaves the ranking exactly as it was — this slot exists to reach hours that are there, not
+    to invent them. A conversation whose timestamp cannot be read is not old enough to be
+    trusted with the slot either: it would win the reach on paper (see the reach helper, which
+    refuses to count it) and lose it in the prompt.
+
+    Only ever spent when more than one ranked slot exists (see the caller): handing the single
+    remaining slot to age would leave the block with no relevance at all.
+    """
+    if MENTOR_PAST_OLDEST_SLOT_HOURS <= 0:
+        return None
+    now = datetime.now(timezone.utc)
+    old = []
+    for i, conversation in enumerate(tail):
+        when = _mentor_conversation_time(conversation)
+        if when is None:
+            continue
+        if (now - when).total_seconds() / 3600.0 >= MENTOR_PAST_OLDEST_SLOT_HOURS:
+            old.append(i)
+    if not old:
+        return None
+    # Best overlap among the old ones; ties go to the newest of them, which is the one most
+    # likely to still be live for the user.
+    return max(old, key=lambda i: (scored[i], -i))
+
+
+def _log_past_block(uid: str, readable: list[dict], picked: list[dict]) -> None:
+    """Say how far back the block that actually reaches the prompt goes.
+
+    `past_window_deepened` above reports the reach of the POOL, and the pool is not what the
+    model reads: MENTOR_PAST_CONVERSATIONS of it are, chosen by `_pick_past_for_mentor`.
+    Raising the cap to 80 made the pool clear the target (28.8h on the live account) and the
+    log started reading like success — while the block, measured on the same account over the
+    48 positions where the deep read fires (25.08, lane7 tick 63,
+    marathon/deploy/lane7-block-reach.py), reaches a median of 14.3 hours and clears 24 in 15
+    of them. The quantity the feature is judged by was the one nobody printed.
+
+    The alarm fires only when the pool DID reach back a day and the block did not, i.e. when
+    the hours were bought and then left on the table. An account younger than the target has
+    nothing to answer for, and saying otherwise would repeat the mistake this line exists to
+    correct: a log that calls a healthy state a failure teaches the next reader to skip it.
+    """
+    if not picked:
+        return
+    reach = _mentor_past_reach_hours(picked)
+    pool_reach = _mentor_past_reach_hours(readable)
+    short = ' short_of_target=1' if reach < MENTOR_PAST_HOURS_TARGET <= pool_reach else ''
+    logger.info(
+        f"mentor_proactive past_block uid={uid} docs={len(picked)}/{len(readable)} "
+        f"reach={reach:.1f}h pool_reach={pool_reach:.1f}h{short}"
+    )
 
 
 def _render_past_conversations(uid: str, conversations: list[dict]) -> str:
     """Render the mentor's past-conversation context, never raising into the chain."""
     if not conversations:
         return ''
+    # Timestamps in the user's own timezone, not UTC (lane7 tick70). conversations_to_string
+    # renders and labels every timestamp in ``tz``; called without it the mentor sees "24 Aug
+    # 2026 at 12:10 UTC" for a conversation the user remembers happening at 15:10, and that
+    # number lands verbatim on their lock screen. The chat retrieval path already passes it.
     try:
+        try:
+            tz = notification_db.get_user_time_zone(uid)
+        except Exception as e:  # noqa: BLE001 - a timezone lookup must not drop the context
+            logger.warning(f"mentor_proactive timezone_lookup_failed uid={uid} error={e}")
+            tz = None
         return conversations_to_string(
             deserialize_conversations(conversations[:MENTOR_PAST_CONVERSATIONS]),
             transcript_fallback_chars=MENTOR_PAST_TRANSCRIPT_FALLBACK_CHARS,
+            tz=tz,
         )
     except Exception as e:
         logger.error(f"mentor_proactive past_conversations_render_failed uid={uid} error={e}")
@@ -986,6 +1175,16 @@ def _run_mentor_proactive_chain(uid: str, conversation_messages: list[dict]) -> 
     Returns:
         The notification text if sent, None otherwise.
     """
+    # 0. Is there anything here at all? This comes before the database reads, not just before
+    # the gate: a skipped run also skips the facts page and the 80-document past read.
+    substance = _buffer_substance_chars(conversation_messages)
+    if substance < MENTOR_MIN_BUFFER_CHARS:
+        logger.info(
+            f"mentor_proactive buffer_too_thin uid={uid} chars={substance} "
+            f"msgs={len(conversation_messages or [])} min={MENTOR_MIN_BUFFER_CHARS}"
+        )
+        return None
+
     # 1. Get frequency setting
     if _mentor_db_blind():
         logger.info(f"mentor_proactive db_blind_cooldown uid={uid}")
@@ -1039,7 +1238,9 @@ def _run_mentor_proactive_chain(uid: str, conversation_messages: list[dict]) -> 
     def _read_all_past() -> list[dict]:
         recent_convos = _merge_past_for_mentor(_read_past_for_mentor(uid), _read_dead_lettered_for_mentor(uid))
         readable = [rc for rc in (recent_convos or []) if not rc.get('is_locked') and _has_context_for_mentor(rc)]
-        return _pick_past_for_mentor(readable, conversation_messages)
+        picked = _pick_past_for_mentor(readable, conversation_messages)
+        _log_past_block(uid, readable, picked)
+        return picked
 
     all_past, _ok = db_read('past_conversations', _read_all_past, [])
 
@@ -1064,6 +1265,15 @@ def _run_mentor_proactive_chain(uid: str, conversation_messages: list[dict]) -> 
         logger.info(f"mentor_proactive language_unknown uid={uid} — staying silent rather than defaulting to English")
         return None
 
+    # "Today" as the user's calendar shows it, not UTC (lane7 tick70). Between 21:00 and
+    # midnight Moscow time the UTC date is still yesterday, and every "today"/"yesterday" in
+    # the notification flips. current_date_for_uid falls back to UTC on any lookup failure.
+    try:
+        mentor_current_date = current_date_for_uid(uid)
+    except Exception as e:  # noqa: BLE001 - date grounding must not abort the chain
+        logger.warning(f"mentor_proactive current_date_failed uid={uid} error={e}")
+        mentor_current_date = None
+
     # ── Step 1: Gate ─────────────────────────────────────────────────────
     try:
         with track_usage(uid, Features.PROACTIVE_NOTIFICATION):
@@ -1075,6 +1285,7 @@ def _run_mentor_proactive_chain(uid: str, conversation_messages: list[dict]) -> 
                 recent_notifications=recent_notifications,
                 past_conversations_str=past_conversations_str,
                 output_language=output_language,
+                current_date=mentor_current_date,
             )
     except Exception as e:
         logger.error(f"mentor_proactive gate_failed uid={uid} error={e}")
@@ -1147,6 +1358,7 @@ def _run_mentor_proactive_chain(uid: str, conversation_messages: list[dict]) -> 
                 frequency=frequency,
                 gate_reasoning=relevance.reasoning,
                 output_language=output_language,
+                current_date=mentor_current_date,
             )
     except Exception as e:
         logger.error(f"mentor_proactive generate_failed uid={uid} error={e}")
@@ -1176,6 +1388,7 @@ def _run_mentor_proactive_chain(uid: str, conversation_messages: list[dict]) -> 
                 output_language=output_language,
                 user_facts=user_facts,
                 past_conversations_str=past_conversations_str,
+                current_date=mentor_current_date,
             )
     except Exception as e:
         logger.error(f"mentor_proactive critic_failed uid={uid} error={e}")

@@ -116,6 +116,12 @@ def _apply_fakes(monkeypatch):
     monkeypatch.setattr(mentor_mod, 'get_mentor_notification_frequency', mock_get_freq)
     monkeypatch.setattr(notifications_db, 'get_mentor_notification_frequency', mock_get_freq)
     monkeypatch.setattr(app_int, 'get_mentor_notification_frequency', mock_get_freq)
+    # The chain opens with a raw Firestore probe (_mentor_db_probe) that the network guard
+    # would refuse; the unit tests are about the chain, not the store, so answer it directly.
+    monkeypatch.setattr(app_int, '_mentor_db_probe', lambda uid: True)
+    monkeypatch.setattr(app_int, '_mentor_db_blind_until', 0.0)
+    monkeypatch.setattr(app_int.conversations_db, 'get_conversations', MagicMock(return_value=[]))
+    monkeypatch.setattr(app_int, '_read_dead_lettered_for_mentor', MagicMock(return_value=[]))
     mock_get_freq.return_value = 3
 
     # proactive_notification.get_llm -> mock_llm_mini (so the real evaluate_relevance /
@@ -675,11 +681,22 @@ def test_process_mentor_proactive_notification_sends():
     redis_mod.get_proactive_noti_sent_at.return_value = None
     redis_mod.get_daily_notification_count.return_value = 0
 
+    # Enough speech to clear MENTOR_MIN_BUFFER_CHARS: the chain refuses a buffer that
+    # carries less than that before it reads anything, and this test is about the three
+    # LLM steps downstream of that rule, not about the rule itself.
     messages = [
-        {"text": "I'll skip the gym today", "is_user": True},
-        {"text": "You sure?", "is_user": False},
-        {"text": "Yeah I'm too tired", "is_user": True},
+        {
+            "text": "I'll skip the gym today, honestly I've been skipping it all week and I keep "
+            "telling myself I'll go tomorrow instead but then something always comes up.",
+            "is_user": True,
+        },
+        {"text": "You sure? You said you wanted to go three times a week this month.", "is_user": False},
+        {
+            "text": "Yeah I'm too tired after work, maybe I'll just go on the weekend and make up for it then.",
+            "is_user": True,
+        },
     ]
+    assert app_int._buffer_substance_chars(messages) >= app_int.MENTOR_MIN_BUFFER_CHARS
 
     result = app_int._process_mentor_proactive_notification("test_uid", messages)
 
